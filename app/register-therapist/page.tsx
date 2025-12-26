@@ -1,0 +1,62 @@
+'use client' // ボタン操作などの動きがあるページにはこれが必要です
+
+import { useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { useRouter } from 'next/navigation'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export default function RegisterPage() {
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    // Supabaseにデータを送る（INSERT）
+    const { error } = await supabase
+      .from('therapists')
+      .insert([{ name: name, store_id: '550e8400-e29b-41d4-a716-446655440000' }]) // Temporary store_id
+
+    if (error) {
+      alert('エラーが発生しました: ' + error.message)
+    } else {
+      alert('登録に成功しました！')
+      router.push('/test') // 一覧ページへ戻る
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-gray-800">セラピスト新規登録</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">名前</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="例：さくらこ"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400"
+          >
+            {loading ? '登録中...' : '登録する'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
