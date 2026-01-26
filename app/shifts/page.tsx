@@ -137,17 +137,17 @@ export default function ShiftsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-100 p-2">
       <div className="w-full">
-        <div className="mb-6">
+        <div className="mb-2">
           <h1 className="text-3xl font-bold text-gray-900">スケジュール</h1>
-          <p className="text-gray-600 mt-2">タイムチャート表示</p>
+          <p className="text-gray-600 mt-1">タイムチャート表示</p>
         </div>
 
         {/* フィルターと表示切り替え */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="flex gap-3 items-center">
+        <div className="bg-white rounded-lg shadow p-2 mb-2">
+          <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
+            <div className="flex gap-2 items-center">
               <button
                 onClick={handlePrevDay}
                 className="px-3 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm font-medium"
@@ -185,8 +185,8 @@ export default function ShiftsPage() {
 
         {/* タイムチャートビュー */}
         {!loading && (
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="h-[600px]">
+          <div className="bg-white rounded-lg shadow-lg overflow-visible">
+            <div className="h-[600px] w-full">
               {therapists.length > 0 ? (
                 <TimeChart therapists={therapists} schedules={schedules} />
               ) : (

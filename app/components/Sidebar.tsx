@@ -13,66 +13,59 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-48 bg-white shadow-lg transform ${
+        className={`fixed inset-y-0 left-0 z-50 w-36 bg-white shadow-lg transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}
       >
         <div className="flex items-center justify-center h-16 bg-blue-600 text-white">
-          <h1 className="text-xl font-bold">管理システム</h1>
+          <h1 className="text-base font-bold">管理システム</h1>
         </div>
-        <nav className="mt-8">
+        <nav className="mt-4">
           <Link
             href="/"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             ダッシュボード
           </Link>
           <Link
-            href="/register-therapist"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
-            onClick={onClose}
-          >
-            セラピスト登録
-          </Link>
-          <Link
             href="/therapists"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
-            セラピスト一覧
+            セラピスト
           </Link>
           <Link
             href="/shifts"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             スケジュール
           </Link>
           <Link
             href="/shifts/register"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             シフト登録
           </Link>
           <Link
             href="/rooms"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             ルーム一覧
           </Link>
           <Link
             href="/reservations"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             予約管理
           </Link>
           <Link
             href="/settings"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             設定

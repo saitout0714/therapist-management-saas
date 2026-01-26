@@ -178,56 +178,39 @@ const TimeChart: React.FC<TimeChartProps> = ({
     };
   };
 
+  // 現在時刻のシークバー位置を計算
+  const now = new Date();
+  const nowHour = now.getHours();
+  const nowMin = now.getMinutes();
+  // 10:00～翌5:00の範囲内のみ表示
+  let showSeek = false;
+  let seekIndex = 0;
+  if ((nowHour >= 10 && nowHour <= 23) || (nowHour >= 0 && nowHour <= 5)) {
+    showSeek = true;
+    if (nowHour >= 10) {
+      seekIndex = (nowHour - 10) * 12 + Math.floor(nowMin / 5);
+    } else {
+      seekIndex = (14 * 12) + nowHour * 12 + Math.floor(nowMin / 5); // 14時間分+深夜
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-white rounded-lg shadow-md overflow-hidden">
       {/* ヘッダー */}
-      <div className="flex">
-        {/* 時間軸 */}
-        <div className="flex-1 overflow-x-auto" ref={headerTimelineRef} onScroll={handleHeaderScroll}>
-          {/* 上段：時間ラベル（1時間ごと） */}
-          <div className="flex gap-0" style={{
-            minWidth: 'fit-content',
-          }}>
-            {hourLabels.map((label, idx) => (
-              <div
-                key={`hour-${idx}`}
-                className="h-10 flex items-center justify-center text-sm font-bold text-gray-800 bg-gray-50 border-r-2 border-gray-400"
-                style={{
-                  width: `${(20 * 12)}px`, // 5分セル（20px）× 12セル = 1時間
-                }}
-              >
-                {label}
-              </div>
-            ))}
+      {/* 新レイアウト: 左カラムとタイムラインをflexで並列配置 */}
+      <div className="flex w-full">
+        {/* 左側の固定カラム（日付＋セラピスト名） */}
+        <div style={{ width: '12rem', minWidth: '12rem', maxWidth: '12rem' }} className="flex-shrink-0 border-r border-gray-300 bg-white z-20">
+          {/* 日付セル */}
+          <div style={{ height: '80px' }} className="border-b-2 border-gray-300 flex flex-col sticky top-0 z-20">
+            <div className="h-10 flex items-center justify-center text-base font-bold text-gray-800">
+              {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })}
+            </div>
+            <div className="h-10 flex items-center justify-center text-xs text-gray-500 border-t border-gray-200">
+              {/* 空白 */}
+            </div>
           </div>
-
-          {/* 下段：分刻み */}
-          <div className="grid gap-0" style={{
-            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
-            minWidth: 'fit-content',
-          }}>
-            {timeSlots.map((time, idx) => {
-              // 5分ごとに分を表示
-              const minutes = (idx * 5) % 60;
-              const displayMin = String(minutes).padStart(2, '0');
-
-              return (
-                <div
-                  key={idx}
-                  className="h-10 flex items-center justify-center text-xs text-gray-500 border-r border-gray-200 bg-gray-50 border-b border-gray-300"
-                >
-                  {displayMin}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* メインコンテンツ */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* 左側のセラピストリスト（固定） */}
-        <div className="w-48 flex-shrink-0 border-r border-gray-300 overflow-y-auto">
+          {/* セラピストリスト */}
           {therapists.map((therapist) => (
             <div
               key={therapist.id}
@@ -264,14 +247,48 @@ const TimeChart: React.FC<TimeChartProps> = ({
             </div>
           ))}
         </div>
-
-        {/* タイムライン領域（横スクロール可能） */}
-        <div 
-          className="flex-1 overflow-x-auto overflow-y-auto select-none"
-          ref={contentTimelineRef}
-          onScroll={handleTimelineScroll}
-          onMouseDown={handleMouseDown}
-        >
+        {/* 右側：タイムライン部分（横スクロール） */}
+           <div className="flex-1 overflow-x-auto overflow-y-hidden select-none relative"
+             ref={contentTimelineRef}
+             onScroll={handleTimelineScroll}
+             onMouseDown={handleMouseDown}>
+          {/* 時間ラベル行 */}
+          <div className="flex gap-0 relative" style={{ minWidth: 'fit-content' }}>
+            {hourLabels.map((label, idx) => (
+              <div
+                key={`hour-${idx}`}
+                className="flex flex-col border-r-2 border-gray-400 bg-gray-50"
+                style={{ width: `${(20 * 12)}px`, height: '80px' }}
+              >
+                <div className="h-10 flex items-center justify-center text-sm font-bold text-gray-800">
+                  {label}
+                </div>
+                <div className="h-10 flex items-center justify-center text-xs text-gray-500 border-t border-gray-200">
+                  {/* 5分ラベルを12個表示 */}
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <span key={i} style={{ width: 20, display: 'inline-block', textAlign: 'center' }}>
+                      {String(i * 5).padStart(2, '0')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {/* シークバー（上部のみ） */}
+            {showSeek && seekIndex > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${seekIndex * 20}px`,
+                  top: 0,
+                  width: '2px',
+                  height: '80px',
+                  background: 'red',
+                  zIndex: 10,
+                }}
+              />
+            )}
+          </div>
+          {/* タイムグリッド本体（セラピストごとに行） */}
           <div className="grid gap-0" style={{
             gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
             minWidth: 'fit-content',
@@ -281,7 +298,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
               timeSlots.map((_, idx) => {
                 const inShift = isCellInShift(therapist, idx);
                 const cellStyle = getCellBackgroundStyle(inShift);
-
                 return (
                   <div
                     key={`${therapist.id}-${idx}`}
@@ -294,6 +310,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           </div>
         </div>
       </div>
+
     </div>
   );
 };
