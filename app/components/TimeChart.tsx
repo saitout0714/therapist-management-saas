@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 
 interface Therapist {
   id: string;
@@ -8,6 +8,7 @@ interface Therapist {
   avatar?: string;
   shiftStart?: string; // "HH:mm" format
   shiftEnd?: string; // "HH:mm" format
+  room?: string; // ルーム名
 }
 
 interface Schedule {
@@ -30,8 +31,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
   // スクロール同期用のref
   const headerTimelineRef = useRef<HTMLDivElement>(null);
   const contentTimelineRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
 
-  // スクロール同期ハンドラー
+  // スクロール同期ハンドラー（コンテンツがスクロール時、ヘッダーを同期）
   const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollLeft = e.currentTarget.scrollLeft;
     
@@ -40,6 +44,52 @@ const TimeChart: React.FC<TimeChartProps> = ({
       headerTimelineRef.current.scrollLeft = scrollLeft;
     }
   };
+
+  // スクロール同期ハンドラー（ヘッダーがスクロール時、コンテンツを同期）
+  const handleHeaderScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    
+    // コンテンツのタイムラインをスクロール
+    if (contentTimelineRef.current) {
+      contentTimelineRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
+  // ドラッグ開始
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!contentTimelineRef.current) return;
+    
+    const startScrollLeft = contentTimelineRef.current.scrollLeft;
+    const startClientX = e.clientX;
+
+    // ドラッグ中のマウスムーブを処理
+    const handleDragMove = (moveEvent: MouseEvent) => {
+      if (!contentTimelineRef.current) return;
+
+      const deltaX = moveEvent.clientX - startClientX;
+      const newScrollLeft = startScrollLeft - deltaX;
+      
+      contentTimelineRef.current.scrollLeft = newScrollLeft;
+      if (headerTimelineRef.current) {
+        headerTimelineRef.current.scrollLeft = newScrollLeft;
+      }
+    };
+
+    // ドラッグ終了
+    const handleDragEnd = () => {
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('mouseup', handleDragEnd);
+    };
+
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+  };
+
+  // ドラッグ中のスクロール（削除）
+  // const handleMouseMove は不要になります
+
+  // ドラッグ終了（削除）
+  // const handleMouseUp は document リスナーで処理します
   // 10:00から翌日5:00までの時間生成（5分間隔）
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -132,44 +182,28 @@ const TimeChart: React.FC<TimeChartProps> = ({
     <div className="flex flex-col h-full bg-white rounded-lg shadow-md overflow-hidden">
       {/* ヘッダー */}
       <div className="flex">
-        {/* 左上の固定エリア */}
-        <div className="w-48 flex-shrink-0 border-r border-gray-300 bg-gray-50">
-          <div className="h-20 flex items-center justify-center font-semibold text-sm text-gray-700 border-b border-gray-300">
-            セラピスト・出勤時間
-          </div>
-        </div>
-
         {/* 時間軸 */}
-        <div className="flex-1 overflow-x-auto" ref={headerTimelineRef}>
-          {/* 上段：時間ラベル */}
-          <div className="grid gap-0" style={{
-            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(30px, 1fr))`,
+        <div className="flex-1 overflow-x-auto" ref={headerTimelineRef} onScroll={handleHeaderScroll}>
+          {/* 上段：時間ラベル（1時間ごと） */}
+          <div className="flex gap-0" style={{
             minWidth: 'fit-content',
           }}>
-            {timeSlots.map((time, idx) => {
-              // 1時間ごと（12セル = 60分 ÷ 5分）にラベルを表示
-              const isHourStart = idx % 12 === 0;
-              const hourLabelIndex = Math.floor(idx / 12);
-              const label = isHourStart ? hourLabels[hourLabelIndex] : '';
-
-              return (
-                <div
-                  key={`hour-label-${idx}`}
-                  className={`h-10 flex items-center justify-center text-xs bg-gray-50 border-r border-gray-300 ${
-                    isHourStart
-                      ? 'text-sm font-bold text-gray-800 border-r-2 border-gray-400'
-                      : 'text-gray-300'
-                  }`}
-                >
-                  {label}
-                </div>
-              );
-            })}
+            {hourLabels.map((label, idx) => (
+              <div
+                key={`hour-${idx}`}
+                className="h-10 flex items-center justify-center text-sm font-bold text-gray-800 bg-gray-50 border-r-2 border-gray-400"
+                style={{
+                  width: `${(20 * 12)}px`, // 5分セル（20px）× 12セル = 1時間
+                }}
+              >
+                {label}
+              </div>
+            ))}
           </div>
 
           {/* 下段：分刻み */}
           <div className="grid gap-0" style={{
-            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(30px, 1fr))`,
+            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
             minWidth: 'fit-content',
           }}>
             {timeSlots.map((time, idx) => {
@@ -221,6 +255,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     <span className="text-gray-400">シフトなし</span>
                   )}
                 </p>
+                {therapist.room && (
+                  <p className="text-xs text-gray-500 truncate">
+                    {therapist.room}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -228,12 +267,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
         {/* タイムライン領域（横スクロール可能） */}
         <div 
-          className="flex-1 overflow-x-auto overflow-y-auto"
+          className="flex-1 overflow-x-auto overflow-y-auto select-none"
           ref={contentTimelineRef}
           onScroll={handleTimelineScroll}
+          onMouseDown={handleMouseDown}
         >
           <div className="grid gap-0" style={{
-            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(30px, 1fr))`,
+            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
             minWidth: 'fit-content',
           }}>
             {/* タイムグリッドの背景線 */}
@@ -251,35 +291,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 );
               })
             )}
-          </div>
-
-          {/* スケジュールをオーバーレイ */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {schedules.map((schedule, idx) => {
-              const therapistIndex = therapists.findIndex(
-                (t) => t.id === schedule.therapistId
-              );
-              if (therapistIndex === -1) return null;
-
-              const style = getScheduleStyle(schedule);
-              const topOffset = therapistIndex * 80 + 48; // 48px はヘッダーの高さ
-
-              return (
-                <div
-                  key={idx}
-                  className="absolute pointer-events-auto rounded px-2 py-1 text-xs font-medium text-white overflow-hidden"
-                  style={{
-                    ...style,
-                    top: `${topOffset}px`,
-                    height: '80px',
-                    backgroundColor: schedule.color || '#3B82F6',
-                    left: '192px', // セラピストリストの幅（w-48 = 192px）
-                  }}
-                >
-                  <div className="truncate">{schedule.title}</div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

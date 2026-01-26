@@ -13,7 +13,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${
+        className={`fixed inset-y-0 left-0 z-50 w-48 bg-white shadow-lg transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}
       >
@@ -47,7 +47,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
             onClick={onClose}
           >
-            シフト管理
+            スケジュール
           </Link>
           <Link
             href="/shifts/register"
@@ -55,6 +55,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             onClick={onClose}
           >
             シフト登録
+          </Link>
+          <Link
+            href="/rooms"
+            className="block px-4 py-2 text-gray-700 hover:bg-gray-200"
+            onClick={onClose}
+          >
+            ルーム一覧
           </Link>
           <Link
             href="/reservations"

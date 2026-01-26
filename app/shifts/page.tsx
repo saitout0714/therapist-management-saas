@@ -7,10 +7,12 @@ import TimeChart from '../components/TimeChart';
 interface Shift {
   id: string;
   therapist_id: string;
+  room_id: string | null;
   date: string;
   start_time: string;
   end_time: string;
   therapists: any;
+  rooms: any;
 }
 
 interface Therapist {
@@ -32,9 +34,23 @@ interface Schedule {
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDate, setFilterDate] = useState(() => {
+    // デフォルトで当日の日付を設定
+    return new Date().toISOString().split('T')[0];
+  });
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+
+  const handlePrevDay = () => {
+    const prevDate = new Date(filterDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    setFilterDate(prevDate.toISOString().split('T')[0]);
+  };
+
+  const handleNextDay = () => {
+    const nextDate = new Date(filterDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    setFilterDate(nextDate.toISOString().split('T')[0]);
+  };
 
   useEffect(() => {
     fetchTherapists();
@@ -43,47 +59,28 @@ export default function ShiftsPage() {
 
   const fetchTherapists = async () => {
     try {
-      // 表示対象の日付を取得（フィルター日付または本日）
-      const targetDate = filterDate || new Date().toISOString().split('T')[0];
-
-      // 1. therapists テーブルからセラピスト一覧を取得
-      const { data: therapistsData, error: therapistsError } = await supabase
-        .from('therapists')
-        .select('id, name');
-
-      if (therapistsError) {
-        console.error('Error fetching therapists:', therapistsError);
-        return;
-      }
-
-      // 2. 指定日付のシフト情報を取得
+      // 指定日付のシフト情報を取得
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, start_time, end_time')
-        .eq('date', targetDate);
+        .select('therapist_id, therapists(id, name), rooms(name), start_time, end_time')
+        .eq('date', filterDate);
 
       if (shiftsError) {
         console.error('Error fetching shifts:', shiftsError);
         return;
       }
 
-      // 3. シフト情報をセラピストIDをキーにしてマッピング
-      const shiftMap = new Map();
-      shiftsData?.forEach((shift) => {
+      // シフト情報をセラピストに紐付ける
+      const therapistsWithShift = (shiftsData || []).map((shift) => {
         const startTime = formatTimeToHHMM(shift.start_time);
         const endTime = formatTimeToHHMM(shift.end_time);
-        shiftMap.set(shift.therapist_id, { startTime, endTime });
-      });
-
-      // 4. セラピスト情報にシフト情報を結合
-      const therapistsWithShift = (therapistsData || []).map((therapist) => {
-        const shiftInfo = shiftMap.get(therapist.id);
         return {
-          id: therapist.id,
-          name: therapist.name,
+          id: shift.therapists.id,
+          name: shift.therapists.name,
           avatar: undefined,
-          shiftStart: shiftInfo?.startTime || null,
-          shiftEnd: shiftInfo?.endTime || null,
+          shiftStart: startTime,
+          shiftEnd: endTime,
+          room: shift.rooms?.name,
         };
       });
 
@@ -93,11 +90,9 @@ export default function ShiftsPage() {
     }
   };
 
-  // 時刻文字列をHH:mm形式に変換するヘルパー関数
   const formatTimeToHHMM = (timeStr: string | null): string | null => {
     if (!timeStr) return null;
     
-    // ISO形式（"HH:mm:ss"など）からHH:mmを抽出
     const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
     if (match) {
       const hours = String(parseInt(match[1])).padStart(2, '0');
@@ -111,7 +106,7 @@ export default function ShiftsPage() {
     setLoading(true);
     let query = supabase
       .from('shifts')
-      .select('id, therapist_id, date, start_time, end_time, therapists(name)')
+      .select('id, therapist_id, room_id, date, start_time, end_time, therapists(name), rooms(name)')
       .order('date', { ascending: false });
 
     if (filterDate) {
@@ -130,24 +125,35 @@ export default function ShiftsPage() {
   // シフトデータをスケジュール形式に変換
   const schedules: Schedule[] = shifts.map((shift) => ({
     therapistId: shift.therapist_id,
-    startTime: shift.start_time.slice(0, 5), // "HH:MM"形式に変換
+    startTime: shift.start_time.slice(0, 5),
     endTime: shift.end_time.slice(0, 5),
-    title: shift.therapists?.name || 'セッション',
+    title: `${shift.start_time.slice(0, 5)}-${shift.end_time.slice(0, 5)}`,
     color: '#3B82F6',
   }));
+
+  const handleWeeklyDateClick = (therapistId: string, date: string) => {
+    // シフト編集ページへのリンク、または編集モーダルを表示
+    console.log(`Edit shift: ${therapistId} on ${date}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="w-full">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">シフト管理</h1>
-          <p className="text-gray-600 mt-2">タイムチャート・シフト一覧</p>
+          <h1 className="text-3xl font-bold text-gray-900">スケジュール</h1>
+          <p className="text-gray-600 mt-2">タイムチャート表示</p>
         </div>
 
         {/* フィルターと表示切り替え */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              <button
+                onClick={handlePrevDay}
+                className="px-3 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm font-medium"
+              >
+                ← 前日
+              </button>
               <input
                 type="date"
                 value={filterDate}
@@ -155,34 +161,16 @@ export default function ShiftsPage() {
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
-                onClick={() => setFilterDate('')}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                onClick={handleNextDay}
+                className="px-3 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm font-medium"
               >
-                フィルター解除
-              </button>
-            </div>
-
-            {/* 表示モード切り替え */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('chart')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  viewMode === 'chart'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                タイムチャート
+                次日 →
               </button>
               <button
-                onClick={() => setViewMode('table')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  viewMode === 'table'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
               >
-                テーブル表示
+                本日
               </button>
             </div>
           </div>
@@ -196,7 +184,7 @@ export default function ShiftsPage() {
         )}
 
         {/* タイムチャートビュー */}
-        {!loading && viewMode === 'chart' && (
+        {!loading && (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="h-[600px]">
               {therapists.length > 0 ? (
@@ -207,60 +195,6 @@ export default function ShiftsPage() {
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* テーブルビュー */}
-        {!loading && viewMode === 'table' && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">シフト一覧</h2>
-            {shifts.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-300">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                        セラピスト
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                        日付
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                        開始時刻
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                        終了時刻
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {shifts.map((shift) => (
-                      <tr
-                        key={shift.id}
-                        className="hover:bg-gray-50 transition"
-                      >
-                        <td className="px-4 py-3 font-medium text-gray-900">
-                          {shift.therapists?.name}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          {shift.date}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          {shift.start_time.slice(0, 5)}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          {shift.end_time.slice(0, 5)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 italic text-center py-8">
-                シフトデータがありません。
-              </p>
-            )}
           </div>
         )}
       </div>
