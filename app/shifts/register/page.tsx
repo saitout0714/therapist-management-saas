@@ -33,8 +33,8 @@ export default function RegisterShift() {
     try {
       const { data: therapistsData, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name')
-        .order('name', { ascending: true });
+        .select('id, name, order')
+        .order('order', { ascending: true, nullsFirst: false });
 
       if (therapistsError) {
         console.error('Error fetching therapists:', therapistsError);

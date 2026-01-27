@@ -13,6 +13,7 @@ export default function TherapistsPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   // 編集モーダル用
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
@@ -88,15 +89,120 @@ export default function TherapistsPage() {
     closeEditModal();
   };
 
+  // 新規登録内容を保存
+  const handleNewSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // バリデーション
+    if (!editProfile.name.trim()) {
+      setError("名前は必須です");
+      return;
+    }
+    const numFields = ["age", "height", "bust", "waist", "hip"];
+    for (const field of numFields) {
+      const val = editProfile[field as keyof typeof editProfile];
+      if (val && isNaN(Number(val))) {
+        setError(`${field}は数値で入力してください`);
+        return;
+      }
+    }
+    setError(null);
+    
+    // 現在の最大orderを取得
+    const { data: maxOrderData } = await supabase
+      .from("therapists")
+      .select("order")
+      .order("order", { ascending: false })
+      .limit(1);
+    
+    const nextOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order !== null
+      ? maxOrderData[0].order + 1
+      : 0;
+    
+    // Supabase挿入
+    const { error } = await supabase
+      .from("therapists")
+      .insert([{
+        name: editProfile.name,
+        age: editProfile.age ? Number(editProfile.age) : null,
+        height: editProfile.height ? Number(editProfile.height) : null,
+        bust: editProfile.bust ? Number(editProfile.bust) : null,
+        waist: editProfile.waist ? Number(editProfile.waist) : null,
+        hip: editProfile.hip ? Number(editProfile.hip) : null,
+        store_id: "550e8400-e29b-41d4-a716-446655440000",
+        order: nextOrder,
+      }]);
+    if (error) {
+      setError("登録に失敗しました: " + error.message);
+      return;
+    }
+    // 一覧再取得
+    await fetchTherapists();
+    closeEditModal();
+  };
+
   // 一覧取得
   const fetchTherapists = async () => {
-    const { data, error } = await supabase.from("therapists").select("*");
+    const { data, error } = await supabase
+      .from("therapists")
+      .select("*")
+      .order("order", { ascending: true, nullsFirst: false });
     if (error) {
       setError(error.message);
     } else {
       setTherapists(data || []);
       setError(null);
     }
+  };
+
+  // ドラッグ開始
+  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, therapistId: string) => {
+    setDraggedId(therapistId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  // ドラッグ終了
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
+
+  // ドラッグ中に許可
+  const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  // ドロップ時に順序を変更
+  const handleDrop = async (e: React.DragEvent<HTMLLIElement>, targetTherapist: any) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetTherapist.id) {
+      setDraggedId(null);
+      return;
+    }
+
+    const draggedIndex = therapists.findIndex((t) => t.id === draggedId);
+    const targetIndex = therapists.findIndex((t) => t.id === targetTherapist.id);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    // 配列を並び替え（ドラッグした要素を削除して、ターゲット位置に挿入）
+    const newTherapists = [...therapists];
+    const [draggedItem] = newTherapists.splice(draggedIndex, 1);
+    newTherapists.splice(targetIndex, 0, draggedItem);
+    
+    setTherapists(newTherapists);
+
+    // Supabaseに順序を保存
+    for (let i = 0; i < newTherapists.length; i++) {
+      await supabase
+        .from("therapists")
+        .update({ order: i })
+        .eq("id", newTherapists[i].id);
+    }
+
+    setDraggedId(null);
   };
 
   useEffect(() => {
@@ -125,46 +231,54 @@ export default function TherapistsPage() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">セラピスト</h1>
 
-        {/* 登録フォーム */}
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-blue-600">新規登録</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">名前</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="例：さくらこ"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400"
-            >
-              {loading ? "登録中..." : "登録する"}
-            </button>
-          </form>
-          {error && <div className="text-red-500 mt-2">エラー: {error}</div>}
-        </div>
-
         {/* 一覧表示 */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-blue-600">登録済みセラピスト</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-blue-600">登録済みセラピスト</h2>
+            <button
+              onClick={() => {
+                setEditTarget(null);
+                setEditProfile({
+                  name: "",
+                  age: "",
+                  height: "",
+                  bust: "",
+                  waist: "",
+                  hip: "",
+                });
+                setEditModalOpen(true);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            >
+              新規登録
+            </button>
+          </div>
           {therapists && therapists.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {therapists.map((therapist) => (
-                <li key={therapist.id} className="py-3 flex justify-between items-center">
+                <li
+                  key={therapist.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, therapist.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, therapist)}
+                  className={`py-3 flex justify-between items-center cursor-move ${
+                    draggedId === therapist.id ? "opacity-50 bg-gray-100" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400 cursor-grab active:cursor-grabbing text-lg">⋮⋮</span>
+                    <p className="font-medium text-gray-900">
+                      {therapist.name}
+                    </p>
+                  </div>
                   <button
-                    className="font-medium text-blue-600 hover:underline text-left"
                     onClick={() => openEditModal(therapist)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm"
                   >
-                    {therapist.name}
+                    編集
                   </button>
-                  <span className="text-sm text-gray-400">ID: {therapist.id.slice(0, 8)}...</span>
                 </li>
               ))}
             </ul>
@@ -175,11 +289,10 @@ export default function TherapistsPage() {
 
         {/* 編集モーダル */}
         {editModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
             <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
-              <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={closeEditModal}>&times;</button>
-              <h2 className="text-xl font-bold mb-4">プロフィール編集</h2>
-              <form onSubmit={handleEditSave} className="space-y-4">
+              <h2 className="text-xl font-bold mb-4">{editTarget ? 'プロフィール編集' : 'セラピスト新規登録'}</h2>
+              <form onSubmit={editTarget ? handleEditSave : handleNewSave} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">名前</label>
                   <input
@@ -248,12 +361,21 @@ export default function TherapistsPage() {
                     />
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
-                >
-                  保存
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+                  >
+                    {editTarget ? '更新' : '登録'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

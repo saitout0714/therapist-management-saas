@@ -62,7 +62,7 @@ export default function ShiftsPage() {
       // 指定日付のシフト情報を取得
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, therapists(id, name), rooms(name), start_time, end_time')
+        .select('therapist_id, therapists(id, name, order), rooms(name), start_time, end_time')
         .eq('date', filterDate);
 
       if (shiftsError) {
@@ -71,18 +71,22 @@ export default function ShiftsPage() {
       }
 
       // シフト情報をセラピストに紐付ける
-      const therapistsWithShift = (shiftsData || []).map((shift) => {
+      const therapistsWithShift = (shiftsData || []).map((shift: any) => {
         const startTime = formatTimeToHHMM(shift.start_time);
         const endTime = formatTimeToHHMM(shift.end_time);
         return {
-          id: shift.therapists.id,
-          name: shift.therapists.name,
+          id: shift.therapists?.id,
+          name: shift.therapists?.name,
           avatar: undefined,
           shiftStart: startTime,
           shiftEnd: endTime,
           room: shift.rooms?.name,
+          order: shift.therapists?.order ?? 999,
         };
       });
+
+      // orderでソート
+      therapistsWithShift.sort((a: any, b: any) => a.order - b.order);
 
       setTherapists(therapistsWithShift as Therapist[]);
     } catch (error) {
@@ -188,7 +192,7 @@ export default function ShiftsPage() {
           <div className="bg-white rounded-lg shadow-lg overflow-visible">
             <div className="h-[600px] w-full">
               {therapists.length > 0 ? (
-                <TimeChart therapists={therapists} schedules={schedules} />
+                <TimeChart therapists={therapists} schedules={schedules} date={filterDate} />
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500">
                   <p>セラピストデータを読み込み中...</p>

@@ -36,7 +36,11 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
   onDateClick,
   onShiftUpdate,
 }) => {
-  const [weekStartDate, setWeekStartDate] = useState<Date>(getMonday(new Date()));
+  const [weekStartDate, setWeekStartDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedTherapistId, setSelectedTherapistId] = useState('');
@@ -68,7 +72,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
     return new Date(d.setDate(diff));
   }
 
-  // 週の日付を生成（月～日）
+  // 週の日付を生成（weekStartDateから7日間）
   const weekDates = useMemo(() => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -102,7 +106,10 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
   };
 
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatDisplayDate = (date: Date): string => {
@@ -121,10 +128,13 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
       setModalMode('edit');
       setShiftId(shift.id);
       const [hour, minute] = shift.start_time.slice(0, 5).split(':');
-      setStartHour(hour);
+      // DBは0-23表記。モーダルは24-29を翌日として扱うため補正
+      const startHourForSelect = parseInt(hour, 10) < 10 ? String(parseInt(hour, 10) + 24).padStart(2, '0') : hour;
+      setStartHour(startHourForSelect);
       setStartMinute(minute);
       const [endHr, endMin] = shift.end_time.slice(0, 5).split(':');
-      setEndHour(endHr);
+      const endHourForSelect = parseInt(endHr, 10) < 10 ? String(parseInt(endHr, 10) + 24).padStart(2, '0') : endHr;
+      setEndHour(endHourForSelect);
       setEndMinute(endMin);
       setRoomId(shift.room_id || '');
     } else {
@@ -168,14 +178,42 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
         return;
       }
 
-      const startTime = `${startHour}:${startMinute}`;
-      const endTime = `${endHour}:${endMinute}`;
+      // タイムライン（10:00起点～翌05:00）での分数に変換して大小比較
+      const toTimelineMinutes = (hStr: string, mStr: string) => {
+        const h = parseInt(hStr, 10);
+        const m = parseInt(mStr, 10);
+        if (h >= 24) {
+          const nh = h - 24; // 翌日0-5時
+          return (14 * 60) + nh * 60 + m; // 10:00から14時間後が翌日0:00
+        } else {
+          return (h - 10) * 60 + m; // 10:00～23:55 を0基準
+        }
+      };
 
-      if (startTime >= endTime) {
-        setError('開始時刻は終了時刻より前である必要があります');
+      const startMinutes = toTimelineMinutes(startHour, startMinute);
+      const endMinutes = toTimelineMinutes(endHour, endMinute);
+
+      if (isNaN(startMinutes) || isNaN(endMinutes)) {
+        setError('時刻の形式が不正です');
         setLoading(false);
         return;
       }
+
+      if (endMinutes <= startMinutes) {
+        setError('終了時刻は開始時刻より後である必要があります');
+        setLoading(false);
+        return;
+      }
+
+      // DB保存用に 24-29時は 0-5時へ正規化
+      const normalizeHourForDb = (hStr: string) => {
+        const h = parseInt(hStr, 10);
+        const nh = h >= 24 ? h - 24 : h;
+        return String(nh).padStart(2, '0');
+      };
+
+      const startTime = `${normalizeHourForDb(startHour)}:${startMinute}`;
+      const endTime = `${normalizeHourForDb(endHour)}:${endMinute}`;
 
       if (modalMode === 'create') {
         // 新規作成：重複チェック
@@ -191,7 +229,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
           return;
         }
 
-        // 新規登録
+        // 新規登録（同一日付に1件制約のため date は選択日を維持）
         const { error: insertError } = await supabase
           .from('shifts')
           .insert([
@@ -370,7 +408,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
 
       {/* モーダル */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full mx-4">
             <h2 className="text-xl font-bold mb-4">
               {modalMode === 'create' ? 'シフト登録' : 'シフト編集'}
@@ -424,11 +462,16 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">時</option>
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={String(i).padStart(2, '0')}>
-                        {String(i).padStart(2, '0')}
-                      </option>
-                    ))}
+                    {Array.from({ length: 17 }, (_, i) => {
+                      const hour = i + 10;
+                      const displayHour = hour > 23 ? hour - 24 : hour;
+                      const displayText = hour > 23 ? `${String(displayHour).padStart(2, '0')} (翌日)` : String(hour).padStart(2, '0');
+                      return (
+                        <option key={hour} value={String(hour).padStart(2, '0')}>
+                          {displayText}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -465,11 +508,16 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">時</option>
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={String(i).padStart(2, '0')}>
-                        {String(i).padStart(2, '0')}
-                      </option>
-                    ))}
+                    {Array.from({ length: 20 }, (_, i) => {
+                      const hour = i + 10;
+                      const displayHour = hour > 23 ? hour - 24 : hour;
+                      const displayText = hour > 23 ? `${String(displayHour).padStart(2, '0')} (翌日)` : String(hour).padStart(2, '0');
+                      return (
+                        <option key={hour} value={String(hour).padStart(2, '0')}>
+                          {displayText}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

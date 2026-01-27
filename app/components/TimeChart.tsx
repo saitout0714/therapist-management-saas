@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 
 interface Therapist {
   id: string;
@@ -22,11 +22,13 @@ interface Schedule {
 interface TimeChartProps {
   therapists: Therapist[];
   schedules?: Schedule[];
+  date?: string; // YYYY-MM-DD format
 }
 
 const TimeChart: React.FC<TimeChartProps> = ({
   therapists,
   schedules = [],
+  date,
 }) => {
   // スクロール同期用のref
   const headerTimelineRef = useRef<HTMLDivElement>(null);
@@ -163,6 +165,32 @@ const TimeChart: React.FC<TimeChartProps> = ({
     }
   };
 
+  // マウント時に現在時刻の位置までスクロール
+  useEffect(() => {
+    setTimeout(() => {
+      if (contentTimelineRef.current) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentMinutesFromStart = currentHour * 60 + currentMinute - 10 * 60; // 10:00からの分数
+        
+        // 10:00より前または5:00より後の場合はスクロールしない
+        if (currentMinutesFromStart < 0 || currentMinutesFromStart > 19 * 60) {
+          return;
+        }
+        
+        // 各セルが20px、5分間隔なので1分=4px
+        const scrollPosition = (currentMinutesFromStart / 5) * 20 - 100; // 100px は見栄え調整
+        if (scrollPosition > 0) {
+          contentTimelineRef.current.scrollLeft = scrollPosition;
+          if (headerTimelineRef.current) {
+            headerTimelineRef.current.scrollLeft = scrollPosition;
+          }
+        }
+      }
+    }, 100);
+  }, []);
+
   // スケジュールの開始位置と幅を計算
   const getScheduleStyle = (schedule: Schedule) => {
     const startMinutes = timeToMinutes(schedule.startTime);
@@ -204,7 +232,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
           {/* 日付セル */}
           <div style={{ height: '80px' }} className="border-b-2 border-gray-300 flex flex-col sticky top-0 z-20">
             <div className="h-10 flex items-center justify-center text-base font-bold text-gray-800">
-              {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })}
+              {date ? (() => {
+                const [year, month, day] = date.split('-').map(Number);
+                const localDate = new Date(year, month - 1, day);
+                return localDate.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+              })() : new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })}
             </div>
             <div className="h-10 flex items-center justify-center text-xs text-gray-500 border-t border-gray-200">
               {/* 空白 */}
@@ -273,7 +305,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 </div>
               </div>
             ))}
-            {/* シークバー（上部のみ） */}
+            {/* シークバー（全体に伸びる） */}
             {showSeek && seekIndex > 0 && (
               <div
                 style={{
@@ -281,8 +313,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   left: `${seekIndex * 20}px`,
                   top: 0,
                   width: '2px',
-                  height: '80px',
-                  background: 'red',
+                  height: `${80 + therapists.length * 80}px`,
+                  background: 'blue',
                   zIndex: 10,
                 }}
               />

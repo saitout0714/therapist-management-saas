@@ -153,22 +153,27 @@ export default function RoomsList() {
               <tbody className="divide-y">
                 {rooms.map((room) => (
                   <tr key={room.id} className="hover:bg-gray-50">
-                    <td 
-                      className="px-6 py-4 text-sm text-blue-600 cursor-pointer hover:underline"
-                      onClick={() => openEditModal(room)}
-                    >
+                    <td className="px-6 py-4 text-sm text-gray-900">
                       {room.name}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {room.description || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <button
-                        onClick={() => handleDelete(room.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        削除
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => openEditModal(room)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(room.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          削除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -180,7 +185,7 @@ export default function RoomsList() {
 
       {/* 編集/新規作成モーダル */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               {editingRoom ? 'ルームを編集' : '新しいルームを追加'}
@@ -217,16 +222,16 @@ export default function RoomsList() {
 
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={editingRoom ? handleSave : handleAddSave}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  {editingRoom ? '更新' : '追加'}
-                </button>
-                <button
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 rounded-md hover:bg-gray-400"
                 >
                   キャンセル
+                </button>
+                <button
+                  onClick={editingRoom ? handleSave : handleAddSave}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  保存
                 </button>
               </div>
             </div>
