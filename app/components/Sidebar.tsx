@@ -57,6 +57,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ルーム一覧
           </Link>
           <Link
+            href="/system"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            システム
+          </Link>
+          <Link
             href="/reservations"
             className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}

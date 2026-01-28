@@ -29,10 +29,15 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
+  type?: 'shift' | 'reservation'; // 'shift' or 'reservation'
+  reservationId?: string;
+  customerId?: string;
+  customerName?: string;
 }
 
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [reservations, setReservations] = useState<any[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [filterDate, setFilterDate] = useState(() => {
     // デフォルトで当日の日付を設定
@@ -55,14 +60,26 @@ export default function ShiftsPage() {
   useEffect(() => {
     fetchTherapists();
     fetchShifts();
+    fetchReservations();
   }, [filterDate]);
 
   const fetchTherapists = async () => {
     try {
-      // 指定日付のシフト情報を取得
+      // すべてのセラピストを名前順で取得
+      const { data: allTherapists, error: therapistsError } = await supabase
+        .from('therapists')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (therapistsError) {
+        console.error('Error fetching therapists:', therapistsError);
+        return;
+      }
+
+      // その日のシフト情報を取得（セラピストの営業時間を確認するため）
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, therapists(id, name, order), rooms(name), start_time, end_time')
+        .select('therapist_id, rooms(name), start_time, end_time')
         .eq('date', filterDate);
 
       if (shiftsError) {
@@ -70,23 +87,32 @@ export default function ShiftsPage() {
         return;
       }
 
-      // シフト情報をセラピストに紐付ける
-      const therapistsWithShift = (shiftsData || []).map((shift: any) => {
-        const startTime = formatTimeToHHMM(shift.start_time);
-        const endTime = formatTimeToHHMM(shift.end_time);
+      // シフト情報をマップで処理
+      const shiftsMap = new Map();
+      (shiftsData || []).forEach((shift: any) => {
+        shiftsMap.set(shift.therapist_id, shift);
+      });
+
+      // セラピストにシフト情報を追加
+      const therapistsWithShift = (allTherapists || []).map((therapist: any) => {
+        const shift = shiftsMap.get(therapist.id);
+        const startTime = shift ? formatTimeToHHMM(shift.start_time) : null;
+        const endTime = shift ? formatTimeToHHMM(shift.end_time) : null;
+        
         return {
-          id: shift.therapists?.id,
-          name: shift.therapists?.name,
+          id: therapist.id,
+          name: therapist.name,
           avatar: undefined,
           shiftStart: startTime,
           shiftEnd: endTime,
-          room: shift.rooms?.name,
-          order: shift.therapists?.order ?? 999,
+          room: shift?.rooms?.name,
         };
       });
 
-      // orderでソート
-      therapistsWithShift.sort((a: any, b: any) => a.order - b.order);
+      console.log('=== shifts/page.tsx Therapists Order ===');
+      therapistsWithShift.forEach((t: any, i: number) => {
+        console.log(`[${i}] ${t.name} (id: ${t.id.substring(0, 8)}...)`);
+      });
 
       setTherapists(therapistsWithShift as Therapist[]);
     } catch (error) {
@@ -126,14 +152,44 @@ export default function ShiftsPage() {
     }
   };
 
+  const fetchReservations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          therapist_id,
+          customer_id,
+          date,
+          start_time,
+          end_time,
+          customers(name)
+        `)
+        .eq('date', filterDate)
+        .eq('status', 'confirmed');
+
+      if (error) throw error;
+      setReservations(data || []);
+    } catch (error) {
+      console.error('予約の取得に失敗:', error);
+    }
+  };
+
   // シフトデータをスケジュール形式に変換
-  const schedules: Schedule[] = shifts.map((shift) => ({
-    therapistId: shift.therapist_id,
-    startTime: shift.start_time.slice(0, 5),
-    endTime: shift.end_time.slice(0, 5),
-    title: `${shift.start_time.slice(0, 5)}-${shift.end_time.slice(0, 5)}`,
-    color: '#3B82F6',
-  }));
+  const schedules: Schedule[] = [
+    // 予約のみを表示（シフトは非表示）
+    ...reservations.map((reservation) => ({
+      therapistId: reservation.therapist_id,
+      startTime: reservation.start_time.slice(0, 5),
+      endTime: reservation.end_time.slice(0, 5),
+      title: `${reservation.customers?.name || 'unknown'}`,
+      color: '#10B981', // 緑色で予約を表示
+      type: 'reservation' as const,
+      reservationId: reservation.id,
+      customerId: reservation.customer_id,
+      customerName: reservation.customers?.name,
+    })),
+  ];
 
   const handleWeeklyDateClick = (therapistId: string, date: string) => {
     // シフト編集ページへのリンク、または編集モーダルを表示

@@ -17,6 +17,10 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
+  type?: 'shift' | 'reservation';
+  reservationId?: string;
+  customerId?: string;
+  customerName?: string;
 }
 
 interface TimeChartProps {
@@ -321,24 +325,98 @@ const TimeChart: React.FC<TimeChartProps> = ({
             )}
           </div>
           {/* タイムグリッド本体（セラピストごとに行） */}
-          <div className="grid gap-0" style={{
-            gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
+          <div className="relative" style={{
             minWidth: 'fit-content',
           }}>
-            {/* タイムグリッドの背景線 */}
-            {therapists.map((therapist) =>
-              timeSlots.map((_, idx) => {
-                const inShift = isCellInShift(therapist, idx);
-                const cellStyle = getCellBackgroundStyle(inShift);
+            {/* タイムグリッドの背景 */}
+            <div className="grid gap-0" style={{
+              gridTemplateColumns: `repeat(${timeSlots.length}, minmax(20px, 1fr))`,
+              minWidth: 'fit-content',
+            }}>
+              {therapists.map((therapist) =>
+                timeSlots.map((_, idx) => {
+                  const inShift = isCellInShift(therapist, idx);
+                  const cellStyle = getCellBackgroundStyle(inShift);
+                  return (
+                    <div
+                      key={`${therapist.id}-${idx}`}
+                      className="h-20 border-r border-gray-200 border-b border-gray-100 hover:opacity-80 transition-opacity"
+                      style={cellStyle}
+                    />
+                  );
+                })
+              )}
+            </div>
+            
+            {/* スケジュール要素（シフトと予約） */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
+              {schedules.map((schedule, idx) => {
+                // デバッグログ
+                if (idx === 0) {
+                  console.log('=== TimeChart Debug Info ===');
+                  console.log('Therapists in TimeChart:');
+                  therapists.forEach((t, i) => {
+                    console.log(`  [${i}] id: ${t.id}, name: ${t.name}`);
+                  });
+                }
+                
+                const therapistIndex = therapists.findIndex(t => t.id === schedule.therapistId);
+                
+                if (idx === 0) {
+                  console.log('Looking for therapistId:', schedule.therapistId);
+                  console.log('Found at index:', therapistIndex);
+                  console.log('Calculated top position:', 80 + therapistIndex * 80, 'px');
+                  console.log('Expected therapist:', therapists[therapistIndex]?.name);
+                }
+                
+                if (therapistIndex === -1) {
+                  console.warn('Therapist not found for:', schedule.therapistId);
+                  return null;
+                }
+
+                const startMinutes = timeToMinutes(schedule.startTime);
+                const endMinutes = timeToMinutes(schedule.endTime);
+                const duration = endMinutes - startMinutes;
+
+                const top = therapistIndex * 80;  // ヘッダーは別要素なので加算不要
+                const startPixels = (startMinutes / 5) * 20;
+                const widthPixels = (duration / 5) * 20;
+
                 return (
                   <div
-                    key={`${therapist.id}-${idx}`}
-                    className="h-20 border-r border-gray-200 border-b border-gray-100 hover:opacity-80 transition-opacity"
-                    style={cellStyle}
-                  />
+                    key={`schedule-${idx}`}
+                    style={{
+                      position: 'absolute',
+                      top: `${top}px`,
+                      left: `${startPixels}px`,
+                      width: `${widthPixels}px`,
+                      height: '80px',
+                      backgroundColor: schedule.color || '#3B82F6',
+                      border: `2px solid ${schedule.type === 'reservation' ? '#059669' : '#1E40AF'}`,
+                      borderRadius: '4px',
+                      padding: '4px',
+                      boxSizing: 'border-box',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      pointerEvents: 'auto',
+                      opacity: 0.9,
+                    }}
+                    className="hover:opacity-100 transition-opacity"
+                    title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
+                  >
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {schedule.type === 'reservation' ? '予' : 'S'}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {schedule.title}
+                    </div>
+                    <div style={{ fontSize: '9px', color: 'white', marginTop: '2px' }}>
+                      {schedule.startTime}-{schedule.endTime}
+                    </div>
+                  </div>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
         </div>
       </div>
