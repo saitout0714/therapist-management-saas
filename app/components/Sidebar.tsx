@@ -71,6 +71,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             予約管理
           </Link>
           <Link
+            href="/customers"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            顧客管理
+          </Link>
+          <Link
             href="/settings"
             className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}

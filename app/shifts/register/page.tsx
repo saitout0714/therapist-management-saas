@@ -98,6 +98,7 @@ export default function RegisterShift() {
                   therapists={therapists} 
                   shifts={shifts}
                   onShiftUpdate={handleShiftUpdate}
+                  showOnlyWithShift={false}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500">

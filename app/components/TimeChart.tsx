@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Therapist {
   id: string;
@@ -34,6 +35,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
   schedules = [],
   date,
 }) => {
+  const router = useRouter();
+  
   // スクロール同期用のref
   const headerTimelineRef = useRef<HTMLDivElement>(null);
   const contentTimelineRef = useRef<HTMLDivElement>(null);
@@ -382,6 +385,12 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const startPixels = (startMinutes / 5) * 20;
                 const widthPixels = (duration / 5) * 20;
 
+                const handleScheduleClick = () => {
+                  if (schedule.type === 'reservation' && schedule.reservationId) {
+                    router.push(`/reservations/${schedule.reservationId}/edit?from=shifts`);
+                  }
+                };
+
                 return (
                   <div
                     key={`schedule-${idx}`}
@@ -403,6 +412,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     }}
                     className="hover:opacity-100 transition-opacity"
                     title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
+                    onClick={handleScheduleClick}
                   >
                     <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {schedule.type === 'reservation' ? '予' : 'S'}

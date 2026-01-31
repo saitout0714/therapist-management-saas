@@ -28,6 +28,15 @@ interface WeeklyShiftCalendarProps {
   shifts: Shift[];
   onDateClick?: (therapistId: string, date: string) => void;
   onShiftUpdate?: () => void; // シフト更新後のコールバック
+  showOnlyWithShift?: boolean; // 追加: シフトがあるセラピストのみ表示
+}
+
+// 日付をYYYY-MM-DD形式に変換
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
@@ -35,20 +44,45 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
   shifts,
   onDateClick,
   onShiftUpdate,
+  showOnlyWithShift = false,
 }) => {
+
+
+  // 週の開始日から7日分の日付リスト
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return today;
   });
+  const weekDates = useMemo(() => {
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStartDate);
+      date.setDate(date.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  }, [weekStartDate]);
+
+  // シフト有のみ表示の場合はフィルタ、それ以外は全員表示
+  const filteredTherapists = useMemo(() => {
+    if (!showOnlyWithShift) return therapists;
+    const targetDate = weekDates[0] ? formatDate(weekDates[0]) : null;
+    if (!targetDate) return [];
+    const therapistIdsWithShift = new Set(
+      shifts.filter(s => s.date === targetDate).map(s => s.therapist_id)
+    );
+    return therapists.filter(t => therapistIdsWithShift.has(t.id));
+  }, [therapists, shifts, weekDates, showOnlyWithShift]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedTherapistId, setSelectedTherapistId] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [startHour, setStartHour] = useState('');
-  const [startMinute, setStartMinute] = useState('');
+  const [startMinute, setStartMinute] = useState('00');
   const [endHour, setEndHour] = useState('');
-  const [endMinute, setEndMinute] = useState('');
+  const [endMinute, setEndMinute] = useState('00');
   const [roomId, setRoomId] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
   const [shiftId, setShiftId] = useState<string | null>(null);
@@ -72,16 +106,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
     return new Date(d.setDate(diff));
   }
 
-  // 週の日付を生成（weekStartDateから7日間）
-  const weekDates = useMemo(() => {
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStartDate);
-      date.setDate(date.getDate() + i);
-      dates.push(date);
-    }
-    return dates;
-  }, [weekStartDate]);
+
 
   // シフトマップを作成（therapistId_date -> Shift）
   const shiftMap = useMemo(() => {
@@ -105,12 +130,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
     setWeekStartDate(newDate);
   };
 
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+
 
   const formatDisplayDate = (date: Date): string => {
     const month = date.getMonth() + 1;
@@ -142,9 +162,9 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
       setModalMode('create');
       setShiftId(null);
       setStartHour('');
-      setStartMinute('');
+      setStartMinute('00');
       setEndHour('');
-      setEndMinute('');
+      setEndMinute('00');
       setRoomId('');
     }
 
@@ -159,9 +179,9 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
     setSelectedTherapistId('');
     setSelectedDate('');
     setStartHour('');
-    setStartMinute('');
+    setStartMinute('00');
     setEndHour('');
-    setEndMinute('');
+    setEndMinute('00');
     setShiftId(null);
     setError('');
   };
@@ -353,7 +373,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
 
           {/* ボディ：セラピスト × 日付 */}
           <tbody>
-            {therapists.map((therapist) => (
+            {filteredTherapists.map((therapist) => (
               <tr key={therapist.id} className="border-b border-gray-200 hover:bg-gray-50">
                 {/* セラピスト名 */}
                 <td className="w-32 p-3 font-medium text-gray-900 border-r border-gray-300 bg-gray-50">

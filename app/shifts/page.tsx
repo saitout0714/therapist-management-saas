@@ -109,9 +109,29 @@ export default function ShiftsPage() {
         };
       });
 
+      // 開始時間の早い順でソート（数値変換して比較）
+      const timeToMinutes = (timeStr: string | null): number => {
+        if (!timeStr) return 9999; // nullは末尾
+        const match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return 9999;
+        return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+      };
+
+      therapistsWithShift.sort((a: any, b: any) => {
+        const aMin = timeToMinutes(a.shiftStart);
+        const bMin = timeToMinutes(b.shiftStart);
+        // 開始時間が同じ場合は終了時間で比較
+        if (aMin === bMin) {
+          const aEndMin = timeToMinutes(a.shiftEnd);
+          const bEndMin = timeToMinutes(b.shiftEnd);
+          return aEndMin - bEndMin;
+        }
+        return aMin - bMin;
+      });
+
       console.log('=== shifts/page.tsx Therapists Order ===');
       therapistsWithShift.forEach((t: any, i: number) => {
-        console.log(`[${i}] ${t.name} (id: ${t.id.substring(0, 8)}...)`);
+        console.log(`[${i}] ${t.name} (shiftStart: ${t.shiftStart}) (id: ${t.id.substring(0, 8)}...)`);
       });
 
       setTherapists(therapistsWithShift as Therapist[]);
@@ -247,13 +267,17 @@ export default function ShiftsPage() {
         {!loading && (
           <div className="bg-white rounded-lg shadow-lg overflow-visible">
             <div className="h-[600px] w-full">
-              {therapists.length > 0 ? (
-                <TimeChart therapists={therapists} schedules={schedules} date={filterDate} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-500">
-                  <p>セラピストデータを読み込み中...</p>
-                </div>
-              )}
+              {(() => {
+                // filterDateにシフトがあるセラピストのみ表示
+                const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
+                return therapistsWithShift.length > 0 ? (
+                  <TimeChart therapists={therapistsWithShift} schedules={schedules} date={filterDate} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    <p>シフトがあるセラピストがいません</p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

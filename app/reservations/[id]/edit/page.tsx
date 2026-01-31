@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 type Customer = {
   id: string
@@ -45,14 +45,13 @@ type SystemSettings = {
   default_princess_reservation_fee: number
 }
 
-type Shift = {
-  therapist_id: string
-  start_time: string
-  end_time: string
-}
-
-export default function NewReservationPage() {
+export default function EditReservationPage() {
   const router = useRouter()
+  const params = useParams()
+  const searchParams = useSearchParams()
+  const reservationId = params.id as string
+  const fromPage = searchParams.get('from')
+
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [courses, setCourses] = useState<Course[]>([])
@@ -60,13 +59,11 @@ export default function NewReservationPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([])
   const [therapistPricings, setTherapistPricings] = useState<TherapistPricing[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null)
-  const [availableTherapistIds, setAvailableTherapistIds] = useState<string[]>([])
-  const [availableShifts, setAvailableShifts] = useState<Shift[]>([])
 
   const [formData, setFormData] = useState({
     customer_id: '',
-    date: new Date().toISOString().split('T')[0],
-    start_time: '10:00',
+    date: '',
+    start_time: '',
     course_id: '',
     therapist_id: '',
     designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess',
@@ -74,17 +71,9 @@ export default function NewReservationPage() {
     discount_amount: 0,
     discount_reason: '',
     notes: '',
+    status: 'confirmed' as 'pending' | 'confirmed' | 'cancelled',
   })
 
-  const [newCustomer, setNewCustomer] = useState({
-    show: false,
-    name: '',
-    email: '',
-    phone: '',
-  })
-  const [customerSearch, setCustomerSearch] = useState('')
-
-  // 計算用の状態
   const [calculatedPrice, setCalculatedPrice] = useState({
     basePrice: 0,
     optionsPrice: 0,
@@ -103,23 +92,16 @@ export default function NewReservationPage() {
     calculatePrice()
   }, [formData, courses, options, therapistPricings, systemSettings])
 
-  useEffect(() => {
-    autoSelectConfirmedDesignation()
-  }, [formData.customer_id, formData.therapist_id])
-
-  useEffect(() => {
-    fetchAvailableTherapists()
-  }, [formData.date])
-
   const fetchInitialData = async () => {
     try {
-      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes] = await Promise.all([
+      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone').order('name'),
         supabase.from('courses').select('*').eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name').order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').order('created_at', { ascending: false }).limit(1),
+        supabase.from('reservations').select('*, reservation_options(option_id)').eq('id', reservationId).single(),
       ])
 
       if (customersRes.error) throw customersRes.error
@@ -128,6 +110,7 @@ export default function NewReservationPage() {
       if (therapistsRes.error) throw therapistsRes.error
       if (pricingRes.error) throw pricingRes.error
       if (settingsRes.error) throw settingsRes.error
+      if (reservationRes.error) throw reservationRes.error
 
       setCustomers(customersRes.data || [])
       setCourses(coursesRes.data || [])
@@ -135,6 +118,23 @@ export default function NewReservationPage() {
       setTherapists(therapistsRes.data || [])
       setTherapistPricings(pricingRes.data || [])
       setSystemSettings(settingsRes.data?.[0] || null)
+
+      const reservation = reservationRes.data
+      const selectedOptions = reservation.reservation_options?.map((ro: any) => ro.option_id) || []
+
+      setFormData({
+        customer_id: reservation.customer_id,
+        date: reservation.date,
+        start_time: reservation.start_time,
+        course_id: reservation.course_id,
+        therapist_id: reservation.therapist_id,
+        designation_type: reservation.designation_type,
+        selected_options: selectedOptions,
+        discount_amount: reservation.discount_amount || 0,
+        discount_reason: '',
+        notes: reservation.notes || '',
+        status: reservation.status,
+      })
     } catch (error) {
       console.error('データの取得に失敗:', error)
       alert('データの取得に失敗しました')
@@ -145,14 +145,12 @@ export default function NewReservationPage() {
 
   const calculatePrice = () => {
     const selectedCourse = courses.find(c => c.id === formData.course_id)
-    const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
     const therapistPricing = therapistPricings.find(p => p.therapist_id === formData.therapist_id)
 
     let basePrice = selectedCourse?.base_price || 0
     let optionsPrice = 0
     let duration = selectedCourse?.duration || 0
 
-    // オプション料金と時間を計算
     formData.selected_options.forEach(optionId => {
       const option = options.find(o => o.id === optionId)
       if (option) {
@@ -161,7 +159,6 @@ export default function NewReservationPage() {
       }
     })
 
-    // 指名料を計算（デフォルトを採用し、個別設定があれば優先）
     const defaultNominationFee = systemSettings?.default_nomination_fee || 0
     const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
     const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
@@ -189,32 +186,6 @@ export default function NewReservationPage() {
     })
   }
 
-  const autoSelectConfirmedDesignation = async () => {
-    if (!formData.customer_id || !formData.therapist_id) return
-
-    try {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('id')
-        .eq('customer_id', formData.customer_id)
-        .eq('therapist_id', formData.therapist_id)
-        .limit(1)
-
-      if (error) throw error
-
-      if (
-        data &&
-        data.length > 0 &&
-        formData.designation_type !== 'confirmed' &&
-        formData.designation_type !== 'princess'
-      ) {
-        setFormData((prev) => ({ ...prev, designation_type: 'confirmed' }))
-      }
-    } catch (error) {
-      console.error('本指名の自動選択に失敗:', error)
-    }
-  }
-
   const handleDesignationSearch = async () => {
     if (!formData.customer_id || !formData.therapist_id) {
       alert('お客様と担当セラピストを選択してください')
@@ -228,6 +199,7 @@ export default function NewReservationPage() {
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
+        .neq('id', reservationId)
         .limit(1)
 
       if (error) throw error
@@ -245,65 +217,6 @@ export default function NewReservationPage() {
     }
   }
 
-  const fetchAvailableTherapists = async () => {
-    if (!formData.date) {
-      setAvailableTherapistIds([])
-      setAvailableShifts([])
-      return
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('shifts')
-        .select('therapist_id, start_time, end_time')
-        .eq('date', formData.date)
-
-      if (error) throw error
-
-      const shifts = (data as Shift[]) || []
-      const ids = Array.from(new Set(shifts.map((s) => s.therapist_id).filter(Boolean)))
-      setAvailableTherapistIds(ids)
-      setAvailableShifts(shifts)
-
-      if (formData.therapist_id && !ids.includes(formData.therapist_id)) {
-        setFormData({ ...formData, therapist_id: '' })
-      }
-    } catch (error) {
-      console.error('出勤セラピストの取得に失敗:', error)
-      setAvailableTherapistIds([])
-      setAvailableShifts([])
-    }
-  }
-
-  const handleAddNewCustomer = async () => {
-    if (!newCustomer.name) {
-      alert('お客様名を入力してください')
-      return
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .insert([{
-          name: newCustomer.name,
-          email: newCustomer.email || null,
-          phone: newCustomer.phone || null,
-        }])
-        .select()
-
-      if (error) throw error
-
-      const newCust = data[0]
-      setCustomers([...customers, newCust])
-      setFormData({ ...formData, customer_id: newCust.id })
-      setNewCustomer({ show: false, name: '', email: '', phone: '' })
-      alert('お客様を追加しました')
-    } catch (error) {
-      console.error('お客様の追加に失敗:', error)
-      alert('お客様の追加に失敗しました')
-    }
-  }
-
   const handleOptionToggle = (optionId: string) => {
     const newSelected = formData.selected_options.includes(optionId)
       ? formData.selected_options.filter(id => id !== optionId)
@@ -312,65 +225,23 @@ export default function NewReservationPage() {
     setFormData({ ...formData, selected_options: newSelected })
   }
 
-  const normalizedSearch = customerSearch.trim().toLowerCase()
-  const filteredCustomers = normalizedSearch
-    ? customers.filter((customer) => {
-        const target = `${customer.name ?? ''} ${customer.phone ?? ''} ${customer.email ?? ''}`.toLowerCase()
-        return target.includes(normalizedSearch)
-      })
-    : []
-  const selectedCustomer = customers.find((c) => c.id === formData.customer_id)
-  const availableTherapists = therapists.filter((t) => availableTherapistIds.includes(t.id))
-  const availableShiftText = (therapistId: string) => {
-    const times = availableShifts
-      .filter((s) => s.therapist_id === therapistId)
-      .map((s) => `${s.start_time.slice(0, 5)}-${s.end_time.slice(0, 5)}`)
-    return times.length > 0 ? times.join(' / ') : ''
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.course_id || !formData.therapist_id || (!formData.customer_id && !newCustomer.name)) {
+    if (!formData.customer_id || !formData.course_id || !formData.therapist_id) {
       alert('必須項目を入力してください')
       return
     }
 
     try {
-      let customerId = formData.customer_id
-      if (!customerId && newCustomer.name) {
-        const { data, error } = await supabase
-          .from('customers')
-          .insert([{
-            name: newCustomer.name,
-            email: newCustomer.email || null,
-            phone: newCustomer.phone || null,
-          }])
-          .select()
-
-        if (error) throw error
-
-        const createdCustomer = data?.[0]
-        if (!createdCustomer?.id) {
-          throw new Error('顧客登録に失敗しました')
-        }
-
-        customerId = createdCustomer.id
-        setCustomers([...customers, createdCustomer])
-        setFormData({ ...formData, customer_id: createdCustomer.id })
-        setNewCustomer({ show: false, name: '', email: '', phone: '' })
-      }
-
-      // 終了時刻を計算
-      const [hours, minutes] = formData.start_time.split(':').map(Number)
       const startDate = new Date(`${formData.date}T${formData.start_time}`)
       const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
       const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
 
       const { error } = await supabase
         .from('reservations')
-        .insert([{
-          customer_id: customerId,
+        .update({
+          customer_id: formData.customer_id,
           therapist_id: formData.therapist_id,
           course_id: formData.course_id,
           date: formData.date,
@@ -383,42 +254,39 @@ export default function NewReservationPage() {
           discount_amount: formData.discount_amount,
           designation_type: formData.designation_type,
           notes: formData.notes,
-          status: 'confirmed',
-        }])
+          status: formData.status,
+        })
+        .eq('id', reservationId)
 
       if (error) throw error
 
-      // オプションを別テーブルに登録
+      // 既存のオプションを削除して再登録
+      await supabase.from('reservation_options').delete().eq('reservation_id', reservationId)
+
       if (formData.selected_options.length > 0) {
-        const { data: reservations } = await supabase
-          .from('reservations')
-          .select('id')
-          .eq('customer_id', customerId)
-          .eq('date', formData.date)
-          .eq('start_time', formData.start_time)
-          .order('created_at', { ascending: false })
-          .limit(1)
+        const optionInserts = formData.selected_options.map(optionId => {
+          const option = options.find(o => o.id === optionId)
+          return {
+            reservation_id: reservationId,
+            option_id: optionId,
+            price: option?.price || 0,
+          }
+        })
 
-        if (reservations && reservations[0]) {
-          const reservationId = reservations[0].id
-          const optionInserts = formData.selected_options.map(optionId => {
-            const option = options.find(o => o.id === optionId)
-            return {
-              reservation_id: reservationId,
-              option_id: optionId,
-              price: option?.price || 0,
-            }
-          })
-
-          await supabase.from('reservation_options').insert(optionInserts)
-        }
+        await supabase.from('reservation_options').insert(optionInserts)
       }
 
-      alert('予約を登録しました')
-      router.push('/reservations')
+      alert('予約を更新しました')
+      
+      // 遷移元に応じて戻る先を変更
+      if (fromPage === 'shifts') {
+        router.push('/shifts')
+      } else {
+        router.push('/reservations')
+      }
     } catch (error) {
-      console.error('予約の登録に失敗:', error)
-      alert('予約の登録に失敗しました')
+      console.error('予約の更新に失敗:', error)
+      alert('予約の更新に失敗しました')
     }
   }
 
@@ -428,115 +296,29 @@ export default function NewReservationPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">予約登録</h1>
+      <h1 className="text-2xl font-bold mb-6">予約編集</h1>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
-        {/* 左側：入力フォーム */}
         <div className="col-span-2 space-y-6">
           {/* お客様情報 */}
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">お客様情報</h2>
-            
-            {!newCustomer.show ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">お客様名</label>
-                  <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    placeholder="名前・電話番号・メールで検索"
-                    className="w-full px-3 py-2 border rounded mb-2"
-                  />
-                  <div className="border rounded max-h-48 overflow-auto">
-                    {!normalizedSearch ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">検索キーワードを入力してください</div>
-                    ) : filteredCustomers.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
-                    ) : (
-                      filteredCustomers.slice(0, 50).map((customer) => (
-                        <button
-                          key={customer.id}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, customer_id: customer.id })}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                            formData.customer_id === customer.id ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <span className="font-medium">{customer.name}</span>{' '}
-                          <span className="text-gray-600">
-                            {customer.phone ? `(${customer.phone})` : ''}
-                          </span>
-                          {customer.email && (
-                            <span className="text-gray-500 ml-2">{customer.email}</span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  {selectedCustomer && (
-                    <div className="mt-2 text-sm text-gray-700">
-                      選択中: {selectedCustomer.name}
-                      {selectedCustomer.phone ? ` (${selectedCustomer.phone})` : ''}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setNewCustomer({ ...newCustomer, show: true })}
-                  className="text-blue-600 hover:text-blue-900 text-sm"
-                >
-                  + 新規お客様を追加
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">お客様名 *</label>
-                  <input
-                    type="text"
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">電話番号</label>
-                  <input
-                    type="tel"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">メール</label>
-                  <input
-                    type="email"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={handleAddNewCustomer}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                  >
-                    追加
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewCustomer({ show: false, name: '', email: '', phone: '' })}
-                    className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium mb-2">お客様名</label>
+              <select
+                value={formData.customer_id}
+                onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                className="w-full px-3 py-2 border rounded"
+                required
+              >
+                <option value="">選択してください</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name} {customer.phone && `(${customer.phone})`}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* 日時情報 */}
@@ -656,21 +438,14 @@ export default function NewReservationPage() {
                   onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
                   className="w-full px-3 py-2 border rounded"
                   required
-                  disabled={availableTherapists.length === 0}
                 >
                   <option value="">選択してください</option>
-                  {availableTherapists.map(therapist => (
+                  {therapists.map(therapist => (
                     <option key={therapist.id} value={therapist.id}>
                       {therapist.name}
-                      {availableShiftText(therapist.id)
-                        ? ` (${availableShiftText(therapist.id)})`
-                        : ''}
                     </option>
                   ))}
                 </select>
-                {availableTherapists.length === 0 && (
-                  <p className="mt-2 text-sm text-gray-500">選択した日付に出勤セラピストがいません</p>
-                )}
               </div>
 
               <div>
@@ -735,6 +510,24 @@ export default function NewReservationPage() {
             </div>
           </div>
 
+          {/* ステータス */}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-lg font-semibold mb-4">ステータス</h2>
+            <div>
+              <label className="block text-sm font-medium mb-2">予約ステータス *</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                className="w-full px-3 py-2 border rounded"
+                required
+              >
+                <option value="pending">保留中</option>
+                <option value="confirmed">確定</option>
+                <option value="cancelled">キャンセル</option>
+              </select>
+            </div>
+          </div>
+
           {/* 割引情報 */}
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-4">割引</h2>
@@ -748,16 +541,6 @@ export default function NewReservationPage() {
                   className="w-full px-3 py-2 border rounded"
                   min="0"
                   step="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">割引理由</label>
-                <input
-                  type="text"
-                  value={formData.discount_reason}
-                  onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
-                  placeholder="例：初回割引、クーポン利用"
-                  className="w-full px-3 py-2 border rounded"
                 />
               </div>
             </div>
@@ -824,7 +607,7 @@ export default function NewReservationPage() {
                 type="submit"
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold"
               >
-                予約を登録
+                更新
               </button>
               <button
                 type="button"

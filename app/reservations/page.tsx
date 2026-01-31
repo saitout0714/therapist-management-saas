@@ -28,11 +28,10 @@ type RelatedData = {
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<(Reservation & RelatedData)[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     fetchReservations()
-  }, [filterDate])
+  }, [])
 
   const fetchReservations = async () => {
     try {
@@ -44,8 +43,7 @@ export default function ReservationsPage() {
           therapist:therapists(name),
           course:courses(name)
         `)
-        .eq('date', filterDate)
-        .order('start_time', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
@@ -114,22 +112,13 @@ export default function ReservationsPage() {
         </Link>
       </div>
 
-      {/* 日付フィルタ */}
-      <div className="mb-6 flex items-center space-x-4">
-        <label className="text-sm font-medium">日付:</label>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-          className="px-3 py-2 border rounded"
-        />
-      </div>
-
       {/* 予約一覧 */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">登録日時</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">予約日</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">時間</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">お客様</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">セラピスト</th>
@@ -143,13 +132,25 @@ export default function ReservationsPage() {
           <tbody className="divide-y divide-gray-200">
             {reservations.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
-                  この日付の予約はありません
+                <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                  予約がありません
                 </td>
               </tr>
             ) : (
               reservations.map((reservation) => (
                 <tr key={reservation.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {new Date(reservation.created_at).toLocaleString('ja-JP', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {reservation.date}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {reservation.start_time} - {reservation.end_time}
                   </td>
