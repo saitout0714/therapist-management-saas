@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useShop } from '@/app/contexts/ShopContext';
 
 interface Therapist {
   id: string;
@@ -46,6 +47,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
   onShiftUpdate,
   showOnlyWithShift = false,
 }) => {
+  const { selectedShop } = useShop();
 
 
   // 週の開始日から7日分の日付リスト
@@ -92,11 +94,19 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
   // ルームを取得
   useEffect(() => {
     const fetchRooms = async () => {
-      const { data } = await supabase.from('rooms').select('id, name');
+      if (!selectedShop) {
+        setRooms([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('rooms')
+        .select('id, name')
+        .eq('shop_id', selectedShop.id);
       setRooms((data as Room[]) || []);
     };
     fetchRooms();
-  }, []);
+  }, [selectedShop]);
 
   // 月曜日を取得
   function getMonday(date: Date): Date {
@@ -191,6 +201,12 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
     setLoading(true);
 
     try {
+      if (!selectedShop) {
+        setError('店舗を選択してください');
+        setLoading(false);
+        return;
+      }
+
       // バリデーション
       if (!startHour || !startMinute || !endHour || !endMinute) {
         setError('開始時刻と終了時刻を入力してください');
@@ -241,6 +257,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
           .from('shifts')
           .select('id')
           .eq('therapist_id', selectedTherapistId)
+          .eq('shop_id', selectedShop.id)
           .eq('date', selectedDate);
 
         if (existingShifts && existingShifts.length > 0) {
@@ -256,7 +273,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({
             {
               therapist_id: selectedTherapistId,
               room_id: roomId || null,
-              store_id: null,
+              shop_id: selectedShop.id,
               date: selectedDate,
               start_time: startTime,
               end_time: endTime,

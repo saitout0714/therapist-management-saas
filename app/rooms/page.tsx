@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useShop } from '@/app/contexts/ShopContext';
 
 interface Room {
   id: string;
@@ -11,6 +12,7 @@ interface Room {
 }
 
 export default function RoomsList() {
+  const { selectedShop } = useShop();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -19,13 +21,15 @@ export default function RoomsList() {
 
   useEffect(() => {
     fetchRooms();
-  }, []);
+  }, [selectedShop]);
 
   const fetchRooms = async () => {
+    if (!selectedShop) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
+      .eq('shop_id', selectedShop.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -104,7 +108,17 @@ export default function RoomsList() {
       return;
     }
 
-    const { error } = await supabase.from('rooms').insert([formData]);
+    if (!selectedShop) {
+      alert('店舗を選択してください');
+      return;
+    }
+
+    const { error } = await supabase.from('rooms').insert([
+      {
+        ...formData,
+        shop_id: selectedShop.id,
+      },
+    ]);
 
     if (error) {
       alert('登録に失敗しました: ' + error.message);

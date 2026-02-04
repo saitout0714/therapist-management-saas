@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 import Link from 'next/link'
 
 type Customer = {
@@ -30,6 +31,7 @@ const statusStyles: Record<string, string> = {
 }
 
 export default function CustomersPage() {
+  const { selectedShop } = useShop()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,15 +47,21 @@ export default function CustomersPage() {
 
   useEffect(() => {
     fetchCustomers()
-  }, [])
+  }, [selectedShop])
 
   const fetchCustomers = async () => {
+    if (!selectedShop) return
     try {
       const [customersRes, reservationsRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone, created_at').order('created_at', { ascending: false }),
+        supabase
+          .from('customers')
+          .select('id, name, email, phone, created_at')
+          .eq('shop_id', selectedShop.id)
+          .order('created_at', { ascending: false }),
         supabase
           .from('reservations')
           .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists(name), course:courses(name)`)
+          .eq('shop_id', selectedShop.id)
           .order('date', { ascending: false })
           .order('start_time', { ascending: false }),
       ])

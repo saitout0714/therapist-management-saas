@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 
 type Option = {
   id: string
@@ -15,6 +16,7 @@ type Option = {
 }
 
 export default function OptionsPage() {
+  const { selectedShop } = useShop()
   const [options, setOptions] = useState<Option[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -32,13 +34,15 @@ export default function OptionsPage() {
 
   useEffect(() => {
     fetchOptions()
-  }, [])
+  }, [selectedShop])
 
   const fetchOptions = async () => {
     try {
+      if (!selectedShop) return
       const { data, error } = await supabase
         .from('options')
         .select('*')
+        .eq('shop_id', selectedShop.id)
         .order('display_order', { ascending: true })
       
       if (error) throw error
@@ -68,10 +72,19 @@ export default function OptionsPage() {
         if (error) throw error
         alert('オプションを更新しました')
       } else {
+        if (!selectedShop) {
+          alert('店舗を選択してください')
+          return
+        }
         // 新規作成
         const { error } = await supabase
           .from('options')
-          .insert([formData])
+          .insert([
+            {
+              ...formData,
+              shop_id: selectedShop.id,
+            },
+          ])
         
         if (error) throw error
         alert('オプションを登録しました')

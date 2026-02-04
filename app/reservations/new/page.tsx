@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter } from 'next/navigation'
 
 type Customer = {
@@ -53,6 +54,7 @@ type Shift = {
 
 export default function NewReservationPage() {
   const router = useRouter()
+  const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [courses, setCourses] = useState<Course[]>([])
@@ -96,8 +98,25 @@ export default function NewReservationPage() {
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
 
   useEffect(() => {
-    fetchInitialData()
+    // URLパラメータを取得して初期値を設定
+    const params = new URLSearchParams(window.location.search)
+    const therapistId = params.get('therapist_id')
+    const date = params.get('date')
+    const time = params.get('time')
+
+    if (therapistId || date || time) {
+      setFormData(prev => ({
+        ...prev,
+        therapist_id: therapistId || prev.therapist_id,
+        date: date || prev.date,
+        start_time: time || prev.start_time,
+      }))
+    }
   }, [])
+
+  useEffect(() => {
+    fetchInitialData()
+  }, [selectedShop])
 
   useEffect(() => {
     calculatePrice()
@@ -109,15 +128,16 @@ export default function NewReservationPage() {
 
   useEffect(() => {
     fetchAvailableTherapists()
-  }, [formData.date])
+  }, [formData.date, selectedShop])
 
   const fetchInitialData = async () => {
+    if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone').order('name'),
-        supabase.from('courses').select('*').eq('is_active', true).order('display_order'),
-        supabase.from('options').select('*').eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name').order('name'),
+        supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('therapists').select('id, name').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').order('created_at', { ascending: false }).limit(1),
       ])
@@ -190,7 +210,7 @@ export default function NewReservationPage() {
   }
 
   const autoSelectConfirmedDesignation = async () => {
-    if (!formData.customer_id || !formData.therapist_id) return
+    if (!formData.customer_id || !formData.therapist_id || !selectedShop) return
 
     try {
       const { data, error } = await supabase
@@ -198,6 +218,7 @@ export default function NewReservationPage() {
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
+        .eq('shop_id', selectedShop.id)
         .limit(1)
 
       if (error) throw error
@@ -216,7 +237,7 @@ export default function NewReservationPage() {
   }
 
   const handleDesignationSearch = async () => {
-    if (!formData.customer_id || !formData.therapist_id) {
+    if (!formData.customer_id || !formData.therapist_id || !selectedShop) {
       alert('お客様と担当セラピストを選択してください')
       return
     }
@@ -228,6 +249,7 @@ export default function NewReservationPage() {
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
+        .eq('shop_id', selectedShop.id)
         .limit(1)
 
       if (error) throw error
@@ -252,10 +274,17 @@ export default function NewReservationPage() {
       return
     }
 
+    if (!selectedShop) {
+      setAvailableTherapistIds([])
+      setAvailableShifts([])
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('shifts')
         .select('therapist_id, start_time, end_time')
+        .eq('shop_id', selectedShop.id)
         .eq('date', formData.date)
 
       if (error) throw error
@@ -281,6 +310,11 @@ export default function NewReservationPage() {
       return
     }
 
+    if (!selectedShop) {
+      alert('店舗を選択してください')
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('customers')
@@ -288,6 +322,7 @@ export default function NewReservationPage() {
           name: newCustomer.name,
           email: newCustomer.email || null,
           phone: newCustomer.phone || null,
+          shop_id: selectedShop.id,
         }])
         .select()
 
@@ -336,6 +371,11 @@ export default function NewReservationPage() {
       return
     }
 
+    if (!selectedShop) {
+      alert('店舗を選択してください')
+      return
+    }
+
     try {
       let customerId = formData.customer_id
       if (!customerId && newCustomer.name) {
@@ -345,6 +385,7 @@ export default function NewReservationPage() {
             name: newCustomer.name,
             email: newCustomer.email || null,
             phone: newCustomer.phone || null,
+            shop_id: selectedShop.id,
           }])
           .select()
 
@@ -373,6 +414,7 @@ export default function NewReservationPage() {
           customer_id: customerId,
           therapist_id: formData.therapist_id,
           course_id: formData.course_id,
+          shop_id: selectedShop.id,
           date: formData.date,
           start_time: formData.start_time,
           end_time: endTime,
@@ -393,6 +435,7 @@ export default function NewReservationPage() {
         const { data: reservations } = await supabase
           .from('reservations')
           .select('id')
+          .eq('shop_id', selectedShop.id)
           .eq('customer_id', customerId)
           .eq('date', formData.date)
           .eq('start_time', formData.start_time)

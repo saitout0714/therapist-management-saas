@@ -29,39 +29,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ダッシュボード
           </Link>
           <Link
-            href="/therapists"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
-            onClick={onClose}
-          >
-            セラピスト
-          </Link>
-          <Link
             href="/shifts"
             className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             スケジュール
-          </Link>
-          <Link
-            href="/shifts/register"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
-            onClick={onClose}
-          >
-            シフト登録
-          </Link>
-          <Link
-            href="/rooms"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
-            onClick={onClose}
-          >
-            ルーム一覧
-          </Link>
-          <Link
-            href="/system"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
-            onClick={onClose}
-          >
-            システム
           </Link>
           <Link
             href="/reservations"
@@ -71,11 +43,46 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             予約管理
           </Link>
           <Link
+            href="/shifts/register"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            シフト登録
+          </Link>
+          <Link
+            href="/therapists"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            セラピスト
+          </Link>
+          <Link
             href="/customers"
             className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
             onClick={onClose}
           >
             顧客管理
+          </Link>
+          <Link
+            href="/system"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            システム管理
+          </Link>
+          <Link
+            href="/rooms"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            ルーム一覧
+          </Link>
+          <Link
+            href="/admin"
+            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            onClick={onClose}
+          >
+            店舗管理
           </Link>
           <Link
             href="/settings"

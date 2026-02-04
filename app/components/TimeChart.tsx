@@ -43,6 +43,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
+  const dragDistanceRef = useRef(0);
 
   // スクロール同期ハンドラー（コンテンツがスクロール時、ヘッダーを同期）
   const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -70,10 +71,19 @@ const TimeChart: React.FC<TimeChartProps> = ({
     
     const startScrollLeft = contentTimelineRef.current.scrollLeft;
     const startClientX = e.clientX;
+    dragDistanceRef.current = 0;
 
     // ドラッグ中のマウスムーブを処理
     const handleDragMove = (moveEvent: MouseEvent) => {
       if (!contentTimelineRef.current) return;
+
+      const distance = Math.abs(moveEvent.clientX - startClientX);
+      dragDistanceRef.current = distance;
+
+      // 5px以上の移動でドラッグと判定
+      if (distance > 5) {
+        setIsDragging(true);
+      }
 
       const deltaX = moveEvent.clientX - startClientX;
       const newScrollLeft = startScrollLeft - deltaX;
@@ -88,6 +98,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
     const handleDragEnd = () => {
       document.removeEventListener('mousemove', handleDragMove);
       document.removeEventListener('mouseup', handleDragEnd);
+      setIsDragging(false);
     };
 
     document.addEventListener('mousemove', handleDragMove);
@@ -337,14 +348,30 @@ const TimeChart: React.FC<TimeChartProps> = ({
               minWidth: 'fit-content',
             }}>
               {therapists.map((therapist) =>
-                timeSlots.map((_, idx) => {
+                timeSlots.map((timeSlot, idx) => {
                   const inShift = isCellInShift(therapist, idx);
                   const cellStyle = getCellBackgroundStyle(inShift);
+                  
+                  const handleCellClick = () => {
+                    // ドラッグ判定：5px以上の移動があった場合はクリック処理をしない
+                    if (isDragging || dragDistanceRef.current > 5) {
+                      return;
+                    }
+                    
+                    if (!date) return;
+                    // 予約登録ページにセラピストID、日付、時刻をクエリパラメータで渡す
+                    router.push(`/reservations/new?therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
+                  };
+                  
                   return (
                     <div
                       key={`${therapist.id}-${idx}`}
-                      className="h-20 border-r border-gray-200 border-b border-gray-100 hover:opacity-80 transition-opacity"
+                      className="h-20 border-r border-gray-200 border-b border-gray-100 hover:opacity-80 hover:bg-yellow-100 transition-all cursor-pointer"
                       style={cellStyle}
+                      onClick={handleCellClick}
+                      onMouseDown={(e) => {
+                        dragDistanceRef.current = 0;
+                      }}
                     />
                   );
                 })

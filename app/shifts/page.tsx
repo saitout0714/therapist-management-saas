@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useShop } from '@/app/contexts/ShopContext';
 import TimeChart from '../components/TimeChart';
 
 interface Shift {
@@ -36,6 +37,7 @@ interface Schedule {
 }
 
 export default function ShiftsPage() {
+  const { selectedShop } = useShop();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -61,14 +63,16 @@ export default function ShiftsPage() {
     fetchTherapists();
     fetchShifts();
     fetchReservations();
-  }, [filterDate]);
+  }, [filterDate, selectedShop]);
 
   const fetchTherapists = async () => {
+    if (!selectedShop) return;
     try {
       // すべてのセラピストを名前順で取得
       const { data: allTherapists, error: therapistsError } = await supabase
         .from('therapists')
         .select('id, name')
+        .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
@@ -80,6 +84,7 @@ export default function ShiftsPage() {
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
         .select('therapist_id, rooms(name), start_time, end_time')
+        .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
       if (shiftsError) {
@@ -153,10 +158,12 @@ export default function ShiftsPage() {
   };
 
   const fetchShifts = async () => {
+    if (!selectedShop) return;
     setLoading(true);
     let query = supabase
       .from('shifts')
       .select('id, therapist_id, room_id, date, start_time, end_time, therapists(name), rooms(name)')
+      .eq('shop_id', selectedShop.id)
       .order('date', { ascending: false });
 
     if (filterDate) {
@@ -173,6 +180,7 @@ export default function ShiftsPage() {
   };
 
   const fetchReservations = async () => {
+    if (!selectedShop) return;
     try {
       const { data, error } = await supabase
         .from('reservations')
@@ -185,6 +193,7 @@ export default function ShiftsPage() {
           end_time,
           customers(name)
         `)
+        .eq('shop_id', selectedShop.id)
         .eq('date', filterDate)
         .eq('status', 'confirmed');
 

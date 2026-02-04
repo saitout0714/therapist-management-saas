@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 type Customer = {
@@ -51,6 +52,7 @@ export default function EditReservationPage() {
   const searchParams = useSearchParams()
   const reservationId = params.id as string
   const fromPage = searchParams.get('from')
+  const { selectedShop } = useShop()
 
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -86,22 +88,23 @@ export default function EditReservationPage() {
 
   useEffect(() => {
     fetchInitialData()
-  }, [])
+  }, [selectedShop])
 
   useEffect(() => {
     calculatePrice()
   }, [formData, courses, options, therapistPricings, systemSettings])
 
   const fetchInitialData = async () => {
+    if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone').order('name'),
-        supabase.from('courses').select('*').eq('is_active', true).order('display_order'),
-        supabase.from('options').select('*').eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name').order('name'),
+        supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('therapists').select('id, name').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').order('created_at', { ascending: false }).limit(1),
-        supabase.from('reservations').select('*, reservation_options(option_id)').eq('id', reservationId).single(),
+        supabase.from('reservations').select('*, reservation_options(option_id)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
       ])
 
       if (customersRes.error) throw customersRes.error
@@ -187,7 +190,7 @@ export default function EditReservationPage() {
   }
 
   const handleDesignationSearch = async () => {
-    if (!formData.customer_id || !formData.therapist_id) {
+    if (!formData.customer_id || !formData.therapist_id || !selectedShop) {
       alert('お客様と担当セラピストを選択してください')
       return
     }
@@ -199,6 +202,7 @@ export default function EditReservationPage() {
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
+        .eq('shop_id', selectedShop.id)
         .neq('id', reservationId)
         .limit(1)
 
@@ -230,6 +234,11 @@ export default function EditReservationPage() {
 
     if (!formData.customer_id || !formData.course_id || !formData.therapist_id) {
       alert('必須項目を入力してください')
+      return
+    }
+
+    if (!selectedShop) {
+      alert('店舗を選択してください')
       return
     }
 

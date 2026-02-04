@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useShop } from '@/app/contexts/ShopContext';
 
 export default function RegisterRoom() {
   const router = useRouter();
+  const { selectedShop } = useShop();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -29,9 +31,19 @@ export default function RegisterRoom() {
     setError('');
 
     try {
+      if (!selectedShop) {
+        setError('店舗を選択してください');
+        return;
+      }
+
       const { error: insertError } = await supabase
         .from('rooms')
-        .insert([formData]);
+        .insert([
+          {
+            ...formData,
+            shop_id: selectedShop.id,
+          },
+        ]);
 
       if (insertError) {
         setError(insertError.message);

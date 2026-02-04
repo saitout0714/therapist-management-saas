@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 import Link from 'next/link'
 
 type Reservation = {
@@ -26,14 +27,16 @@ type RelatedData = {
 }
 
 export default function ReservationsPage() {
+  const { selectedShop } = useShop()
   const [reservations, setReservations] = useState<(Reservation & RelatedData)[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchReservations()
-  }, [])
+  }, [selectedShop])
 
   const fetchReservations = async () => {
+    if (!selectedShop) return
     try {
       const { data, error } = await supabase
         .from('reservations')
@@ -43,6 +46,7 @@ export default function ReservationsPage() {
           therapist:therapists(name),
           course:courses(name)
         `)
+        .eq('shop_id', selectedShop.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error

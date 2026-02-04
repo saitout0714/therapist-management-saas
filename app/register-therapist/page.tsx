@@ -1,27 +1,30 @@
 'use client' // ボタン操作などの動きがあるページにはこれが必要です
 
 import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { selectedShop } = useShop()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
+    if (!selectedShop) {
+      alert('店舗を選択してください')
+      setLoading(false)
+      return
+    }
+
     // Supabaseにデータを送る（INSERT）
     const { error } = await supabase
       .from('therapists')
-      .insert([{ name: name, store_id: '550e8400-e29b-41d4-a716-446655440000' }]) // Temporary store_id
+      .insert([{ name: name, shop_id: selectedShop.id }])
 
     if (error) {
       alert('エラーが発生しました: ' + error.message)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
 
 // Course型の定義
 type Course = {
@@ -46,6 +47,7 @@ type TherapistPricing = {
 
 type SystemSettings = {
   id: string
+  shop_id: string
   default_nomination_fee: number
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
@@ -53,7 +55,8 @@ type SystemSettings = {
 }
 
 export default function SystemPage() {
-  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'therapist_pricing' | 'pricing_defaults'>('courses')
+  const { selectedShop } = useShop()
+  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'pricing_defaults'>('courses')
   
   // Coursesの状態
   const [courses, setCourses] = useState<Course[]>([])
@@ -83,16 +86,7 @@ export default function SystemPage() {
     display_order: 0,
   })
 
-  // Therapist Pricingの状態
-  const [therapists, setTherapists] = useState<Therapist[]>([])
-  const [therapistPricings, setTherapistPricings] = useState<TherapistPricing[]>([])
-  const [pricingLoading, setPricingLoading] = useState(true)
-  const [editingPricing, setEditingPricing] = useState<TherapistPricing | null>(null)
-  const [pricingFormData, setPricingFormData] = useState({
-    nomination_fee: 0,
-    confirmed_nomination_fee: 0,
-    princess_reservation_fee: 0,
-  })
+
 
   // System Settingsの状態
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null)
@@ -106,16 +100,17 @@ export default function SystemPage() {
   useEffect(() => {
     fetchCourses()
     fetchOptions()
-    fetchTherapistsAndPricing()
     fetchSystemSettings()
-  }, [])
+  }, [selectedShop])
 
   // ===== Courses Functions =====
   const fetchCourses = async () => {
     try {
+      if (!selectedShop) return
       const { data, error } = await supabase
         .from('courses')
         .select('*')
+        .eq('shop_id', selectedShop.id)
         .order('display_order', { ascending: true })
       
       if (error) throw error
@@ -144,9 +139,18 @@ export default function SystemPage() {
         if (error) throw error
         alert('コースを更新しました')
       } else {
+        if (!selectedShop) {
+          alert('店舗を選択してください')
+          return
+        }
         const { error } = await supabase
           .from('courses')
-          .insert([coursesFormData])
+          .insert([
+            {
+              ...coursesFormData,
+              shop_id: selectedShop.id,
+            },
+          ])
         
         if (error) throw error
         alert('コースを登録しました')
@@ -207,9 +211,11 @@ export default function SystemPage() {
   // ===== Options Functions =====
   const fetchOptions = async () => {
     try {
+      if (!selectedShop) return
       const { data, error } = await supabase
         .from('options')
         .select('*')
+        .eq('shop_id', selectedShop.id)
         .order('display_order', { ascending: true })
       
       if (error) throw error
@@ -238,9 +244,18 @@ export default function SystemPage() {
         if (error) throw error
         alert('オプションを更新しました')
       } else {
+        if (!selectedShop) {
+          alert('店舗を選択してください')
+          return
+        }
         const { error } = await supabase
           .from('options')
-          .insert([optionsFormData])
+          .insert([
+            {
+              ...optionsFormData,
+              shop_id: selectedShop.id,
+            },
+          ])
         
         if (error) throw error
         alert('オプションを登録しました')
@@ -298,132 +313,16 @@ export default function SystemPage() {
     setShowOptionForm(false)
   }
 
-  // ===== Therapist Pricing Functions =====
-  const fetchTherapistsAndPricing = async () => {
-    try {
-      const [therapistsRes, pricingsRes] = await Promise.all([
-        supabase.from('therapists').select('id, name, created_at').order('name'),
-        supabase.from('therapist_pricing').select('*'),
-      ])
 
-      if (therapistsRes.error) throw therapistsRes.error
-      if (pricingsRes.error) throw pricingsRes.error
-
-      setTherapists(therapistsRes.data || [])
-      setTherapistPricings(pricingsRes.data || [])
-    } catch (error) {
-      console.error('セラピストと料金情報の取得に失敗:', error)
-      alert('セラピストと料金情報の取得に失敗しました')
-    } finally {
-      setPricingLoading(false)
-    }
-  }
-
-  const getPricingForTherapist = (therapistId: string): TherapistPricing | undefined => {
-    return therapistPricings.find((p) => p.therapist_id === therapistId)
-  }
-
-  const handlePricingEdit = (therapistId: string) => {
-    const pricing = getPricingForTherapist(therapistId)
-    setEditingPricing(
-      pricing || {
-        id: '',
-        therapist_id: therapistId,
-        nomination_fee: 0,
-        confirmed_nomination_fee: 0,
-        princess_reservation_fee: 0,
-        created_at: '',
-      }
-    )
-    setPricingFormData({
-      nomination_fee: pricing?.nomination_fee || 0,
-      confirmed_nomination_fee: pricing?.confirmed_nomination_fee || 0,
-      princess_reservation_fee: pricing?.princess_reservation_fee || 0,
-    })
-  }
-
-  const handlePricingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingPricing) {
-      alert('セラピストを選択してください')
-      return
-    }
-
-    try {
-      const therapistId = editingPricing.therapist_id
-      if (!therapistId) {
-        alert('セラピストIDが取得できませんでした')
-        return
-      }
-      const existing = getPricingForTherapist(therapistId)
-
-      if (existing) {
-        const { error } = await supabase
-          .from('therapist_pricing')
-          .update({
-            ...pricingFormData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-
-        if (error) throw error
-        alert('料金設定を更新しました')
-      } else {
-        const { error } = await supabase
-          .from('therapist_pricing')
-          .insert([
-            {
-              therapist_id: therapistId,
-              ...pricingFormData,
-            },
-          ])
-
-        if (error) throw error
-        alert('料金設定を登録しました')
-      }
-
-      resetPricingForm()
-      fetchTherapistsAndPricing()
-    } catch (error) {
-      console.error('保存に失敗:', error)
-      const err = error as { message?: string; code?: string; details?: string; hint?: string }
-      const message = err?.message || ''
-      const details = err?.details || ''
-      const hint = err?.hint || ''
-      const code = err?.code || ''
-      const fallback = !message && !details && !hint && !code ? JSON.stringify(error) : ''
-
-      if ((message + details + hint).includes('confirmed_nomination_fee')) {
-        alert('本指名料のカラムが未反映の可能性があります。マイグレーションを実行してください。')
-        return
-      }
-
-      alert(
-        `保存に失敗しました: ${message || '不明なエラー'}\n` +
-          `code: ${code || '-'}\n` +
-          `details: ${details || '-'}\n` +
-          `hint: ${hint || '-'}\n` +
-          (fallback ? `raw: ${fallback}` : '')
-      )
-    }
-  }
-
-  const resetPricingForm = () => {
-    setPricingFormData({
-      nomination_fee: 0,
-      confirmed_nomination_fee: 0,
-      princess_reservation_fee: 0,
-    })
-    setEditingPricing(null)
-  }
 
   // ===== System Settings Functions =====
   const fetchSystemSettings = async () => {
     try {
+      if (!selectedShop) return
       const { data, error } = await supabase
         .from('system_settings')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('shop_id', selectedShop.id)
         .limit(1)
 
       if (error) throw error
@@ -445,6 +344,11 @@ export default function SystemPage() {
   const handleSettingsSave = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      if (!selectedShop) {
+        alert('店舗を選択してください')
+        return
+      }
+
       if (systemSettings?.id) {
         const { error } = await supabase
           .from('system_settings')
@@ -462,6 +366,7 @@ export default function SystemPage() {
           .insert([
             {
               ...settingsFormData,
+              shop_id: selectedShop.id,
             },
           ])
 
@@ -474,6 +379,100 @@ export default function SystemPage() {
       console.error('保存に失敗:', error)
       alert('保存に失敗しました')
     }
+  }
+
+  // ===== Shops Functions =====
+  const fetchShops = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shops')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      setShops(data || [])
+    } catch (error) {
+      console.error('店舗の取得に失敗:', error)
+      alert('店舗の取得に失敗しました')
+    } finally {
+      setShopsLoading(false)
+    }
+  }
+
+  const handleShopSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      if (editingShop) {
+        const { error } = await supabase
+          .from('shops')
+          .update({
+            ...shopFormData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingShop.id)
+
+        if (error) throw error
+        alert('店舗を更新しました')
+      } else {
+        const { error } = await supabase
+          .from('shops')
+          .insert([
+            {
+              ...shopFormData,
+            },
+          ])
+
+        if (error) throw error
+        alert('店舗を登録しました')
+      }
+
+      resetShopForm()
+      fetchShops()
+      refreshShops()
+    } catch (error) {
+      console.error('保存に失敗:', error)
+      alert('保存に失敗しました')
+    }
+  }
+
+  const handleShopEdit = (shop: Shop) => {
+    setEditingShop(shop)
+    setShopFormData({
+      name: shop.name,
+      description: shop.description || '',
+      is_active: shop.is_active,
+    })
+    setShowShopForm(true)
+  }
+
+  const handleShopDelete = async (id: string) => {
+    if (!confirm('本当に削除しますか？')) return
+
+    try {
+      const { error } = await supabase
+        .from('shops')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      alert('店舗を削除しました')
+      fetchShops()
+      refreshShops()
+    } catch (error) {
+      console.error('削除に失敗:', error)
+      alert('削除に失敗しました')
+    }
+  }
+
+  const resetShopForm = () => {
+    setShopFormData({
+      name: '',
+      description: '',
+      is_active: true,
+    })
+    setEditingShop(null)
+    setShowShopForm(false)
   }
 
   return (
@@ -503,16 +502,6 @@ export default function SystemPage() {
           オプション管理
         </button>
         <button
-          onClick={() => setActiveTab('therapist_pricing')}
-          className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
-            activeTab === 'therapist_pricing'
-              ? 'text-blue-600 border-blue-600'
-              : 'text-gray-600 border-transparent hover:text-gray-900'
-          }`}
-        >
-          セラピスト料金設定
-        </button>
-        <button
           onClick={() => setActiveTab('pricing_defaults')}
           className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
             activeTab === 'pricing_defaults'
@@ -520,7 +509,7 @@ export default function SystemPage() {
               : 'text-gray-600 border-transparent hover:text-gray-900'
           }`}
         >
-          料金デフォルト
+          指名料管理
         </button>
       </div>
 
@@ -888,145 +877,11 @@ export default function SystemPage() {
         </div>
       )}
 
-      {/* セラピスト料金設定タブ */}
-      {activeTab === 'therapist_pricing' && (
-        <div>
-          <h2 className="text-xl font-semibold mb-6">セラピスト料金設定</h2>
 
-          {pricingLoading ? (
-            <div className="text-center text-gray-500">読み込み中...</div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">セラピスト名</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">指名料（円）</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">本指名料（円）</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">姫予約料金（円）</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {therapists.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                        セラピストが登録されていません
-                      </td>
-                    </tr>
-                  ) : (
-                    therapists.map((therapist) => {
-                      const pricing = getPricingForTherapist(therapist.id)
-                      return (
-                        <tr key={therapist.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{therapist.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">¥{(pricing?.nomination_fee || 0).toLocaleString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">¥{(pricing?.confirmed_nomination_fee || 0).toLocaleString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">¥{(pricing?.princess_reservation_fee || 0).toLocaleString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => handlePricingEdit(therapist.id)}
-                              className="text-blue-600 hover:text-blue-900 font-semibold"
-                            >
-                              編集
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* 料金編集モーダル */}
-          {editingPricing && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 mt-8">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full mx-4">
-                <h3 className="text-lg font-bold mb-4">
-                  {therapists.find((t) => t.id === editingPricing.therapist_id)?.name || ''} - 料金設定
-                </h3>
-                <form onSubmit={handlePricingSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">指名料（円）</label>
-                    <input
-                      type="number"
-                      value={pricingFormData.nomination_fee}
-                      onChange={(e) =>
-                        setPricingFormData({
-                          ...pricingFormData,
-                          nomination_fee: Number(e.target.value || 0),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded"
-                      min="0"
-                      step="100"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">初回利用時に適用される指名料です</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">本指名料（円）</label>
-                    <input
-                      type="number"
-                      value={pricingFormData.confirmed_nomination_fee}
-                      onChange={(e) =>
-                        setPricingFormData({
-                          ...pricingFormData,
-                          confirmed_nomination_fee: Number(e.target.value || 0),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded"
-                      min="0"
-                      step="100"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">リピート利用時に適用される本指名料です</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">姫予約料金（円）</label>
-                    <input
-                      type="number"
-                      value={pricingFormData.princess_reservation_fee}
-                      onChange={(e) =>
-                        setPricingFormData({
-                          ...pricingFormData,
-                          princess_reservation_fee: Number(e.target.value || 0),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded"
-                      min="0"
-                      step="100"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">姫予約時に適用される料金です</p>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={resetPricingForm}
-                      className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                    >
-                      キャンセル
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      保存
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {activeTab === 'pricing_defaults' && (
         <div>
-          <h2 className="text-xl font-semibold mb-6">料金デフォルト設定</h2>
+          <h2 className="text-xl font-semibold mb-6">指名料管理</h2>
           {settingsLoading ? (
             <div className="text-center text-gray-500">読み込み中...</div>
           ) : (

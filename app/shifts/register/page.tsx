@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { useShop } from '@/app/contexts/ShopContext';
 import WeeklyShiftCalendar from '../../components/WeeklyShiftCalendar';
 
 interface Shift {
@@ -20,6 +21,7 @@ interface Therapist {
 }
 
 export default function RegisterShift() {
+  const { selectedShop } = useShop();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,13 +29,15 @@ export default function RegisterShift() {
   useEffect(() => {
     fetchTherapists();
     fetchShifts();
-  }, []);
+  }, [selectedShop]);
 
   const fetchTherapists = async () => {
+    if (!selectedShop) return;
     try {
       const { data: therapistsData, error: therapistsError } = await supabase
         .from('therapists')
         .select('id, name, order')
+        .eq('shop_id', selectedShop.id)
         .order('order', { ascending: true, nullsFirst: false });
 
       if (therapistsError) {
@@ -56,10 +60,12 @@ export default function RegisterShift() {
   };
 
   const fetchShifts = async () => {
+    if (!selectedShop) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('shifts')
       .select('id, therapist_id, room_id, date, start_time, end_time')
+      .eq('shop_id', selectedShop.id)
       .order('date', { ascending: false });
 
     setLoading(false);

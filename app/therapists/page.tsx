@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
+import { useShop } from "@/app/contexts/ShopContext";
 
 export default function TherapistsPage() {
+  const { selectedShop } = useShop();
   const [therapists, setTherapists] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -143,10 +140,16 @@ export default function TherapistsPage() {
     }
     setError(null);
     
+    if (!selectedShop) {
+      setError("店舗を選択してください");
+      return;
+    }
+    
     // 現在の最大orderを取得
     const { data: maxOrderData } = await supabase
       .from("therapists")
       .select("order")
+      .eq("shop_id", selectedShop.id)
       .order("order", { ascending: false })
       .limit(1);
     
@@ -164,7 +167,7 @@ export default function TherapistsPage() {
         bust: editProfile.bust ? Number(editProfile.bust) : null,
         waist: editProfile.waist ? Number(editProfile.waist) : null,
         hip: editProfile.hip ? Number(editProfile.hip) : null,
-        store_id: "550e8400-e29b-41d4-a716-446655440000",
+        shop_id: selectedShop.id,
         order: nextOrder,
       }])
       .select();
@@ -196,9 +199,12 @@ export default function TherapistsPage() {
 
   // 一覧取得
   const fetchTherapists = async () => {
+    if (!selectedShop) return;
+    
     const { data, error } = await supabase
       .from("therapists")
       .select("*")
+      .eq("shop_id", selectedShop.id)
       .order("order", { ascending: true, nullsFirst: false });
     if (error) {
       setError(error.message);
@@ -261,16 +267,23 @@ export default function TherapistsPage() {
 
   useEffect(() => {
     fetchTherapists();
-  }, []);
+  }, [selectedShop]);
 
   // 登録処理
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (!selectedShop) {
+      setError("店舗を選択してください");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("therapists")
-      .insert([{ name: name, store_id: "550e8400-e29b-41d4-a716-446655440000" }]);
+      .insert([{ name: name, shop_id: selectedShop.id }]);
     if (error) {
       setError(error.message);
     } else {
