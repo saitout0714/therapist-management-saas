@@ -66,7 +66,7 @@ export default function ReservationsPage() {
     try {
       // 関連するオプションを削除
       await supabase.from('reservation_options').delete().eq('reservation_id', id)
-      
+
       // 予約を削除
       const { error } = await supabase
         .from('reservations')
@@ -101,11 +101,11 @@ export default function ReservationsPage() {
   }
 
   if (loading) {
-    return <div className="p-8">読み込み中...</div>
+    return <div className="p-4 md:p-8">読み込み中...</div>
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">予約管理</h1>
         <Link
@@ -118,99 +118,99 @@ export default function ReservationsPage() {
 
       {/* 予約一覧 */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">登録日時</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">予約日</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">時間</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">お客様</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">セラピスト</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">コース</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">指名</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">料金</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状態</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {reservations.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-max">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
-                  予約がありません
-                </td>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">登録日時</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">予約日</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">時間</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">お客様</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">セラピスト</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">コース</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">指名</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">料金</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状態</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
               </tr>
-            ) : (
-              reservations.map((reservation) => (
-                <tr key={reservation.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {new Date(reservation.created_at).toLocaleString('ja-JP', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {reservation.date}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {reservation.start_time} - {reservation.end_time}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {reservation.customer?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {reservation.therapist?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {reservation.course?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      reservation.designation_type === 'free'
-                        ? 'bg-gray-100 text-gray-800'
-                        : reservation.designation_type === 'nomination'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-purple-100 text-purple-800'
-                    }`}>
-                      {getDesignationLabel(reservation.designation_type)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    ¥{reservation.total_price.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      reservation.status === 'confirmed'
-                        ? 'bg-green-100 text-green-800'
-                        : reservation.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {getStatusLabel(reservation.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                    <Link
-                      href={`/reservations/${reservation.id}/edit`}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      編集
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(reservation.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      削除
-                    </button>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {reservations.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                    予約がありません
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                reservations.map((reservation) => (
+                  <tr key={reservation.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {new Date(reservation.created_at).toLocaleString('ja-JP', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {reservation.date}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {reservation.start_time} - {reservation.end_time}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {reservation.customer?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {reservation.therapist?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {reservation.course?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 text-xs rounded-full ${reservation.designation_type === 'free'
+                        ? 'bg-gray-100 text-gray-800'
+                        : reservation.designation_type === 'nomination'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-purple-100 text-purple-800'
+                        }`}>
+                        {getDesignationLabel(reservation.designation_type)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      ¥{reservation.total_price.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 text-xs rounded-full ${reservation.status === 'confirmed'
+                        ? 'bg-green-100 text-green-800'
+                        : reservation.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}>
+                        {getStatusLabel(reservation.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                      <Link
+                        href={`/reservations/${reservation.id}/edit`}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        編集
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(reservation.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

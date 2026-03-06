@@ -9,8 +9,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc; /* bg-slate-50 */
+  --foreground: #0f172a; /* text-slate-900 */
 }
 
 @theme inline {

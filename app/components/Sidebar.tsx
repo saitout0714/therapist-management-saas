@@ -13,83 +13,82 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-36 bg-white shadow-lg transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}
       >
-        <div className="flex items-center justify-center h-16 bg-blue-600 text-white">
-          <h1 className="text-base font-bold">管理システム</h1>
+        <div className="flex items-center justify-center h-16 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
+          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 tracking-tight">管理システム</h1>
         </div>
-        <nav className="mt-4">
+        <nav className="mt-4 px-3 space-y-1">
           <Link
             href="/"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            ダッシュボード
+            <span className="truncate">ダッシュボード</span>
           </Link>
           <Link
             href="/shifts"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            スケジュール
+            <span className="truncate">スケジュール</span>
           </Link>
           <Link
             href="/reservations"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            予約管理
+            <span className="truncate">予約管理</span>
           </Link>
           <Link
             href="/shifts/register"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            シフト登録
+            <span className="truncate">シフト登録</span>
           </Link>
           <Link
             href="/therapists"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            セラピスト
+            <span className="truncate">セラピスト</span>
           </Link>
           <Link
             href="/customers"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            顧客管理
+            <span className="truncate">顧客管理</span>
           </Link>
           <Link
             href="/system"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            システム管理
+            <span className="truncate">システム管理</span>
           </Link>
           <Link
             href="/rooms"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            ルーム一覧
+            <span className="truncate">ルーム一覧</span>
           </Link>
           <Link
             href="/admin"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            店舗管理
+            <span className="truncate">店舗管理</span>
           </Link>
           <Link
             href="/settings"
-            className="block px-3 py-2 text-gray-700 hover:bg-gray-200 text-sm"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
-            設定
+            <span className="truncate">設定</span>
           </Link>
         </nav>
       </div>

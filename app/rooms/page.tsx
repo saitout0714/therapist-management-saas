@@ -130,124 +130,140 @@ export default function RoomsList() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">ルーム一覧</h1>
+    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム管理</h1>
+            <p className="text-sm text-slate-500 mt-1">店舗に紐づくルーム（部屋）の登録・編集を行います。</p>
+          </div>
           <button
             onClick={handleAddRoom}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center gap-2"
           >
-            ルームを追加
+            <span className="text-lg leading-none">+</span>
+            <span>新規ルーム登録</span>
           </button>
         </div>
 
         {loading ? (
-          <div className="text-center py-8">読み込み中...</div>
+          <div className="flex justify-center items-center py-20 text-indigo-600">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <span className="ml-3 font-medium">読み込み中...</span>
+          </div>
         ) : rooms.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-            ルームが登録されていません
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-slate-800 mb-2">ルームが登録されていません</h3>
+            <p className="text-slate-500">右上の「新規ルーム登録」ボタンから、店舗のルームを追加してください。</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">
-                    ルーム名
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">
-                    説明
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {rooms.map((room) => (
-                  <tr key={room.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {room.name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {room.description || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => openEditModal(room)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          編集
-                        </button>
-                        <button
-                          onClick={() => handleDelete(room.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          削除
-                        </button>
-                      </div>
-                    </td>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
+                    <th className="px-6 py-4 whitespace-nowrap">ルーム名</th>
+                    <th className="px-6 py-4 whitespace-nowrap">説明</th>
+                    <th className="px-6 py-4 whitespace-nowrap w-32 text-center">操作</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rooms.map((room) => (
+                    <tr key={room.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <span className="font-medium text-slate-800">{room.name}</span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {room.description || <span className="text-slate-400 italic">未設定</span>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditModal(room)}
+                            className="text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors"
+                          >
+                            編集
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            onClick={() => handleDelete(room.id)}
+                            className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
       {/* 編集/新規作成モーダル */}
       {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {editingRoom ? 'ルームを編集' : '新しいルームを追加'}
-            </h2>
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={closeModal}
+          ></div>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 overflow-hidden transform transition-all">
+            <div className="p-6 md:p-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-6">
+                {editingRoom ? 'ルーム設定の編集' : '新規ルームの登録'}
+              </h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ルーム名 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ルーム名"
-                />
-              </div>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    ルーム名 <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: ルームA, VIPルーム等"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  説明
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ルームの説明（任意）"
-                  rows={3}
-                />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    説明 <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400"
+                    placeholder="設備や特徴などのメモ（内部のみ表示）"
+                    rows={4}
+                  />
+                </div>
               </div>
+            </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 rounded-md hover:bg-gray-400"
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={editingRoom ? handleSave : handleAddSave}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  保存
-                </button>
-              </div>
+            <div className="bg-slate-50 p-4 md:px-8 border-t border-slate-100 flex gap-3 justify-end">
+              <button
+                onClick={closeModal}
+                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={editingRoom ? handleSave : handleAddSave}
+                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95"
+              >
+                保存する
+              </button>
             </div>
           </div>
         </div>

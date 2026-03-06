@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 店舗情報を取得（owner の場合）
-      let shops = []
+      let shops: { id: string; name: string }[] = []
       if (dbUser.role === 'owner') {
         const { data: shopsData, error: shopsError } = await supabase
           .from('shop_owners')
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(userObj)
       localStorage.setItem('auth_user', JSON.stringify(userObj))
-      
+
       // クッキーにも保存（middleware用）
       document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=86400`
     } catch (error: any) {
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setUser(null)
       localStorage.removeItem('auth_user')
-      
+
       // クッキーも削除
       document.cookie = 'auth_user=; path=/; max-age=0'
     } catch (error) {
