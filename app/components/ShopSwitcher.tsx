@@ -59,8 +59,8 @@ export default function ShopSwitcher() {
                       setIsOpen(false)
                     }}
                     className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors border border-transparent ${selectedShop.id === shop.id
-                        ? 'bg-indigo-50 border-indigo-100 text-indigo-700 shadow-sm'
-                        : 'text-slate-700 hover:bg-slate-50 hover:border-slate-100'
+                      ? 'bg-indigo-50 border-indigo-100 text-indigo-700 shadow-sm'
+                      : 'text-slate-700 hover:bg-slate-50 hover:border-slate-100'
                       }`}
                   >
                     <div className="flex items-center justify-between">

@@ -1,8 +1,10 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
+import Link from 'next/link';
 
 interface Room {
   id: string;
@@ -15,15 +17,8 @@ export default function RoomsList() {
   const { selectedShop } = useShop();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '' });
 
-  useEffect(() => {
-    fetchRooms();
-  }, [selectedShop]);
-
-  const fetchRooms = async () => {
+  async function fetchRooms() {
     if (!selectedShop) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -38,50 +33,7 @@ export default function RoomsList() {
       setRooms((data as Room[]) || []);
     }
     setLoading(false);
-  };
-
-  const openEditModal = (room: Room) => {
-    setEditingRoom(room);
-    setFormData({ name: room.name, description: room.description });
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditingRoom(null);
-    setFormData({ name: '', description: '' });
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!editingRoom) return;
-    if (!formData.name.trim()) {
-      alert('ルーム名を入力してください');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('rooms')
-      .update({
-        name: formData.name,
-        description: formData.description,
-      })
-      .eq('id', editingRoom.id);
-
-    if (error) {
-      alert('更新に失敗しました: ' + error.message);
-    } else {
-      alert('ルームを更新しました');
-      closeModal();
-      fetchRooms();
-    }
-  };
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm('このルームを削除しますか？')) return;
@@ -96,54 +48,25 @@ export default function RoomsList() {
     }
   };
 
-  const handleAddRoom = () => {
-    setEditingRoom(null);
-    setFormData({ name: '', description: '' });
-    setModalOpen(true);
-  };
-
-  const handleAddSave = async () => {
-    if (!formData.name.trim()) {
-      alert('ルーム名を入力してください');
-      return;
-    }
-
-    if (!selectedShop) {
-      alert('店舗を選択してください');
-      return;
-    }
-
-    const { error } = await supabase.from('rooms').insert([
-      {
-        ...formData,
-        shop_id: selectedShop.id,
-      },
-    ]);
-
-    if (error) {
-      alert('登録に失敗しました: ' + error.message);
-    } else {
-      alert('ルームを登録しました');
-      closeModal();
-      fetchRooms();
-    }
-  };
+  useEffect(() => {
+    fetchRooms();
+  }, [selectedShop]);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム管理</h1>
             <p className="text-sm text-slate-500 mt-1">店舗に紐づくルーム（部屋）の登録・編集を行います。</p>
           </div>
-          <button
-            onClick={handleAddRoom}
+          <Link
+            href="/rooms/new"
             className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center gap-2"
           >
             <span className="text-lg leading-none">+</span>
             <span>新規ルーム登録</span>
-          </button>
+          </Link>
         </div>
 
         {loading ? (
@@ -174,22 +97,25 @@ export default function RoomsList() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rooms.map((room) => (
-                    <tr key={room.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr key={room.id} className="hover:bg-slate-100 transition-colors group">
                       <td className="px-6 py-4">
                         <span className="font-medium text-slate-800">{room.name}</span>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         {room.description || <span className="text-slate-400 italic">未設定</span>}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEditModal(room)}
-                            className="text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors"
+                          <Link
+                            href={`/rooms/${room.id}/edit`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
                           >
-                            編集
-                          </button>
-                          <span className="text-slate-300">|</span>
+                            <svg className="w-4 h-4 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span>編集</span>
+                          </Link>
+                          <span className="text-slate-300 hidden md:inline">|</span>
                           <button
                             onClick={() => handleDelete(room.id)}
                             className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
@@ -206,68 +132,8 @@ export default function RoomsList() {
           </div>
         )}
       </div>
-
-      {/* 編集/新規作成モーダル */}
-      {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-            onClick={closeModal}
-          ></div>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 overflow-hidden transform transition-all">
-            <div className="p-6 md:p-8">
-              <h2 className="text-xl font-bold text-slate-800 mb-6">
-                {editingRoom ? 'ルーム設定の編集' : '新規ルームの登録'}
-              </h2>
-
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    ルーム名 <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: ルームA, VIPルーム等"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    説明 <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400"
-                    placeholder="設備や特徴などのメモ（内部のみ表示）"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-4 md:px-8 border-t border-slate-100 flex gap-3 justify-end">
-              <button
-                onClick={closeModal}
-                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={editingRoom ? handleSave : handleAddSave}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95"
-              >
-                保存する
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+
+

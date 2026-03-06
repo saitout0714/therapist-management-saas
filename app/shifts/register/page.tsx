@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
@@ -26,12 +27,7 @@ export default function RegisterShift() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchTherapists();
-    fetchShifts();
-  }, [selectedShop]);
-
-  const fetchTherapists = async () => {
+  async function fetchTherapists() {
     if (!selectedShop) return;
     try {
       const { data: therapistsData, error: therapistsError } = await supabase
@@ -57,9 +53,9 @@ export default function RegisterShift() {
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
     }
-  };
+  }
 
-  const fetchShifts = async () => {
+  async function fetchShifts() {
     if (!selectedShop) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -74,18 +70,38 @@ export default function RegisterShift() {
     } else {
       setShifts((data as Shift[]) || []);
     }
-  };
+  }
 
   const handleShiftUpdate = () => {
     fetchShifts();
   };
 
+  useEffect(() => {
+    fetchTherapists();
+    fetchShifts();
+  }, [selectedShop]);
+
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
       <div className="w-full max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">シフト登録</h1>
-          <p className="text-sm text-slate-500 mt-1">店舗に所属するセラピストのシフト（出勤枠）を週単位で登録・編集します。</p>
+          <p className="text-sm text-slate-500 mt-1">店舗に所属するセラピストのシフト（出勤枠）を週単位で登録・編集できます。</p>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">登録対象</p>
+            <p className="text-xl font-bold text-slate-800 mt-2">{therapists.length} 名</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">登録済みシフト</p>
+            <p className="text-xl font-bold text-slate-800 mt-2">{shifts.length} 件</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">操作</p>
+            <p className="text-sm font-medium text-slate-600 mt-2">セルをクリックして登録・編集</p>
+          </div>
         </div>
 
         {/* ローディング */}
@@ -122,3 +138,5 @@ export default function RegisterShift() {
     </div>
   );
 }
+
+

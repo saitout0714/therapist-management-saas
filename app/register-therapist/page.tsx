@@ -21,7 +21,7 @@ export default function RegisterPage() {
       return
     }
 
-    // Supabaseにデータを送る（INSERT）
+    // Supabaseにデータを送信
     const { error } = await supabase
       .from('therapists')
       .insert([{ name: name, shop_id: selectedShop.id }])
@@ -29,8 +29,8 @@ export default function RegisterPage() {
     if (error) {
       alert('エラーが発生しました: ' + error.message)
     } else {
-      alert('登録に成功しました！')
-      router.push('/test') // 一覧ページへ戻る
+      alert('登録に成功しました')
+      router.push('/therapists')
     }
     setLoading(false)
   }
@@ -47,7 +47,7 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="例：さくらこ"
+              placeholder="例：さくら"
               required
             />
           </div>
@@ -63,3 +63,4 @@ export default function RegisterPage() {
     </div>
   )
 }
+

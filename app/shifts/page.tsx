@@ -12,8 +12,23 @@ interface Shift {
   date: string;
   start_time: string;
   end_time: string;
-  therapists: any;
-  rooms: any;
+  therapists: { name: string } | null;
+  rooms: { name: string } | null;
+}
+
+interface Reservation {
+  id: string;
+  therapist_id: string;
+  customer_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  customers: { name: string } | null;
+}
+
+interface TherapistRow {
+  id: string;
+  name: string;
 }
 
 interface Therapist {
@@ -39,7 +54,7 @@ interface Schedule {
 export default function ShiftsPage() {
   const { selectedShop } = useShop();
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [reservations, setReservations] = useState<any[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [filterDate, setFilterDate] = useState(() => {
     // デフォルトで当日の日付を設定
@@ -93,13 +108,13 @@ export default function ShiftsPage() {
       }
 
       // シフト情報をマップで処理
-      const shiftsMap = new Map();
-      (shiftsData || []).forEach((shift: any) => {
+      const shiftsMap = new Map<string, { therapist_id: string; start_time: string | null; end_time: string | null; rooms: { name: string } | null }>();
+      (shiftsData || []).forEach((shift) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
 
       // セラピストにシフト情報を追加
-      const therapistsWithShift = (allTherapists || []).map((therapist: any) => {
+      const therapistsWithShift = ((allTherapists || []) as TherapistRow[]).map((therapist) => {
         const shift = shiftsMap.get(therapist.id);
         const startTime = shift ? formatTimeToHHMM(shift.start_time) : null;
         const endTime = shift ? formatTimeToHHMM(shift.end_time) : null;
@@ -122,7 +137,7 @@ export default function ShiftsPage() {
         return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
       };
 
-      therapistsWithShift.sort((a: any, b: any) => {
+      therapistsWithShift.sort((a, b) => {
         const aMin = timeToMinutes(a.shiftStart);
         const bMin = timeToMinutes(b.shiftStart);
         // 開始時間が同じ場合は終了時間で比較
@@ -135,7 +150,7 @@ export default function ShiftsPage() {
       });
 
       console.log('=== shifts/page.tsx Therapists Order ===');
-      therapistsWithShift.forEach((t: any, i: number) => {
+      therapistsWithShift.forEach((t, i: number) => {
         console.log(`[${i}] ${t.name} (shiftStart: ${t.shiftStart}) (id: ${t.id.substring(0, 8)}...)`);
       });
 
@@ -212,7 +227,6 @@ export default function ShiftsPage() {
       startTime: reservation.start_time.slice(0, 5),
       endTime: reservation.end_time.slice(0, 5),
       title: `${reservation.customers?.name || 'unknown'}`,
-      color: '#10B981', // 緑色で予約を表示
       type: 'reservation' as const,
       reservationId: reservation.id,
       customerId: reservation.customer_id,
@@ -226,20 +240,20 @@ export default function ShiftsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2">
-      <div className="w-full">
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold text-gray-900">スケジュール</h1>
-          <p className="text-gray-600 mt-1">タイムチャート表示</p>
+    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+      <div className="w-full max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
+          <p className="text-sm text-slate-500 mt-1">タイムチャート表示</p>
         </div>
 
         {/* フィルターと表示切り替え */}
-        <div className="bg-white rounded-lg shadow p-2 mb-2">
-          <div className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
-            <div className="flex gap-2 items-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+            <div className="flex gap-2 items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
               <button
                 onClick={handlePrevDay}
-                className="px-3 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm font-medium"
+                className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
               >
                 ← 前日
               </button>
@@ -247,17 +261,18 @@ export default function ShiftsPage() {
                 type="date"
                 value={filterDate}
                 onChange={(e) => setFilterDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm"
               />
               <button
                 onClick={handleNextDay}
-                className="px-3 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm font-medium"
+                className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
               >
-                次日 →
+                翌日 →
               </button>
+              <div className="w-px h-6 bg-slate-200 mx-1"></div>
               <button
                 onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
               >
                 本日
               </button>
@@ -277,7 +292,7 @@ export default function ShiftsPage() {
           <div className="bg-white rounded-lg shadow-lg overflow-visible">
             <div className="h-[600px] w-full">
               {(() => {
-                // filterDateにシフトがあるセラピストのみ表示
+                // filterDate にシフトがあるセラピストのみ表示
                 const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
                 return therapistsWithShift.length > 0 ? (
                   <TimeChart therapists={therapistsWithShift} schedules={schedules} date={filterDate} />
@@ -294,3 +309,5 @@ export default function ShiftsPage() {
     </div>
   );
 }
+
+

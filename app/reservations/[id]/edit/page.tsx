@@ -46,6 +46,10 @@ type SystemSettings = {
   default_princess_reservation_fee: number
 }
 
+type ReservationOptionRow = {
+  option_id: string
+}
+
 export default function EditReservationPage() {
   const router = useRouter()
   const params = useParams()
@@ -123,7 +127,7 @@ export default function EditReservationPage() {
       setSystemSettings(settingsRes.data?.[0] || null)
 
       const reservation = reservationRes.data
-      const selectedOptions = reservation.reservation_options?.map((ro: any) => ro.option_id) || []
+      const selectedOptions = (reservation.reservation_options as ReservationOptionRow[] | undefined)?.map((ro) => ro.option_id) || []
 
       setFormData({
         customer_id: reservation.customer_id,
@@ -150,7 +154,7 @@ export default function EditReservationPage() {
     const selectedCourse = courses.find(c => c.id === formData.course_id)
     const therapistPricing = therapistPricings.find(p => p.therapist_id === formData.therapist_id)
 
-    let basePrice = selectedCourse?.base_price || 0
+    const basePrice = selectedCourse?.base_price || 0
     let optionsPrice = 0
     let duration = selectedCourse?.duration || 0
 
@@ -548,7 +552,7 @@ export default function EditReservationPage() {
               <label className="block text-sm font-semibold text-slate-700 mb-2">予約ステータス <span className="text-rose-500">*</span></label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pending' | 'confirmed' | 'cancelled' })}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                 required
               >

@@ -86,7 +86,7 @@ export default function NewReservationPage() {
   })
   const [customerSearch, setCustomerSearch] = useState('')
 
-  // 計算用の状態
+  // 計算用の状慁E
   const [calculatedPrice, setCalculatedPrice] = useState({
     basePrice: 0,
     optionsPrice: 0,
@@ -98,7 +98,7 @@ export default function NewReservationPage() {
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
 
   useEffect(() => {
-    // URLパラメータを取得して初期値を設定
+    // URLパラメータを取得して初期値を設宁E
     const params = new URLSearchParams(window.location.search)
     const therapistId = params.get('therapist_id')
     const date = params.get('date')
@@ -165,10 +165,9 @@ export default function NewReservationPage() {
 
   const calculatePrice = () => {
     const selectedCourse = courses.find(c => c.id === formData.course_id)
-    const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
     const therapistPricing = therapistPricings.find(p => p.therapist_id === formData.therapist_id)
 
-    let basePrice = selectedCourse?.base_price || 0
+    const basePrice = selectedCourse?.base_price || 0
     let optionsPrice = 0
     let duration = selectedCourse?.duration || 0
 
@@ -402,8 +401,7 @@ export default function NewReservationPage() {
         setNewCustomer({ show: false, name: '', email: '', phone: '' })
       }
 
-      // 終了時刻を計算
-      const [hours, minutes] = formData.start_time.split(':').map(Number)
+      // 終亁E��刻を計箁E
       const startDate = new Date(`${formData.date}T${formData.start_time}`)
       const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
       const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
@@ -471,10 +469,10 @@ export default function NewReservationPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-8">予約登録</h1>
+      <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-8">予紁E��録</h1>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        {/* 左側：入力フォーム */}
+        {/* 左側: 入力フォーム */}
         <div className="lg:col-span-2 space-y-6 lg:space-y-8">
           {/* お客様情報 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
@@ -498,7 +496,7 @@ export default function NewReservationPage() {
                     {!normalizedSearch ? (
                       <div className="px-3 py-2 text-sm text-gray-500">検索キーワードを入力してください</div>
                     ) : filteredCustomers.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
+                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がぁE��せん</div>
                     ) : (
                       filteredCustomers.slice(0, 50).map((customer) => (
                         <button
@@ -592,11 +590,11 @@ export default function NewReservationPage() {
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
-              日時
+              日晁E
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">日付 <span className="text-rose-500">*</span></label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">日仁E<span className="text-rose-500">*</span></label>
                 <input
                   type="date"
                   value={formData.date}
@@ -650,14 +648,14 @@ export default function NewReservationPage() {
             </div>
           </div>
 
-          {/* コース情報 */}
+          {/* コース惁E�� */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center mr-3">3</span>
               コース
             </h2>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">コース選択 <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">コース選抁E<span className="text-rose-500">*</span></label>
               <select
                 value={formData.course_id}
                 onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
@@ -667,14 +665,14 @@ export default function NewReservationPage() {
                 <option value="">選択してください</option>
                 {courses.map(course => (
                   <option key={course.id} value={course.id}>
-                    {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
+                    {course.name} - {course.duration}刁E¥{course.base_price.toLocaleString()}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* オプション選択 */}
+          {/* オプション選抁E*/}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">4</span>
@@ -714,7 +712,7 @@ export default function NewReservationPage() {
             </h2>
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">担当するセラピスト <span className="text-rose-500">*</span></label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">拁E��するセラピスチE<span className="text-rose-500">*</span></label>
                 <select
                   value={formData.therapist_id}
                   onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
@@ -737,14 +735,14 @@ export default function NewReservationPage() {
                     <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    選択した日付に出勤セラピストがいません
+                    選択した日付に出勤セラピストがぁE��せん
                   </p>
                 )}
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-semibold text-slate-700">指名タイプ <span className="text-rose-500">*</span></label>
+                  <label className="block text-sm font-semibold text-slate-700">持E��タイチE<span className="text-rose-500">*</span></label>
                   <button
                     type="button"
                     onClick={handleDesignationSearch}
@@ -805,7 +803,7 @@ export default function NewReservationPage() {
             </div>
           </div>
 
-          {/* 割引＆備考 */}
+          {/* 割引！E��老E*/}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3">6</span>
@@ -849,7 +847,7 @@ export default function NewReservationPage() {
           </div>
         </div>
 
-        {/* 右側：料金計算サマリー */}
+        {/* 右側: 料金計算サマリー */}
         <div className="col-span-1">
           <div className="bg-gradient-to-br from-white to-slate-50 p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 sticky top-28">
             <h2 className="text-xl font-bold text-slate-800 mb-6">予約サマリー</h2>
@@ -913,3 +911,5 @@ export default function NewReservationPage() {
     </div>
   )
 }
+
+

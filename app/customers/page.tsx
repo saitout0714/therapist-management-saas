@@ -410,9 +410,9 @@ export default function CustomersPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <span className={`px-2.5 py-1 font-bold rounded-lg ${r.status === '来店済み' ? 'bg-emerald-50 text-emerald-600' :
-                                  r.status === 'キャンセル' ? 'bg-rose-50 text-rose-600' :
-                                    r.status === '予約確定' ? 'bg-sky-50 text-sky-600' :
-                                      'bg-slate-100 text-slate-600'
+                                r.status === 'キャンセル' ? 'bg-rose-50 text-rose-600' :
+                                  r.status === '予約確定' ? 'bg-sky-50 text-sky-600' :
+                                    'bg-slate-100 text-slate-600'
                                 }`}>
                                 {r.status}
                               </span>

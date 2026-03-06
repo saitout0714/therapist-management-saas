@@ -22,6 +22,13 @@ type AuthContextType = {
   isAuthenticated: boolean
 }
 
+type ShopOwnerRow = {
+  shops: {
+    id: string
+    name: string
+  } | null
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,9 +86,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', dbUser.id)
 
         if (!shopsError && shopsData) {
-          shops = shopsData.map((so: any) => ({
-            id: so.shops.id,
-            name: so.shops.name,
+          shops = (shopsData as ShopOwnerRow[])
+            .filter((so) => so.shops !== null)
+            .map((so) => ({
+              id: so.shops!.id,
+              name: so.shops!.name,
           }))
         }
       }
@@ -98,9 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // クッキーにも保存（middleware用）
       document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=86400`
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('ログイン失敗:', error)
-      throw error
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error('ログインに失敗しました')
     } finally {
       setLoading(false)
     }

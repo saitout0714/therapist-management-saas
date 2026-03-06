@@ -75,7 +75,7 @@ export default function RegisterRoom() {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              ルーム名 <span className="text-red-500">*</span>
+              ルーム名<span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -114,3 +114,4 @@ export default function RegisterRoom() {
     </div>
   );
 }
+
