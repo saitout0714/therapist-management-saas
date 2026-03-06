@@ -22,7 +22,7 @@ export default function CoursesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
 
-  // フォームの状態
+  // フォームの状慁E
   const [formData, setFormData] = useState({
     name: '',
     duration: 60,
@@ -48,7 +48,7 @@ export default function CoursesPage() {
       if (error) throw error
       setCourses(data || [])
     } catch (error) {
-      console.error('コースの取得に失敗:', error)
+      console.error('コースの取得に失敁E', error)
       alert('コースの取得に失敗しました')
     } finally {
       setLoading(false)
@@ -73,10 +73,10 @@ export default function CoursesPage() {
         alert('コースを更新しました')
       } else {
         if (!selectedShop) {
-          alert('店舗を選択してください')
+          alert('店�Eを選択してください')
           return
         }
-        // 新規作成
+        // 新規作�E
         const { error } = await supabase
           .from('courses')
           .insert([
@@ -93,7 +93,7 @@ export default function CoursesPage() {
       resetForm()
       fetchCourses()
     } catch (error) {
-      console.error('保存に失敗:', error)
+      console.error('保存に失敁E', error)
       alert('保存に失敗しました')
     }
   }
@@ -112,7 +112,7 @@ export default function CoursesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('本当に削除しますか？')) return
+    if (!confirm('本当に削除しますか�E�E)) return
 
     try {
       const { error } = await supabase
@@ -124,7 +124,7 @@ export default function CoursesPage() {
       alert('コースを削除しました')
       fetchCourses()
     } catch (error) {
-      console.error('削除に失敗:', error)
+      console.error('削除に失敁E', error)
       alert('削除に失敗しました')
     }
   }
@@ -149,7 +149,7 @@ export default function CoursesPage() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">コース管理</h1>
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">コース管琁E/h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95"
@@ -158,15 +158,15 @@ export default function CoursesPage() {
         </button>
       </div>
 
-      {/* 登録・編集フォーム */}
+      {/* 登録・編雁E��ォーム */}
       {showForm && (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8 border-t-4 border-t-indigo-500">
           <h2 className="text-xl font-bold text-slate-800 mb-6">
-            {editingCourse ? 'コース編集' : 'コース新規登録'}
+            {editingCourse ? 'コース編雁E : 'コース新規登録'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">コース名</label>
+              <label className="block text-sm font-medium mb-1">コース吁E/label>
               <input
                 type="text"
                 value={formData.name}
@@ -178,7 +178,7 @@ export default function CoursesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">施術時間（分）</label>
+                <label className="block text-sm font-medium mb-1">施術時間（�E�E�E/label>
                 <input
                   type="number"
                   value={formData.duration}
@@ -191,7 +191,7 @@ export default function CoursesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">基本料金（円）</label>
+                <label className="block text-sm font-medium mb-1">基本料����E��E�E�E/label>
                 <input
                   type="number"
                   value={formData.base_price}
@@ -205,7 +205,7 @@ export default function CoursesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">説明</label>
+              <label className="block text-sm font-medium mb-1">説昁E/label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -216,7 +216,7 @@ export default function CoursesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">表示順</label>
+                <label className="block text-sm font-medium mb-1">表示頁E/label>
                 <input
                   type="number"
                   value={formData.display_order}
@@ -264,19 +264,19 @@ export default function CoursesPage() {
           <table className="w-full min-w-max text-left border-collapse">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">順序</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">コース名</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">頁E��E/th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">コース吁E/th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">時間</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料金</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状態</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">操作</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料��</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状慁E/th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">操佁E/th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {courses.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    コースが登録されていません
+                    コースが登録されてぁE��せん
                   </td>
                 </tr>
               ) : (
@@ -289,7 +289,7 @@ export default function CoursesPage() {
                         <div className="text-sm text-slate-500 mt-1">{course.description}</div>
                       )}
                     </td>
-                    <td className="px-6 py-5 whitespace-nowrap text-sm text-slate-700 font-medium">{course.duration}分</td>
+                    <td className="px-6 py-5 whitespace-nowrap text-sm text-slate-700 font-medium">{course.duration}刁E/td>
                     <td className="px-6 py-5 whitespace-nowrap text-sm text-slate-700 font-medium">¥{course.base_price.toLocaleString()}</td>
                     <td className="px-6 py-5 whitespace-nowrap">
                       <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${course.is_active
@@ -304,7 +304,7 @@ export default function CoursesPage() {
                         onClick={() => handleEdit(course)}
                         className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
                       >
-                        編集
+                        編雁E
                       </button>
                       <button
                         onClick={() => handleDelete(course.id)}
@@ -323,3 +323,5 @@ export default function CoursesPage() {
     </div>
   )
 }
+ 
+ 

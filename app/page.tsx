@@ -18,7 +18,7 @@ export default function Home() {
           </p>
           <div className="flex gap-4">
             <Link href="/reservations/new" className="px-6 py-2.5 bg-white text-indigo-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95">
-              予約を登録する
+              予紁E��登録する
             </Link>
           </div>
         </div>

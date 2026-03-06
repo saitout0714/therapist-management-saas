@@ -234,7 +234,7 @@ export default function AdminPage() {
                       {shops.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                            店舗が登録されていません。上のボタンから追加してください。
+                            店�Eが登録されてぁE��せん。上�Eボタンから追加してください、E
                           </td>
                         </tr>
                       ) : (
