@@ -11,7 +11,7 @@ export default function EditTherapistPage() {
   const params = useParams();
   const therapistId = params.id as string;
   useShop();
-  
+
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +22,12 @@ export default function EditTherapistPage() {
     bust: "",
     waist: "",
     hip: "",
-    nomination_fee: "",
-    confirmed_nomination_fee: "",
-    princess_reservation_fee: "",
+    rank_id: "",
   });
+
+  const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
+  const [nominationFees, setNominationFees] = useState<{ id: string, name: string }[]>([]);
+  const [feeOverrides, setFeeOverrides] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchTherapistData = async () => {
@@ -42,12 +44,34 @@ export default function EditTherapistPage() {
 
         if (therapistError) throw therapistError;
 
-        // Fetch pricing
-        const { data: pricing } = await supabase
-          .from("therapist_pricing")
-          .select("nomination_fee, confirmed_nomination_fee, princess_reservation_fee")
-          .eq("therapist_id", therapistId)
-          .maybeSingle();
+        // Fetch ranks & fees for shop
+        const { data: ranksData } = await supabase
+          .from("therapist_ranks")
+          .select("id, name")
+          .eq("shop_id", therapist.shop_id)
+          .order("display_order");
+
+        const { data: feesData } = await supabase
+          .from("nomination_fees")
+          .select("id, name")
+          .eq("shop_id", therapist.shop_id);
+
+        // Fetch overrides
+        const { data: overridesData } = await supabase
+          .from("therapist_fee_overrides")
+          .select("fee_type_id, override_price")
+          .eq("therapist_id", therapistId);
+
+        setRanks(ranksData || []);
+        setNominationFees(feesData || []);
+
+        const overridesObj: Record<string, string> = {};
+        if (overridesData) {
+          overridesData.forEach(o => {
+            overridesObj[o.fee_type_id] = String(o.override_price);
+          });
+        }
+        setFeeOverrides(overridesObj);
 
         setProfile({
           name: therapist.name || "",
@@ -56,9 +80,7 @@ export default function EditTherapistPage() {
           bust: therapist.bust ? String(therapist.bust) : "",
           waist: therapist.waist ? String(therapist.waist) : "",
           hip: therapist.hip ? String(therapist.hip) : "",
-          nomination_fee: pricing?.nomination_fee ? String(pricing.nomination_fee) : "",
-          confirmed_nomination_fee: pricing?.confirmed_nomination_fee ? String(pricing.confirmed_nomination_fee) : "",
-          princess_reservation_fee: pricing?.princess_reservation_fee ? String(pricing.princess_reservation_fee) : "",
+          rank_id: therapist.rank_id || "",
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "不明なエラー";
@@ -71,7 +93,7 @@ export default function EditTherapistPage() {
     fetchTherapistData();
   }, [therapistId]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
@@ -85,7 +107,7 @@ export default function EditTherapistPage() {
       return;
     }
 
-    const numFields = ["age", "height", "bust", "waist", "hip", "nomination_fee", "confirmed_nomination_fee", "princess_reservation_fee"];
+    const numFields = ["age", "height", "bust", "waist", "hip"];
     for (const field of numFields) {
       const val = profile[field as keyof typeof profile];
       if (val && isNaN(Number(val))) {
@@ -94,7 +116,25 @@ export default function EditTherapistPage() {
         return;
       }
     }
+
+    for (const feeId in feeOverrides) {
+      if (feeOverrides[feeId] && isNaN(Number(feeOverrides[feeId]))) {
+        setError(`個別料金は数値で入力してください`);
+        setLoading(false);
+        return;
+      }
+    }
     setError(null);
+
+    const overrideEntries = Object.entries(feeOverrides)
+      .filter(([_, price]) => price !== "")
+      .map(([feeId, price]) => ({
+        therapist_id: therapistId,
+        fee_type_id: feeId,
+        override_price: Number(price),
+      }));
+
+    const hasOverrides = overrideEntries.length > 0;
 
     // Update Supabase
     const { error: updateError } = await supabase
@@ -106,6 +146,8 @@ export default function EditTherapistPage() {
         bust: profile.bust ? Number(profile.bust) : null,
         waist: profile.waist ? Number(profile.waist) : null,
         hip: profile.hip ? Number(profile.hip) : null,
+        rank_id: profile.rank_id || null,
+        has_fee_override: hasOverrides,
       })
       .eq("id", therapistId);
 
@@ -115,21 +157,19 @@ export default function EditTherapistPage() {
       return;
     }
 
-    const pricingPayload = {
-      therapist_id: therapistId,
-      nomination_fee: profile.nomination_fee ? Number(profile.nomination_fee) : 0,
-      confirmed_nomination_fee: profile.confirmed_nomination_fee ? Number(profile.confirmed_nomination_fee) : 0,
-      princess_reservation_fee: profile.princess_reservation_fee ? Number(profile.princess_reservation_fee) : 0,
-    };
+    // Update overrides
+    await supabase.from("therapist_fee_overrides").delete().eq("therapist_id", therapistId);
 
-    const { error: pricingError } = await supabase
-      .from("therapist_pricing")
-      .upsert([pricingPayload], { onConflict: "therapist_id" });
+    if (hasOverrides) {
+      const { error: overrideError } = await supabase
+        .from("therapist_fee_overrides")
+        .insert(overrideEntries);
 
-    if (pricingError) {
-      setError("料金設定の保存に失敗しました: " + pricingError.message);
-      setLoading(false);
-      return;
+      if (overrideError) {
+        setError("例外料金設定の保存に失敗しました: " + overrideError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     setLoading(false);
@@ -256,55 +296,52 @@ export default function EditTherapistPage() {
               {/* 料金設定 */}
               <div className="space-y-5">
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  個別料金設定
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  ランク設定
+                </h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">所属ランク</label>
+                  <select
+                    name="rank_id"
+                    value={profile.rank_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
+                  >
+                    <option value="">ランクなし</option>
+                    {ranks.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex flex-col gap-1 mt-8">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>個別料金設定（例外料金）</span>
+                  </div>
+                  <span className="text-xs text-slate-400 font-normal">空欄の場合は店舗デフォルトの料金が適用されます。</span>
                 </h3>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex justify-between">
-                      <span>指名料</span>
-                      <span className="text-xs text-slate-400 font-normal">空欄=店舗デフォルト</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number" name="nomination_fee" value={profile.nomination_fee} onChange={handleChange}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 font-medium"
-                        min="0" step="100" placeholder="0"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">円</span>
+                  {nominationFees.map(fee => (
+                    <div key={fee.id}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">{fee.name}</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={feeOverrides[fee.id] || ""}
+                          onChange={(e) => setFeeOverrides({ ...feeOverrides, [fee.id]: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 font-medium"
+                          min="0" step="100" placeholder="デフォルト料金を適用"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">円</span>
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex justify-between">
-                      <span>本指名料</span>
-                      <span className="text-xs text-slate-400 font-normal">空欄=店舗デフォルト</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number" name="confirmed_nomination_fee" value={profile.confirmed_nomination_fee} onChange={handleChange}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 font-medium"
-                        min="0" step="100" placeholder="0"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">円</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex justify-between">
-                      <span>姫予約料</span>
-                      <span className="text-xs text-slate-400 font-normal">空欄=店舗デフォルト</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number" name="princess_reservation_fee" value={profile.princess_reservation_fee} onChange={handleChange}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 font-medium text-indigo-700"
-                        min="0" step="100" placeholder="0"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm font-bold">円</span>
-                    </div>
-                  </div>
+                  ))}
+                  {nominationFees.length === 0 && (
+                    <div className="text-sm text-slate-500 py-2">システム設定から指名料マスタを登録してください。</div>
+                  )}
                 </div>
               </div>
 

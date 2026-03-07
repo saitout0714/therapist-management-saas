@@ -30,7 +30,11 @@ export default function NewTherapistPage() {
     const { data: maxOrderData } = await supabase.from('therapists').select('order').eq('shop_id', selectedShop.id).order('order', { ascending: false }).limit(1)
     const nextOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order !== null ? maxOrderData[0].order + 1 : 0
 
-    const { error: insertError } = await supabase.from('therapists').insert([{ name, shop_id: selectedShop.id, order: nextOrder }])
+    const { data: insertData, error: insertError } = await supabase
+      .from('therapists')
+      .insert([{ name, shop_id: selectedShop.id, order: nextOrder }])
+      .select()
+      .single()
     setLoading(false)
 
     if (insertError) {
@@ -38,7 +42,11 @@ export default function NewTherapistPage() {
       return
     }
 
-    router.push('/therapists')
+    if (insertData) {
+      router.push(`/therapists/${insertData.id}/edit`)
+    } else {
+      router.push('/therapists')
+    }
   }
 
   return (

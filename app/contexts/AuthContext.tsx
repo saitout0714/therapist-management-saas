@@ -86,12 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', dbUser.id)
 
         if (!shopsError && shopsData) {
-          shops = (shopsData as ShopOwnerRow[])
+          shops = (shopsData as unknown as ShopOwnerRow[])
             .filter((so) => so.shops !== null)
             .map((so) => ({
               id: so.shops!.id,
               name: so.shops!.name,
-          }))
+            }))
         }
       }
 

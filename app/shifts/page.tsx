@@ -109,7 +109,7 @@ export default function ShiftsPage() {
 
       // シフト情報をマップで処理
       const shiftsMap = new Map<string, { therapist_id: string; start_time: string | null; end_time: string | null; rooms: { name: string } | null }>();
-      (shiftsData || []).forEach((shift) => {
+      (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
 
@@ -118,7 +118,7 @@ export default function ShiftsPage() {
         const shift = shiftsMap.get(therapist.id);
         const startTime = shift ? formatTimeToHHMM(shift.start_time) : null;
         const endTime = shift ? formatTimeToHHMM(shift.end_time) : null;
-        
+
         return {
           id: therapist.id,
           name: therapist.name,
@@ -162,7 +162,7 @@ export default function ShiftsPage() {
 
   const formatTimeToHHMM = (timeStr: string | null): string | null => {
     if (!timeStr) return null;
-    
+
     const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
     if (match) {
       const hours = String(parseInt(match[1])).padStart(2, '0');
@@ -190,7 +190,7 @@ export default function ShiftsPage() {
     if (error) {
       alert('Error fetching shifts: ' + error.message);
     } else {
-      setShifts((data as Shift[]) || []);
+      setShifts((data as unknown as Shift[]) || []);
     }
   };
 
@@ -213,7 +213,7 @@ export default function ShiftsPage() {
         .eq('status', 'confirmed');
 
       if (error) throw error;
-      setReservations(data || []);
+      setReservations((data as unknown as Reservation[]) || []);
     } catch (error) {
       console.error('予約の取得に失敗:', error);
     }

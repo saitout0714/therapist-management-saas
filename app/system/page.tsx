@@ -2,6 +2,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from 'next/link'
+import { CourseManagementTab } from './components/CourseManagementTab'
+import { OptionManagementTab } from './components/OptionManagementTab'
+import { TherapistRankManagementTab } from './components/TherapistRankManagementTab'
+import { NominationFeeManagementTab } from './components/NominationFeeManagementTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -17,7 +21,7 @@ type SystemSettings = {
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'pricing_defaults'>('pricing_defaults')
+  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'ranks' | 'nomination_fees' | 'pricing_defaults'>('courses')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [courseCount, setCourseCount] = useState(0)
   const [optionCount, setOptionCount] = useState(0)
@@ -107,73 +111,62 @@ export default function SystemPage() {
           <button
             type="button"
             onClick={() => setActiveTab('courses')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === 'courses'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'courses'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
           >
             コース管理
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('options')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === 'options'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'options'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
           >
             オプション管理
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('ranks')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'ranks'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            ランク設定
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('nomination_fees')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'nomination_fees'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            指名料ルール
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('pricing_defaults')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === 'pricing_defaults'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'pricing_defaults'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
           >
             指名料デフォルト
           </button>
         </div>
 
-        {activeTab === 'courses' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">コース管理</h2>
-                <p className="text-sm text-slate-500 mt-1">施術コースの料金・時間・表示順を編集します。</p>
-              </div>
-              <div className="text-sm text-slate-500 font-medium">登録件数: <span className="text-slate-800 font-bold">{courseCount}</span></div>
-            </div>
-            <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-sm text-slate-600">詳細な編集は専用ページで行えます。</p>
-              <Link href="/courses" className="inline-flex mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
-                コース管理ページへ
-              </Link>
-            </div>
-          </div>
-        )}
+        {activeTab === 'courses' && <CourseManagementTab />}
 
-        {activeTab === 'options' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">オプション管理</h2>
-                <p className="text-sm text-slate-500 mt-1">オプションの追加料金・追加時間を編集します。</p>
-              </div>
-              <div className="text-sm text-slate-500 font-medium">登録件数: <span className="text-slate-800 font-bold">{optionCount}</span></div>
-            </div>
-            <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-sm text-slate-600">詳細な編集は専用ページで行えます。</p>
-              <Link href="/options" className="inline-flex mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
-                オプション管理ページへ
-              </Link>
-            </div>
-          </div>
-        )}
+        {activeTab === 'options' && <OptionManagementTab />}
+
+        {activeTab === 'ranks' && <TherapistRankManagementTab />}
+
+        {activeTab === 'nomination_fees' && <NominationFeeManagementTab />}
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-3xl">
