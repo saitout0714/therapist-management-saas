@@ -1,9 +1,18 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
+require('dotenv').config({ path: '.env.local' });
 
-const projectUrl = 'https://pumkniqtgjsotsxhyvbq.supabase.co';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_PVxVPbhBIRoEOe1IyRx4zA_ofK5vaar';
+const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!projectUrl) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL が未設定です。.env.local を確認してください。');
+}
+
+if (!serviceRoleKey) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY が未設定です。.env.local に設定してください。');
+}
 
 const supabase = createClient(projectUrl, serviceRoleKey);
 

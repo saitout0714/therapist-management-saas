@@ -240,7 +240,7 @@ export default function ShiftsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="w-full max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
@@ -248,7 +248,7 @@ export default function ShiftsPage() {
         </div>
 
         {/* フィルターと表示切り替え */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
             <div className="flex gap-2 items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
               <button

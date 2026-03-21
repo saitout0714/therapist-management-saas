@@ -65,7 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('email', email)
         .limit(1)
 
-      if (userError || !userData || userData.length === 0) {
+      if (userError) {
+        // ネットワーク障害やSupabase設定不備は認証失敗と区別して表示する
+        throw new Error('認証サーバーに接続できません。SupabaseのURL/キー設定とネットワークをご確認ください')
+      }
+
+      if (!userData || userData.length === 0) {
         throw new Error('メールアドレスまたはパスワードが正しくありません')
       }
 
