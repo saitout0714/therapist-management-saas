@@ -35,7 +35,7 @@ export default function ReservationsPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('reservations')
-      .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists(name),course:courses(name)')
+      .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name)')
       .eq('shop_id', selectedShop.id)
       .order('created_at', { ascending: false })
 
