@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 mx-auto">
       <h1 className="text-2xl font-bold mb-8 text-slate-800 tracking-tight">ダッシュボード</h1>
 
       {/* ヒーローセクション（サマリ等を入れる想定のグラデーションカード） */}

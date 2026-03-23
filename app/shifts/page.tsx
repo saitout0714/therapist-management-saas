@@ -241,7 +241,7 @@ export default function ShiftsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-8">
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
           <p className="text-sm text-slate-500 mt-1">タイムチャート表示</p>

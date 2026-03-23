@@ -308,7 +308,7 @@ export default function EditReservationPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 mx-auto">
       <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-8">予約編集</h1>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">

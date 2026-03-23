@@ -109,7 +109,7 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">顧客管理</h1>

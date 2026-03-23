@@ -78,7 +78,7 @@ export default function ReservationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             <span className="ml-3 font-medium">読み込み中...</span>
@@ -90,7 +90,7 @@ export default function ReservationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">予約管理</h1>

@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { CourseManagementTab } from './components/CourseManagementTab'
 import { OptionManagementTab } from './components/OptionManagementTab'
 import { TherapistRankManagementTab } from './components/TherapistRankManagementTab'
-import { NominationFeeManagementTab } from './components/NominationFeeManagementTab'
+import { ShopBackRulesTab } from './components/ShopBackRulesTab'
+import { DiscountPoliciesTab } from './components/DiscountPoliciesTab'
+import { DeductionRulesTab } from './components/DeductionRulesTab'
+import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -21,7 +24,7 @@ type SystemSettings = {
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'ranks' | 'nomination_fees' | 'pricing_defaults'>('courses')
+  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_rules' | 'back_amounts' | 'discounts' | 'deductions'>('courses')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [courseCount, setCourseCount] = useState(0)
   const [optionCount, setOptionCount] = useState(0)
@@ -89,7 +92,7 @@ export default function SystemPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             <span className="ml-3 font-medium">読み込み中...</span>
@@ -101,7 +104,7 @@ export default function SystemPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
           <p className="text-sm text-slate-500 mt-1">サービス設定と店舗の初期料金設定を管理します。</p>
@@ -138,16 +141,52 @@ export default function SystemPage() {
           >
             ランク設定
           </button>
+
+          <div className="w-px h-8 bg-slate-200 mx-1 self-center" />
+
           <button
             type="button"
-            onClick={() => setActiveTab('nomination_fees')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'nomination_fees'
+            onClick={() => setActiveTab('back_rules')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'back_rules'
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
           >
-            指名料ルール
+            バック設定
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('back_amounts')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'back_amounts'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            固定額バック表
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('discounts')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'discounts'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            割引ルール
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('deductions')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'deductions'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            控除・手当
+          </button>
+
+          <div className="w-px h-8 bg-slate-200 mx-1 self-center" />
+
           <button
             type="button"
             onClick={() => setActiveTab('pricing_defaults')}
@@ -166,7 +205,15 @@ export default function SystemPage() {
 
         {activeTab === 'ranks' && <TherapistRankManagementTab />}
 
-        {activeTab === 'nomination_fees' && <NominationFeeManagementTab />}
+        {activeTab === 'back_rules' && <ShopBackRulesTab />}
+
+        {activeTab === 'back_amounts' && <CourseBackAmountsTab />}
+
+        {activeTab === 'discounts' && <DiscountPoliciesTab />}
+
+        {activeTab === 'deductions' && <DeductionRulesTab />}
+
+
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-3xl">

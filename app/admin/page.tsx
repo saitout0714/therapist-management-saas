@@ -119,7 +119,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">管理者ページ</h1>
           <p className="text-sm text-slate-500 mt-1">システムに登録されている全店舗の管理・追加を行います。</p>

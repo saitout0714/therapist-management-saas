@@ -53,12 +53,14 @@ export function NominationFeeManagementTab() {
         }
 
         const payload = { ...formData, shop_id: selectedShop.id, updated_at: new Date().toISOString() }
+        console.log('Sending payload:', payload)
         const result = editingFee
             ? await supabase.from('nomination_fees').update(payload).eq('id', editingFee.id)
             : await supabase.from('nomination_fees').insert([{ ...payload }])
 
         if (result.error) {
-            alert('保存に失敗しました')
+            console.error('保存エラー:', result.error)
+            alert('保存に失敗しました: ' + (result.error.message || JSON.stringify(result.error)))
             return
         }
 

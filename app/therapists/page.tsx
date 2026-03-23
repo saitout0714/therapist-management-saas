@@ -46,7 +46,7 @@ export default function TherapistsPage() {
     setDraggedId(null);
   };
 
-  // ドラチE��中に許可
+  // ドラッグ中に許可
   const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
