@@ -72,6 +72,7 @@ export type BackCalculationInput = {
   nominationFee: number
   options: ReservationOption[]
   discounts: ReservationDiscount[]
+  discountAmount?: number // Fallback for old/manual discounts
   date: string        // 'YYYY-MM-DD'
   startTime: string   // 'HH:MM'
 }
@@ -86,6 +87,8 @@ export type BackCalculationResult = {
   netBack: number
   shopRevenue: number
   totalPrice: number
+  totalDiscount: number
+  therapistDiscountBurden: number
   businessDate: string
   appliedRate: number | null  // 適用されたバック率（percentage方式の場合）
   calcMethod: string          // 計算方式の説明テキスト
@@ -137,9 +140,15 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 5b: 折半方式の場合は先に処理
   if (resolved.calcType === 'half_split') {
     const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
-    const totalDiscount = input.discounts.reduce((sum, d) => sum + d.applied_amount, 0)
+    const totalDiscount = (input.discounts && input.discounts.length > 0)
+      ? input.discounts.reduce((sum, d) => sum + d.applied_amount, 0)
+      : (input.discountAmount || 0)
     const totalSales = input.coursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
     const totalBack = applyRounding(totalSales * resolved.courseRate / 100, shopRule.rounding_method)
+
+    // In half_split, therapist effectively burdens a nominal share organically.
+    // Since it's already deducted from base value, we just record the full explicit burden as 0 
+    // so the UI doesn't double-deduct it.
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
@@ -153,6 +162,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       netBack: totalBack - deductionResult.deductions + deductionResult.allowances,
       shopRevenue: totalSales - totalBack,
       totalPrice: totalSales + totalDiscount,
+      totalDiscount: totalDiscount,
+      therapistDiscountBurden: 0, // Organically absorbed in the percentage
       businessDate,
       appliedRate: resolved.courseRate,
       calcMethod: `総売上折半方式（${resolved.courseRate}%）`,
@@ -161,13 +172,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 2: コースバック額の算出
   if (resolved.calcType === 'percentage') {
-    // 割引処理: split方式の場合は割引後で計算
+    // 割引処理: split方式でもここでは減算せず、Step 5で明示的な負担として処理する
+    // これにより「基本バック」の額を変更せず、UI上で別項目として表示可能にする
     let effectiveCoursePrice = input.coursePrice
-    for (const d of input.discounts) {
-      if (d.burden_type === 'split') {
-        effectiveCoursePrice -= d.applied_amount
-      }
-    }
     effectiveCoursePrice = Math.max(0, effectiveCoursePrice)
     courseBack = applyRounding(effectiveCoursePrice * resolved.courseRate / 100, shopRule.rounding_method)
     calcMethod = `パーセンテージ（${resolved.courseRate}%）`
@@ -232,16 +239,27 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
   }
 
-  // Step 5: 割引の負担処理（shop_only / therapist_only）
+  // Step 5: 割引の負担処理（shop_only / therapist_only / split）
   let shopDiscountBurden = 0
   let therapistDiscountBurden = 0
-  for (const d of input.discounts) {
-    if (d.burden_type === 'shop_only') {
-      shopDiscountBurden += d.applied_amount
-    } else if (d.burden_type === 'therapist_only') {
-      therapistDiscountBurden += d.applied_amount
+  let totalDiscount = 0
+
+  if (input.discounts && input.discounts.length > 0) {
+    for (const d of input.discounts) {
+      totalDiscount += d.applied_amount
+      if (d.burden_type === 'shop_only') {
+        shopDiscountBurden += d.applied_amount
+      } else if (d.burden_type === 'therapist_only') {
+        therapistDiscountBurden += d.applied_amount
+      } else if (d.burden_type === 'split') {
+        // 折半計算: バックの計算方式に関わらず、割引額の50%をセラピスト負担とする
+        therapistDiscountBurden += Math.floor(d.applied_amount / 2)
+        shopDiscountBurden += Math.ceil(d.applied_amount / 2)
+      }
     }
-    // 'split' は Step 2 で既に処理済み
+  } else if (input.discountAmount && input.discountAmount > 0) {
+    totalDiscount = input.discountAmount
+    shopDiscountBurden = input.discountAmount // Manual discounts default to shop ONLY burden
   }
 
   const totalBack = courseBack + optionBack + nominationBack - therapistDiscountBurden
@@ -250,7 +268,6 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
   // Step 7: 結果の構築
-  const totalDiscount = input.discounts.reduce((sum, d) => sum + d.applied_amount, 0)
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
   const totalPrice = input.coursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
 
@@ -267,6 +284,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     netBack: Math.max(0, netBack),
     shopRevenue: Math.max(0, shopRevenue),
     totalPrice: Math.max(0, totalPrice),
+    totalDiscount,
+    therapistDiscountBurden,
     businessDate,
     appliedRate: resolved.calcType === 'percentage' ? resolved.courseRate : null,
     calcMethod,

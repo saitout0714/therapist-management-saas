@@ -54,7 +54,7 @@ export default function CustomersPage() {
           .order('created_at', { ascending: false }),
         supabase
           .from('reservations')
-          .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists(name), course:courses(name)`)
+          .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists!reservations_therapist_id_fkey(name), course:courses(name)`)
           .eq('shop_id', selectedShop.id)
           .order('date', { ascending: false })
           .order('start_time', { ascending: false }),

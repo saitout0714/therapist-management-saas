@@ -7,7 +7,7 @@ import { useAuth } from '@/app/contexts/AuthContext'
 export default function LoginPage() {
   const router = useRouter()
   const { login, isAuthenticated, loading: authLoading } = useAuth()
-  const [email, setEmail] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login(loginId, password)
       router.push('/')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'ログインに失敗しました'
@@ -70,14 +70,14 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                メールアドレス
+                ログインID
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="your@email.com"
+                placeholder="IDを入力してください"
                 required
               />
             </div>
@@ -109,7 +109,7 @@ export default function LoginPage() {
           <div className="mt-8 pt-8 border-t border-gray-200">
             <p className="text-xs text-gray-600 mb-3 font-semibold">テストアカウント:</p>
             <div className="space-y-2 text-xs text-gray-600">
-              <p>メール: admin@example.com</p>
+              <p>ID: admin</p>
               <p>パス: admin123</p>
             </div>
           </div>

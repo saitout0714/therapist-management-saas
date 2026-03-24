@@ -1,0 +1,421 @@
+'use client'
+/* eslint-disable react-hooks/exhaustive-deps */
+
+import { useState, useEffect, useMemo } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
+import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
+
+type TherapistItem = {
+  id: string
+  name: string
+  rank_id: string | null
+  back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
+}
+
+type ReservationWithDetails = {
+  id: string
+  course_id: string
+  base_price: number
+  nomination_fee: number
+  discount_amount: number
+  designation_type: string
+  date: string
+  start_time: string
+  end_time: string
+  course: { name: string; duration: number } | null
+  customer: { name: string } | null
+  reservation_options: { option_id: string; price: number }[]
+  reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
+}
+
+type CalculatedRow = {
+  reservation: ReservationWithDetails
+  result: BackCalculationResult
+}
+
+export default function PayrollPage() {
+  const { selectedShop } = useShop()
+  const [therapists, setTherapists] = useState<TherapistItem[]>([])
+
+  // フォーム状態
+  const [targetDate, setTargetDate] = useState<string>(new Date().toLocaleDateString('ja-JP').split('/').join('-').replace(/\b\d\b/g, '0$&'))
+  const [selectedTherapistId, setSelectedTherapistId] = useState<string>('')
+
+  // 結果状態
+  const [loading, setLoading] = useState(false)
+  const [calculatedRows, setCalculatedRows] = useState<CalculatedRow[]>([])
+  const [hasSearched, setHasSearched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchTherapists() {
+      if (!selectedShop) {
+        setTherapists([])
+        return
+      }
+      const { data, error } = await supabase
+        .from('therapists')
+        .select('id, name, rank_id, back_calc_type')
+        .eq('shop_id', selectedShop.id)
+        .order('order', { ascending: true })
+
+      if (!error && data) {
+        setTherapists(data as TherapistItem[])
+      }
+    }
+    fetchTherapists()
+  }, [selectedShop])
+
+  const handleCalculate = async () => {
+    if (!selectedShop) return
+    if (!selectedTherapistId) {
+      setError('セラピストを選択してください')
+      return
+    }
+    if (!targetDate) {
+      setError('日付を選択してください')
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+    setHasSearched(false)
+
+    try {
+      const therapist = therapists.find(t => t.id === selectedTherapistId)
+      if (!therapist) throw new Error('セラピストが見つかりません')
+
+      // 指定日の予約を取得 (完了済みまたは確定済みのものを対象とするか要件次第だが一旦全て取得)
+      const { data: resData, error: resError } = await supabase
+        .from('reservations')
+        .select(`
+          id, course_id, base_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status,
+          course:courses(name, duration),
+          customer:customers(name),
+          reservation_options(option_id, price),
+          reservation_discounts(applied_amount, burden_type)
+        `)
+        .eq('shop_id', selectedShop.id)
+        .eq('therapist_id', selectedTherapistId)
+        .eq('date', targetDate)
+        .neq('status', 'cancelled') // キャンセルは除外
+        .order('start_time', { ascending: true })
+
+      if (resError) throw resError
+
+      const reservations = (resData as unknown) as ReservationWithDetails[]
+
+      const rows: CalculatedRow[] = []
+      for (const res of reservations) {
+        // コース未設定の予約はスキップされるか、0円計算になる
+        if (!res.course_id || !res.course) continue
+
+        const input: BackCalculationInput = {
+          shopId: selectedShop.id,
+          therapistId: therapist.id,
+          therapistRankId: therapist.rank_id,
+          therapistBackCalcType: therapist.back_calc_type,
+          courseId: res.course_id,
+          coursePrice: res.base_price || 0,
+          courseDuration: res.course.duration || 0,
+          designationType: res.designation_type || 'free',
+          nominationFee: res.nomination_fee || 0,
+          options: res.reservation_options || [],
+          discounts: res.reservation_discounts || [],
+          discountAmount: res.discount_amount || 0,
+          date: res.date,
+          startTime: res.start_time
+        }
+
+        const result = await calculateBack(input)
+        rows.push({ reservation: res, result })
+      }
+
+      setCalculatedRows(rows)
+      setHasSearched(true)
+    } catch (err: any) {
+      console.error(err)
+      setError('計算処理中にエラーが発生しました: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const { totalSales, totalBack, totalDeductions, totalAllowances, netPay } = useMemo(() => {
+    let sales = 0
+    let back = 0
+    let ded = 0
+    let all = 0
+    let net = 0
+
+    calculatedRows.forEach(({ result }) => {
+      sales += result.totalPrice
+      back += result.totalBack
+      // 予約単位の控除・手当
+      ded += result.deductions
+      all += result.allowances
+      net += result.netBack
+    })
+
+    return {
+      totalSales: sales,
+      totalBack: back,
+      totalDeductions: ded,
+      totalAllowances: all,
+      netPay: net
+    }
+  }, [calculatedRows])
+
+  const generateLineText = () => {
+    if (!hasSearched) return ''
+    const therapist = therapists.find(t => t.id === selectedTherapistId)
+    const therapistName = therapist ? therapist.name : '未選択'
+
+    // 日付フォーマット
+    const dateObj = new Date(targetDate)
+    const dateStr = `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`
+
+    let text = `お疲れ様です！本日の実績と報酬（バック）明細です。\n\n`
+    text += `【日付】 ${dateStr}\n`
+    text += `【セラピスト】 ${therapistName} さん\n\n`
+
+    if (calculatedRows.length === 0) {
+      text += `本日の予約はありませんでした。\n`
+      return text
+    }
+
+    calculatedRows.forEach((row, index) => {
+      const res = row.reservation
+      const r = row.result
+      text += `■ ${index + 1}予約目 (${res.start_time.slice(0, 5)}〜${res.end_time.slice(0, 5)}) ${res.customer?.name || 'お客様'}\n`
+      text += `・総売上: ¥${r.totalPrice.toLocaleString()}\n`
+      if (r.totalDiscount > 0) {
+        text += `  (うち割引: -¥${r.totalDiscount.toLocaleString()})\n`
+      }
+      text += `・バック計: ¥${r.netBack.toLocaleString()}\n`
+
+      let breakdown = `  (内訳: 基本¥${r.courseBack.toLocaleString()} / 指名¥${r.nominationBack.toLocaleString()} / OP¥${r.optionBack.toLocaleString()}`
+      if (r.therapistDiscountBurden > 0) {
+        breakdown += ` / 割引負担 -¥${r.therapistDiscountBurden.toLocaleString()}`
+      }
+      breakdown += `)\n\n`
+      text += breakdown
+    })
+
+    text += `------------------------\n`
+    text += `★ 本日合計売上: ¥${totalSales.toLocaleString()}\n`
+    text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
+    text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
+    text += `------------------------\n`
+
+    if (totalDeductions > 0 || totalAllowances > 0) {
+      text += `※控除・手当込みの最終金額です\n`
+      if (totalDeductions > 0) text += `  控除合計: -¥${totalDeductions.toLocaleString()}\n`
+      if (totalAllowances > 0) text += `  手当合計: +¥${totalAllowances.toLocaleString()}\n`
+    }
+
+    text += `\nご確認よろしくお願いいたします！`
+    return text
+  }
+
+  const handleCopy = () => {
+    const text = generateLineText()
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      alert('クリップボードにコピーしました！')
+    }).catch(err => {
+      console.error(err)
+      alert('コピーに失敗しました。')
+    })
+  }
+
+  const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v)
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">報酬・バック計算</h1>
+            <p className="text-sm text-slate-500 mt-1">セラピストごとの日次報酬明細を計算し、LINE動作用のテキストを出力します。</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium">
+            {error}
+          </div>
+        )}
+
+        {/* コントロールパネル */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 items-end">
+          <div className="flex-1 w-full relative">
+            <label className="block text-sm font-medium text-slate-700 mb-2">対象日</label>
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium"
+            />
+          </div>
+          <div className="flex-1 w-full relative">
+            <label className="block text-sm font-medium text-slate-700 mb-2">セラピスト</label>
+            <select
+              value={selectedTherapistId}
+              onChange={(e) => setSelectedTherapistId(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium"
+            >
+              <option value="">選択してください</option>
+              {therapists.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleCalculate}
+            disabled={loading || !selectedTherapistId || !targetDate}
+            className="w-full md:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '計算中...' : '報酬を計算する'}
+          </button>
+        </div>
+
+        {/* 結果エリア */}
+        {hasSearched && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* 左: 明細リスト */}
+            <div className="col-span-1 lg:col-span-2 space-y-4">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                本日の予約・バック明細 ({calculatedRows.length}件)
+              </h2>
+
+              {calculatedRows.length === 0 ? (
+                <div className="bg-white border text-center border-slate-200 rounded-2xl p-10 text-slate-500">
+                  指定された日に予約はありませんでした。
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {calculatedRows.map((row, idx) => {
+                    const res = row.reservation
+                    const r = row.result
+                    return (
+                      <div key={res.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100">
+                                予約 {idx + 1}
+                              </span>
+                              <span className="font-bold text-slate-800 text-lg">
+                                {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
+                              </span>
+                            </div>
+                            <div className="text-sm font-medium text-slate-600">
+                              {res.customer?.name || 'フリー客'} 様 / {res.course?.name} ({res.course?.duration}分)
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold mb-1">
+                              {designationLabel(res.designation_type)}
+                            </span>
+                            <div className="text-sm font-bold text-slate-800 mb-1">
+                              売上: ¥{r.totalPrice.toLocaleString()}
+                            </div>
+                            {r.totalDiscount > 0 && (
+                              <div className="text-xs text-rose-500 font-medium bg-rose-50 px-2 py-0.5 rounded inline-block">
+                                割引適用: -¥{r.totalDiscount.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`grid gap-4 ${r.totalDiscount > 0 ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div className="text-xs text-slate-500 mb-1">基本バック</div>
+                            <div className="font-bold text-slate-800">¥{r.courseBack.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div className="text-xs text-slate-500 mb-1">指名料バック</div>
+                            <div className="font-bold text-slate-800">¥{r.nominationBack.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div className="text-xs text-slate-500 mb-1">OPバック</div>
+                            <div className="font-bold text-slate-800">¥{r.optionBack.toLocaleString()}</div>
+                          </div>
+                          {r.totalDiscount > 0 && (
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              <div className="text-xs text-slate-500 mb-1">割引負担</div>
+                              <div className={`font-bold ${r.therapistDiscountBurden > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                                {r.therapistDiscountBurden > 0 ? `-¥${r.therapistDiscountBurden.toLocaleString()}` : '¥0'}
+                              </div>
+                            </div>
+                          )}
+                          <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-indigo-900">
+                            <div className="text-xs text-indigo-500 font-medium mb-1">バック合計</div>
+                            <div className="font-bold text-lg leading-tight">¥{r.netBack.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 右: LINE用エクスポートとサマリー */}
+            <div className="col-span-1 space-y-6">
+              <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-md">
+                <h3 className="text-indigo-100 text-sm font-bold uppercase tracking-wider mb-2">本日報酬合計</h3>
+                <div className="text-4xl font-extrabold mb-4 font-mono tracking-tighter">
+                  ¥{netPay.toLocaleString()}
+                </div>
+                <div className="flex justify-between items-center text-sm text-indigo-100 pt-4 border-t border-white/20">
+                  <span>総売上</span>
+                  <span className="font-bold">¥{totalSales.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-indigo-100 pt-2">
+                  <span>店落ち</span>
+                  <span className="font-bold border-b border-white/30 truncate">¥{(totalSales - netPay).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                  <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[#06C755]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.5 10c0-4.81-4.71-8.7-10.5-8.7S1.5 5.19 1.5 10c0 4.3 3.55 7.95 8.44 8.6.35.08.83.24.96.55.12.3-.04.75-.12 1.15-.05.22-.32 1.52-.39 1.83-.07.31-.38.9.79.41 1.17-.5 6.32-3.71 8.7-6.43 1.76-2 2.62-4.14 2.62-6.11z" />
+                    </svg>
+                    LINE送信用テキスト
+                  </h3>
+                  <button
+                    onClick={handleCopy}
+                    className="text-xs font-bold bg-white text-indigo-600 hover:text-indigo-800 border border-indigo-200 px-3 py-1.5 rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    テキストをコピー
+                  </button>
+                </div>
+                <div className="p-4 flex-1 bg-slate-50/50">
+                  <textarea
+                    readOnly
+                    className="w-full h-full bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-700 font-mono focus:outline-none resize-none leading-relaxed"
+                    value={generateLineText()}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

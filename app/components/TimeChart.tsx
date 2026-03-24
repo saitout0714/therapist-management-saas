@@ -83,6 +83,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
       // 5px以上の移動でドラッグと判定
       if (distance > 5) {
         setIsDragging(true);
+        moveEvent.preventDefault(); // デフォルトのドラッグ操作（テキスト選択等）をキャンセル
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
       }
 
       const deltaX = moveEvent.clientX - startClientX;
@@ -96,13 +99,17 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
     // ドラッグ終了
     const handleDragEnd = () => {
-      document.removeEventListener('mousemove', handleDragMove);
-      document.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('blur', handleDragEnd);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
       setTimeout(() => setIsDragging(false), 50); // slight delay to prevent click fire
     };
 
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('blur', handleDragEnd); // ウィンドウフォーカスが外れた場合も追跡終了
   };
 
   const timeSlots = useMemo(() => {
@@ -362,7 +369,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   const handleCellClick = () => {
                     if (isDragging || dragDistanceRef.current > 5) return;
                     if (!date) return;
-                    router.push(`/reservations/new?therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
+                    router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                   };
 
                   return (
@@ -397,7 +404,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const handleScheduleClick = () => {
                   if (isDragging || dragDistanceRef.current > 5) return;
                   if (schedule.type === 'reservation' && schedule.reservationId) {
-                    router.push(`/reservations/${schedule.reservationId}/edit?from=shifts`);
+                    router.push(`/reservations/${schedule.reservationId}?from=shifts`);
                   }
                 };
 

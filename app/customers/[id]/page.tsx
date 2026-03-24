@@ -52,7 +52,7 @@ export default function CustomerDetailPage() {
         // Fetch their reservations
         const { data: reservationsData, error: resError } = await supabase
           .from('reservations')
-          .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists(name), course:courses(name)`)
+          .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists!reservations_therapist_id_fkey(name), course:courses(name)`)
           .eq('customer_id', customerId)
           .order('date', { ascending: false })
           .order('start_time', { ascending: false })

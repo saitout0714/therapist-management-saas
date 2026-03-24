@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 type Customer = {
   id: string
@@ -46,6 +47,15 @@ type SystemSettings = {
   default_princess_reservation_fee: number
 }
 
+type DiscountPolicy = {
+  id: string
+  name: string
+  discount_type: 'fixed' | 'percentage'
+  discount_value: number
+  burden_type: 'shop_only' | 'split' | 'therapist_only'
+  is_active: boolean
+}
+
 type Shift = {
   therapist_id: string
   start_time: string
@@ -55,6 +65,7 @@ type Shift = {
 export default function NewReservationPage() {
   const router = useRouter()
   const { selectedShop } = useShop()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [courses, setCourses] = useState<Course[]>([])
@@ -62,6 +73,8 @@ export default function NewReservationPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([])
   const [therapistPricings, setTherapistPricings] = useState<TherapistPricing[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null)
+  const [discountPolicies, setDiscountPolicies] = useState<DiscountPolicy[]>([])
+  const [selectedDiscountId, setSelectedDiscountId] = useState<string>('')
   const [availableTherapistIds, setAvailableTherapistIds] = useState<string[]>([])
   const [availableShifts, setAvailableShifts] = useState<Shift[]>([])
 
@@ -75,8 +88,12 @@ export default function NewReservationPage() {
     selected_options: [] as string[],
     discount_amount: 0,
     discount_reason: '',
+    manual_burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
     notes: '',
+    reception_source: 'staff' as 'staff' | 'client' | 'therapist',
   })
+
+  const [fromShifts, setFromShifts] = useState(false)
 
   const [newCustomer, setNewCustomer] = useState({
     show: false,
@@ -103,6 +120,11 @@ export default function NewReservationPage() {
     const therapistId = params.get('therapist_id')
     const date = params.get('date')
     const time = params.get('time')
+    const from = params.get('from')
+
+    if (from === 'shifts') {
+      setFromShifts(true)
+    }
 
     if (therapistId || date || time) {
       setFormData(prev => ({
@@ -120,7 +142,7 @@ export default function NewReservationPage() {
 
   useEffect(() => {
     calculatePrice()
-  }, [formData, courses, options, therapistPricings, systemSettings])
+  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies])
 
   useEffect(() => {
     autoSelectConfirmedDesignation()
@@ -133,13 +155,14 @@ export default function NewReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
-      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes] = await Promise.all([
+      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
-        supabase.from('system_settings').select('*').order('created_at', { ascending: false }).limit(1),
+        supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
+        supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
       ])
 
       if (customersRes.error) throw customersRes.error
@@ -148,6 +171,7 @@ export default function NewReservationPage() {
       if (therapistsRes.error) throw therapistsRes.error
       if (pricingRes.error) throw pricingRes.error
       if (settingsRes.error) throw settingsRes.error
+      if (discountsRes.error) throw discountsRes.error
 
       setCustomers(customersRes.data || [])
       setCourses(coursesRes.data || [])
@@ -155,6 +179,7 @@ export default function NewReservationPage() {
       setTherapists(therapistsRes.data || [])
       setTherapistPricings(pricingRes.data || [])
       setSystemSettings(settingsRes.data?.[0] || null)
+      setDiscountPolicies(discountsRes.data || [])
     } catch (error) {
       console.error('データの取得に失敗:', error)
       alert('データの取得に失敗しました')
@@ -196,13 +221,25 @@ export default function NewReservationPage() {
       nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
     }
 
-    const totalPrice = basePrice + optionsPrice + nominationFee - formData.discount_amount
+    const selectedPolicy = discountPolicies.find(p => p.id === selectedDiscountId)
+    let dynamicDiscount = formData.discount_amount
+
+    if (selectedPolicy) {
+      if (selectedPolicy.discount_type === 'fixed') {
+        dynamicDiscount = selectedPolicy.discount_value
+      } else if (selectedPolicy.discount_type === 'percentage') {
+        const subtotal = basePrice + optionsPrice + nominationFee
+        dynamicDiscount = Math.floor(subtotal * (selectedPolicy.discount_value / 100))
+      }
+    }
+
+    const totalPrice = basePrice + optionsPrice + nominationFee - dynamicDiscount
 
     setCalculatedPrice({
       basePrice,
       optionsPrice,
       nominationFee,
-      discountAmount: formData.discount_amount,
+      discountAmount: dynamicDiscount,
       totalPrice: Math.max(0, totalPrice),
       duration,
     })
@@ -406,7 +443,7 @@ export default function NewReservationPage() {
       const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
       const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
 
-      const { error } = await supabase
+      const { data: createdRes, error } = await supabase
         .from('reservations')
         .insert([{
           customer_id: customerId,
@@ -420,28 +457,22 @@ export default function NewReservationPage() {
           options_price: calculatedPrice.optionsPrice,
           nomination_fee: calculatedPrice.nominationFee,
           total_price: calculatedPrice.totalPrice,
-          discount_amount: formData.discount_amount,
+          discount_amount: calculatedPrice.discountAmount,
           designation_type: formData.designation_type,
           notes: formData.notes,
           status: 'confirmed',
+          created_by_id: user?.id,
+          reception_source: formData.reception_source,
         }])
+        .select()
 
       if (error) throw error
 
-      // オプションを別テーブルに登録
-      if (formData.selected_options.length > 0) {
-        const { data: reservations } = await supabase
-          .from('reservations')
-          .select('id')
-          .eq('shop_id', selectedShop.id)
-          .eq('customer_id', customerId)
-          .eq('date', formData.date)
-          .eq('start_time', formData.start_time)
-          .order('created_at', { ascending: false })
-          .limit(1)
+      const reservationId = createdRes?.[0]?.id
 
-        if (reservations && reservations[0]) {
-          const reservationId = reservations[0].id
+      if (reservationId) {
+        // オプションを別テーブルに登録
+        if (formData.selected_options.length > 0) {
           const optionInserts = formData.selected_options.map(optionId => {
             const option = options.find(o => o.id === optionId)
             return {
@@ -450,16 +481,33 @@ export default function NewReservationPage() {
               price: option?.price || 0,
             }
           })
-
           await supabase.from('reservation_options').insert(optionInserts)
+        }
+
+        // 割引情報の登録
+        if (calculatedPrice.discountAmount > 0) {
+          const selectedPolicy = discountPolicies.find(p => p.id === selectedDiscountId)
+          await supabase.from('reservation_discounts').insert([{
+            reservation_id: reservationId,
+            policy_id: selectedPolicy ? selectedPolicy.id : null,
+            applied_amount: calculatedPrice.discountAmount,
+            burden_type: selectedPolicy ? selectedPolicy.burden_type : formData.manual_burden_type,
+            is_adhoc: !selectedPolicy,
+            adhoc_name: !selectedPolicy ? '手動割引' : null,
+            note: formData.discount_reason || null
+          }])
         }
       }
 
       alert('予約を登録しました')
-      router.push('/reservations')
-    } catch (error) {
+      if (fromShifts) {
+        router.push('/shifts')
+      } else {
+        router.push('/reservations')
+      }
+    } catch (error: any) {
       console.error('予約の登録に失敗:', error)
-      alert('予約の登録に失敗しました')
+      alert(`予約の登録に失敗しました: ${error.message || '不明なエラー'}`)
     }
   }
 
@@ -745,7 +793,10 @@ export default function NewReservationPage() {
                   <label className="block text-sm font-semibold text-slate-700">指名タイプ<span className="text-rose-500">*</span></label>
                   <button
                     type="button"
-                    onClick={handleDesignationSearch}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleDesignationSearch()
+                    }}
                     disabled={designationSearchLoading}
                     className="px-4 py-1.5 text-sm font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
                   >
@@ -753,97 +804,157 @@ export default function NewReservationPage() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <label className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl cursor-pointer transition-all text-center ${formData.designation_type === 'free' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                    <input
-                      type="radio"
-                      name="designation"
-                      value="free"
-                      checked={formData.designation_type === 'free'}
-                      onChange={() => setFormData({ ...formData, designation_type: 'free' })}
-                      className="sr-only"
-                    />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setFormData({ ...formData, designation_type: 'free' })
+                      e.currentTarget.blur()
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'free' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
                     <span className="font-bold text-sm">フリー</span>
                     <span className={`text-xs mt-1 ${formData.designation_type === 'free' ? 'text-indigo-100' : 'text-slate-500'}`}>指名料なし</span>
-                  </label>
-                  <label className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl cursor-pointer transition-all text-center ${formData.designation_type === 'nomination' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                    <input
-                      type="radio"
-                      name="designation"
-                      value="nomination"
-                      checked={formData.designation_type === 'nomination'}
-                      onChange={() => setFormData({ ...formData, designation_type: 'nomination' })}
-                      className="sr-only"
-                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setFormData({ ...formData, designation_type: 'nomination' })
+                      e.currentTarget.blur()
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'nomination' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
                     <span className="font-bold text-sm">指名</span>
-                  </label>
-                  <label className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl cursor-pointer transition-all text-center ${formData.designation_type === 'confirmed' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                    <input
-                      type="radio"
-                      name="designation"
-                      value="confirmed"
-                      checked={formData.designation_type === 'confirmed'}
-                      onChange={() => setFormData({ ...formData, designation_type: 'confirmed' })}
-                      className="sr-only"
-                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setFormData({ ...formData, designation_type: 'confirmed' })
+                      e.currentTarget.blur()
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'confirmed' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
                     <span className="font-bold text-sm">本指名</span>
-                  </label>
-                  <label className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl cursor-pointer transition-all text-center ${formData.designation_type === 'princess' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                    <input
-                      type="radio"
-                      name="designation"
-                      value="princess"
-                      checked={formData.designation_type === 'princess'}
-                      onChange={() => setFormData({ ...formData, designation_type: 'princess' })}
-                      className="sr-only"
-                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setFormData({ ...formData, designation_type: 'princess' })
+                      e.currentTarget.blur()
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'princess' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
                     <span className="font-bold text-sm">姫予約</span>
-                  </label>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 割引！E��老E*/}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
+          {/* 割引情報 */}
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3">6</span>
-              割引・備考
+              割引・キャンペーン
             </h2>
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">割引額（円）</label>
-                  <input
-                    type="number"
-                    value={formData.discount_amount}
-                    onChange={(e) => setFormData({ ...formData, discount_amount: parseInt(e.target.value) || 0 })}
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">システム割引の適用</label>
+                  <select
+                    value={selectedDiscountId}
+                    onChange={(e) => {
+                      setSelectedDiscountId(e.target.value)
+                      if (e.target.value) {
+                        setFormData({ ...formData, discount_amount: 0, discount_reason: '' })
+                      }
+                    }}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    min="0"
-                    step="100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">割引理由</label>
-                  <input
-                    type="text"
-                    value={formData.discount_reason}
-                    onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    placeholder="初回割引、キャンペーン等"
-                  />
+                  >
+                    <option value="">適用しない（または手動入力）</option>
+                    {discountPolicies.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.discount_type === 'fixed' ? `¥${p.discount_value.toLocaleString()}引き` : `${p.discount_value}%引き`})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              {!selectedDiscountId && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2 duration-400">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">手入力割引額 (円)</label>
+                    <input
+                      type="number"
+                      value={formData.discount_amount}
+                      onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
+                      step="100"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">割引理由</label>
+                    <input
+                      type="text"
+                      value={formData.discount_reason}
+                      onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      placeholder="初回割引、キャンペーン等"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 受付管理 */}
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mr-3">7</span>
+              受付管理
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">備考</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="特別なリクエストや注記など"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y"
-                  rows={4}
-                />
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">受付区分</label>
+                <select 
+                  value={formData.reception_source}
+                  onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
+                  className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm font-medium"
+                >
+                  <option value="staff">スタッフ受付</option>
+                  <option value="client">顧客直接 (WEB等)</option>
+                  <option value="therapist">セラピスト直接</option>
+                </select>
+                <p className="mt-2 text-[10px] text-slate-400 font-medium">※ 集計時に「スタッフ受付分」のみを抽出するために使用します。</p>
+              </div>
+              <div className="flex flex-col justify-end pb-1 text-right">
+                <div className="text-[11px] text-slate-400 flex items-center justify-end">
+                  <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  操作者: <span className="font-bold ml-1 text-slate-600">{user?.name || user?.loginId || 'ログインユーザー'}</span>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* 備考 */}
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
+            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">8</span>
+              備考・メモ
+            </h2>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="特別なリクエストや店内共有事項など"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-sm"
+              rows={4}
+            />
           </div>
         </div>
 

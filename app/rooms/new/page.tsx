@@ -10,7 +10,7 @@ export default function NewRoomPage() {
   const router = useRouter();
   const { selectedShop } = useShop();
   
-  const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', address: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +93,20 @@ export default function NewRoomPage() {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
                     placeholder="例: ルームA, VIPルーム"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    住所<span className="ml-2 text-xs text-slate-400 font-normal">お客様用LINEテキストに記載されます</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 東京都新宿区○○ビル 201号室"
                   />
                 </div>
 

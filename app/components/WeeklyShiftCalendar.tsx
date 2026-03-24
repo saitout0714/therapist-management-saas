@@ -204,7 +204,16 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
                         }`}
                         onClick={() => openModal(t.id, dateStr)}
                       >
-                        {shift ? `${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}` : '未登録'}
+                        {shift ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div>{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+                            {shift.room_id && (
+                              <div className="text-[10px] text-indigo-400 font-bold truncate">
+                                {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム不明'}
+                              </div>
+                            )}
+                          </div>
+                        ) : '未登録'}
                       </button>
                     </td>
                   )

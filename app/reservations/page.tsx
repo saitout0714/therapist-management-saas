@@ -148,8 +148,8 @@ export default function ReservationsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-3">
-                        <Link href={`/reservations/${r.id}/edit`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
-                          編集
+                        <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                          詳細 / 編集
                         </Link>
                         <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors" onClick={() => void handleDelete(r.id)}>
                           削除

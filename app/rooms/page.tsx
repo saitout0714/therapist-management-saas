@@ -10,6 +10,7 @@ interface Room {
   id: string;
   name: string;
   description: string;
+  address: string | null;
   created_at: string;
 }
 
@@ -91,6 +92,7 @@ export default function RoomsList() {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
                     <th className="px-6 py-4 whitespace-nowrap">ルーム名</th>
+                    <th className="px-6 py-4 whitespace-nowrap">住所</th>
                     <th className="px-6 py-4 whitespace-nowrap">説明</th>
                     <th className="px-6 py-4 whitespace-nowrap w-32 text-center">操作</th>
                   </tr>
@@ -100,6 +102,9 @@ export default function RoomsList() {
                     <tr key={room.id} className="hover:bg-slate-100 transition-colors group">
                       <td className="px-6 py-4">
                         <span className="font-medium text-slate-800">{room.name}</span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {room.address || <span className="text-slate-400 italic">未入力</span>}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         {room.description || <span className="text-slate-400 italic">未設定</span>}

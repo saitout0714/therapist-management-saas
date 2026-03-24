@@ -6,8 +6,9 @@ import bcrypt from 'bcryptjs'
 
 type User = {
   id: string
-  email: string
-  role: 'admin' | 'owner'
+  loginId: string
+  name?: string | null
+  role: 'admin' | 'owner' | 'staff'
   shops?: Array<{
     id: string
     name: string
@@ -17,7 +18,7 @@ type User = {
 type AuthContextType = {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (loginId: string, password: string) => Promise<void>
   logout: () => Promise<void>
   isAuthenticated: boolean
 }
@@ -42,7 +43,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = localStorage.getItem('auth_user')
         if (storedUser) {
           const userData = JSON.parse(storedUser)
-          setUser(userData)
+          // 互換性チェック（email形式からloginId形式への移行対応）
+          if (userData && (userData.loginId || userData.email)) {
+            // 古い形式の場合はloginIdにマッピングするか、あるいはクリアする
+            // ここでは安全のため、loginIdがない場合は再ログインを促す（クリアする）
+            if (!userData.loginId && userData.email) {
+              localStorage.removeItem('auth_user')
+              document.cookie = 'auth_user=; path=/; max-age=0'
+              setUser(null)
+            } else {
+              setUser(userData)
+            }
+          }
         }
       } catch (error) {
         console.error('セッション復元失敗:', error)
@@ -54,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restoreSession()
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (loginId: string, password: string) => {
     try {
       setLoading(true)
 
@@ -62,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .eq('login_id', loginId)
         .limit(1)
 
       if (userError) {
@@ -71,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!userData || userData.length === 0) {
-        throw new Error('メールアドレスまたはパスワードが正しくありません')
+        throw new Error('ログインIDまたはパスワードが正しくありません')
       }
 
       const dbUser = userData[0]
@@ -79,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // パスワード検証（実装例：bcrypt使用、またはSupabase Authを使用することを推奨）
       const passwordMatch = await bcrypt.compare(password, dbUser.password_hash)
       if (!passwordMatch) {
-        throw new Error('メールアドレスまたはパスワードが正しくありません')
+        throw new Error('ログインIDまたはパスワードが正しくありません')
       }
 
       // 店舗情報を取得（owner の場合）
@@ -102,7 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userObj: User = {
         id: dbUser.id,
-        email: dbUser.email,
+        loginId: dbUser.login_id,
+        name: dbUser.name,
         role: dbUser.role,
         shops: shops.length > 0 ? shops : undefined,
       }

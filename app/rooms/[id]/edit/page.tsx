@@ -10,7 +10,7 @@ export default function EditRoomPage() {
   const params = useParams();
   const roomId = params.id as string;
   
-  const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', address: '' });
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function EditRoomPage() {
         if (fetchError) throw fetchError;
         
         if (data) {
-          setFormData({ name: data.name, description: data.description || '' });
+          setFormData({ name: data.name, description: data.description || '', address: data.address || '' });
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー';
@@ -66,6 +66,7 @@ export default function EditRoomPage() {
       .update({
         name: formData.name,
         description: formData.description,
+        address: formData.address,
       })
       .eq('id', roomId);
 
@@ -125,6 +126,20 @@ export default function EditRoomPage() {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
                     placeholder="例: ルームA, VIPルーム等"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    住所 <span className="ml-2 text-xs text-slate-400 font-normal">お客様用LINEテキストに記載されます</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 東京都新宿区○○ビル 201号室"
                   />
                 </div>
 

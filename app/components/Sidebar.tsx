@@ -42,6 +42,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="truncate">予約管理</span>
           </Link>
           <Link
+            href="/payroll"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            onClick={onClose}
+          >
+            <span className="truncate">報酬・バック計算</span>
+          </Link>
+          <Link
             href="/shifts/register"
             className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
@@ -63,13 +70,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="truncate">顧客管理</span>
           </Link>
           <Link
-            href="/system"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-            onClick={onClose}
-          >
-            <span className="truncate">システム管理</span>
-          </Link>
-          <Link
             href="/rooms"
             className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
@@ -77,11 +77,32 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="truncate">ルーム一覧</span>
           </Link>
           <Link
+            href="/system"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            onClick={onClose}
+          >
+            <span className="truncate">システム管理</span>
+          </Link>
+          <Link
+            href="/aggregation"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            onClick={onClose}
+          >
+            <span className="truncate">店舗集計</span>
+          </Link>
+          <Link
             href="/admin"
             className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}
           >
             <span className="truncate">店舗管理</span>
+          </Link>
+          <Link
+            href="/users"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            onClick={onClose}
+          >
+            <span className="truncate">アカウント管理</span>
           </Link>
           <Link
             href="/settings"
