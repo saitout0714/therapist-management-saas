@@ -10,6 +10,7 @@ interface Therapist {
   shiftStart?: string; // "HH:mm" format
   shiftEnd?: string; // "HH:mm" format
   room?: string; // ルーム名
+  intervalMinutes?: number | null;
 }
 
 interface Schedule {
@@ -18,22 +19,28 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
+  courseDuration?: number;
+  designationLabel?: string;
+  totalPrice?: number;
+  isNewCustomer?: boolean;
 }
 
 interface TimeChartProps {
   therapists: Therapist[];
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
+  onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
 }
 
 const TimeChart: React.FC<TimeChartProps> = ({
   therapists,
   schedules = [],
   date,
+  onBlockedClick,
 }) => {
   const router = useRouter();
 
@@ -85,7 +92,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
         setIsDragging(true);
         moveEvent.preventDefault(); // デフォルトのドラッグ操作（テキスト選択等）をキャンセル
         document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'grabbing';
+        document.body.style.cursor = 'default';
       }
 
       const deltaX = moveEvent.clientX - startClientX;
@@ -259,9 +266,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   </div>
                 )}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                    {therapist.name}
-                  </p>
+                  <div className="flex items-center gap-2 truncate">
+                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
+                      {therapist.name}
+                    </p>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                      {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                    </span>
+                  </div>
                   <p className="text-xs font-medium mt-1.5 truncate">
                     {therapist.shiftStart && therapist.shiftEnd ? (
                       <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
@@ -289,7 +301,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           ref={contentTimelineRef}
           onScroll={handleTimelineScroll}
           onMouseDown={handleMouseDown}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          style={{ cursor: 'default' }}
         >
           {/* Header timeline */}
           <div
@@ -409,8 +421,71 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 };
 
                 const isReservation = schedule.type === 'reservation';
+                const isInterval = schedule.type === 'interval';
+                const isBlocked = schedule.type === 'blocked';
 
-                // Colors - if no custom color, use a beautiful gradient based on type
+                // 予約不可ブロック（グレー実線箇）
+                if (isBlocked) {
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute flex items-center justify-center overflow-hidden cursor-pointer"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        background: 'repeating-linear-gradient(45deg, rgba(100,116,139,0.22), rgba(100,116,139,0.22) 5px, rgba(100,116,139,0.08) 5px, rgba(100,116,139,0.08) 10px)',
+                        border: '1.5px dashed rgba(100,116,139,0.7)',
+                        pointerEvents: 'auto',
+                      }}
+                      title={`${schedule.startTime}～${schedule.endTime} 予約不可`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onBlockedClick && schedule.reservationId) {
+                          onBlockedClick(schedule.reservationId, schedule.startTime, schedule.endTime);
+                        }
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: 'rgba(71,85,105,0.85)',
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.02em',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        padding: '0 6px',
+                      }}>
+                        {schedule.startTime}～{schedule.endTime} 予約不可
+                      </span>
+                    </div>
+                  );
+                }
+
+                // インターバルブロック（アンバー色ストライプ）
+                if (isInterval) {
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute pointer-events-none"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        background: 'repeating-linear-gradient(45deg, rgba(148,163,184,0.18), rgba(148,163,184,0.18) 5px, rgba(148,163,184,0.07) 5px, rgba(148,163,184,0.07) 10px)',
+                        border: '1.5px dashed rgba(148,163,184,0.6)',
+                      }}
+                      title={schedule.title}
+                    />
+                  );
+                }
+
+                // 予約ブロック
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
@@ -420,7 +495,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 return (
                   <div
                     key={`schedule-${idx}`}
-                    className={`absolute rounded-xl px-3 flex flex-col justify-center cursor-pointer pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${bgClasses}`}
+                    className={`absolute rounded-xl px-3 flex flex-col justify-center cursor-default pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${bgClasses}`}
                     style={{
                       top: `${top}px`,
                       left: `${startPixels + 2}px`,  // +2 for slight visual separation from border
@@ -433,18 +508,37 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     onClick={handleScheduleClick}
                   >
                     {/* Inner content wrapper to handle overflow nicely */}
-                    <div className="w-full h-full flex flex-col justify-center overflow-hidden">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="flex-shrink-0 w-4 h-4 rounded-md bg-white/20 flex items-center justify-center text-[9px] font-bold backdrop-blur-sm shadow-inner">
-                          {isReservation ? '予' : '企'}
-                        </span>
-                        <span className="font-bold text-xs truncate drop-shadow-sm">
+                    <div className="w-full h-full flex flex-col justify-center overflow-hidden py-1">
+                      {/* Row 1: Time */}
+                      <div className="text-[9px] font-medium text-white/95 flex items-center mb-0.5 leading-tight">
+                        <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                      </div>
+
+                      {/* Row 2: Name and New/Member */}
+                      <div className="flex items-center justify-start gap-1.5 mb-1 min-w-0">
+                        <span className="font-bold text-[11px] truncate drop-shadow-sm">
                           {schedule.customerName || schedule.title}
                         </span>
+                        {isReservation && (
+                          <span className={`flex-shrink-0 text-[8px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
+                            {schedule.isNewCustomer ? '新規' : '会員'}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[10px] font-medium text-white/90 flex items-center gap-1 ml-5">
-                        <svg className="w-2.5 h-2.5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span className="truncate">{schedule.startTime} - {schedule.endTime}</span>
+
+                      {/* Row 3: Duration, Designation and Price */}
+                      <div className="text-[9px] font-medium text-white/90 flex items-center gap-1.5 leading-tight">
+                        {schedule.courseDuration && (
+                          <span className="opacity-90">{schedule.courseDuration}分</span>
+                        )}
+                        {schedule.designationLabel && (
+                          <span className="bg-white/20 px-1 rounded-sm text-[8px] border border-white/10">{schedule.designationLabel}</span>
+                        )}
+                        {isReservation && schedule.totalPrice !== undefined && (
+                          <span className="text-[10px] font-extrabold text-white bg-black/15 px-1.5 py-0.5 rounded-md backdrop-blur-[1px] ml-1">
+                            ¥{schedule.totalPrice.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

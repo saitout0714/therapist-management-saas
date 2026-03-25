@@ -82,6 +82,7 @@ export default function NewReservationPage() {
     customer_id: '',
     date: new Date().toISOString().split('T')[0],
     start_time: '10:00',
+    end_time: '11:00',
     course_id: '',
     therapist_id: '',
     designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess',
@@ -102,6 +103,13 @@ export default function NewReservationPage() {
     phone: '',
   })
   const [customerSearch, setCustomerSearch] = useState('')
+
+  // 開始時刻またはコース時間が変ぴったら終了時刻を自動計算
+  const calcEndTime = (start: string, durationMin: number): string => {
+    const [h, m] = start.split(':').map(Number)
+    const total = h * 60 + m + durationMin
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
 
   // 計算用の状態
   const [calculatedPrice, setCalculatedPrice] = useState({
@@ -127,12 +135,17 @@ export default function NewReservationPage() {
     }
 
     if (therapistId || date || time) {
-      setFormData(prev => ({
-        ...prev,
-        therapist_id: therapistId || prev.therapist_id,
-        date: date || prev.date,
-        start_time: time || prev.start_time,
-      }))
+      setFormData(prev => {
+        const newStartTime = time || prev.start_time;
+        const newEndTime = time ? calcEndTime(time, 10) : prev.end_time;
+        return {
+          ...prev,
+          therapist_id: therapistId || prev.therapist_id,
+          date: date || prev.date,
+          start_time: newStartTime,
+          end_time: newEndTime,
+        };
+      })
     }
   }, [])
 
@@ -399,16 +412,61 @@ export default function NewReservationPage() {
     return times.length > 0 ? times.join(' / ') : ''
   }
 
+  const isBlocked = formData.course_id === '__blocked__'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.course_id || !formData.therapist_id || (!formData.customer_id && !newCustomer.name)) {
+    if (!formData.therapist_id) {
+      alert('担当セラピストを選択してください')
+      return
+    }
+
+    if (!formData.course_id) {
+      alert('コースを選択してください')
+      return
+    }
+
+    if (!isBlocked && !formData.customer_id && !newCustomer.name) {
       alert('必須項目を入力してください')
       return
     }
 
     if (!selectedShop) {
       alert('店舗を選択してください')
+      return
+    }
+
+    // 予約不可ブロック
+    if (isBlocked) {
+      try {
+        setLoading(true)
+        const { error } = await supabase.from('reservations').insert([{
+          therapist_id: formData.therapist_id,
+          shop_id: selectedShop.id,
+          date: formData.date,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          status: 'blocked',
+          course_id: null,
+          customer_id: null,
+          base_price: 0,
+          options_price: 0,
+          nomination_fee: 0,
+          total_price: 0,
+          discount_amount: 0,
+          designation_type: 'free',
+          notes: formData.notes,
+          created_by_id: user?.id,
+          reception_source: formData.reception_source,
+        }])
+        if (error) throw error
+        alert('予約不可ブロックを登録しました')
+        if (fromShifts) router.push('/shifts')
+        else router.push('/reservations')
+      } catch (error: any) {
+        alert(`登録に失敗しました: ${error.message}`)
+      }
       return
     }
 
@@ -438,10 +496,8 @@ export default function NewReservationPage() {
         setNewCustomer({ show: false, name: '', email: '', phone: '' })
       }
 
-      // 終了時刻を計算
-      const startDate = new Date(`${formData.date}T${formData.start_time}`)
-      const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
-      const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+      // 終了時刻：手動入力を優先、なければ自動計算
+      const endTime = formData.end_time
 
       const { data: createdRes, error } = await supabase
         .from('reservations')
@@ -640,7 +696,7 @@ export default function NewReservationPage() {
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
               日時
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">日付 <span className="text-rose-500">*</span></label>
                 <input
@@ -651,46 +707,94 @@ export default function NewReservationPage() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻 <span className="text-rose-500">*</span></label>
-                <div className="flex gap-2">
-                  <select
-                    value={formData.start_time.split(':')[0] || ''}
-                    onChange={(e) => {
-                      const hour = e.target.value;
-                      const minute = formData.start_time.split(':')[1] || '00';
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
-                    }}
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">時</option>
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={String(i).padStart(2, '0')}>
-                        {String(i).padStart(2, '0')}時
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={formData.start_time.split(':')[1] || ''}
-                    onChange={(e) => {
-                      const hour = formData.start_time.split(':')[0] || '00';
-                      const minute = e.target.value;
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
-                    }}
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">分</option>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const min = i * 5;
-                      return (
-                        <option key={min} value={String(min).padStart(2, '0')}>
-                          {String(min).padStart(2, '0')}分
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻 <span className="text-rose-500">*</span></label>
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.start_time.split(':')[0] || ''}
+                      onChange={(e) => {
+                        const hour = e.target.value;
+                        const minute = formData.start_time.split(':')[1] || '00';
+                        const newStart = `${hour}:${minute}`
+                        const dur = isBlocked ? 0 : (courses.find(c => c.id === formData.course_id)?.duration || 0)
+                        setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
+                      }}
+                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      required
+                    >
+                      <option value="">時</option>
+                      {Array.from({ length: 30 }, (_, i) => (
+                        <option key={i} value={String(i).padStart(2, '0')}>
+                          {String(i).padStart(2, '0')}時
                         </option>
-                      );
-                    })}
-                  </select>
+                      ))}
+                    </select>
+                    <select
+                      value={formData.start_time.split(':')[1] || ''}
+                      onChange={(e) => {
+                        const hour = formData.start_time.split(':')[0] || '00';
+                        const minute = e.target.value;
+                        const newStart = `${hour}:${minute}`
+                        const dur = isBlocked ? 0 : (courses.find(c => c.id === formData.course_id)?.duration || 0)
+                        setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
+                      }}
+                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      required
+                    >
+                      <option value="">分</option>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const min = i * 5;
+                        return (
+                          <option key={min} value={String(min).padStart(2, '0')}>
+                            {String(min).padStart(2, '0')}分
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻 <span className="text-rose-500">*</span></label>
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.end_time.split(':')[0] || ''}
+                      onChange={(e) => {
+                        const hour = e.target.value;
+                        const minute = formData.end_time.split(':')[1] || '00';
+                        setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                      }}
+                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      required
+                    >
+                      <option value="">時</option>
+                      {Array.from({ length: 30 }, (_, i) => (
+                        <option key={i} value={String(i).padStart(2, '0')}>
+                          {String(i).padStart(2, '0')}時
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={formData.end_time.split(':')[1] || ''}
+                      onChange={(e) => {
+                        const hour = formData.end_time.split(':')[0] || '00';
+                        const minute = e.target.value;
+                        setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                      }}
+                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      required
+                    >
+                      <option value="">分</option>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const min = i * 5;
+                        return (
+                          <option key={min} value={String(min).padStart(2, '0')}>
+                            {String(min).padStart(2, '0')}分
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -706,17 +810,31 @@ export default function NewReservationPage() {
               <label className="block text-sm font-semibold text-slate-700 mb-2">コース選択 <span className="text-rose-500">*</span></label>
               <select
                 value={formData.course_id}
-                onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                onChange={(e) => {
+                  const newCourseId = e.target.value
+                  const dur = courses.find(c => c.id === newCourseId)?.duration || 0
+                  setFormData({
+                    ...formData,
+                    course_id: newCourseId,
+                    end_time: dur > 0 ? calcEndTime(formData.start_time, dur) : formData.end_time,
+                  })
+                }}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                 required
               >
                 <option value="">選択してください</option>
+                <option value="__blocked__">🚫 予約不可（ブロック）</option>
                 {courses.map(course => (
                   <option key={course.id} value={course.id}>
                     {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
                   </option>
                 ))}
               </select>
+              {isBlocked && (
+                <p className="mt-2 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                  予約不可ブロック：開始・終了時刻を指定してください。お客様情報は必要ありません。
+                </p>
+              )}
             </div>
           </div>
 

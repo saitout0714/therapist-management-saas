@@ -23,12 +23,17 @@ interface Reservation {
   date: string;
   start_time: string;
   end_time: string;
-  customers: { name: string } | null;
+  status: string;
+  total_price: number;
+  designation_type: string;
+  customers: { name: string; created_at: string } | null;
+  courses: { name: string; duration: number } | null;
 }
 
 interface TherapistRow {
   id: string;
   name: string;
+  reservation_interval_minutes: number | null;
 }
 
 interface Therapist {
@@ -37,18 +42,23 @@ interface Therapist {
   avatar?: string;
   shiftStart?: string;
   shiftEnd?: string;
+  intervalMinutes?: number | null;
 }
 
 interface Schedule {
   therapistId: string;
-  startTime: string;
+  startTime: string; // "HH:mm" format
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation'; // 'shift' or 'reservation'
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
+  courseDuration?: number;
+  designationLabel?: string;
+  totalPrice?: number;
+  isNewCustomer?: boolean;
 }
 
 export default function ShiftsPage() {
@@ -56,11 +66,39 @@ export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
   const [filterDate, setFilterDate] = useState(() => {
     // デフォルトで当日の日付を設定
     return new Date().toISOString().split('T')[0];
   });
   const [loading, setLoading] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // 予約不可編集モーダル
+  const [blockedModal, setBlockedModal] = useState<{
+    id: string;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+
+  const handleBlockedDelete = async (id: string) => {
+    if (!confirm('この予約不可ブロックを削除しますか？')) return;
+    const { error } = await supabase.from('reservations').delete().eq('id', id);
+    if (error) { alert('削除に失敗しました'); return; }
+    setBlockedModal(null);
+    setRefreshCounter(c => c + 1);
+  };
+
+  const handleBlockedSave = async () => {
+    if (!blockedModal) return;
+    const { error } = await supabase.from('reservations').update({
+      start_time: blockedModal.startTime,
+      end_time: blockedModal.endTime,
+    }).eq('id', blockedModal.id);
+    if (error) { alert('更新に失敗しました'); return; }
+    setBlockedModal(null);
+    setRefreshCounter(c => c + 1);
+  };
 
   const handlePrevDay = () => {
     const prevDate = new Date(filterDate);
@@ -78,22 +116,39 @@ export default function ShiftsPage() {
     fetchTherapists();
     fetchShifts();
     fetchReservations();
-  }, [filterDate, selectedShop]);
+  }, [filterDate, selectedShop, refreshCounter]);
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
     try {
-      // すべてのセラピストを名前順で取得
-      const { data: allTherapists, error: therapistsError } = await supabase
+      // セラピスト一覧（インターバル込み、列が未追加の場合はフォールバック）
+      let allTherapists: TherapistRow[] = [];
+      const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name')
+        .select('id, name, reservation_interval_minutes')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
-        console.error('Error fetching therapists:', therapistsError);
-        return;
+        // reservation_interval_minutes 列が未追加の場合はフォールバック
+        const { data: basicData } = await supabase
+          .from('therapists')
+          .select('id, name')
+          .eq('shop_id', selectedShop.id)
+          .order('name', { ascending: true });
+        allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
+      } else {
+        allTherapists = therapistsWithInterval || [];
       }
+
+      // 店舗デフォルトインターバルを取得
+      const { data: settingsData } = await supabase
+        .from('system_settings')
+        .select('reservation_interval_minutes')
+        .eq('shop_id', selectedShop.id)
+        .limit(1);
+      const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
+      setShopIntervalMinutes(shopInterval);
 
       // その日のシフト情報を取得（セラピストの営業時間を確認するため）
       const { data: shiftsData, error: shiftsError } = await supabase
@@ -126,6 +181,7 @@ export default function ShiftsPage() {
           shiftStart: startTime,
           shiftEnd: endTime,
           room: shift?.rooms?.name,
+          intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
         };
       });
 
@@ -206,11 +262,15 @@ export default function ShiftsPage() {
           date,
           start_time,
           end_time,
-          customers(name)
+          status,
+          total_price,
+          designation_type,
+          customers(name, created_at),
+          courses(name, duration)
         `)
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate)
-        .eq('status', 'confirmed');
+        .in('status', ['confirmed', 'blocked']);
 
       if (error) throw error;
       setReservations((data as unknown as Reservation[]) || []);
@@ -219,19 +279,68 @@ export default function ShiftsPage() {
     }
   };
 
-  // シフトデータをスケジュール形式に変換
+  // 分をHH:MM文字列に変換
+  const minutesToHHMM = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const hhmToMinutes = (hhmm: string): number => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+
+  // 予約のみを表示 + 予約後インターバルブロックを追加
   const schedules: Schedule[] = [
-    // 予約のみを表示（シフトは非表示）
-    ...reservations.map((reservation) => ({
-      therapistId: reservation.therapist_id,
-      startTime: reservation.start_time.slice(0, 5),
-      endTime: reservation.end_time.slice(0, 5),
-      title: `${reservation.customers?.name || 'unknown'}`,
-      type: 'reservation' as const,
-      reservationId: reservation.id,
-      customerId: reservation.customer_id,
-      customerName: reservation.customers?.name,
-    })),
+    ...reservations
+      .filter((r: any) => r.status !== 'blocked')
+      .map((reservation) => ({
+        therapistId: reservation.therapist_id,
+        startTime: reservation.start_time.slice(0, 5),
+        endTime: reservation.end_time.slice(0, 5),
+        title: `${reservation.customers?.name || 'unknown'}`,
+        type: 'reservation' as const,
+        reservationId: reservation.id,
+        customerId: reservation.customer_id,
+        customerName: reservation.customers?.name,
+        courseDuration: reservation.courses?.duration,
+        designationLabel: designationLabel(reservation.designation_type),
+        totalPrice: reservation.total_price,
+        isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
+      })),
+    // 予約不可ブロック
+    ...reservations
+      .filter((r: any) => r.status === 'blocked')
+      .map((reservation) => ({
+        therapistId: reservation.therapist_id,
+        startTime: reservation.start_time.slice(0, 5),
+        endTime: reservation.end_time.slice(0, 5),
+        title: '予約不可',
+        type: 'blocked' as const,
+        reservationId: reservation.id,
+      })),
+    // インターバルブロック（予約終了直後〜インターバル終了まで）
+    ...reservations
+      .filter((r: any) => r.status !== 'blocked')
+      .flatMap((reservation) => {
+      const therapist = therapists.find(t => t.id === reservation.therapist_id);
+      const interval = therapist?.intervalMinutes != null
+        ? therapist.intervalMinutes
+        : shopIntervalMinutes;
+      if (interval <= 0) return [];
+      const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
+      const intervalEndMin = endMin + interval;
+      return [{
+        therapistId: reservation.therapist_id,
+        startTime: reservation.end_time.slice(0, 5),
+        endTime: minutesToHHMM(intervalEndMin),
+        title: `インターバル ${interval}分`,
+        type: 'interval' as const,
+      }];
+    }),
   ];
 
   const handleWeeklyDateClick = (therapistId: string, date: string) => {
@@ -295,7 +404,14 @@ export default function ShiftsPage() {
                 // filterDate にシフトがあるセラピストのみ表示
                 const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
                 return therapistsWithShift.length > 0 ? (
-                  <TimeChart therapists={therapistsWithShift} schedules={schedules} date={filterDate} />
+                   <TimeChart
+                    therapists={therapistsWithShift}
+                    schedules={schedules}
+                    date={filterDate}
+                    onBlockedClick={(id, startTime, endTime) =>
+                      setBlockedModal({ id, startTime, endTime })
+                    }
+                  />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
                     <p>シフトがあるセラピストがいません</p>
@@ -306,6 +422,55 @@ export default function ShiftsPage() {
           </div>
         )}
       </div>
+
+      {/* 予約不可編集モーダル */}
+      {blockedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBlockedModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-800 mb-6">予約不可ブロックの編集</h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻</label>
+                <input
+                  type="time"
+                  value={blockedModal.startTime}
+                  onChange={e => setBlockedModal({ ...blockedModal, startTime: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻</label>
+                <input
+                  type="time"
+                  value={blockedModal.endTime}
+                  onChange={e => setBlockedModal({ ...blockedModal, endTime: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleBlockedSave}
+                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+              >
+                保存する
+              </button>
+              <button
+                onClick={() => handleBlockedDelete(blockedModal.id)}
+                className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-colors"
+              >
+                削除する
+              </button>
+              <button
+                onClick={() => setBlockedModal(null)}
+                className="px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

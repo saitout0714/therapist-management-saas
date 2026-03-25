@@ -39,6 +39,41 @@ function formatDate(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+/** HH:MM 形式（24:00+ 含む）を分に変換 */
+const toMinutes = (t: string): number => {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+/** 表示用時刻 (24:00+ 含む) → DB用 HH:MM:SS */
+const displayToDbTime = (t: string): string => {
+  const [h, m] = t.split(':').map(Number)
+  const actualH = h >= 24 ? h - 24 : h
+  return `${String(actualH).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
+}
+
+/**
+ * DB時刻を表示用に変換。終了時刻が開始時刻以下なら +24h して 24:xx 形式にする。
+ * @param dbTime  DB の end_time (HH:MM:SS)
+ * @param refDbTime DB の start_time (HH:MM:SS)
+ */
+const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
+  const base = dbTime.slice(0, 5)
+  const ref = refDbTime.slice(0, 5)
+  if (toMinutes(base) <= toMinutes(ref)) {
+    const [h, m] = base.split(':').map(Number)
+    return `${String(h + 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+  return base
+}
+
+/** 08:00 〜 29:00 を 30 分刻みで列挙 */
+const TIME_OPTIONS: string[] = []
+for (let h = 8; h <= 29; h++) {
+  TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`)
+  if (h < 29) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`)
+}
+
 const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, shifts, onShiftUpdate, showOnlyWithShift = false }) => {
   const { selectedShop } = useShop()
   const [weekStartDate, setWeekStartDate] = useState(new Date())
@@ -96,7 +131,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
     setSelectedDate(date)
     setRoomId(existing?.room_id || '')
     setStartTime(existing?.start_time.slice(0, 5) || '10:00')
-    setEndTime(existing?.end_time.slice(0, 5) || '18:00')
+    setEndTime(existing ? dbTimeToDisplay(existing.end_time, existing.start_time) : '18:00')
     setError('')
     setModalOpen(true)
   }
@@ -108,7 +143,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
 
   const saveShift = async () => {
     if (!selectedShop || !selectedTherapistId || !selectedDate) return
-    if (endTime <= startTime) {
+    if (toMinutes(endTime) <= toMinutes(startTime)) {
       setError('終了時刻は開始時刻より後にしてください')
       return
     }
@@ -119,8 +154,8 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
       shop_id: selectedShop.id,
       date: selectedDate,
       room_id: roomId || null,
-      start_time: `${startTime}:00`,
-      end_time: `${endTime}:00`,
+      start_time: displayToDbTime(startTime),
+      end_time: displayToDbTime(endTime),
     }
 
     const result = editingShift
@@ -206,7 +241,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
                       >
                         {shift ? (
                           <div className="flex flex-col gap-0.5">
-                            <div>{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+                            <div>{shift.start_time.slice(0, 5)} - {dbTimeToDisplay(shift.end_time, shift.start_time)}</div>
                             {shift.room_id && (
                               <div className="text-[10px] text-indigo-400 font-bold truncate">
                                 {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム不明'}
@@ -244,11 +279,15 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">開始</label>
-                <input type="time" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <select className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">終了</label>
-                <input type="time" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <select className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={endTime} onChange={(e) => setEndTime(e.target.value)}>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">

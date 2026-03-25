@@ -37,6 +37,7 @@ export default function ReservationsPage() {
       .from('reservations')
       .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name)')
       .eq('shop_id', selectedShop.id)
+      .neq('status', 'blocked')
       .order('created_at', { ascending: false })
 
     if (error) alert('予約の取得に失敗しました')

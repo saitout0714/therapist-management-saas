@@ -23,6 +23,7 @@ export default function EditTherapistPage() {
     waist: "",
     hip: "",
     rank_id: "",
+    reservation_interval_minutes: "",
   });
 
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
@@ -81,6 +82,9 @@ export default function EditTherapistPage() {
           waist: therapist.waist ? String(therapist.waist) : "",
           hip: therapist.hip ? String(therapist.hip) : "",
           rank_id: therapist.rank_id || "",
+          reservation_interval_minutes: therapist.reservation_interval_minutes != null
+            ? String(therapist.reservation_interval_minutes)
+            : "",
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "不明なエラー";
@@ -136,7 +140,7 @@ export default function EditTherapistPage() {
 
     const hasOverrides = overrideEntries.length > 0;
 
-    // Update Supabase
+    // 基本フィールドを保存（インターバル列なし）
     const { error: updateError } = await supabase
       .from("therapists")
       .update({
@@ -155,6 +159,21 @@ export default function EditTherapistPage() {
       setError("保存に失敗しました: " + updateError.message);
       setLoading(false);
       return;
+    }
+
+    // インターバル列を別途保存（DB未マイグレーションでも他フィールドは守る）
+    if (profile.reservation_interval_minutes !== undefined) {
+      const intervalValue = profile.reservation_interval_minutes !== ""
+        ? Number(profile.reservation_interval_minutes)
+        : null;
+      const { error: intervalError } = await supabase
+        .from("therapists")
+        .update({ reservation_interval_minutes: intervalValue })
+        .eq("id", therapistId);
+      if (intervalError) {
+        // 列が未追加の場合は警告のみ（他の保存は完了済み）
+        console.warn("インターバルの保存をスキップ（DBマイグレーション未適用の可能性）:", intervalError.message);
+      }
     }
 
     // Update overrides
@@ -290,6 +309,29 @@ export default function EditTherapistPage() {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* インターバル設定 */}
+              <div className="space-y-5">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  予約インターバル設定
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">予約インターバル（准備時間）</label>
+                  <p className="text-xs text-slate-400 mb-2">空欄の場合は店舗デフォルトのインターバルが適用されます。</p>
+                  <select
+                    name="reservation_interval_minutes"
+                    value={profile.reservation_interval_minutes}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
+                  >
+                    <option value="">店舗デフォルトを使用</option>
+                    {[0, 5, 10, 15, 20, 25, 30, 45, 60].map(m => (
+                      <option key={m} value={String(m)}>{m}分</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

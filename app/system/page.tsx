@@ -19,6 +19,7 @@ type SystemSettings = {
   default_nomination_fee: number
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
+  reservation_interval_minutes: number
 }
 
 export default function SystemPage() {
@@ -32,6 +33,7 @@ export default function SystemPage() {
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
     default_princess_reservation_fee: 0,
+    reservation_interval_minutes: 20,
   })
 
   async function fetchSettings() {
@@ -62,6 +64,7 @@ export default function SystemPage() {
       default_nomination_fee: row?.default_nomination_fee || 0,
       default_confirmed_nomination_fee: row?.default_confirmed_nomination_fee || 0,
       default_princess_reservation_fee: row?.default_princess_reservation_fee || 0,
+      reservation_interval_minutes: row?.reservation_interval_minutes ?? 20,
     })
     setLoading(false)
   }
@@ -217,10 +220,27 @@ export default function SystemPage() {
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-3xl">
-            <h2 className="text-lg font-bold text-slate-800 mb-2">指名料デフォルト設定</h2>
-            <p className="text-sm text-slate-500 mb-6">セラピスト個別設定がない場合に適用される店舗デフォルト料金です。</p>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">店舗デフォルト設定</h2>
+            <p className="text-sm text-slate-500 mb-6">セラピスト個別設定がない場合に適用される店舗デフォルト値です。</p>
 
             <div className="space-y-5">
+              {/* 予約インターバル */}
+              <div>
+                <label className="block mb-1.5 text-sm font-medium text-slate-700">予約インターバル（準備時間）</label>
+                <p className="text-xs text-slate-400 mb-2">予約と予約の間に確保する時間です。セラピスト個別設定がある場合はそちらが優先されます。</p>
+                <select
+                  value={form.reservation_interval_minutes}
+                  onChange={(e) => setForm({ ...form, reservation_interval_minutes: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5"
+                >
+                  {[0, 5, 10, 15, 20, 25, 30, 45, 60].map(m => (
+                    <option key={m} value={m}>{m}分</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="border-t border-slate-100 pt-5">
+                <h3 className="text-sm font-semibold text-slate-600 mb-4">指名料デフォルト</h3>
               <div>
                 <label className="block mb-1.5 text-sm font-medium text-slate-700">指名料（通常）</label>
                 <div className="relative">
@@ -261,6 +281,7 @@ export default function SystemPage() {
                     className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5"
                   />
                 </div>
+              </div>
               </div>
             </div>
 
