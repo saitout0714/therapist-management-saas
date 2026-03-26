@@ -233,7 +233,7 @@ export default function PayrollPage() {
   const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v)
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">

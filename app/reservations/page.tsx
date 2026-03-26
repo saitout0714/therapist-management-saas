@@ -18,6 +18,7 @@ type Reservation = {
   customer: { name: string } | null
   therapist: { name: string } | null
   course: { name: string } | null
+  created_by: { name: string } | null
 }
 
 export default function ReservationsPage() {
@@ -35,7 +36,7 @@ export default function ReservationsPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('reservations')
-      .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name)')
+      .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)')
       .eq('shop_id', selectedShop.id)
       .neq('status', 'blocked')
       .order('created_at', { ascending: false })
@@ -78,7 +79,7 @@ export default function ReservationsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+      <div className="min-h-screen bg-gray-100 p-6 md:p-8">
         <div className="mx-auto">
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -90,7 +91,7 @@ export default function ReservationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -112,7 +113,7 @@ export default function ReservationsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left border-collapse">
+            <table className="w-full min-w-[1200px] text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日</th>
@@ -123,6 +124,8 @@ export default function ReservationsPage() {
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">指名</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料金</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状態</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">登録日</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">担当者</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">操作</th>
                 </tr>
               </thead>
@@ -147,6 +150,8 @@ export default function ReservationsPage() {
                         {statusLabel(r.status)}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-3">
                         <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
@@ -161,7 +166,7 @@ export default function ReservationsPage() {
                 ))}
                 {reservations.length === 0 && (
                   <tr>
-                    <td className="px-6 py-12 text-center text-slate-500" colSpan={9}>予約がありません</td>
+                    <td className="px-6 py-12 text-center text-slate-500" colSpan={11}>予約がありません</td>
                   </tr>
                 )}
               </tbody>

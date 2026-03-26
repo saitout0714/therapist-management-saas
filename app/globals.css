@@ -18,6 +18,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* slate カラーを2段階濃くしてコントラスト改善 */
+  --color-slate-50: #e9eef4;
+  --color-slate-100: #d5dce6;
+  --color-slate-200: #b8c3d2;
+  --color-slate-300: #8d9bb0;
+  --color-slate-400: #6b7d96;
+  --color-slate-500: #4a5768;
 }
 
 @media (prefers-color-scheme: dark) {

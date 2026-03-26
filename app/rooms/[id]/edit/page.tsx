@@ -80,14 +80,14 @@ export default function EditRoomPage() {
 
   if (initializing) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 p-6 md:p-8 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <Link href="/rooms" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">

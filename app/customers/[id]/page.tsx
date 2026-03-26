@@ -75,7 +75,7 @@ export default function CustomerDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 p-6 md:p-8 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
       </div>
     )
@@ -83,7 +83,7 @@ export default function CustomerDetailPage() {
 
   if (error || !customer) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+      <div className="min-h-screen bg-gray-100 p-6 md:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex items-center mb-6">
             <svg className="w-5 h-5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,7 +103,7 @@ export default function CustomerDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* ヘッダー部分 */}
         <div className="flex items-center gap-4 mb-8">

@@ -158,6 +158,12 @@ export default function NewReservationPage() {
   }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies])
 
   useEffect(() => {
+    if (formData.start_time && calculatedPrice.duration > 0) {
+      setFormData(prev => ({ ...prev, end_time: calcEndTime(formData.start_time, calculatedPrice.duration) }))
+    }
+  }, [formData.start_time, calculatedPrice.duration])
+
+  useEffect(() => {
     autoSelectConfirmedDesignation()
   }, [formData.customer_id, formData.therapist_id])
 
@@ -696,7 +702,7 @@ export default function NewReservationPage() {
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
               日時
             </h2>
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">日付 <span className="text-rose-500">*</span></label>
                 <input
@@ -707,94 +713,88 @@ export default function NewReservationPage() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻 <span className="text-rose-500">*</span></label>
-                  <div className="flex gap-2">
-                    <select
-                      value={formData.start_time.split(':')[0] || ''}
-                      onChange={(e) => {
-                        const hour = e.target.value;
-                        const minute = formData.start_time.split(':')[1] || '00';
-                        const newStart = `${hour}:${minute}`
-                        const dur = isBlocked ? 0 : (courses.find(c => c.id === formData.course_id)?.duration || 0)
-                        setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
-                      }}
-                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      required
-                    >
-                      <option value="">時</option>
-                      {Array.from({ length: 30 }, (_, i) => (
-                        <option key={i} value={String(i).padStart(2, '0')}>
-                          {String(i).padStart(2, '0')}時
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻 <span className="text-rose-500">*</span></label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.start_time.split(':')[0] || ''}
+                    onChange={(e) => {
+                      const hour = e.target.value;
+                      const minute = formData.start_time.split(':')[1] || '00';
+                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">時</option>
+                    {Array.from({ length: 30 }, (_, i) => (
+                      <option key={i} value={String(i).padStart(2, '0')}>
+                        {String(i).padStart(2, '0')}時
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={formData.start_time.split(':')[1] || ''}
+                    onChange={(e) => {
+                      const hour = formData.start_time.split(':')[0] || '00';
+                      const minute = e.target.value;
+                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">分</option>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const min = i * 5;
+                      return (
+                        <option key={min} value={String(min).padStart(2, '0')}>
+                          {String(min).padStart(2, '0')}分
                         </option>
-                      ))}
-                    </select>
-                    <select
-                      value={formData.start_time.split(':')[1] || ''}
-                      onChange={(e) => {
-                        const hour = formData.start_time.split(':')[0] || '00';
-                        const minute = e.target.value;
-                        const newStart = `${hour}:${minute}`
-                        const dur = isBlocked ? 0 : (courses.find(c => c.id === formData.course_id)?.duration || 0)
-                        setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
-                      }}
-                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      required
-                    >
-                      <option value="">分</option>
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const min = i * 5;
-                        return (
-                          <option key={min} value={String(min).padStart(2, '0')}>
-                            {String(min).padStart(2, '0')}分
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
+                      );
+                    })}
+                  </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻 <span className="text-rose-500">*</span></label>
-                  <div className="flex gap-2">
-                    <select
-                      value={formData.end_time.split(':')[0] || ''}
-                      onChange={(e) => {
-                        const hour = e.target.value;
-                        const minute = formData.end_time.split(':')[1] || '00';
-                        setFormData({ ...formData, end_time: `${hour}:${minute}` });
-                      }}
-                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      required
-                    >
-                      <option value="">時</option>
-                      {Array.from({ length: 30 }, (_, i) => (
-                        <option key={i} value={String(i).padStart(2, '0')}>
-                          {String(i).padStart(2, '0')}時
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻 <span className="text-rose-500">*</span></label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.end_time.split(':')[0] || ''}
+                    onChange={(e) => {
+                      const hour = e.target.value;
+                      const minute = formData.end_time.split(':')[1] || '00';
+                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">時</option>
+                    {Array.from({ length: 30 }, (_, i) => (
+                      <option key={i} value={String(i).padStart(2, '0')}>
+                        {String(i).padStart(2, '0')}時
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={formData.end_time.split(':')[1] || ''}
+                    onChange={(e) => {
+                      const hour = formData.end_time.split(':')[0] || '00';
+                      const minute = e.target.value;
+                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">分</option>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const min = i * 5;
+                      return (
+                        <option key={min} value={String(min).padStart(2, '0')}>
+                          {String(min).padStart(2, '0')}分
                         </option>
-                      ))}
-                    </select>
-                    <select
-                      value={formData.end_time.split(':')[1] || ''}
-                      onChange={(e) => {
-                        const hour = formData.end_time.split(':')[0] || '00';
-                        const minute = e.target.value;
-                        setFormData({ ...formData, end_time: `${hour}:${minute}` });
-                      }}
-                      className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      required
-                    >
-                      <option value="">分</option>
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const min = i * 5;
-                        return (
-                          <option key={min} value={String(min).padStart(2, '0')}>
-                            {String(min).padStart(2, '0')}分
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
+                      );
+                    })}
+                  </select>
                 </div>
               </div>
             </div>
@@ -810,15 +810,7 @@ export default function NewReservationPage() {
               <label className="block text-sm font-semibold text-slate-700 mb-2">コース選択 <span className="text-rose-500">*</span></label>
               <select
                 value={formData.course_id}
-                onChange={(e) => {
-                  const newCourseId = e.target.value
-                  const dur = courses.find(c => c.id === newCourseId)?.duration || 0
-                  setFormData({
-                    ...formData,
-                    course_id: newCourseId,
-                    end_time: dur > 0 ? calcEndTime(formData.start_time, dur) : formData.end_time,
-                  })
-                }}
+                onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                 required
               >

@@ -85,6 +85,7 @@ export default function EditReservationPage() {
     customer_id: '',
     date: '',
     start_time: '',
+    end_time: '',
     course_id: '',
     therapist_id: '',
     designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess',
@@ -107,6 +108,11 @@ export default function EditReservationPage() {
     duration: 0,
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
+  const calcEndTime = (start: string, durationMin: number): string => {
+    const [h, m] = start.split(':').map(Number)
+    const total = h * 60 + m + durationMin
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
 
   useEffect(() => {
     fetchInitialData()
@@ -115,6 +121,12 @@ export default function EditReservationPage() {
   useEffect(() => {
     calculatePrice()
   }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies])
+
+  useEffect(() => {
+    if (formData.start_time && calculatedPrice.duration > 0) {
+      setFormData(prev => ({ ...prev, end_time: calcEndTime(formData.start_time, calculatedPrice.duration) }))
+    }
+  }, [formData.start_time, calculatedPrice.duration])
 
   const fetchInitialData = async () => {
     if (!selectedShop) return
@@ -156,6 +168,7 @@ export default function EditReservationPage() {
         customer_id: reservation.customer_id,
         date: reservation.date,
         start_time: reservation.start_time,
+        end_time: reservation.end_time || '',
         course_id: reservation.course_id,
         therapist_id: reservation.therapist_id,
         designation_type: reservation.designation_type,
@@ -317,7 +330,7 @@ export default function EditReservationPage() {
           course_id: formData.course_id,
           date: formData.date,
           start_time: formData.start_time,
-          end_time: endTime,
+          end_time: formData.end_time,
           base_price: calculatedPrice.basePrice,
           options_price: calculatedPrice.optionsPrice,
           nomination_fee: calculatedPrice.nominationFee,
@@ -416,7 +429,7 @@ export default function EditReservationPage() {
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
               日時
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">日付 <span className="text-rose-500">*</span></label>
                 <input
@@ -435,13 +448,15 @@ export default function EditReservationPage() {
                     onChange={(e) => {
                       const hour = e.target.value;
                       const minute = formData.start_time.split(':')[1] || '00';
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
+                      const newStart = `${hour}:${minute}`
+                      const dur = calculatedPrice.duration || 0
+                      setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
                     }}
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                     required
                   >
                     <option value="">時</option>
-                    {Array.from({ length: 24 }, (_, i) => (
+                    {Array.from({ length: 30 }, (_, i) => (
                       <option key={i} value={String(i).padStart(2, '0')}>
                         {String(i).padStart(2, '0')}時
                       </option>
@@ -452,9 +467,53 @@ export default function EditReservationPage() {
                     onChange={(e) => {
                       const hour = formData.start_time.split(':')[0] || '00';
                       const minute = e.target.value;
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
+                      const newStart = `${hour}:${minute}`
+                      const dur = calculatedPrice.duration || 0
+                      setFormData({ ...formData, start_time: newStart, end_time: dur > 0 ? calcEndTime(newStart, dur) : formData.end_time });
                     }}
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">分</option>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const min = i * 5;
+                      return (
+                        <option key={min} value={String(min).padStart(2, '0')}>
+                          {String(min).padStart(2, '0')}分
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻 <span className="text-rose-500">*</span></label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.end_time.split(':')[0] || ''}
+                    onChange={(e) => {
+                      const hour = e.target.value;
+                      const minute = formData.end_time.split(':')[1] || '00';
+                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    required
+                  >
+                    <option value="">時</option>
+                    {Array.from({ length: 30 }, (_, i) => (
+                      <option key={i} value={String(i).padStart(2, '0')}>
+                        {String(i).padStart(2, '0')}時
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={formData.end_time.split(':')[1] || ''}
+                    onChange={(e) => {
+                      const hour = formData.end_time.split(':')[0] || '00';
+                      const minute = e.target.value;
+                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                     required
                   >
                     <option value="">分</option>

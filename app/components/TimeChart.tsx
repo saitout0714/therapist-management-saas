@@ -174,8 +174,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
       return { backgroundColor: '#FFFFFF' };
     } else {
       return {
-        backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.01), rgba(0,0,0,0.01) 10px, transparent 10px, transparent 20px)',
-        backgroundColor: '#F8FAFC',
+        backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 10px, transparent 10px, transparent 20px)',
+        backgroundColor: '#E8ECF1',
       };
     }
   };

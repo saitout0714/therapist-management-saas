@@ -94,7 +94,7 @@ export default function SystemPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+      <div className="min-h-screen bg-gray-100 p-6 md:p-8">
         <div className="mx-auto">
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -106,7 +106,7 @@ export default function SystemPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
