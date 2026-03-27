@@ -1,19 +1,9 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import WeeklyShiftCalendar from '../../components/WeeklyShiftCalendar';
-
-interface Shift {
-  id: string;
-  therapist_id: string;
-  room_id: string | null;
-  date: string;
-  start_time: string;
-  end_time: string;
-}
 
 interface Therapist {
   id: string;
@@ -24,61 +14,33 @@ interface Therapist {
 export default function RegisterShift() {
   const { selectedShop } = useShop();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function fetchTherapists() {
     if (!selectedShop) return;
+    setLoading(true);
     try {
-      const { data: therapistsData, error: therapistsError } = await supabase
+      const { data, error } = await supabase
         .from('therapists')
         .select('id, name, order')
         .eq('shop_id', selectedShop.id)
         .order('order', { ascending: true, nullsFirst: false });
 
-      if (therapistsError) {
-        console.error('Error fetching therapists:', therapistsError);
+      if (error) {
+        console.error('Error fetching therapists:', error);
         return;
       }
 
-      const therapistsWithShift = (therapistsData || []).map((therapist) => {
-        return {
-          id: therapist.id,
-          name: therapist.name,
-          avatar: undefined,
-        };
-      });
-
-      setTherapists(therapistsWithShift as Therapist[]);
+      setTherapists((data || []).map((t) => ({ id: t.id, name: t.name })));
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
+    } finally {
+      setLoading(false);
     }
   }
-
-  async function fetchShifts() {
-    if (!selectedShop) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('id, therapist_id, room_id, date, start_time, end_time')
-      .eq('shop_id', selectedShop.id)
-      .order('date', { ascending: false });
-
-    setLoading(false);
-    if (error) {
-      alert('Error fetching shifts: ' + error.message);
-    } else {
-      setShifts((data as Shift[]) || []);
-    }
-  }
-
-  const handleShiftUpdate = () => {
-    fetchShifts();
-  };
 
   useEffect(() => {
     fetchTherapists();
-    fetchShifts();
   }, [selectedShop]);
 
   return (
@@ -89,8 +51,6 @@ export default function RegisterShift() {
           <p className="text-sm text-slate-500 mt-1">店舗に所属するセラピストのシフト（出勤枠）を週単位で登録・編集できます。</p>
         </div>
 
-
-        {/* ローディング */}
         {loading && (
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -98,15 +58,12 @@ export default function RegisterShift() {
           </div>
         )}
 
-        {/* 週単位シフトカレンダー */}
         {!loading && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="h-[700px]">
               {therapists.length > 0 ? (
                 <WeeklyShiftCalendar
                   therapists={therapists}
-                  shifts={shifts}
-                  onShiftUpdate={handleShiftUpdate}
                   showOnlyWithShift={false}
                 />
               ) : (
@@ -124,5 +81,3 @@ export default function RegisterShift() {
     </div>
   );
 }
-
-

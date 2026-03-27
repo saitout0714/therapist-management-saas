@@ -1,11 +1,9 @@
 'use client'
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import Link from 'next/link'
 import { CourseManagementTab } from './components/CourseManagementTab'
 import { OptionManagementTab } from './components/OptionManagementTab'
 import { TherapistRankManagementTab } from './components/TherapistRankManagementTab'
-import { ShopBackRulesTab } from './components/ShopBackRulesTab'
 import { DiscountPoliciesTab } from './components/DiscountPoliciesTab'
 import { DeductionRulesTab } from './components/DeductionRulesTab'
 import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
@@ -20,90 +18,93 @@ type SystemSettings = {
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
   reservation_interval_minutes: number
+  nomination_back_amount: number
+  confirmed_nomination_back_amount: number
+  princess_back_amount: number
 }
+
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_rules' | 'back_amounts' | 'discounts' | 'deductions'>('courses')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('courses')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
-  const [courseCount, setCourseCount] = useState(0)
-  const [optionCount, setOptionCount] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [form, setForm] = useState({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
     default_princess_reservation_fee: 0,
     reservation_interval_minutes: 20,
+    nomination_back_amount: 0,
+    confirmed_nomination_back_amount: 0,
+    princess_back_amount: 0,
   })
 
   async function fetchSettings() {
-    if (!selectedShop) {
-      setLoading(false)
-      setSettings(null)
-      return
-    }
-
+    if (!selectedShop) { setLoading(false); setSettings(null); return }
     setLoading(true)
-    const [settingsRes, coursesRes, optionsRes] = await Promise.all([
-      supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('courses').select('id', { count: 'exact', head: true }).eq('shop_id', selectedShop.id),
-      supabase.from('options').select('id', { count: 'exact', head: true }).eq('shop_id', selectedShop.id),
-    ])
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .eq('shop_id', selectedShop.id)
+      .limit(1)
 
-    if (settingsRes.error) {
-      alert('システム設定の取得に失敗しました')
-      setLoading(false)
-      return
-    }
+    if (error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
 
-    const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
+    const row = (data?.[0] as SystemSettings | undefined) || null
     setSettings(row)
-    setCourseCount(coursesRes.count || 0)
-    setOptionCount(optionsRes.count || 0)
     setForm({
-      default_nomination_fee: row?.default_nomination_fee || 0,
-      default_confirmed_nomination_fee: row?.default_confirmed_nomination_fee || 0,
-      default_princess_reservation_fee: row?.default_princess_reservation_fee || 0,
-      reservation_interval_minutes: row?.reservation_interval_minutes ?? 20,
+      default_nomination_fee:             row?.default_nomination_fee ?? 0,
+      default_confirmed_nomination_fee:   row?.default_confirmed_nomination_fee ?? 0,
+      default_princess_reservation_fee:   row?.default_princess_reservation_fee ?? 0,
+      reservation_interval_minutes:       row?.reservation_interval_minutes ?? 20,
+      nomination_back_amount:             row?.nomination_back_amount ?? 0,
+      confirmed_nomination_back_amount:   row?.confirmed_nomination_back_amount ?? 0,
+      princess_back_amount:               row?.princess_back_amount ?? 0,
     })
     setLoading(false)
   }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedShop) {
-      alert('店舗を選択してください')
-      return
-    }
+    if (!selectedShop) { alert('店舗を選択してください'); return }
+    setSaving(true)
 
     const result = settings?.id
       ? await supabase.from('system_settings').update({ ...form, updated_at: new Date().toISOString() }).eq('id', settings.id)
       : await supabase.from('system_settings').insert([{ ...form, shop_id: selectedShop.id }])
 
-    if (result.error) {
-      alert('保存に失敗しました')
-      return
-    }
-    alert('保存しました')
+    if (result.error) { alert('保存に失敗しました'); setSaving(false); return }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
     void fetchSettings()
+    setSaving(false)
   }
 
-  useEffect(() => {
-    void fetchSettings()
-  }, [selectedShop])
+  useEffect(() => { void fetchSettings() }, [selectedShop])
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 p-6 md:p-8">
-        <div className="mx-auto">
-          <div className="flex justify-center items-center py-20 text-indigo-600">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            <span className="ml-3 font-medium">読み込み中...</span>
-          </div>
+        <div className="flex justify-center items-center py-20 text-indigo-600">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+          <span className="ml-3 font-medium">読み込み中...</span>
         </div>
       </div>
     )
   }
+
+  const tabs: { key: ActiveTab; label: string }[] = [
+    { key: 'courses',          label: 'コース管理' },
+    { key: 'pricing_defaults', label: '指名料・インターバル' },
+    { key: 'options',          label: 'オプション管理' },
+    { key: 'ranks',            label: 'ランク設定' },
+    { key: 'back_amounts',     label: '固定額バック表' },
+    { key: 'discounts',        label: '割引ルール' },
+    { key: 'deductions',       label: '控除・手当' },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-8">
@@ -114,181 +115,111 @@ export default function SystemPage() {
         </div>
 
         <div className="flex gap-2 mb-6 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('courses')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'courses'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === tab.key
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
-          >
-            コース管理
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('options')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'options'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            オプション管理
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ranks')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'ranks'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            ランク設定
-          </button>
-
-          <div className="w-px h-8 bg-slate-200 mx-1 self-center" />
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('back_rules')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'back_rules'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            バック設定
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('back_amounts')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'back_amounts'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            固定額バック表
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('discounts')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'discounts'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            割引ルール
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('deductions')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'deductions'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            控除・手当
-          </button>
-
-          <div className="w-px h-8 bg-slate-200 mx-1 self-center" />
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('pricing_defaults')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'pricing_defaults'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            指名料デフォルト
-          </button>
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {activeTab === 'courses' && <CourseManagementTab />}
-
-        {activeTab === 'options' && <OptionManagementTab />}
-
-        {activeTab === 'ranks' && <TherapistRankManagementTab />}
-
-        {activeTab === 'back_rules' && <ShopBackRulesTab />}
-
+        {activeTab === 'courses'      && <CourseManagementTab />}
+        {activeTab === 'options'      && <OptionManagementTab />}
+        {activeTab === 'ranks'        && <TherapistRankManagementTab />}
         {activeTab === 'back_amounts' && <CourseBackAmountsTab />}
-
-        {activeTab === 'discounts' && <DiscountPoliciesTab />}
-
-        {activeTab === 'deductions' && <DeductionRulesTab />}
-
-
+        {activeTab === 'discounts'    && <DiscountPoliciesTab />}
+        {activeTab === 'deductions'   && <DeductionRulesTab />}
 
         {activeTab === 'pricing_defaults' && (
-          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-3xl">
-            <h2 className="text-lg font-bold text-slate-800 mb-2">店舗デフォルト設定</h2>
-            <p className="text-sm text-slate-500 mb-6">セラピスト個別設定がない場合に適用される店舗デフォルト値です。</p>
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-2xl space-y-8">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 mb-1">指名料・インターバル設定</h2>
+              <p className="text-sm text-slate-500">セラピスト個別設定がない場合に適用されるデフォルト値です。</p>
+            </div>
 
-            <div className="space-y-5">
-              {/* 予約インターバル */}
-              <div>
-                <label className="block mb-1.5 text-sm font-medium text-slate-700">予約インターバル（準備時間）</label>
-                <p className="text-xs text-slate-400 mb-2">予約と予約の間に確保する時間です。セラピスト個別設定がある場合はそちらが優先されます。</p>
-                <select
-                  value={form.reservation_interval_minutes}
-                  onChange={(e) => setForm({ ...form, reservation_interval_minutes: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5"
-                >
-                  {[0, 5, 10, 15, 20, 25, 30, 45, 60].map(m => (
-                    <option key={m} value={m}>{m}分</option>
-                  ))}
-                </select>
-              </div>
+            {/* 予約インターバル */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-4">予約インターバル（準備時間）</h3>
+              <select
+                value={form.reservation_interval_minutes}
+                onChange={(e) => setForm({ ...form, reservation_interval_minutes: Number(e.target.value) })}
+                className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
+              >
+                {[0, 5, 10, 15, 20, 25, 30, 45, 60].map(m => (
+                  <option key={m} value={m}>{m}分</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1.5">セラピスト個別設定がある場合はそちらが優先されます。</p>
+            </div>
 
-              <div className="border-t border-slate-100 pt-5">
-                <h3 className="text-sm font-semibold text-slate-600 mb-4">指名料デフォルト</h3>
-              <div>
-                <label className="block mb-1.5 text-sm font-medium text-slate-700">指名料（通常）</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.default_nomination_fee}
-                    onChange={(e) => setForm({ ...form, default_nomination_fee: Number(e.target.value) })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block mb-1.5 text-sm font-medium text-slate-700">本指名料</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.default_confirmed_nomination_fee}
-                    onChange={(e) => setForm({ ...form, default_confirmed_nomination_fee: Number(e.target.value) })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block mb-1.5 text-sm font-medium text-slate-700">姫予約料金</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.default_princess_reservation_fee}
-                    onChange={(e) => setForm({ ...form, default_princess_reservation_fee: Number(e.target.value) })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5"
-                  />
-                </div>
-              </div>
+            {/* 指名料デフォルト */}
+            <div>
+              <h3 className="text-sm font-bold text-slate-700 mb-4">指名料デフォルト</h3>
+              <div className="space-y-4">
+                {[
+                  { label: '指名料（通常）', feeField: 'default_nomination_fee', backField: 'nomination_back_amount' },
+                  { label: '本指名料',       feeField: 'default_confirmed_nomination_fee', backField: 'confirmed_nomination_back_amount' },
+                  { label: '姫予約料金',     feeField: 'default_princess_reservation_fee', backField: 'princess_back_amount' },
+                ].map(({ label, feeField, backField }) => (
+                  <div key={feeField}>
+                    <p className="text-xs font-semibold text-slate-600 mb-2">{label}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] text-slate-400 mb-1">顧客請求額</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={form[feeField as keyof typeof form]}
+                            onChange={(e) => setForm({ ...form, [feeField]: Number(e.target.value) })}
+                            className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-indigo-600 font-semibold mb-1">セラピストバック額</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm font-bold">B</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={form[backField as keyof typeof form]}
+                            onChange={(e) => setForm({ ...form, [backField]: Number(e.target.value) })}
+                            className="w-full border border-indigo-200 rounded-xl bg-indigo-50/50 pl-8 pr-3 py-2.5 text-sm font-semibold text-indigo-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <button type="submit" className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">
-                保存する
+            <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+              >
+                {saving ? '保存中...' : '保存する'}
               </button>
+              {saved && (
+                <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  保存しました
+                </span>
+              )}
             </div>
           </form>
         )}

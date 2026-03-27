@@ -26,8 +26,6 @@ interface Shift {
 
 interface WeeklyShiftCalendarProps {
   therapists: Therapist[]
-  shifts: Shift[]
-  onDateClick?: (therapistId: string, date: string) => void
   onShiftUpdate?: () => void
   showOnlyWithShift?: boolean
 }
@@ -74,10 +72,11 @@ for (let h = 8; h <= 29; h++) {
   if (h < 29) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`)
 }
 
-const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, shifts, onShiftUpdate, showOnlyWithShift = false }) => {
+const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, onShiftUpdate, showOnlyWithShift = false }) => {
   const { selectedShop } = useShop()
   const [weekStartDate, setWeekStartDate] = useState(new Date())
   const [rooms, setRooms] = useState<Room[]>([])
+  const [shifts, setShifts] = useState<Shift[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
   const [selectedTherapistId, setSelectedTherapistId] = useState('')
@@ -100,12 +99,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
     return dates
   }, [weekStartDate])
 
-  const filteredTherapists = useMemo(() => {
-    if (!showOnlyWithShift) return therapists
-    const ids = new Set(shifts.map((s) => s.therapist_id))
-    return therapists.filter((t) => ids.has(t.id))
-  }, [therapists, shifts, showOnlyWithShift])
-
+  // 部屋の取得
   useEffect(() => {
     const run = async () => {
       if (!selectedShop) {
@@ -117,6 +111,30 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
     }
     void run()
   }, [selectedShop])
+
+  // 週のシフトを取得
+  const fetchWeeklyShifts = async () => {
+    if (!selectedShop) return
+    const startDate = formatDate(weekDates[0])
+    const endDate = formatDate(weekDates[6])
+    const { data } = await supabase
+      .from('shifts')
+      .select('id, therapist_id, room_id, date, start_time, end_time')
+      .eq('shop_id', selectedShop.id)
+      .gte('date', startDate)
+      .lte('date', endDate)
+    setShifts((data as Shift[]) || [])
+  }
+
+  useEffect(() => {
+    void fetchWeeklyShifts()
+  }, [selectedShop, weekDates])
+
+  const filteredTherapists = useMemo(() => {
+    if (!showOnlyWithShift) return therapists
+    const ids = new Set(shifts.map((s) => s.therapist_id))
+    return therapists.filter((t) => ids.has(t.id))
+  }, [therapists, shifts, showOnlyWithShift])
 
   const shiftMap = useMemo(() => {
     const map = new Map<string, Shift>()
@@ -169,6 +187,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
     }
 
     closeModal()
+    void fetchWeeklyShifts()
     onShiftUpdate?.()
   }
 
@@ -183,6 +202,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
       return
     }
     closeModal()
+    void fetchWeeklyShifts()
     onShiftUpdate?.()
   }
 
@@ -213,10 +233,11 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, s
               <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">セラピスト</th>
               {weekDates.map((d) => {
                 const dateText = formatDate(d)
+                const isToday = dateText === formatDate(new Date())
                 return (
-                  <th key={dateText} className="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider min-w-[110px]">
-                    <div>{dateText.slice(5)}</div>
-                    <div className="text-[10px] text-slate-400 mt-1">{dayLabels[d.getDay()]}</div>
+                  <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
+                    <div className={isToday ? 'font-bold' : ''}>{dateText.slice(5)}</div>
+                    <div className={`text-[10px] mt-1 ${isToday ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>{dayLabels[d.getDay()]}</div>
                   </th>
                 )
               })}

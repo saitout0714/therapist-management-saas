@@ -7,72 +7,129 @@ import { useShop } from '@/app/contexts/ShopContext'
 type ShopBackRule = {
   id: string
   shop_id: string
-  course_calc_type: 'percentage' | 'fixed'
-  course_back_rate: number
-  option_calc_type: 'full_back' | 'percentage' | 'fixed' | 'per_item'
-  option_back_rate: number
-  nomination_calc_type: 'full_back' | 'percentage' | 'fixed'
-  nomination_back_rate: number
+  course_back_amount: number
+  option_back_amount: number
+  nomination_back_amount: number
+  discount_therapist_burden: number
   rounding_method: 'floor' | 'ceil' | 'round'
   business_day_cutoff: string
 }
 
-const CALC_TYPE_LABELS: Record<string, string> = {
-  percentage: 'パーセンテージ（%）',
-  fixed: '固定額（マトリクス表）',
-  full_back: 'フルバック（100%）',
-  per_item: 'オプション個別設定',
+type FormState = {
+  course_back_amount: string
+  option_back_amount: string
+  nomination_back_amount: string
+  discount_therapist_burden: string
+  rounding_method: 'floor' | 'ceil' | 'round'
+  business_day_cutoff: string
 }
 
 const ROUNDING_LABELS: Record<string, string> = {
-  floor: '切り捨て（セラピスト不利）',
-  ceil: '切り上げ（セラピスト有利）',
+  floor: '切り捨て',
+  ceil:  '切り上げ',
   round: '四捨五入',
+}
+
+const SECTIONS = [
+  {
+    num: '1',
+    color: 'bg-indigo-100 text-indigo-600',
+    border: 'border-indigo-100',
+    bg: 'bg-indigo-50/50',
+    label: 'コースバック',
+    field: 'course_back_amount' as keyof FormState,
+    description: '予約1件ごとにセラピストに支払うバック額',
+    hint: 'コース×ランク×指名種別ごとの特別額は「固定額バック表」で設定でき、そちらが優先されます。',
+  },
+  {
+    num: '2',
+    color: 'bg-emerald-100 text-emerald-600',
+    border: 'border-emerald-100',
+    bg: 'bg-emerald-50/50',
+    label: 'オプションバック',
+    field: 'option_back_amount' as keyof FormState,
+    description: 'オプション1件ごとにセラピストに支払うバック額',
+    hint: '予約にオプションが複数ある場合、件数分が合算されます。',
+  },
+  {
+    num: '3',
+    color: 'bg-violet-100 text-violet-600',
+    border: 'border-violet-100',
+    bg: 'bg-violet-50/50',
+    label: '指名料バック',
+    field: 'nomination_back_amount' as keyof FormState,
+    description: '指名料（フリー以外）でセラピストに支払うバック額',
+    hint: '指名種別（初指名・本指名・写真指名など）に関わらず同額が適用されます。',
+  },
+  {
+    num: '4',
+    color: 'bg-rose-100 text-rose-600',
+    border: 'border-rose-100',
+    bg: 'bg-rose-50/50',
+    label: '割引時のセラピスト負担額',
+    field: 'discount_therapist_burden' as keyof FormState,
+    description: '割引が発生した際にセラピストが負担するデフォルト額',
+    hint: '割引ルールごとに負担分を個別設定している場合はそちらが優先されます。0円の場合はお店が全額負担します。',
+  },
+] as const
+
+function AmountInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">¥</span>
+      <input
+        type="number"
+        min={0}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-slate-200 rounded-xl pl-7 pr-4 py-3 bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm font-semibold text-slate-800 shadow-sm"
+        placeholder="0"
+      />
+    </div>
+  )
 }
 
 export function ShopBackRulesTab() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [rule, setRule] = useState<ShopBackRule | null>(null)
-  const [form, setForm] = useState({
-    course_calc_type: 'percentage' as 'percentage' | 'fixed',
-    course_back_rate: 50,
-    option_calc_type: 'full_back' as 'full_back' | 'percentage' | 'fixed' | 'per_item',
-    option_back_rate: 100,
-    nomination_calc_type: 'full_back' as 'full_back' | 'percentage' | 'fixed',
-    nomination_back_rate: 100,
-    rounding_method: 'floor' as 'floor' | 'ceil' | 'round',
+  const [saved, setSaved] = useState(false)
+  const [ruleId, setRuleId] = useState<string | null>(null)
+  const [form, setForm] = useState<FormState>({
+    course_back_amount: '0',
+    option_back_amount: '0',
+    nomination_back_amount: '0',
+    discount_therapist_burden: '0',
+    rounding_method: 'floor',
     business_day_cutoff: '06:00',
   })
 
   async function fetchRule() {
-    if (!selectedShop) {
-      setRule(null)
-      setLoading(false)
-      return
-    }
+    if (!selectedShop) { setLoading(false); return }
     setLoading(true)
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('shop_back_rules')
       .select('*')
       .eq('shop_id', selectedShop.id)
       .limit(1)
 
-    if (error) {
-      console.error('Failed to fetch shop_back_rules:', error)
-    } else if (data && data.length > 0) {
+    if (data && data.length > 0) {
       const row = data[0] as ShopBackRule
-      setRule(row)
+      setRuleId(row.id)
       setForm({
-        course_calc_type: row.course_calc_type,
-        course_back_rate: Number(row.course_back_rate),
-        option_calc_type: row.option_calc_type,
-        option_back_rate: Number(row.option_back_rate),
-        nomination_calc_type: row.nomination_calc_type,
-        nomination_back_rate: Number(row.nomination_back_rate),
-        rounding_method: row.rounding_method,
-        business_day_cutoff: row.business_day_cutoff?.substring(0, 5) || '06:00',
+        course_back_amount:       String(row.course_back_amount ?? 0),
+        option_back_amount:       String(row.option_back_amount ?? 0),
+        nomination_back_amount:   String(row.nomination_back_amount ?? 0),
+        discount_therapist_burden: String(row.discount_therapist_burden ?? 0),
+        rounding_method:          row.rounding_method ?? 'floor',
+        business_day_cutoff:      row.business_day_cutoff?.substring(0, 5) ?? '06:00',
       })
     }
     setLoading(false)
@@ -80,180 +137,95 @@ export function ShopBackRulesTab() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedShop) {
-      alert('店舗を選択してください')
-      return
-    }
+    if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
     const payload = {
-      ...form,
-      shop_id: selectedShop.id,
-      updated_at: new Date().toISOString(),
+      shop_id:                   selectedShop.id,
+      course_back_amount:        parseInt(form.course_back_amount || '0', 10),
+      option_back_amount:        parseInt(form.option_back_amount || '0', 10),
+      nomination_back_amount:    parseInt(form.nomination_back_amount || '0', 10),
+      discount_therapist_burden: parseInt(form.discount_therapist_burden || '0', 10),
+      rounding_method:           form.rounding_method,
+      business_day_cutoff:       form.business_day_cutoff,
+      updated_at:                new Date().toISOString(),
     }
 
-    const result = rule?.id
-      ? await supabase.from('shop_back_rules').update(payload).eq('id', rule.id)
+    const result = ruleId
+      ? await supabase.from('shop_back_rules').update(payload).eq('id', ruleId)
       : await supabase.from('shop_back_rules').insert([payload])
 
     if (result.error) {
-      console.error('Save error:', result.error)
       alert('保存に失敗しました: ' + result.error.message)
     } else {
-      alert('バック設定を保存しました')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
       void fetchRule()
     }
     setSaving(false)
   }
 
-  useEffect(() => {
-    void fetchRule()
-  }, [selectedShop])
+  const setField = (field: keyof FormState, value: string) =>
+    setForm((f) => ({ ...f, [field]: value }))
 
-  if (loading) return <div className="p-6">読み込み中...</div>
+  useEffect(() => { void fetchRule() }, [selectedShop])
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20 text-indigo-600">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3" />
+      読み込み中...
+    </div>
+  )
 
   return (
-    <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-4xl">
-      <div className="mb-6">
-        <h2 className="text-lg font-bold text-slate-800">バック計算設定</h2>
-        <p className="text-sm text-slate-500 mt-1">この店舗のデフォルトのバック計算方式を設定します。</p>
+    <form onSubmit={handleSave} className="max-w-2xl space-y-5">
+      {/* ページ説明 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h2 className="text-base font-bold text-slate-800 mb-1">デフォルトバック設定</h2>
+        <p className="text-sm text-slate-500">
+          この店舗全体に適用される基本のバック額を設定します。
+          コースごと・ランクごとの特別ルールは「固定額バック表」タブで設定でき、そちらが優先されます。
+        </p>
       </div>
 
-      {/* コースバック設定 */}
-      <div className="mb-8">
-        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">1</span>
-          コース料金のバック方式
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-8">
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-600">計算方式</label>
-            <select
-              value={form.course_calc_type}
-              onChange={(e) => setForm({ ...form, course_calc_type: e.target.value as 'percentage' | 'fixed' })}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-            >
-              <option value="percentage">{CALC_TYPE_LABELS.percentage}</option>
-              <option value="fixed">{CALC_TYPE_LABELS.fixed}</option>
-            </select>
-          </div>
-          {form.course_calc_type === 'percentage' && (
+      {/* 各バック設定セクション */}
+      {SECTIONS.map((section) => (
+        <div
+          key={section.field}
+          className={`bg-white rounded-2xl shadow-sm border ${section.border} overflow-hidden`}
+        >
+          <div className={`px-6 py-4 ${section.bg} border-b ${section.border} flex items-center gap-3`}>
+            <span className={`w-7 h-7 rounded-full ${section.color} flex items-center justify-center text-xs font-bold flex-shrink-0`}>
+              {section.num}
+            </span>
             <div>
-              <label className="block mb-1.5 text-sm font-medium text-slate-600">バック率（%）</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  value={form.course_back_rate}
-                  onChange={(e) => setForm({ ...form, course_back_rate: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-              </div>
+              <p className="text-sm font-bold text-slate-800">{section.label}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{section.description}</p>
             </div>
-          )}
-          {form.course_calc_type === 'fixed' && (
-            <div className="sm:col-span-2">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                💡 固定額方式の場合、下部の「固定額バック表」タブでコース×ランク×指名種別ごとのバック額を設定してください。
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* オプションバック設定 */}
-      <div className="mb-8">
-        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">2</span>
-          オプション料金のバック方式
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-8">
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-600">計算方式</label>
-            <select
-              value={form.option_calc_type}
-              onChange={(e) => setForm({ ...form, option_calc_type: e.target.value as 'full_back' | 'percentage' | 'fixed' | 'per_item' })}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-            >
-              <option value="full_back">{CALC_TYPE_LABELS.full_back}</option>
-              <option value="percentage">{CALC_TYPE_LABELS.percentage}</option>
-              <option value="per_item">{CALC_TYPE_LABELS.per_item}</option>
-            </select>
           </div>
-          {form.option_calc_type === 'percentage' && (
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-slate-600">バック率（%）</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  value={form.option_back_rate}
-                  onChange={(e) => setForm({ ...form, option_back_rate: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 指名料バック設定 */}
-      <div className="mb-8">
-        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-bold">3</span>
-          指名料のバック方式
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-8">
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-600">計算方式</label>
-            <select
-              value={form.nomination_calc_type}
-              onChange={(e) => setForm({ ...form, nomination_calc_type: e.target.value as 'full_back' | 'percentage' | 'fixed' })}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-            >
-              <option value="full_back">{CALC_TYPE_LABELS.full_back}</option>
-              <option value="percentage">{CALC_TYPE_LABELS.percentage}</option>
-            </select>
+          <div className="px-6 py-5">
+            <AmountInput
+              value={form[section.field] as string}
+              onChange={(v) => setField(section.field, v)}
+            />
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">{section.hint}</p>
           </div>
-          {form.nomination_calc_type === 'percentage' && (
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-slate-600">バック率（%）</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  value={form.nomination_back_rate}
-                  onChange={(e) => setForm({ ...form, nomination_back_rate: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      ))}
 
       {/* その他設定 */}
-      <div className="mb-8">
-        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">4</span>
-          その他の設定
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center gap-3">
+          <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
+          <p className="text-sm font-bold text-slate-800">その他の設定</p>
+        </div>
+        <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-600">端数処理</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">端数処理</label>
             <select
               value={form.rounding_method}
-              onChange={(e) => setForm({ ...form, rounding_method: e.target.value as 'floor' | 'ceil' | 'round' })}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
+              onChange={(e) => setField('rounding_method', e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-3 bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm shadow-sm"
             >
               {Object.entries(ROUNDING_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
@@ -261,26 +233,35 @@ export function ShopBackRulesTab() {
             </select>
           </div>
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-slate-600">営業日切替時刻</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">営業日切替時刻</label>
             <input
               type="time"
               value={form.business_day_cutoff}
-              onChange={(e) => setForm({ ...form, business_day_cutoff: e.target.value })}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
+              onChange={(e) => setField('business_day_cutoff', e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-3 bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm shadow-sm"
             />
-            <p className="text-xs text-slate-400 mt-1">この時刻より前の予約は前日の営業扱いになります</p>
+            <p className="text-xs text-slate-400 mt-1.5">この時刻より前の予約は前日の営業扱いになります</p>
           </div>
         </div>
       </div>
 
-      <div className="pt-6 border-t border-slate-100">
+      {/* 保存ボタン */}
+      <div className="flex items-center gap-4 pt-2">
         <button
           type="submit"
           disabled={saving}
-          className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm text-sm"
         >
           {saving ? '保存中...' : '保存する'}
         </button>
+        {saved && (
+          <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            保存しました
+          </span>
+        )}
       </div>
     </form>
   )

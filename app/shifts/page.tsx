@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import TimeChart from '../components/TimeChart';
+import WeeklyDayView from '../components/WeeklyDayView';
 
 interface Shift {
   id: string;
@@ -61,16 +62,19 @@ interface Schedule {
   isNewCustomer?: boolean;
 }
 
+type ViewMode = 'day' | 'week';
+
 export default function ShiftsPage() {
   const { selectedShop } = useShop();
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
   const [filterDate, setFilterDate] = useState(() => {
-    // デフォルトで当日の日付を設定
     return new Date().toISOString().split('T')[0];
   });
+  const [weekStartDate, setWeekStartDate] = useState<Date>(() => new Date());
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -121,7 +125,6 @@ export default function ShiftsPage() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
     try {
-      // セラピスト一覧（インターバル込み、列が未追加の場合はフォールバック）
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
@@ -130,7 +133,6 @@ export default function ShiftsPage() {
         .order('name', { ascending: true });
 
       if (therapistsError) {
-        // reservation_interval_minutes 列が未追加の場合はフォールバック
         const { data: basicData } = await supabase
           .from('therapists')
           .select('id, name')
@@ -141,7 +143,6 @@ export default function ShiftsPage() {
         allTherapists = therapistsWithInterval || [];
       }
 
-      // 店舗デフォルトインターバルを取得
       const { data: settingsData } = await supabase
         .from('system_settings')
         .select('reservation_interval_minutes')
@@ -150,7 +151,6 @@ export default function ShiftsPage() {
       const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
       setShopIntervalMinutes(shopInterval);
 
-      // その日のシフト情報を取得（セラピストの営業時間を確認するため）
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
         .select('therapist_id, rooms(name), start_time, end_time')
@@ -162,13 +162,11 @@ export default function ShiftsPage() {
         return;
       }
 
-      // シフト情報をマップで処理
       const shiftsMap = new Map<string, { therapist_id: string; start_time: string | null; end_time: string | null; rooms: { name: string } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
 
-      // セラピストにシフト情報を追加
       const therapistsWithShift = ((allTherapists || []) as TherapistRow[]).map((therapist) => {
         const shift = shiftsMap.get(therapist.id);
         const startTime = shift ? formatTimeToHHMM(shift.start_time) : null;
@@ -185,9 +183,8 @@ export default function ShiftsPage() {
         };
       });
 
-      // 開始時間の早い順でソート（数値変換して比較）
       const timeToMinutes = (timeStr: string | null): number => {
-        if (!timeStr) return 9999; // nullは末尾
+        if (!timeStr) return 9999;
         const match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
         if (!match) return 9999;
         return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
@@ -196,18 +193,12 @@ export default function ShiftsPage() {
       therapistsWithShift.sort((a, b) => {
         const aMin = timeToMinutes(a.shiftStart);
         const bMin = timeToMinutes(b.shiftStart);
-        // 開始時間が同じ場合は終了時間で比較
         if (aMin === bMin) {
           const aEndMin = timeToMinutes(a.shiftEnd);
           const bEndMin = timeToMinutes(b.shiftEnd);
           return aEndMin - bEndMin;
         }
         return aMin - bMin;
-      });
-
-      console.log('=== shifts/page.tsx Therapists Order ===');
-      therapistsWithShift.forEach((t, i: number) => {
-        console.log(`[${i}] ${t.name} (shiftStart: ${t.shiftStart}) (id: ${t.id.substring(0, 8)}...)`);
       });
 
       setTherapists(therapistsWithShift as Therapist[]);
@@ -218,7 +209,6 @@ export default function ShiftsPage() {
 
   const formatTimeToHHMM = (timeStr: string | null): string | null => {
     if (!timeStr) return null;
-
     const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
     if (match) {
       const hours = String(parseInt(match[1])).padStart(2, '0');
@@ -279,7 +269,6 @@ export default function ShiftsPage() {
     }
   };
 
-  // 分をHH:MM文字列に変換
   const minutesToHHMM = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
@@ -293,7 +282,6 @@ export default function ShiftsPage() {
 
   const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
 
-  // 予約のみを表示 + 予約後インターバルブロックを追加
   const schedules: Schedule[] = [
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
@@ -311,7 +299,6 @@ export default function ShiftsPage() {
         totalPrice: reservation.total_price,
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
       })),
-    // 予約不可ブロック
     ...reservations
       .filter((r: any) => r.status === 'blocked')
       .map((reservation) => ({
@@ -322,89 +309,144 @@ export default function ShiftsPage() {
         type: 'blocked' as const,
         reservationId: reservation.id,
       })),
-    // インターバルブロック（予約終了直後〜インターバル終了まで）
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
       .flatMap((reservation) => {
-      const therapist = therapists.find(t => t.id === reservation.therapist_id);
-      const interval = therapist?.intervalMinutes != null
-        ? therapist.intervalMinutes
-        : shopIntervalMinutes;
-      if (interval <= 0) return [];
-      const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
-      const intervalEndMin = endMin + interval;
-      return [{
-        therapistId: reservation.therapist_id,
-        startTime: reservation.end_time.slice(0, 5),
-        endTime: minutesToHHMM(intervalEndMin),
-        title: `インターバル ${interval}分`,
-        type: 'interval' as const,
-      }];
-    }),
+        const therapist = therapists.find(t => t.id === reservation.therapist_id);
+        const interval = therapist?.intervalMinutes != null
+          ? therapist.intervalMinutes
+          : shopIntervalMinutes;
+        if (interval <= 0) return [];
+        const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
+        const intervalEndMin = endMin + interval;
+        return [{
+          therapistId: reservation.therapist_id,
+          startTime: reservation.end_time.slice(0, 5),
+          endTime: minutesToHHMM(intervalEndMin),
+          title: `インターバル ${interval}分`,
+          type: 'interval' as const,
+        }];
+      }),
   ];
 
-  const handleWeeklyDateClick = (therapistId: string, date: string) => {
-    // シフト編集ページへのリンク、または編集モーダルを表示
-    console.log(`Edit shift: ${therapistId} on ${date}`);
-  };
+  // 週間表示用：全セラピストをシンプルな形式にマップ
+  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name }));
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="w-full mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
-          <p className="text-sm text-slate-500 mt-1">タイムチャート表示</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
+          </p>
         </div>
 
         {/* フィルターと表示切り替え */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+            {/* ビュー切り替えトグル（左側） */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+              <button
+                onClick={() => setViewMode('day')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  viewMode === 'day'
+                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                タイムチャート
+              </button>
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  viewMode === 'week'
+                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                週間表示
+              </button>
+            </div>
+
+            {/* 日付ナビゲーション（右側・モードに応じて切り替え） */}
             <div className="flex gap-2 items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-              <button
-                onClick={handlePrevDay}
-                className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
-              >
-                ← 前日
-              </button>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm"
-              />
-              <button
-                onClick={handleNextDay}
-                className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
-              >
-                翌日 →
-              </button>
-              <div className="w-px h-6 bg-slate-200 mx-1"></div>
-              <button
-                onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
-              >
-                本日
-              </button>
+              {viewMode === 'day' ? (
+                <>
+                  <button
+                    onClick={handlePrevDay}
+                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                  >
+                    ← 前日
+                  </button>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm"
+                  />
+                  <button
+                    onClick={handleNextDay}
+                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                  >
+                    翌日 →
+                  </button>
+                  <div className="w-px h-6 bg-slate-200 mx-1" />
+                  <button
+                    onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
+                  >
+                    本日
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() - 7 * 86400000))}
+                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                  >
+                    ← 前の週
+                  </button>
+                  <span className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg text-sm shadow-sm">
+                    {[weekStartDate].map(d => {
+                      const end = new Date(d.getTime() + 6 * 86400000);
+                      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 〜 ${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`;
+                    })[0]}
+                  </span>
+                  <button
+                    onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() + 7 * 86400000))}
+                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                  >
+                    翌週 →
+                  </button>
+                  <div className="w-px h-6 bg-slate-200 mx-1" />
+                  <button
+                    onClick={() => setWeekStartDate(new Date())}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
+                  >
+                    今週
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ローディング */}
-        {loading && (
+        {/* ローディング（日表示のみ） */}
+        {viewMode === 'day' && loading && (
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-gray-600">読み込み中...</p>
           </div>
         )}
 
         {/* タイムチャートビュー */}
-        {!loading && (
+        {viewMode === 'day' && !loading && (
           <div className="bg-white rounded-lg shadow-lg overflow-visible">
             <div className="h-[600px] w-full">
               {(() => {
-                // filterDate にシフトがあるセラピストのみ表示
                 const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
                 return therapistsWithShift.length > 0 ? (
-                   <TimeChart
+                  <TimeChart
                     therapists={therapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
@@ -420,6 +462,18 @@ export default function ShiftsPage() {
               })()}
             </div>
           </div>
+        )}
+
+        {/* 週間表示ビュー */}
+        {viewMode === 'week' && (
+          <WeeklyDayView
+            therapists={therapistsForWeekly}
+            weekStartDate={weekStartDate}
+            onDayClick={(date) => {
+              setFilterDate(date);
+              setViewMode('day');
+            }}
+          />
         )}
       </div>
 
@@ -474,5 +528,3 @@ export default function ShiftsPage() {
     </div>
   );
 }
-
-
