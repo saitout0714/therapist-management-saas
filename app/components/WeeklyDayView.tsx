@@ -199,7 +199,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                   </span>
                   <span className={`text-xl font-bold leading-tight mt-0.5
                     ${isToday ? 'text-indigo-600' : isSun ? 'text-rose-500' : isSat ? 'text-blue-500' : 'text-slate-800'}`}>
-                    {date.getDate()}
+                    {date.getMonth()+1}/{date.getDate()}
                   </span>
                   {isToday
                     ? <span className="mt-1 text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">今日</span>

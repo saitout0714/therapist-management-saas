@@ -236,7 +236,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
                 const isToday = dateText === formatDate(new Date())
                 return (
                   <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
-                    <div className={isToday ? 'font-bold' : ''}>{dateText.slice(5)}</div>
+                    <div className={isToday ? 'font-bold' : ''}>{d.getMonth()+1}/{d.getDate()}</div>
                     <div className={`text-[10px] mt-1 ${isToday ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>{dayLabels[d.getDay()]}</div>
                   </th>
                 )
