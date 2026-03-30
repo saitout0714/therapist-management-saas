@@ -68,8 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginId: string, password: string) => {
     try {
-      setLoading(true)
-
       // ユーザーを取得
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -131,8 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error
       }
       throw new Error('ログインに失敗しました')
-    } finally {
-      setLoading(false)
     }
   }
 

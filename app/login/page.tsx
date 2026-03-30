@@ -15,7 +15,7 @@ export default function LoginPage() {
   // 既にログイン済みの場合はダッシュボードへリダイレクト
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      router.push('/')
+      router.replace('/')
     }
   }, [isAuthenticated, authLoading, router])
 
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       await login(loginId, password)
-      router.push('/')
+      router.replace('/')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'ログインに失敗しました'
       setError(message)
