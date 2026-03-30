@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, RefObject } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter } from 'next/navigation'
@@ -45,6 +45,7 @@ type SystemSettings = {
   default_nomination_fee: number
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
+  credit_card_fee_rate?: number
 }
 
 type DiscountPolicy = {
@@ -92,9 +93,27 @@ export default function NewReservationPage() {
     manual_burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
     notes: '',
     reception_source: 'staff' as 'staff' | 'client' | 'therapist',
+    payment_method: 'cash' as 'cash' | 'credit',
+    options_payment_method: 'cash' as 'cash' | 'credit',
   })
 
   const [fromShifts, setFromShifts] = useState(false)
+
+  // セクション自動スクロール用 ref
+  const sectionRef2 = useRef<HTMLDivElement>(null)
+  const sectionRef3 = useRef<HTMLDivElement>(null)
+  const sectionRef4 = useRef<HTMLDivElement>(null)
+  const sectionRef5 = useRef<HTMLDivElement>(null)
+  const sectionRef6 = useRef<HTMLDivElement>(null)
+  const sectionRef7 = useRef<HTMLDivElement>(null)
+  const sectionRef8 = useRef<HTMLDivElement>(null)
+  const sectionRef9 = useRef<HTMLDivElement>(null)
+
+  const scrollToSection = (ref: RefObject<HTMLDivElement>) => {
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+  }
 
   const [newCustomer, setNewCustomer] = useState({
     show: false,
@@ -119,6 +138,7 @@ export default function NewReservationPage() {
     discountAmount: 0,
     totalPrice: 0,
     duration: 0,
+    creditFeeAmount: 0,
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
 
@@ -155,7 +175,7 @@ export default function NewReservationPage() {
 
   useEffect(() => {
     calculatePrice()
-  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies])
+  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (formData.start_time && calculatedPrice.duration > 0) {
@@ -254,6 +274,14 @@ export default function NewReservationPage() {
 
     const totalPrice = basePrice + optionsPrice + nominationFee - dynamicDiscount
 
+    // クレジット手数料の計算
+    const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
+    let creditFeeAmount = 0
+    if (formData.payment_method === 'credit') {
+      const creditBase = basePrice + nominationFee + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
+      creditFeeAmount = Math.floor(creditBase * feeRate)
+    }
+
     setCalculatedPrice({
       basePrice,
       optionsPrice,
@@ -261,6 +289,7 @@ export default function NewReservationPage() {
       discountAmount: dynamicDiscount,
       totalPrice: Math.max(0, totalPrice),
       duration,
+      creditFeeAmount,
     })
   }
 
@@ -387,6 +416,7 @@ export default function NewReservationPage() {
       setCustomers([...customers, newCust])
       setFormData({ ...formData, customer_id: newCust.id })
       setNewCustomer({ show: false, name: '', email: '', phone: '' })
+      scrollToSection(sectionRef2)
       alert('お客様を追加しました')
     } catch (error) {
       console.error('お客様の追加に失敗:', error)
@@ -525,6 +555,9 @@ export default function NewReservationPage() {
           status: 'confirmed',
           created_by_id: user?.id,
           reception_source: formData.reception_source,
+          payment_method: formData.payment_method,
+          options_payment_method: formData.options_payment_method,
+          credit_fee_amount: calculatedPrice.creditFeeAmount,
         }])
         .select()
 
@@ -584,7 +617,7 @@ export default function NewReservationPage() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* 左側: 入力フォーム */}
         <div className="lg:col-span-2 space-y-6 lg:space-y-8">
-          {/* お客様情報 */}
+          {/* 1: お客様情報 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">1</span>
@@ -612,7 +645,7 @@ export default function NewReservationPage() {
                         <button
                           key={customer.id}
                           type="button"
-                          onClick={() => setFormData({ ...formData, customer_id: customer.id })}
+                          onClick={() => { setFormData({ ...formData, customer_id: customer.id }); scrollToSection(sectionRef2) }}
                           className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 ${formData.customer_id === customer.id ? 'bg-indigo-50/50 text-indigo-900 border-l-4 border-l-indigo-500 pl-3' : ''
                             }`}
                         >
@@ -697,7 +730,7 @@ export default function NewReservationPage() {
           </div>
 
           {/* 日時情報 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div ref={sectionRef2} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
               日時
@@ -739,6 +772,7 @@ export default function NewReservationPage() {
                       const hour = formData.start_time.split(':')[0] || '00';
                       const minute = e.target.value;
                       setFormData({ ...formData, start_time: `${hour}:${minute}` });
+                      if (minute) scrollToSection(sectionRef3)
                     }}
                     className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                     required
@@ -801,7 +835,7 @@ export default function NewReservationPage() {
           </div>
 
           {/* コース情報 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div ref={sectionRef3} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center mr-3">3</span>
               コース
@@ -810,7 +844,7 @@ export default function NewReservationPage() {
               <label className="block text-sm font-semibold text-slate-700 mb-2">コース選択 <span className="text-rose-500">*</span></label>
               <select
                 value={formData.course_id}
-                onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                onChange={(e) => { setFormData({ ...formData, course_id: e.target.value }); if (e.target.value) scrollToSection(sectionRef4) }}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                 required
               >
@@ -831,7 +865,7 @@ export default function NewReservationPage() {
           </div>
 
           {/* オプション選択 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div ref={sectionRef4} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">4</span>
               オプション
@@ -863,7 +897,7 @@ export default function NewReservationPage() {
           </div>
 
           {/* セラピスト情報 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div ref={sectionRef5} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center mr-3">5</span>
               担当セラピスト
@@ -873,7 +907,7 @@ export default function NewReservationPage() {
                 <label className="block text-sm font-semibold text-slate-700 mb-2">指名するセラピスト <span className="text-rose-500">*</span></label>
                 <select
                   value={formData.therapist_id}
-                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, therapist_id: e.target.value }); if (e.target.value) scrollToSection(sectionRef5) }}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
                   required
                   disabled={availableTherapists.length === 0}
@@ -920,6 +954,7 @@ export default function NewReservationPage() {
                       e.preventDefault()
                       setFormData({ ...formData, designation_type: 'free' })
                       e.currentTarget.blur()
+                      scrollToSection(sectionRef6)
                     }}
                     className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'free' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
@@ -932,6 +967,7 @@ export default function NewReservationPage() {
                       e.preventDefault()
                       setFormData({ ...formData, designation_type: 'nomination' })
                       e.currentTarget.blur()
+                      scrollToSection(sectionRef6)
                     }}
                     className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'nomination' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
@@ -943,6 +979,7 @@ export default function NewReservationPage() {
                       e.preventDefault()
                       setFormData({ ...formData, designation_type: 'confirmed' })
                       e.currentTarget.blur()
+                      scrollToSection(sectionRef6)
                     }}
                     className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'confirmed' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
@@ -954,6 +991,7 @@ export default function NewReservationPage() {
                       e.preventDefault()
                       setFormData({ ...formData, designation_type: 'princess' })
                       e.currentTarget.blur()
+                      scrollToSection(sectionRef6)
                     }}
                     className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'princess' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
@@ -965,7 +1003,7 @@ export default function NewReservationPage() {
           </div>
 
           {/* 割引情報 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div ref={sectionRef6} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3">6</span>
               割引・キャンペーン
@@ -1021,10 +1059,71 @@ export default function NewReservationPage() {
             </div>
           </div>
 
-          {/* 受付管理 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+          {/* 支払方法 */}
+          <div ref={sectionRef7} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mr-3">7</span>
+              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mr-3">7</span>
+              支払方法
+            </h2>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">コース・指名料の支払方法</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setFormData({ ...formData, payment_method: 'cash' }); scrollToSection(sectionRef8) }}
+                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="text-xl mb-1">💴</span>
+                    <span className="font-bold text-sm">現金</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFormData({ ...formData, payment_method: 'credit' }); scrollToSection(sectionRef8) }}
+                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="text-xl mb-1">💳</span>
+                    <span className="font-bold text-sm">クレジット</span>
+                  </button>
+                </div>
+              </div>
+
+              {formData.payment_method === 'credit' && (
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">オプションの支払方法</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, options_payment_method: 'cash' })}
+                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        💴 現金（セラピストへ）
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, options_payment_method: 'credit' })}
+                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        💳 クレジット
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xs text-amber-700 bg-amber-100 rounded-xl p-3">
+                    手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
+                    {calculatedPrice.creditFeeAmount > 0 && (
+                      <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 受付管理 */}
+          <div ref={sectionRef8} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mr-3">8</span>
               受付管理
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
@@ -1053,9 +1152,9 @@ export default function NewReservationPage() {
           </div>
 
           {/* 備考 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
+          <div ref={sectionRef9} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">8</span>
+              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">9</span>
               備考・メモ
             </h2>
             <textarea
@@ -1106,10 +1205,31 @@ export default function NewReservationPage() {
               </div>
             </div>
 
-            <div className="flex flex-col mb-8">
+            {calculatedPrice.creditFeeAmount > 0 && (
+              <div className="flex justify-between items-center text-amber-600 mb-2">
+                <span className="font-medium text-sm">クレジット手数料 ({systemSettings?.credit_card_fee_rate ?? 10}%):</span>
+                <span className="font-bold text-base">+¥{calculatedPrice.creditFeeAmount.toLocaleString()}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col mb-2">
               <span className="text-sm font-semibold text-slate-500 mb-1">合計金額</span>
               <span className="text-4xl font-extrabold text-indigo-600 tracking-tight">¥{calculatedPrice.totalPrice.toLocaleString()}</span>
             </div>
+
+            {calculatedPrice.creditFeeAmount > 0 && (
+              <div className="mb-6 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <div className="text-xs text-amber-700 font-medium">💳 クレジット請求総額</div>
+                <div className="text-xl font-extrabold text-amber-600 tracking-tight">
+                  ¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()}
+                </div>
+                {formData.options_payment_method === 'cash' && calculatedPrice.optionsPrice > 0 && (
+                  <div className="text-[10px] text-amber-600 mt-1">
+                    ※ オプション ¥{calculatedPrice.optionsPrice.toLocaleString()} は現金でセラピストへ
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               <button

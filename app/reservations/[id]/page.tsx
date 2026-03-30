@@ -30,6 +30,9 @@ type Reservation = {
   designation_type: 'free' | 'nomination' | 'confirmed' | 'princess'
   notes: string | null
   status: 'pending' | 'confirmed' | 'cancelled'
+  payment_method: 'cash' | 'credit' | null
+  options_payment_method: 'cash' | 'credit' | null
+  credit_fee_amount: number
   customers: { name: string; phone: string | null; email: string | null } | null
   courses: { name: string; duration: number; base_price: number } | null
   therapists: { name: string } | null
@@ -175,9 +178,15 @@ export default function ReservationPreviewPage() {
       text += `割引：-¥${reservation.discount_amount.toLocaleString()}\n`
     }
     text += `------------------------\n`
-    text += `合計：¥${reservation.total_price.toLocaleString()}\n\n`
-    
-    text += `ご来店を心よりお待ちしております。`
+    text += `合計：¥${reservation.total_price.toLocaleString()}\n`
+    if (reservation.credit_fee_amount > 0) {
+      text += `クレジット手数料：¥${reservation.credit_fee_amount.toLocaleString()}\n`
+      text += `💳 クレジット請求額：¥${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}\n`
+      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+        text += `（うちオプション¥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
+      }
+    }
+    text += `\nご来店を心よりお待ちしております。`
     
     return text
   }
@@ -203,6 +212,17 @@ export default function ReservationPreviewPage() {
     
     text += `\n■ ルーム\n${roomInfo?.name || '未定'}\n\n`
     
+    // Payment method
+    if (reservation.payment_method === 'credit') {
+      const optsCash = reservation.options_payment_method === 'cash' && reservation.options_price > 0
+      text += `■ お支払い方法\n`
+      text += `💳 クレジット決済（コース・指名料）\n`
+      if (optsCash) {
+        text += `💴 オプションは現金（¥${reservation.options_price.toLocaleString()}）をセラピストへ直接お支払い\n`
+      }
+      text += `\n`
+    }
+
     // Price Details (Revenue)
     text += `■ 売上詳細\n`
     text += `基本料金：¥${reservation.base_price.toLocaleString()}\n`
@@ -274,9 +294,6 @@ export default function ReservationPreviewPage() {
                   {statusLabel(reservation.status)}
                 </span>
               </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                予約内容の確認と、LINE通知用のテキスト発行ができます
-              </p>
             </div>
           </div>
           <Link
@@ -293,47 +310,39 @@ export default function ReservationPreviewPage() {
         {/* Action Buttons for LINE */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Customer Copy */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-start hover:border-indigo-100 transition-colors group">
-            <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-4 group-hover:scale-110 transition-transform">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-4 pt-4">
+              <button
+                onClick={() => handleCopy(generateCustomerLineText(), 'お客様')}
+                className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                </svg>
+                お客様用ご案内をコピー
+              </button>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">お客様へ送信する</h3>
-            <p className="text-sm text-slate-500 mb-6 flex-1">
-              日時やコース、ルーム住所、料金詳細など、お客様に必要な予約確認情報をコピーします。
-            </p>
-            <button
-              onClick={() => handleCopy(generateCustomerLineText(), 'お客様')}
-              className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-              </svg>
-              お客様用ご案内をコピー
-            </button>
+            <pre className="mx-4 mb-4 mt-3 p-3 text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl border border-slate-100 h-36 overflow-y-auto">
+              {generateCustomerLineText()}
+            </pre>
           </div>
 
           {/* Therapist Copy */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-start hover:border-pink-100 transition-colors group">
-            <div className="w-10 h-10 bg-pink-50 rounded-full flex items-center justify-center text-pink-600 mb-4 group-hover:scale-110 transition-transform">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-4 pt-4">
+              <button
+                onClick={() => handleCopy(generateTherapistLineText(), 'セラピスト')}
+                className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                </svg>
+                セラピスト用詳細をコピー
+              </button>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">セラピストへ送信する</h3>
-            <p className="text-sm text-slate-500 mb-6 flex-1">
-              日時やお客様指名、売上詳細など、セラピストの当日の業務に必要な情報をコピーします。
-            </p>
-            <button
-              onClick={() => handleCopy(generateTherapistLineText(), 'セラピスト')}
-              className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-              </svg>
-              セラピスト用詳細をコピー
-            </button>
+            <pre className="mx-4 mb-4 mt-3 p-3 text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl border border-slate-100 h-36 overflow-y-auto">
+              {generateTherapistLineText()}
+            </pre>
           </div>
         </div>
 
@@ -431,9 +440,36 @@ export default function ReservationPreviewPage() {
                       <span>-¥{reservation.discount_amount.toLocaleString()}</span>
                     </div>
                   )}
+                  {reservation.credit_fee_amount > 0 && (
+                    <div className="flex justify-between items-center mb-1 text-amber-600">
+                      <span>クレジット手数料</span>
+                      <span>+¥{reservation.credit_fee_amount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100 font-bold text-lg text-indigo-700">
                     <span>合計</span>
                     <span>¥{reservation.total_price.toLocaleString()}</span>
+                  </div>
+                  {reservation.credit_fee_amount > 0 && (
+                    <div className="flex justify-between items-center mt-1 font-bold text-base text-amber-600">
+                      <span>💳 クレジット請求額</span>
+                      <span>¥{(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="mt-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 font-medium">支払方法:</span>
+                      {reservation.payment_method === 'credit' ? (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold">💳 クレジット</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-bold">💴 現金</span>
+                      )}
+                      {reservation.payment_method === 'credit' && reservation.options_price > 0 && (
+                        <span className="text-xs text-slate-400">
+                          OP: {reservation.options_payment_method === 'credit' ? '💳 クレジット' : '💴 現金（セラピストへ）'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 

@@ -21,6 +21,7 @@ type SystemSettings = {
   nomination_back_amount: number
   confirmed_nomination_back_amount: number
   princess_back_amount: number
+  credit_card_fee_rate: number
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions'
@@ -40,6 +41,7 @@ export default function SystemPage() {
     nomination_back_amount: 0,
     confirmed_nomination_back_amount: 0,
     princess_back_amount: 0,
+    credit_card_fee_rate: 10,
   })
 
   async function fetchSettings() {
@@ -63,6 +65,7 @@ export default function SystemPage() {
       nomination_back_amount:             row?.nomination_back_amount ?? 0,
       confirmed_nomination_back_amount:   row?.confirmed_nomination_back_amount ?? 0,
       princess_back_amount:               row?.princess_back_amount ?? 0,
+      credit_card_fee_rate:               row?.credit_card_fee_rate ?? 10,
     })
     setLoading(false)
   }
@@ -201,6 +204,27 @@ export default function SystemPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* クレジット決済手数料 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
+              <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜12%の範囲で設定できます。</p>
+              <div className="flex items-center gap-3 max-w-xs">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={12}
+                    step={0.5}
+                    value={form.credit_card_fee_rate}
+                    onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(12, Math.max(0, Number(e.target.value))) })}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+                </div>
+                <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
               </div>
             </div>
 

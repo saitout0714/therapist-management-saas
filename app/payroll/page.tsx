@@ -17,12 +17,16 @@ type ReservationWithDetails = {
   id: string
   course_id: string
   base_price: number
+  options_price: number
   nomination_fee: number
   discount_amount: number
   designation_type: string
   date: string
   start_time: string
   end_time: string
+  payment_method: 'cash' | 'credit' | null
+  options_payment_method: 'cash' | 'credit' | null
+  credit_fee_amount: number
   course: { name: string; duration: number } | null
   customer: { name: string } | null
   reservation_options: { option_id: string; price: number }[]
@@ -90,7 +94,7 @@ export default function PayrollPage() {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status, payment_method, options_payment_method, credit_fee_amount,
           course:courses(name, duration),
           customer:customers(name),
           reservation_options(option_id, price),
@@ -142,20 +146,32 @@ export default function PayrollPage() {
     }
   }
 
-  const { totalSales, totalBack, totalDeductions, totalAllowances, netPay } = useMemo(() => {
+  const { totalSales, totalBack, totalDeductions, totalAllowances, netPay, totalCashReceived, hasCreditReservation } = useMemo(() => {
     let sales = 0
     let back = 0
     let ded = 0
     let all = 0
     let net = 0
+    let cashReceived = 0
+    let hasCredit = false
 
-    calculatedRows.forEach(({ result }) => {
+    calculatedRows.forEach(({ reservation: res, result }) => {
       sales += result.totalPrice
       back += result.totalBack
-      // 予約単位の控除・手当
       ded += result.deductions
       all += result.allowances
       net += result.netBack
+
+      if (res.payment_method === 'credit') {
+        hasCredit = true
+        // クレジット払いの場合、店舗に入る現金はオプション現金払い分のみ
+        if (res.options_payment_method === 'cash') {
+          cashReceived += res.options_price || 0
+        }
+      } else {
+        // 現金払いは全額
+        cashReceived += result.totalPrice
+      }
     })
 
     return {
@@ -163,7 +179,9 @@ export default function PayrollPage() {
       totalBack: back,
       totalDeductions: ded,
       totalAllowances: all,
-      netPay: net
+      netPay: net,
+      totalCashReceived: cashReceived,
+      hasCreditReservation: hasCredit,
     }
   }, [calculatedRows])
 
@@ -189,6 +207,10 @@ export default function PayrollPage() {
       const res = row.reservation
       const r = row.result
       text += `■ ${index + 1}予約目 (${res.start_time.slice(0, 5)}〜${res.end_time.slice(0, 5)}) ${res.customer?.name || 'お客様'}\n`
+      if (res.payment_method === 'credit') {
+        const optsCash = res.options_payment_method === 'cash' && (res.options_price || 0) > 0
+        text += `【💳 クレジット決済】コース・指名料はクレジット払い${optsCash ? ' / オプションは現金' : ''}\n`
+      }
       text += `・総売上: ¥${r.totalPrice.toLocaleString()}\n`
       if (r.totalDiscount > 0) {
         text += `  (うち割引: -¥${r.totalDiscount.toLocaleString()})\n`
@@ -203,10 +225,15 @@ export default function PayrollPage() {
       text += breakdown
     })
 
+    const shopCashBalance = totalCashReceived - netPay
     text += `------------------------\n`
     text += `★ 本日合計売上: ¥${totalSales.toLocaleString()}\n`
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
-    text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
+    if (hasCreditReservation) {
+      text += `★ 本日店落ち（現金）: ${shopCashBalance < 0 ? `-¥${Math.abs(shopCashBalance).toLocaleString()}` : `¥${shopCashBalance.toLocaleString()}`}\n`
+    } else {
+      text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
+    }
     text += `------------------------\n`
 
     if (totalDeductions > 0 || totalAllowances > 0) {
@@ -361,6 +388,33 @@ export default function PayrollPage() {
                             <div className="font-bold text-lg leading-tight">¥{r.netBack.toLocaleString()}</div>
                           </div>
                         </div>
+
+                        {res.payment_method === 'credit' && (() => {
+                          const optionsCash = res.options_payment_method === 'cash' ? (res.options_price || 0) : 0
+                          const cashBalance = optionsCash - r.netBack
+                          return (
+                            <div className="mt-3 pt-3 border-t border-slate-100">
+                              <div className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">現金精算（クレジット着金前）</div>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                <div className="text-slate-600">
+                                  お客様現金: <span className="font-bold text-slate-800">¥{optionsCash.toLocaleString()}</span>
+                                </div>
+                                <div className="text-slate-400">－</div>
+                                <div className="text-slate-600">
+                                  バック支払: <span className="font-bold text-slate-800">¥{r.netBack.toLocaleString()}</span>
+                                </div>
+                                <div className="text-slate-400">=</div>
+                                <div>
+                                  <span className="text-slate-600">現金残: </span>
+                                  <span className={`font-extrabold text-base ${cashBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {cashBalance < 0 ? `▼ -¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })()}
+
                       </div>
                     )
                   })}
@@ -383,6 +437,19 @@ export default function PayrollPage() {
                   <span>店落ち</span>
                   <span className="font-bold border-b border-white/30 truncate">¥{(totalSales - netPay).toLocaleString()}</span>
                 </div>
+                {hasCreditReservation && (
+                  <div className="mt-3 pt-3 border-t border-white/20">
+                    <div className="text-xs text-indigo-200 mb-1 font-bold uppercase tracking-wider">現金残（クレジット着金前）</div>
+                    <div className={`text-xl font-extrabold ${(totalCashReceived - netPay) < 0 ? 'text-red-300' : 'text-white'}`}>
+                      {(totalCashReceived - netPay) < 0
+                        ? `▼ -¥${Math.abs(totalCashReceived - netPay).toLocaleString()}`
+                        : `¥${(totalCashReceived - netPay).toLocaleString()}`}
+                    </div>
+                    {(totalCashReceived - netPay) < 0 && (
+                      <div className="text-[10px] text-red-200 mt-0.5">クレジット着金後に不足分を補填</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">

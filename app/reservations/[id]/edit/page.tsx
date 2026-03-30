@@ -44,6 +44,7 @@ type SystemSettings = {
   default_nomination_fee: number
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
+  credit_card_fee_rate?: number
 }
 
 type DiscountPolicy = {
@@ -96,6 +97,8 @@ export default function EditReservationPage() {
     notes: '',
     status: 'confirmed' as 'pending' | 'confirmed' | 'cancelled',
     reception_source: 'staff' as 'staff' | 'client' | 'therapist',
+    payment_method: 'cash' as 'cash' | 'credit',
+    options_payment_method: 'cash' as 'cash' | 'credit',
   })
   const [creatorName, setCreatorName] = useState<string | null>(null)
 
@@ -106,6 +109,7 @@ export default function EditReservationPage() {
     discountAmount: 0,
     totalPrice: 0,
     duration: 0,
+    creditFeeAmount: 0,
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
   const calcEndTime = (start: string, durationMin: number): string => {
@@ -179,6 +183,8 @@ export default function EditReservationPage() {
         notes: reservation.notes || '',
         status: reservation.status,
         reception_source: reservation.reception_source || 'staff',
+        payment_method: reservation.payment_method || 'cash',
+        options_payment_method: reservation.options_payment_method || 'cash',
       })
 
       if (mainDiscount?.policy_id) {
@@ -254,6 +260,14 @@ export default function EditReservationPage() {
 
     const totalPrice = basePrice + optionsPrice + nominationFee - dynamicDiscount
 
+    // クレジット手数料の計算
+    const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
+    let creditFeeAmount = 0
+    if (formData.payment_method === 'credit') {
+      const creditBase = basePrice + nominationFee + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
+      creditFeeAmount = Math.floor(creditBase * feeRate)
+    }
+
     setCalculatedPrice({
       basePrice,
       optionsPrice,
@@ -261,6 +275,7 @@ export default function EditReservationPage() {
       discountAmount: dynamicDiscount,
       totalPrice: Math.max(0, totalPrice),
       duration,
+      creditFeeAmount,
     })
   }
 
@@ -340,6 +355,9 @@ export default function EditReservationPage() {
           notes: formData.notes,
           status: formData.status,
           reception_source: formData.reception_source,
+          payment_method: formData.payment_method,
+          options_payment_method: formData.options_payment_method,
+          credit_fee_amount: calculatedPrice.creditFeeAmount,
         })
         .eq('id', reservationId)
 
@@ -767,10 +785,71 @@ export default function EditReservationPage() {
             </div>
           </div>
 
+          {/* 支払方法 */}
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mr-3">8</span>
+              支払方法
+            </h2>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">コース・指名料の支払方法</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, payment_method: 'cash' })}
+                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="text-xl mb-1">💴</span>
+                    <span className="font-bold text-sm">現金</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, payment_method: 'credit' })}
+                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="text-xl mb-1">💳</span>
+                    <span className="font-bold text-sm">クレジット</span>
+                  </button>
+                </div>
+              </div>
+
+              {formData.payment_method === 'credit' && (
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">オプションの支払方法</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, options_payment_method: 'cash' })}
+                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        💴 現金（セラピストへ）
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, options_payment_method: 'credit' })}
+                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        💳 クレジット
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xs text-amber-700 bg-amber-100 rounded-xl p-3">
+                    手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
+                    {calculatedPrice.creditFeeAmount > 0 && (
+                      <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 受付管理 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mr-3">8</span>
+              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mr-3">9</span>
               受付管理
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
@@ -800,7 +879,7 @@ export default function EditReservationPage() {
           {/* 備考 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">9</span>
+              <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">10</span>
               備考・メモ
             </h2>
             <textarea
@@ -851,10 +930,31 @@ export default function EditReservationPage() {
               </div>
             </div>
 
-            <div className="flex flex-col mb-8">
+            {calculatedPrice.creditFeeAmount > 0 && (
+              <div className="flex justify-between items-center text-amber-600 mb-2">
+                <span className="font-medium text-sm">クレジット手数料 ({systemSettings?.credit_card_fee_rate ?? 10}%):</span>
+                <span className="font-bold text-base">+¥{calculatedPrice.creditFeeAmount.toLocaleString()}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col mb-2">
               <span className="text-sm font-semibold text-slate-500 mb-1">合計金額</span>
               <span className="text-4xl font-extrabold text-indigo-600 tracking-tight">¥{calculatedPrice.totalPrice.toLocaleString()}</span>
             </div>
+
+            {calculatedPrice.creditFeeAmount > 0 && (
+              <div className="mb-6 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <div className="text-xs text-amber-700 font-medium">💳 クレジット請求総額</div>
+                <div className="text-xl font-extrabold text-amber-600 tracking-tight">
+                  ¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()}
+                </div>
+                {formData.options_payment_method === 'cash' && calculatedPrice.optionsPrice > 0 && (
+                  <div className="text-[10px] text-amber-600 mt-1">
+                    ※ オプション ¥{calculatedPrice.optionsPrice.toLocaleString()} は現金でセラピストへ
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               <button

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import-csv": "tsx scripts/import-csv.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
@@ -17,6 +18,8 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "csv-parse": "^5.5.6",
+    "tsx": "^4.19.3",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",

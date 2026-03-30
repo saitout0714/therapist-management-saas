@@ -1,0 +1,4 @@
+store_name,customer_name,therapist_name,date,start_time,end_time,course_name,designation_type,note
+渋谷店,山田 花子,佐藤 あい,2024-03-15,14:00:00,15:00:00,60分コース,nomination,
+渋谷店,鈴木 一郎,中村 さくら,2024-03-16,10:00:00,11:30:00,90分コース,free,初回割引あり
+新宿店,田中 美咲,伊藤 ゆき,2024-03-17,13:00:00,14:00:00,60分コース,confirmed,

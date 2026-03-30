@@ -12,6 +12,7 @@ interface DailySummary {
   totalBack: number;
   shopProfit: number;
   reservationCount: number;
+  totalCreditFee: number;
 }
 
 interface ReservationWithDetails {
@@ -25,6 +26,7 @@ interface ReservationWithDetails {
   date: string
   start_time: string
   end_time: string
+  credit_fee_amount: number
   course: { duration: number } | null
   reservation_options: { option_id: string; price: number }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
@@ -68,7 +70,7 @@ export default function AggregationPage() {
         supabase
           .from('reservations')
           .select(`
-            *,
+            *, credit_fee_amount,
             course:courses(duration),
             reservation_options(option_id, price),
             reservation_discounts(applied_amount, burden_type)
@@ -108,6 +110,7 @@ export default function AggregationPage() {
         let daySales = 0
         let dayBack = 0
         let dayCount = dayRes.length
+        let dayCreditFee = 0
 
         for (const res of dayRes) {
           const therapist = therapists?.find(t => t.id === res.therapist_id)
@@ -131,8 +134,10 @@ export default function AggregationPage() {
           }
 
           const calc = await calculateBack(input)
-          daySales += calc.totalPrice
+          const fee = res.credit_fee_amount || 0
+          daySales += calc.totalPrice + fee
           dayBack += calc.netBack
+          dayCreditFee += fee
         }
 
         results.push({
@@ -140,7 +145,8 @@ export default function AggregationPage() {
           totalSales: daySales,
           totalBack: dayBack,
           shopProfit: daySales - dayBack,
-          reservationCount: dayCount
+          reservationCount: dayCount,
+          totalCreditFee: dayCreditFee,
         })
 
         current.setDate(current.getDate() + 1)
@@ -164,8 +170,9 @@ export default function AggregationPage() {
       sales: acc.sales + cur.totalSales,
       back: acc.back + cur.totalBack,
       profit: acc.profit + cur.shopProfit,
-      count: acc.count + cur.reservationCount
-    }), { sales: 0, back: 0, profit: 0, count: 0 })
+      count: acc.count + cur.reservationCount,
+      creditFee: acc.creditFee + cur.totalCreditFee,
+    }), { sales: 0, back: 0, profit: 0, count: 0, creditFee: 0 })
   }, [dailySummaries])
 
   // 前半・後半への分割
@@ -287,6 +294,9 @@ export default function AggregationPage() {
           <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60">
             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総売上</div>
             <div className="text-lg font-bold text-slate-800 font-mono">¥{totals.sales.toLocaleString()}</div>
+            {totals.creditFee > 0 && (
+              <div className="text-[10px] text-amber-500 font-medium mt-0.5">うち手数料 ¥{totals.creditFee.toLocaleString()}</div>
+            )}
           </div>
           <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60">
             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">報酬合計</div>
