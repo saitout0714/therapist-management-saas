@@ -109,7 +109,7 @@ export default function NewReservationPage() {
   const sectionRef8 = useRef<HTMLDivElement>(null)
   const sectionRef9 = useRef<HTMLDivElement>(null)
 
-  const scrollToSection = (ref: RefObject<HTMLDivElement>) => {
+  const scrollToSection = (ref: RefObject<HTMLDivElement | null>) => {
     setTimeout(() => {
       ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 150)
