@@ -30,7 +30,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               <div className="hidden md:block ml-2 text-lg font-bold text-slate-800 tracking-tight">ダッシュボード</div>
               <ShopSwitcher />
             </header>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
               {children}
             </main>
           </div>

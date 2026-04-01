@@ -18,6 +18,7 @@ type Course = {
   name: string
   duration: number
   base_price: number
+  includes_nomination_fee?: boolean
 }
 
 type Option = {
@@ -30,6 +31,7 @@ type Option = {
 type Therapist = {
   id: string
   name: string
+  therapist_ranks?: { name: string } | null
 }
 
 type TherapistPricing = {
@@ -86,7 +88,7 @@ export default function NewReservationPage() {
     end_time: '11:00',
     course_id: '',
     therapist_id: '',
-    designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess',
+    designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess' | 'photo',
     selected_options: [] as string[],
     discount_amount: 0,
     discount_reason: '',
@@ -198,7 +200,7 @@ export default function NewReservationPage() {
         supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
@@ -252,12 +254,25 @@ export default function NewReservationPage() {
       therapistFee && therapistFee > 0 ? therapistFee : defaultFee
 
     let nominationFee = 0
-    if (formData.designation_type === 'nomination') {
-      nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
-    } else if (formData.designation_type === 'confirmed') {
-      nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
-    } else if (formData.designation_type === 'princess') {
-      nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+    const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
+    const therapistRankName = (selectedTherapist?.therapist_ranks as any)?.name ?? null
+
+    if (selectedCourse?.includes_nomination_fee) {
+      // コミコミコース：認定ランク＋写真指名または本指名の場合のみ+1,000円
+      if (
+        therapistRankName === '認定' &&
+        (formData.designation_type === 'photo' || formData.designation_type === 'confirmed' || formData.designation_type === 'nomination')
+      ) {
+        nominationFee = 1000
+      }
+    } else {
+      if (formData.designation_type === 'nomination') {
+        nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
+      } else if (formData.designation_type === 'confirmed') {
+        nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
+      } else if (formData.designation_type === 'princess') {
+        nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+      }
     }
 
     const selectedPolicy = discountPolicies.find(p => p.id === selectedDiscountId)
@@ -947,7 +962,7 @@ export default function NewReservationPage() {
                     {designationSearchLoading ? '検索中...' : '履歴から自動判定する'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -972,6 +987,18 @@ export default function NewReservationPage() {
                     className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'nomination' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
                     <span className="font-bold text-sm">指名</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setFormData({ ...formData, designation_type: 'photo' })
+                      e.currentTarget.blur()
+                      scrollToSection(sectionRef6)
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'photo' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="font-bold text-sm">写真指名</span>
                   </button>
                   <button
                     type="button"

@@ -333,23 +333,23 @@ export default function ShiftsPage() {
   const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name }));
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-100 p-2 md:p-8">
       <div className="w-full mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
-          <p className="text-sm text-slate-500 mt-1">
+        <div className="mb-2 md:mb-8">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
+          <p className="text-xs md:text-sm text-slate-500">
             {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
           </p>
         </div>
 
         {/* フィルターと表示切り替え */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-            {/* ビュー切り替えトグル（左側） */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 md:p-4 mb-2 md:mb-6">
+          <div className="flex flex-col gap-2">
+            {/* ビュー切り替えトグル */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1 self-start">
               <button
                 onClick={() => setViewMode('day')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${
                   viewMode === 'day'
                     ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
                     : 'text-slate-500 hover:text-slate-700'
@@ -359,7 +359,7 @@ export default function ShiftsPage() {
               </button>
               <button
                 onClick={() => setViewMode('week')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${
                   viewMode === 'week'
                     ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
                     : 'text-slate-500 hover:text-slate-700'
@@ -369,13 +369,13 @@ export default function ShiftsPage() {
               </button>
             </div>
 
-            {/* 日付ナビゲーション（右側・モードに応じて切り替え） */}
-            <div className="flex gap-2 items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+            {/* 日付ナビゲーション */}
+            <div className="flex gap-1 items-center bg-slate-50 p-1 rounded-lg border border-slate-200 w-fit">
               {viewMode === 'day' ? (
                 <>
                   <button
                     onClick={handlePrevDay}
-                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                    className="px-2 py-1.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md text-xs font-bold shadow-sm border border-slate-200 transition-colors whitespace-nowrap"
                   >
                     ← 前日
                   </button>
@@ -383,18 +383,17 @@ export default function ShiftsPage() {
                     type="date"
                     value={filterDate}
                     onChange={(e) => setFilterDate(e.target.value)}
-                    className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm"
+                    className="w-auto px-2 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm text-xs"
                   />
                   <button
                     onClick={handleNextDay}
-                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                    className="px-2 py-1.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md text-xs font-bold shadow-sm border border-slate-200 transition-colors whitespace-nowrap"
                   >
                     翌日 →
                   </button>
-                  <div className="w-px h-6 bg-slate-200 mx-1" />
                   <button
                     onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
                   >
                     本日
                   </button>
@@ -403,11 +402,11 @@ export default function ShiftsPage() {
                 <>
                   <button
                     onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() - 7 * 86400000))}
-                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                    className="px-2 py-1.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md text-xs font-bold shadow-sm border border-slate-200 transition-colors whitespace-nowrap"
                   >
-                    ← 前の週
+                    ← 前週
                   </button>
-                  <span className="px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg text-sm shadow-sm">
+                  <span className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-md text-xs shadow-sm text-center truncate">
                     {[weekStartDate].map(d => {
                       const end = new Date(d.getTime() + 6 * 86400000);
                       return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 〜 ${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`;
@@ -415,14 +414,13 @@ export default function ShiftsPage() {
                   </span>
                   <button
                     onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() + 7 * 86400000))}
-                    className="px-3 py-2 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold shadow-sm border border-slate-200 transition-colors"
+                    className="px-2 py-1.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md text-xs font-bold shadow-sm border border-slate-200 transition-colors whitespace-nowrap"
                   >
                     翌週 →
                   </button>
-                  <div className="w-px h-6 bg-slate-200 mx-1" />
                   <button
                     onClick={() => setWeekStartDate(new Date())}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors font-bold"
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
                   >
                     今週
                   </button>
@@ -442,7 +440,7 @@ export default function ShiftsPage() {
         {/* タイムチャートビュー */}
         {viewMode === 'day' && !loading && (
           <div className="bg-white rounded-lg shadow-lg overflow-visible">
-            <div className="h-[600px] w-full">
+            <div className="h-[calc(100svh-200px)] md:h-[600px] w-full">
               {(() => {
                 const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
                 return therapistsWithShift.length > 0 ? (

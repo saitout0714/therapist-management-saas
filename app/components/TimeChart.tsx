@@ -193,7 +193,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
         }
 
         // Adjust for new cell width
-        const scrollPosition = (currentMinutesFromStart / 5) * 24 - 100;
+        const scrollPosition = (currentMinutesFromStart / 5) * 20 - 100;
         if (scrollPosition > 0) {
           contentTimelineRef.current.scrollLeft = scrollPosition;
           if (headerTimelineRef.current) {
@@ -218,25 +218,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
     }
   }
 
-  // Row height & Cell width adjustments for sleeker look
-  const rowHeight = 88; // Slightly taller for more breathing room
-  const cellWidth = 24; // Slightly wider for ease of clicking
+  // Row height & Cell width adjustments for compact view
+  const rowHeight = 72; // Row height with vertical breathing room
+  const cellWidth = 20; // Cell width
 
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative z-0">
       <div className="flex w-full h-full">
         {/* Left Column (Therapists) */}
-        <div style={{ width: '16rem', minWidth: '16rem', maxWidth: '16rem' }} className="flex-shrink-0 border-r border-slate-200 bg-white z-20 flex flex-col relative">
+        <div style={{ width: 'fit-content', minWidth: 'fit-content' }} className="flex-shrink-0 border-r border-slate-200 bg-white z-20 flex flex-col relative">
           {/* Header (Date) */}
-          <div style={{ height: '88px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-4">
-            <div className="font-bold text-slate-800 text-lg tracking-tight">
+          <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-3">
+            <div className="font-bold text-slate-800 text-sm tracking-tight">
               {date ? (() => {
                 const [year, month, day] = date.split('-').map(Number);
                 const localDate = new Date(year, month - 1, day);
                 return localDate.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
               })() : new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
             </div>
-            <div className="text-xs text-slate-500 font-medium mt-1">
+            <div className="text-[10px] text-slate-500 font-medium">
               勤務スケジュール
             </div>
             {/* Soft gradient separation line */}
@@ -249,7 +249,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
               <div
                 key={therapist.id}
                 style={{ height: `${rowHeight}px` }}
-                className="flex items-center gap-4 px-5 border-b border-slate-100 bg-white hover:bg-indigo-50/40 transition-colors group relative"
+                className="flex items-center gap-1 px-1 border-b border-slate-100 bg-white hover:bg-indigo-50/40 transition-colors group relative overflow-hidden"
               >
                 {/* Active indicator bar */}
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -258,37 +258,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   <img
                     src={therapist.avatar}
                     alt={therapist.name}
-                    className="w-12 h-12 rounded-full object-cover shadow-sm ring-2 ring-white"
+                    className="w-8 h-8 rounded-full object-cover shadow-sm ring-2 ring-white flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-500 flex items-center justify-center font-bold text-lg shadow-sm ring-2 ring-white">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-500 flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-white flex-shrink-0">
                     {therapist.name.charAt(0)}
                   </div>
                 )}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 truncate">
-                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                      {therapist.name}
-                    </p>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
-                      {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium mt-1.5 truncate">
+                <div className="flex flex-col justify-center gap-1">
+                  <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors">
+                    {therapist.name}
+                  </p>
+                  <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200 self-start">
+                    {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                  </span>
+                  <p className="text-[10px] font-medium whitespace-nowrap leading-none">
                     {therapist.shiftStart && therapist.shiftEnd ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                      <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
                         {therapist.shiftStart} - {therapist.shiftEnd}
                       </span>
                     ) : (
-                      <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">シフト未設定</span>
+                      <span className="text-slate-500 bg-slate-50 px-1.5 rounded border border-slate-100">シフト未設定</span>
                     )}
-                      </p>
+                  </p>
                   {therapist.room && (
-                      <p className="text-[10px] text-slate-500 truncate mt-1.5 flex items-center gap-1 font-medium">
-                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                        {therapist.room}
-                      </p>
-                    )}
+                    <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
+                      <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                      {therapist.room}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -306,7 +304,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           {/* Header timeline */}
           <div
             className="flex relative sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm"
-            style={{ minWidth: 'fit-content', height: '88px' }}
+            style={{ minWidth: 'fit-content', height: '56px' }}
             ref={headerTimelineRef}
           >
             {hourLabels.map((label, idx) => (
@@ -315,16 +313,16 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 className="flex flex-col border-r border-slate-200"
                 style={{ width: `${(cellWidth * 12)}px` }}
               >
-                <div className="h-14 flex items-center px-4 text-sm font-bold text-slate-700 tracking-wide">
+                <div className="h-8 flex items-center px-2 text-xs font-bold text-slate-700 tracking-wide">
                   {label}
                 </div>
-                <div className="h-8 flex text-[10px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
+                <div className="h-6 flex text-[9px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div key={i} className="flex-1 flex justify-center items-center border-r border-slate-100 last:border-0 relative">
                       {i === 0 || i === 6 ? (
                         <span>{String(i * 5).padStart(2, '0')}</span>
                       ) : (
-                        <div className="w-[2px] h-1.5 bg-slate-200 rounded-full" />
+                        <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
                       )}
                     </div>
                   ))}
@@ -338,13 +336,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 style={{
                   position: 'absolute',
                   left: `${seekIndex * cellWidth}px`,
-                  top: '56px',
-                  width: '10px',
-                  height: '10px',
+                  top: '32px',
+                  width: '8px',
+                  height: '8px',
                   borderRadius: '50%',
                   background: 'rgb(99 102 241)', // indigo-500
                   transform: 'translateX(-4px)',
-                  boxShadow: '0 0 0 4px rgba(99, 102, 241, 0.2)',
+                  boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.2)',
                   zIndex: 20,
                 }}
               />
@@ -408,8 +406,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const endMinutes = timeToMinutes(schedule.endTime);
                 const duration = endMinutes - startMinutes;
 
-                const top = therapistIndex * rowHeight + 8; // Slight padding from top
-                const height = rowHeight - 16; // Padding from bottom
+                const top = therapistIndex * rowHeight + 4; // Slight padding from top
+                const height = rowHeight - 8; // Padding from bottom
                 const startPixels = (startMinutes / 5) * cellWidth;
                 const widthPixels = (duration / 5) * cellWidth;
 
@@ -495,7 +493,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 return (
                   <div
                     key={`schedule-${idx}`}
-                    className={`absolute rounded-xl px-3 flex flex-col justify-center cursor-default pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${bgClasses}`}
+                    className={`absolute rounded-lg px-2 flex flex-col justify-center cursor-default pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${bgClasses}`}
                     style={{
                       top: `${top}px`,
                       left: `${startPixels + 2}px`,  // +2 for slight visual separation from border
@@ -508,15 +506,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     onClick={handleScheduleClick}
                   >
                     {/* Inner content wrapper to handle overflow nicely */}
-                    <div className="w-full h-full flex flex-col justify-center overflow-hidden py-1">
+                    <div className="w-full h-full flex flex-col justify-center overflow-hidden gap-0.5">
                       {/* Row 1: Time */}
-                      <div className="text-[9px] font-medium text-white/95 flex items-center mb-0.5 leading-tight">
+                      <div className="text-[9px] font-medium text-white leading-none">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                       </div>
 
                       {/* Row 2: Name and New/Member */}
-                      <div className="flex items-center justify-start gap-1.5 mb-1 min-w-0">
-                        <span className="font-bold text-[11px] truncate drop-shadow-sm">
+                      <div className="flex items-center justify-start gap-1 min-w-0">
+                        <span className="font-bold text-[11px] text-white leading-none truncate drop-shadow-sm">
                           {schedule.customerName || schedule.title}
                         </span>
                         {isReservation && (
@@ -527,15 +525,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       </div>
 
                       {/* Row 3: Duration, Designation and Price */}
-                      <div className="text-[9px] font-medium text-white/90 flex items-center gap-1.5 leading-tight">
+                      <div className="text-[9px] font-medium text-white flex items-center gap-1 leading-none">
                         {schedule.courseDuration && (
                           <span className="opacity-90">{schedule.courseDuration}分</span>
                         )}
                         {schedule.designationLabel && (
-                          <span className="bg-white/20 px-1 rounded-sm text-[8px] border border-white/10">{schedule.designationLabel}</span>
+                          <span className="bg-white/20 px-1 rounded-sm text-[8px] text-white border border-white/10">{schedule.designationLabel}</span>
                         )}
                         {isReservation && schedule.totalPrice !== undefined && (
-                          <span className="text-[10px] font-extrabold text-white bg-black/15 px-1.5 py-0.5 rounded-md backdrop-blur-[1px] ml-1">
+                          <span className="text-[10px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
                             ¥{schedule.totalPrice.toLocaleString()}
                           </span>
                         )}
