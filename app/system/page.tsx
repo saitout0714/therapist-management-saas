@@ -7,6 +7,7 @@ import { TherapistRankManagementTab } from './components/TherapistRankManagement
 import { DiscountPoliciesTab } from './components/DiscountPoliciesTab'
 import { DeductionRulesTab } from './components/DeductionRulesTab'
 import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
+import { DesignationTypesTab } from './components/DesignationTypesTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -24,12 +25,12 @@ type SystemSettings = {
   credit_card_fee_rate: number
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('courses')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('pricing_defaults')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -100,13 +101,14 @@ export default function SystemPage() {
   }
 
   const tabs: { key: ActiveTab; label: string }[] = [
+    { key: 'pricing_defaults', label: '基本設定' },
     { key: 'courses',          label: 'コース管理' },
-    { key: 'pricing_defaults', label: '指名料・インターバル' },
+    { key: 'designation_types', label: '指名種別' },
     { key: 'options',          label: 'オプション管理' },
     { key: 'ranks',            label: 'ランク設定' },
-    { key: 'back_amounts',     label: '固定額バック表' },
-    { key: 'discounts',        label: '割引ルール' },
-    { key: 'deductions',       label: '控除・手当' },
+    { key: 'back_amounts',     label: '給与・料金詳細設定' },
+    { key: 'discounts',        label: '割引' },
+    { key: 'deductions',       label: '控除' },
   ]
 
   return (
@@ -135,6 +137,7 @@ export default function SystemPage() {
         </div>
 
         {activeTab === 'courses'      && <CourseManagementTab />}
+        {activeTab === 'designation_types' && <DesignationTypesTab />}
         {activeTab === 'options'      && <OptionManagementTab />}
         {activeTab === 'ranks'        && <TherapistRankManagementTab />}
         {activeTab === 'back_amounts' && <CourseBackAmountsTab />}
@@ -144,8 +147,8 @@ export default function SystemPage() {
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-2xl space-y-8">
             <div>
-              <h2 className="text-base font-bold text-slate-800 mb-1">指名料・インターバル設定</h2>
-              <p className="text-sm text-slate-500">セラピスト個別設定がない場合に適用されるデフォルト値です。</p>
+              <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
+              <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>
             </div>
 
             {/* 予約インターバル */}
@@ -163,49 +166,7 @@ export default function SystemPage() {
               <p className="text-xs text-slate-400 mt-1.5">セラピスト個別設定がある場合はそちらが優先されます。</p>
             </div>
 
-            {/* 指名料デフォルト */}
-            <div>
-              <h3 className="text-sm font-bold text-slate-700 mb-4">指名料デフォルト</h3>
-              <div className="space-y-4">
-                {[
-                  { label: '指名料（通常）', feeField: 'default_nomination_fee', backField: 'nomination_back_amount' },
-                  { label: '本指名料',       feeField: 'default_confirmed_nomination_fee', backField: 'confirmed_nomination_back_amount' },
-                  { label: '姫予約料金',     feeField: 'default_princess_reservation_fee', backField: 'princess_back_amount' },
-                ].map(({ label, feeField, backField }) => (
-                  <div key={feeField}>
-                    <p className="text-xs font-semibold text-slate-600 mb-2">{label}</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] text-slate-400 mb-1">顧客請求額</p>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={form[feeField as keyof typeof form]}
-                            onChange={(e) => setForm({ ...form, [feeField]: Number(e.target.value) })}
-                            className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-8 pr-3 py-2.5 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-indigo-600 font-semibold mb-1">セラピストバック額</p>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm font-bold">B</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={form[backField as keyof typeof form]}
-                            onChange={(e) => setForm({ ...form, [backField]: Number(e.target.value) })}
-                            className="w-full border border-indigo-200 rounded-xl bg-indigo-50/50 pl-8 pr-3 py-2.5 text-sm font-semibold text-indigo-800"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+
 
             {/* クレジット決済手数料 */}
             <div className="border-b border-slate-100 pb-6">

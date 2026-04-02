@@ -16,20 +16,14 @@ type BackAmount = {
   customer_price: number | null
 }
 
-const DESIGNATION_TYPES = [
-  { value: 'free', label: 'フリー' },
-  { value: 'first_nomination', label: '初指名' },
-  { value: 'confirmed', label: '本指名' },
-  { value: 'photo', label: '写真指名' },
-  { value: 'princess', label: '姫予約' },
-  { value: 'certified', label: '認定指名' },
-]
+type DesignationTypeItem = { value: string; label: string }
 
 export function CourseBackAmountsTab() {
   const { selectedShop } = useShop()
   const [courses, setCourses] = useState<Course[]>([])
   const [ranks, setRanks] = useState<Rank[]>([])
   const [amounts, setAmounts] = useState<BackAmount[]>([])
+  const [designationTypes, setDesignationTypes] = useState<DesignationTypeItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<string>('')
@@ -41,19 +35,26 @@ export function CourseBackAmountsTab() {
     if (!selectedShop) { setLoading(false); return }
     setLoading(true)
 
-    const [coursesRes, ranksRes, amountsRes] = await Promise.all([
+    const [coursesRes, ranksRes, amountsRes, dtRes] = await Promise.all([
       supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
       supabase.from('course_back_amounts').select('*').eq('shop_id', selectedShop.id),
+      supabase.from('designation_types').select('slug, display_name').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
     ])
 
     const c = (coursesRes.data as Course[]) || []
     const r = (ranksRes.data as Rank[]) || []
     const a = (amountsRes.data as BackAmount[]) || []
+    const dt = ((dtRes.data || []) as { slug: string; display_name: string }[]).map(d => ({ value: d.slug, label: d.display_name }))
 
     setCourses(c)
     setRanks(r)
     setAmounts(a)
+    setDesignationTypes(dt.length > 0 ? dt : [
+      { value: 'free', label: 'フリー' },
+      { value: 'first_nomination', label: '初指名' },
+      { value: 'confirmed', label: '本指名' },
+    ])
 
     if (c.length > 0 && !selectedCourse) setSelectedCourse(c[0].id)
     setLoading(false)
@@ -66,7 +67,7 @@ export function CourseBackAmountsTab() {
     const cells: Record<string, { back_amount: string; customer_price: string }> = {}
     const rankFilter = selectedRank === 'all' ? null : selectedRank
 
-    for (const dt of DESIGNATION_TYPES) {
+    for (const dt of designationTypes) {
       const existing = amounts.find(
         a => a.course_id === selectedCourse &&
           (rankFilter ? a.rank_id === rankFilter : a.rank_id === null) &&
@@ -78,7 +79,7 @@ export function CourseBackAmountsTab() {
       }
     }
     setEditableCells(cells)
-  }, [selectedCourse, selectedRank, amounts])
+  }, [selectedCourse, selectedRank, amounts, designationTypes])
 
   const handleCellChange = (designationType: string, field: 'back_amount' | 'customer_price', value: string) => {
     setEditableCells(prev => ({
@@ -93,7 +94,7 @@ export function CourseBackAmountsTab() {
 
     const rankId = selectedRank === 'all' ? null : selectedRank
 
-    for (const dt of DESIGNATION_TYPES) {
+    for (const dt of designationTypes) {
       const cell = editableCells[dt.value]
       if (!cell || cell.back_amount === '') continue
 
@@ -151,35 +152,35 @@ export function CourseBackAmountsTab() {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-slate-800">固定額バック表</h2>
+        <h2 className="text-lg font-bold text-slate-800">コース・指名別 給与＆料金設定</h2>
         <p className="text-sm text-slate-500 mt-1">
-          コース × ランク × 指名種別ごとのバック額を設定します。<br />
-          <span className="text-amber-600 font-medium">バック設定で「固定額（マトリクス表）」を選択した店舗でのみ使用されます。</span>
+          コース × ランク × 指名種別ごとの給与バック額と顧客料金を詳細に設定します。<br />
+          <span className="text-indigo-600 font-medium">※顧客請求額 = コース料金 + 指名料 となります。</span>
         </p>
       </div>
 
       {/* フィルター */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
-          <label className="block mb-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">コース</label>
+          <label className="block mb-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">対象コース</label>
           <select
             value={selectedCourse}
             onChange={(e) => setSelectedCourse(e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
           >
             {courses.map(c => (
-              <option key={c.id} value={c.id}>{c.name}（{c.duration}分 / ¥{c.base_price.toLocaleString()}）</option>
+              <option key={c.id} value={c.id}>{c.name}（{c.duration}分）</option>
             ))}
           </select>
         </div>
         <div className="flex-1">
-          <label className="block mb-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">ランク</label>
+          <label className="block mb-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">対象ランク</label>
           <select
             value={selectedRank}
             onChange={(e) => setSelectedRank(e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
           >
-            <option value="all">全ランク共通（ランク未設定時に適用）</option>
+            <option value="all">全ランク共通（デフォルト）</option>
             {ranks.map(r => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
@@ -188,35 +189,49 @@ export function CourseBackAmountsTab() {
       </div>
 
       {/* 現在の選択を表示 */}
-      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-6 text-sm">
-        <span className="font-bold text-indigo-700">{selectedCourseName?.name}</span>
-        <span className="text-indigo-500 mx-2">×</span>
-        <span className="font-bold text-indigo-700">{selectedRankName}</span>
-        <span className="text-indigo-500 ml-2">のバック額を編集中</span>
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-6 text-sm flex items-center gap-2">
+        <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        <span className="text-indigo-900 font-medium">
+          「{selectedCourseName?.name}」×「{selectedRankName}」の設定を編集中
+        </span>
       </div>
 
       {/* マトリクス表 */}
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left min-w-[600px]">
+        <table className="w-full border-collapse text-left min-w-[800px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="p-3 text-sm font-semibold text-slate-600">指名種別</th>
-              <th className="p-3 text-sm font-semibold text-slate-600 w-40">バック額（円）</th>
-              <th className="p-3 text-sm font-semibold text-slate-600 w-40">
-                <span>顧客請求額（円）</span>
-                <span className="text-xs text-slate-400 block font-normal">※コース基本料と異なる場合</span>
-              </th>
-              <th className="p-3 text-sm font-semibold text-slate-600 w-24">店落ち</th>
+              <th className="p-3 text-sm font-semibold text-slate-600 w-32">コース料金</th>
+              <th className="p-3 text-sm font-semibold text-slate-600 w-36">指名料</th>
+              <th className="p-3 text-sm font-semibold text-slate-600 w-36">合計請求額</th>
+              <th className="p-3 text-sm font-bold text-indigo-600 w-36">給与バック額</th>
+              <th className="p-3 text-sm font-semibold text-slate-600 w-28">店利益</th>
               <th className="p-3 w-16"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {DESIGNATION_TYPES.map(dt => {
+            {designationTypes.map((dt: DesignationTypeItem) => {
               const cell = editableCells[dt.value] || { back_amount: '', customer_price: '' }
+              const coursePrice = selectedCourseName?.base_price || 0
+              
+              // 現在の合計額（未入力ならベース価格）
+              const currentTotalPrice = cell.customer_price !== '' ? (parseInt(cell.customer_price, 10) || 0) : coursePrice
+              // 指名料 = 合計額 - コース料金
+              const nominationFee = currentTotalPrice - coursePrice
+              
               const backNum = parseInt(cell.back_amount, 10) || 0
-              const priceNum = cell.customer_price ? parseInt(cell.customer_price, 10) : (selectedCourseName?.base_price || 0)
-              const shopKeep = priceNum - backNum
+              const shopProfit = currentTotalPrice - backNum
               const hasValue = cell.back_amount !== ''
+
+              // 指名料の変更ハンドラ
+              const handleNominationFeeChange = (valStr: string) => {
+                const nh = parseInt(valStr, 10) || 0
+                const newTotal = coursePrice + nh
+                handleCellChange(dt.value, 'customer_price', String(newTotal))
+              }
 
               return (
                 <tr key={dt.value} className="hover:bg-slate-50/50 transition-colors">
@@ -231,46 +246,63 @@ export function CourseBackAmountsTab() {
                       {dt.label}
                     </span>
                   </td>
+                  <td className="p-3 text-sm text-slate-500 font-medium">
+                    ¥{coursePrice.toLocaleString()}
+                  </td>
                   <td className="p-3">
                     <div className="relative">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                      <input
+                        type="number"
+                        value={nominationFee}
+                        onChange={(e) => handleNominationFeeChange(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg pl-7 pr-2 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none font-medium"
+                      />
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">Σ</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={cell.customer_price}
+                        onChange={(e) => handleCellChange(dt.value, 'customer_price', e.target.value)}
+                        placeholder={String(coursePrice)}
+                        className="w-full border border-indigo-100 rounded-lg pl-7 pr-2 py-2 text-sm bg-indigo-50/30 focus:ring-2 focus:ring-indigo-500/50 outline-none font-bold text-slate-800"
+                      />
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
                       <input
                         type="number"
                         min={0}
                         value={cell.back_amount}
                         onChange={(e) => handleCellChange(dt.value, 'back_amount', e.target.value)}
                         placeholder="未設定"
-                        className="w-full border border-slate-200 rounded-lg pl-7 pr-2 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                      />
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={cell.customer_price}
-                        onChange={(e) => handleCellChange(dt.value, 'customer_price', e.target.value)}
-                        placeholder={selectedCourseName ? String(selectedCourseName.base_price) : '0'}
-                        className="w-full border border-slate-200 rounded-lg pl-7 pr-2 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                        className="w-full border border-emerald-100 rounded-lg pl-7 pr-2 py-2 text-sm bg-emerald-50/30 focus:ring-2 focus:ring-emerald-500/50 outline-none font-bold text-indigo-700"
                       />
                     </div>
                   </td>
                   <td className="p-3">
                     {hasValue && (
-                      <span className={`text-sm font-bold ${shopKeep >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        ¥{shopKeep.toLocaleString()}
+                      <span className={`text-sm font-bold ${shopProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        ¥{shopProfit.toLocaleString()}
                       </span>
                     )}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 text-right">
                     {hasValue && (
                       <button
                         onClick={() => void handleDelete(dt.value)}
-                        className="text-xs text-rose-500 hover:text-rose-700 font-medium transition-colors"
+                        className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                        title="設定をリセット"
                       >
-                        削除
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     )}
                   </td>
@@ -282,54 +314,72 @@ export function CourseBackAmountsTab() {
       </div>
 
       {/* 保存ボタン */}
-      <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-4">
-        <button
-          onClick={() => void handleSave()}
-          disabled={saving}
-          className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
-        >
-          {saving ? '保存中...' : '保存する'}
-        </button>
-        <span className="text-xs text-slate-400">空欄の行はスキップされます</span>
+      <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-200 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+            )}
+            設定を保存する
+          </button>
+          <span className="text-xs text-slate-400">※給与バック額が空欄の行は保存されません</span>
+        </div>
       </div>
 
-      {/* 既存の全設定一覧 */}
+      {/* 既存の全設定一覧（サマリー） */}
       {amounts.filter(a => a.course_id === selectedCourse).length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-sm font-bold text-slate-700 mb-3">
-            このコースの既存設定一覧
-          </h3>
+        <div className="mt-12 bg-slate-50 rounded-2xl p-6 border border-slate-200">
+          <div className="flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <h3 className="text-sm font-bold text-slate-700">
+              現在の登録済み設定一覧（{selectedCourseName?.name}）
+            </h3>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm min-w-[500px]">
+            <table className="w-full border-collapse text-left text-xs min-w-[600px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
-                  <th className="p-2.5">ランク</th>
-                  <th className="p-2.5">指名種別</th>
-                  <th className="p-2.5">バック額</th>
-                  <th className="p-2.5">請求額</th>
-                  <th className="p-2.5">店落ち</th>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="pb-2 font-semibold">ランク</th>
+                  <th className="pb-2 font-semibold">指名種別</th>
+                  <th className="pb-2 font-semibold">指名料</th>
+                  <th className="pb-2 font-semibold">合計請求額</th>
+                  <th className="pb-2 font-bold text-indigo-500">給与バック</th>
+                  <th className="pb-2 font-semibold text-emerald-600 text-right">店利益</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200/50">
                 {amounts
                   .filter(a => a.course_id === selectedCourse)
                   .sort((a, b) => {
                     const rankOrder = (a.rank_id || '').localeCompare(b.rank_id || '')
                     if (rankOrder !== 0) return rankOrder
-                    return DESIGNATION_TYPES.findIndex(d => d.value === a.designation_type) -
-                           DESIGNATION_TYPES.findIndex(d => d.value === b.designation_type)
+                    return designationTypes.findIndex((d: DesignationTypeItem) => d.value === a.designation_type) -
+                           designationTypes.findIndex((d: DesignationTypeItem) => d.value === b.designation_type)
                   })
                   .map(a => {
+                    const coursePrice = courses.find(c => c.id === a.course_id)?.base_price || 0
                     const rankName = a.rank_id ? ranks.find(r => r.id === a.rank_id)?.name || '不明' : '全ランク共通'
-                    const dtLabel = DESIGNATION_TYPES.find(d => d.value === a.designation_type)?.label || a.designation_type
-                    const price = a.customer_price ?? (courses.find(c => c.id === a.course_id)?.base_price || 0)
+                    const dtLabel = designationTypes.find((d: DesignationTypeItem) => d.value === a.designation_type)?.label || a.designation_type
+                    const price = a.customer_price ?? coursePrice
+                    const nomFee = price - coursePrice
                     return (
-                      <tr key={a.id} className="hover:bg-slate-50/50">
-                        <td className="p-2.5 text-slate-600">{rankName}</td>
-                        <td className="p-2.5 font-medium text-slate-800">{dtLabel}</td>
-                        <td className="p-2.5 font-bold text-indigo-600">¥{a.back_amount.toLocaleString()}</td>
-                        <td className="p-2.5 text-slate-600">¥{price.toLocaleString()}</td>
-                        <td className="p-2.5 font-medium text-emerald-600">¥{(price - a.back_amount).toLocaleString()}</td>
+                      <tr key={a.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 text-slate-600">{rankName}</td>
+                        <td className="py-2.5 font-medium text-slate-800">{dtLabel}</td>
+                        <td className="py-2.5 text-slate-600">¥{nomFee.toLocaleString()}</td>
+                        <td className="py-2.5 font-bold text-slate-800">¥{price.toLocaleString()}</td>
+                        <td className="py-2.5 font-bold text-indigo-600">¥{a.back_amount.toLocaleString()}</td>
+                        <td className="py-2.5 font-bold text-emerald-600 text-right">¥{(price - a.back_amount).toLocaleString()}</td>
                       </tr>
                     )
                   })
@@ -340,5 +390,6 @@ export function CourseBackAmountsTab() {
         </div>
       )}
     </div>
+
   )
 }

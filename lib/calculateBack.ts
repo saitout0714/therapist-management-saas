@@ -1,8 +1,13 @@
 /**
- * バック金額算出エンジン
+ * バック金額算出エンジン v2
  *
  * 予約データから、セラピストのバック額と店舗の取り分を計算する。
- * 7ステップのアルゴリズムをデータベースのマスタ設定に基づいて実行する。
+ * 
+ * v2 の主な変更点:
+ * - customer_price を course_back_amounts から自動解決
+ * - designation_type を slug ベースで柔軟に処理
+ * - 姫予約ルールを designation_types マスタの設定で判定
+ * - 予約登録時に自動実行して結果を reservations に保存
  */
 import { supabase } from '@/lib/supabase'
 
@@ -60,25 +65,39 @@ type ReservationOption = {
   price: number
 }
 
+type DesignationType = {
+  id: string
+  slug: string
+  display_name: string
+  is_store_paid_back: boolean
+  treats_as_confirmed: boolean
+  default_fee: number | null
+  default_back_amount: number | null
+}
+
 export type BackCalculationInput = {
   shopId: string
   therapistId: string
   therapistRankId: string | null
   therapistBackCalcType: 'percentage' | 'fixed' | 'half_split' | null
   courseId: string
-  coursePrice: number
+  coursePrice: number             // コースのbase_price（フォールバック値）
   courseDuration: number
-  designationType: string
+  designationType: string         // slug（'free', 'confirmed' etc.）
   nominationFee: number
   options: ReservationOption[]
   discounts: ReservationDiscount[]
-  discountAmount?: number // Fallback for old/manual discounts
-  date: string        // 'YYYY-MM-DD'
-  startTime: string   // 'HH:MM'
+  discountAmount?: number         // Fallback for old/manual discounts
+  date: string                    // 'YYYY-MM-DD'
+  startTime: string               // 'HH:MM'
+  // 延長コース（サブコース）
+  extensionCourseId?: string
+  extensionCoursePrice?: number
 }
 
 export type BackCalculationResult = {
   courseBack: number
+  extensionBack: number
   optionBack: number
   nominationBack: number
   totalBack: number
@@ -87,11 +106,12 @@ export type BackCalculationResult = {
   netBack: number
   shopRevenue: number
   totalPrice: number
+  resolvedCustomerPrice: number   // course_back_amounts から解決した顧客料金
   totalDiscount: number
   therapistDiscountBurden: number
   businessDate: string
-  appliedRate: number | null  // 適用されたバック率（percentage方式の場合）
-  calcMethod: string          // 計算方式の説明テキスト
+  appliedRate: number | null
+  calcMethod: string
 }
 
 // ============================================================
@@ -108,6 +128,80 @@ function applyRounding(value: number, method: 'floor' | 'ceil' | 'round'): numbe
 }
 
 // ============================================================
+// Customer Price Resolution
+// ============================================================
+
+/**
+ * course_back_amounts テーブルから顧客料金（customer_price）を解決する。
+ * 指名種別×ランク×コースの組み合わせで検索し、
+ * 見つからなければコースのbase_priceをフォールバックとして返す。
+ */
+export async function resolveCustomerPrice(
+  shopId: string,
+  courseId: string,
+  rankId: string | null,
+  designationSlug: string,
+  fallbackBasePrice: number
+): Promise<{ customerPrice: number; backAmount: number | null; source: 'matrix' | 'default' | 'fallback' }> {
+  // 1. ランク指定ありで検索（マトリクス表）
+  if (rankId) {
+    const { data } = await supabase
+      .from('course_back_amounts')
+      .select('back_amount, customer_price')
+      .eq('shop_id', shopId)
+      .eq('course_id', courseId)
+      .eq('rank_id', rankId)
+      .eq('designation_type', designationSlug)
+      .limit(1)
+    if (data && data.length > 0) {
+      return {
+        customerPrice: data[0].customer_price ?? fallbackBasePrice,
+        backAmount: data[0].back_amount,
+        source: 'matrix'
+      }
+    }
+  }
+
+  // 2. ランクNULL（全ランク共通）にフォールバック（マトリクス表）
+  const { data: commonData } = await supabase
+    .from('course_back_amounts')
+    .select('back_amount, customer_price')
+    .eq('shop_id', shopId)
+    .eq('course_id', courseId)
+    .is('rank_id', null)
+    .eq('designation_type', designationSlug)
+    .limit(1)
+  if (commonData && commonData.length > 0) {
+    return {
+      customerPrice: commonData[0].customer_price ?? fallbackBasePrice,
+      backAmount: commonData[0].back_amount,
+      source: 'matrix'
+    }
+  }
+
+  // 3. 指名種別マスタのデフォルトを確認
+  const { data: dtData } = await supabase
+    .from('designation_types')
+    .select('default_fee, default_back_amount')
+    .eq('shop_id', shopId)
+    .eq('slug', designationSlug)
+    .limit(1)
+  
+  if (dtData && dtData.length > 0) {
+    const dt = dtData[0]
+    return {
+      customerPrice: fallbackBasePrice + (dt.default_fee || 0),
+      backAmount: dt.default_back_amount ?? null,
+      source: 'default'
+    }
+  }
+
+  // 4. 最終フォールバック
+  return { customerPrice: fallbackBasePrice, backAmount: null, source: 'fallback' }
+}
+
+
+// ============================================================
 // Main calculation function
 // ============================================================
 
@@ -122,6 +216,16 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     shopRule.business_day_cutoff
   )
 
+  // Step 0b: 顧客料金の自動解決
+  const resolved_price = await resolveCustomerPrice(
+    input.shopId,
+    input.courseId,
+    input.therapistRankId,
+    input.designationType,
+    input.coursePrice
+  )
+  const effectiveCoursePrice = resolved_price.customerPrice
+
   // Step 1: 適用バック率の解決（オーバーライドチェーン）
   const resolved = await resolveBackRates(
     input.shopId,
@@ -133,6 +237,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   )
 
   let courseBack = 0
+  let extensionBack = 0
   let optionBack = 0
   let nominationBack = 0
   let calcMethod = ''
@@ -143,17 +248,14 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     const totalDiscount = (input.discounts && input.discounts.length > 0)
       ? input.discounts.reduce((sum, d) => sum + d.applied_amount, 0)
       : (input.discountAmount || 0)
-    const totalSales = input.coursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
+    const totalSales = effectiveCoursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
     const totalBack = applyRounding(totalSales * resolved.courseRate / 100, shopRule.rounding_method)
-
-    // In half_split, therapist effectively burdens a nominal share organically.
-    // Since it's already deducted from base value, we just record the full explicit burden as 0 
-    // so the UI doesn't double-deduct it.
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
     return {
       courseBack: totalBack,
+      extensionBack: 0,
       optionBack: 0,
       nominationBack: 0,
       totalBack,
@@ -162,8 +264,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       netBack: totalBack - deductionResult.deductions + deductionResult.allowances,
       shopRevenue: totalSales - totalBack,
       totalPrice: totalSales + totalDiscount,
+      resolvedCustomerPrice: effectiveCoursePrice,
       totalDiscount: totalDiscount,
-      therapistDiscountBurden: 0, // Organically absorbed in the percentage
+      therapistDiscountBurden: 0,
       businessDate,
       appliedRate: resolved.courseRate,
       calcMethod: `総売上折半方式（${resolved.courseRate}%）`,
@@ -172,24 +275,45 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 2: コースバック額の算出
   if (resolved.calcType === 'percentage') {
-    // 割引処理: split方式でもここでは減算せず、Step 5で明示的な負担として処理する
-    // これにより「基本バック」の額を変更せず、UI上で別項目として表示可能にする
-    let effectiveCoursePrice = input.coursePrice
-    effectiveCoursePrice = Math.max(0, effectiveCoursePrice)
     courseBack = applyRounding(effectiveCoursePrice * resolved.courseRate / 100, shopRule.rounding_method)
     calcMethod = `パーセンテージ（${resolved.courseRate}%）`
   } else if (resolved.calcType === 'fixed') {
-    const fixedAmount = await fetchCourseBackAmount(
-      input.shopId,
-      input.courseId,
-      input.therapistRankId,
-      input.designationType
-    )
-    if (fixedAmount) {
-      courseBack = fixedAmount.back_amount
-      calcMethod = `固定額（¥${fixedAmount.back_amount.toLocaleString()}）`
+    // resolveCustomerPrice で既に back_amount を取得済みなら使う
+    if (resolved_price.backAmount !== null) {
+      courseBack = resolved_price.backAmount
+      const label = resolved_price.source === 'default' ? 'マスタデフォルト' : '詳細設定'
+      calcMethod = `固定額（${label}: ¥${courseBack.toLocaleString()}）`
     } else {
-      calcMethod = '固定額（未設定 → 0円）'
+      // 念のため、さらにDB再検索（通常は不要だが、マスタ経由でも見つからない場合）
+      const fixedAmount = await fetchCourseBackAmount(
+        input.shopId,
+        input.courseId,
+        input.therapistRankId,
+        input.designationType
+      )
+      if (fixedAmount) {
+        courseBack = fixedAmount.back_amount
+        calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+      } else {
+        calcMethod = '固定額（未設定 → 0円）'
+      }
+    }
+  }
+
+  // Step 2b: 延長コースのバック計算
+  if (input.extensionCourseId) {
+    const extPrice = await resolveCustomerPrice(
+      input.shopId,
+      input.extensionCourseId,
+      input.therapistRankId,
+      'free', // 延長はfreeで統一
+      input.extensionCoursePrice || 0
+    )
+    
+    if (resolved.calcType === 'percentage') {
+      extensionBack = applyRounding((extPrice.customerPrice) * resolved.courseRate / 100, shopRule.rounding_method)
+    } else if (resolved.calcType === 'fixed') {
+      extensionBack = extPrice.backAmount ?? 0
     }
   }
 
@@ -252,30 +376,31 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       } else if (d.burden_type === 'therapist_only') {
         therapistDiscountBurden += d.applied_amount
       } else if (d.burden_type === 'split') {
-        // 折半計算: バックの計算方式に関わらず、割引額の50%をセラピスト負担とする
         therapistDiscountBurden += Math.floor(d.applied_amount / 2)
         shopDiscountBurden += Math.ceil(d.applied_amount / 2)
       }
     }
   } else if (input.discountAmount && input.discountAmount > 0) {
     totalDiscount = input.discountAmount
-    shopDiscountBurden = input.discountAmount // Manual discounts default to shop ONLY burden
+    shopDiscountBurden = input.discountAmount
   }
 
-  const totalBack = courseBack + optionBack + nominationBack - therapistDiscountBurden
+  const totalBack = courseBack + extensionBack + optionBack + nominationBack - therapistDiscountBurden
 
   // Step 6: 予約単位の控除・手当処理
   const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
-  const totalPrice = input.coursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
+  const extensionPrice = input.extensionCoursePrice || 0
+  const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
 
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances
   const shopRevenue = totalPrice - totalBack + therapistDiscountBurden
 
   return {
     courseBack,
+    extensionBack,
     optionBack,
     nominationBack,
     totalBack: Math.max(0, totalBack),
@@ -284,6 +409,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     netBack: Math.max(0, netBack),
     shopRevenue: Math.max(0, shopRevenue),
     totalPrice: Math.max(0, totalPrice),
+    resolvedCustomerPrice: effectiveCoursePrice,
     totalDiscount,
     therapistDiscountBurden,
     businessDate,
@@ -304,7 +430,6 @@ function resolveBusinessDate(date: string, startTime: string, cutoff: string): s
   const startMinutes = startH * 60 + startM
 
   if (startMinutes < cutMinutes) {
-    // 営業日は前日
     const d = new Date(date)
     d.setDate(d.getDate() - 1)
     return d.toISOString().split('T')[0]
@@ -331,9 +456,7 @@ async function resolveBackRates(
   courseId: string,
   shopRule: ShopBackRule,
 ): Promise<ResolvedRates> {
-  // 折半セラピストは最優先でショートサーキット
   if (therapistCalcType === 'half_split') {
-    // 個別オーバーライドでバック率を取得
     const override = await fetchTherapistOverride(therapistId, courseId)
     return {
       calcType: 'half_split',
@@ -406,8 +529,45 @@ async function calculateDeductions(shopId: string, courseDuration: number) {
   return { deductions, allowances }
 }
 
+/**
+ * シフトベースの手当を計算する（交通費など）
+ */
+export async function calculateShiftAllowances(shopId: string, therapistId: string, date: string): Promise<number> {
+  // この日にこのセラピストはシフト入りしているか？
+  const { data: shifts } = await supabase
+    .from('shifts')
+    .select('id')
+    .eq('shop_id', shopId)
+    .eq('therapist_id', therapistId)
+    .eq('date', date)
+    .limit(1)
+
+  if (!shifts || shifts.length === 0) return 0
+
+  // per_shift の手当を合算
+  const { data: rules } = await supabase
+    .from('deduction_rules')
+    .select('*')
+    .eq('shop_id', shopId)
+    .eq('calc_timing', 'per_shift')
+    .eq('is_active', true)
+
+  let total = 0
+  if (rules) {
+    for (const rule of rules as DeductionRule[]) {
+      if (rule.category === 'allowance') {
+        total += rule.amount
+      } else if (rule.category === 'deduction' || rule.category === 'penalty') {
+        total -= rule.amount
+      }
+    }
+  }
+
+  return total
+}
+
 // ============================================================
-// Data fetchers (cached per request in production)
+// Data fetchers
 // ============================================================
 
 async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
@@ -420,7 +580,6 @@ async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
 }
 
 async function fetchTherapistOverride(therapistId: string, courseId: string): Promise<TherapistBackOverride | null> {
-  // コース固有の設定を優先
   const { data: specific } = await supabase
     .from('therapist_back_overrides')
     .select('*')
@@ -430,7 +589,6 @@ async function fetchTherapistOverride(therapistId: string, courseId: string): Pr
 
   if (specific && specific.length > 0) return specific[0] as TherapistBackOverride
 
-  // 全コース共通の設定にフォールバック
   const { data: general } = await supabase
     .from('therapist_back_overrides')
     .select('*')
@@ -454,7 +612,6 @@ async function fetchRankBackRule(shopId: string, rankId: string): Promise<RankBa
 async function fetchCourseBackAmount(
   shopId: string, courseId: string, rankId: string | null, designationType: string
 ): Promise<CourseBackAmount | null> {
-  // ランク指定ありで検索
   if (rankId) {
     const { data } = await supabase
       .from('course_back_amounts')
@@ -467,7 +624,6 @@ async function fetchCourseBackAmount(
     if (data && data.length > 0) return data[0] as CourseBackAmount
   }
 
-  // ランクNULL（全ランク共通）にフォールバック
   const { data } = await supabase
     .from('course_back_amounts')
     .select('back_amount, customer_price')

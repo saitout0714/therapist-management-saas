@@ -1,0 +1,5 @@
+﻿app/reservations/[id]/edit/page.tsx(163,21): error TS2345: Argument of type '{ id: any; name: any; therapist_ranks: { name: any; }[]; }[]' is not assignable to parameter of type 'SetStateAction<Therapist[]>'.
+  Type '{ id: any; name: any; therapist_ranks: { name: any; }[]; }[]' is not assignable to type 'Therapist[]'.
+    Type '{ id: any; name: any; therapist_ranks: { name: any; }[]; }' is not assignable to type 'Therapist'.
+      Types of property 'therapist_ranks' are incompatible.
+        Property 'name' is missing in type '{ name: any; }[]' but required in type '{ name: string; }'.

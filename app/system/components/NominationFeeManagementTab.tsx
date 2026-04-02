@@ -14,7 +14,6 @@ const feeTypes = [
     { value: 'first_time', label: '初回指名' },
     { value: 'regular', label: '本指名' },
     { value: 'princess', label: '姫予約' },
-    { value: 'photo', label: '写真指名' },
     { value: 'other', label: 'その他' }
 ]
 

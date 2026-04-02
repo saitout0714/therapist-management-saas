@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
-import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
+import { calculateBack, calculateShiftAllowances, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
 
 type TherapistItem = {
   id: string
@@ -27,6 +27,10 @@ type ReservationWithDetails = {
   payment_method: 'cash' | 'credit' | null
   options_payment_method: 'cash' | 'credit' | null
   credit_fee_amount: number
+  // 計算済みバック額（予約登録時に保存されたもの）
+  therapist_back_amount: number | null
+  shop_revenue: number | null
+  back_calculated_at: string | null
   course: { name: string; duration: number } | null
   customer: { name: string } | null
   reservation_options: { option_id: string; price: number }[]
@@ -36,6 +40,7 @@ type ReservationWithDetails = {
 type CalculatedRow = {
   reservation: ReservationWithDetails
   result: BackCalculationResult
+  fromCache: boolean // 予約登録時に計算済みかどうか
 }
 
 export default function PayrollPage() {
@@ -51,6 +56,7 @@ export default function PayrollPage() {
   const [calculatedRows, setCalculatedRows] = useState<CalculatedRow[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [shiftAllowance, setShiftAllowance] = useState(0)
 
   useEffect(() => {
     async function fetchTherapists() {
@@ -71,7 +77,7 @@ export default function PayrollPage() {
     fetchTherapists()
   }, [selectedShop])
 
-  const handleCalculate = async () => {
+  const handleCalculate = async (forceRecalculate = false) => {
     if (!selectedShop) return
     if (!selectedTherapistId) {
       setError('セラピストを選択してください')
@@ -90,11 +96,10 @@ export default function PayrollPage() {
       const therapist = therapists.find(t => t.id === selectedTherapistId)
       if (!therapist) throw new Error('セラピストが見つかりません')
 
-      // 指定日の予約を取得 (完了済みまたは確定済みのものを対象とするか要件次第だが一旦全て取得)
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status, payment_method, options_payment_method, credit_fee_amount,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, shop_revenue, back_calculated_at,
           course:courses(name, duration),
           customer:customers(name),
           reservation_options(option_id, price),
@@ -103,7 +108,8 @@ export default function PayrollPage() {
         .eq('shop_id', selectedShop.id)
         .eq('therapist_id', selectedTherapistId)
         .eq('date', targetDate)
-        .neq('status', 'cancelled') // キャンセルは除外
+        .neq('status', 'cancelled')
+        .neq('status', 'blocked')
         .order('start_time', { ascending: true })
 
       if (resError) throw resError
@@ -112,29 +118,72 @@ export default function PayrollPage() {
 
       const rows: CalculatedRow[] = []
       for (const res of reservations) {
-        // コース未設定の予約はスキップされるか、0円計算になる
         if (!res.course_id || !res.course) continue
 
-        const input: BackCalculationInput = {
-          shopId: selectedShop.id,
-          therapistId: therapist.id,
-          therapistRankId: therapist.rank_id,
-          therapistBackCalcType: therapist.back_calc_type,
-          courseId: res.course_id,
-          coursePrice: res.base_price || 0,
-          courseDuration: res.course.duration || 0,
-          designationType: res.designation_type || 'free',
-          nominationFee: res.nomination_fee || 0,
-          options: res.reservation_options || [],
-          discounts: res.reservation_discounts || [],
-          discountAmount: res.discount_amount || 0,
-          date: res.date,
-          startTime: res.start_time
-        }
+        // 計算済みのバック額がある場合（再計算が不要な場合）
+        if (!forceRecalculate && res.therapist_back_amount !== null && res.back_calculated_at) {
+          // 簡易的なresult構築（計算済み値を使用）
+          const totalOptionsPrice = res.reservation_options?.reduce((s, o) => s + o.price, 0) || 0
+          const totalDiscount = res.reservation_discounts?.reduce((s, d) => s + d.applied_amount, 0) || res.discount_amount || 0
+          const totalPrice = (res.base_price || 0) + totalOptionsPrice + (res.nomination_fee || 0) - totalDiscount
+          
+          rows.push({
+            reservation: res,
+            result: {
+              courseBack: 0, // 内訳は保存していないため詳細は再計算が必要
+              extensionBack: 0,
+              optionBack: 0,
+              nominationBack: 0,
+              totalBack: res.therapist_back_amount,
+              deductions: 0,
+              allowances: 0,
+              netBack: res.therapist_back_amount,
+              shopRevenue: res.shop_revenue || 0,
+              totalPrice: Math.max(0, totalPrice),
+              resolvedCustomerPrice: res.base_price || 0,
+              totalDiscount: totalDiscount,
+              therapistDiscountBurden: 0,
+              businessDate: res.date,
+              appliedRate: null,
+              calcMethod: '予約登録時に計算済み',
+            },
+            fromCache: true,
+          })
+        } else {
+          // 未計算 or 強制再計算 → calculateBack 実行
+          const input: BackCalculationInput = {
+            shopId: selectedShop.id,
+            therapistId: therapist.id,
+            therapistRankId: therapist.rank_id,
+            therapistBackCalcType: therapist.back_calc_type,
+            courseId: res.course_id,
+            coursePrice: res.base_price || 0,
+            courseDuration: res.course.duration || 0,
+            designationType: res.designation_type || 'free',
+            nominationFee: res.nomination_fee || 0,
+            options: res.reservation_options || [],
+            discounts: res.reservation_discounts || [],
+            discountAmount: res.discount_amount || 0,
+            date: res.date,
+            startTime: res.start_time
+          }
 
-        const result = await calculateBack(input)
-        rows.push({ reservation: res, result })
+          const result = await calculateBack(input)
+          rows.push({ reservation: res, result, fromCache: false })
+
+          // 計算結果をDBに保存（次回からキャッシュ）
+          await supabase.from('reservations').update({
+            therapist_back_amount: result.netBack,
+            shop_revenue: result.shopRevenue,
+            back_calculated_at: new Date().toISOString(),
+            business_date: result.businessDate,
+          }).eq('id', res.id)
+        }
       }
+
+      // シフトベースの手当（交通費等）を計算
+      const allowance = await calculateShiftAllowances(selectedShop.id, selectedTherapistId, targetDate)
+      setShiftAllowance(allowance)
 
       setCalculatedRows(rows)
       setHasSearched(true)
@@ -151,7 +200,6 @@ export default function PayrollPage() {
     let back = 0
     let ded = 0
     let all = 0
-    let net = 0
     let cashReceived = 0
     let hasCredit = false
 
@@ -160,19 +208,20 @@ export default function PayrollPage() {
       back += result.totalBack
       ded += result.deductions
       all += result.allowances
-      net += result.netBack
 
       if (res.payment_method === 'credit') {
         hasCredit = true
-        // クレジット払いの場合、店舗に入る現金はオプション現金払い分のみ
         if (res.options_payment_method === 'cash') {
           cashReceived += res.options_price || 0
         }
       } else {
-        // 現金払いは全額
         cashReceived += result.totalPrice
       }
     })
+
+    // シフト手当を加算
+    all += shiftAllowance
+    const net = back - ded + all
 
     return {
       totalSales: sales,
@@ -183,14 +232,18 @@ export default function PayrollPage() {
       totalCashReceived: cashReceived,
       hasCreditReservation: hasCredit,
     }
-  }, [calculatedRows])
+  }, [calculatedRows, shiftAllowance])
+
+  const designationLabel = (v: string) => {
+    const map: Record<string, string> = { free: 'フリー', nomination: '指名', first_nomination: '初回指名', confirmed: '本指名', princess: '姫予約' }
+    return map[v] || v
+  }
 
   const generateLineText = () => {
     if (!hasSearched) return ''
     const therapist = therapists.find(t => t.id === selectedTherapistId)
     const therapistName = therapist ? therapist.name : '未選択'
 
-    // 日付フォーマット
     const dateObj = new Date(targetDate)
     const dateStr = `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`
 
@@ -215,32 +268,22 @@ export default function PayrollPage() {
       if (r.totalDiscount > 0) {
         text += `  (うち割引: -¥${r.totalDiscount.toLocaleString()})\n`
       }
-      text += `・バック計: ¥${r.netBack.toLocaleString()}\n`
-
-      let breakdown = `  (内訳: 基本¥${r.courseBack.toLocaleString()} / 指名¥${r.nominationBack.toLocaleString()} / OP¥${r.optionBack.toLocaleString()}`
-      if (r.therapistDiscountBurden > 0) {
-        breakdown += ` / 割引負担 -¥${r.therapistDiscountBurden.toLocaleString()}`
-      }
-      breakdown += `)\n\n`
-      text += breakdown
+      text += `・バック計: ¥${r.netBack.toLocaleString()}\n\n`
     })
 
     const shopCashBalance = totalCashReceived - netPay
     text += `------------------------\n`
     text += `★ 本日合計売上: ¥${totalSales.toLocaleString()}\n`
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
+    if (shiftAllowance > 0) {
+      text += `  (交通費手当込み: +¥${shiftAllowance.toLocaleString()})\n`
+    }
     if (hasCreditReservation) {
       text += `★ 本日店落ち（現金）: ${shopCashBalance < 0 ? `-¥${Math.abs(shopCashBalance).toLocaleString()}` : `¥${shopCashBalance.toLocaleString()}`}\n`
     } else {
       text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
     }
     text += `------------------------\n`
-
-    if (totalDeductions > 0 || totalAllowances > 0) {
-      text += `※控除・手当込みの最終金額です\n`
-      if (totalDeductions > 0) text += `  控除合計: -¥${totalDeductions.toLocaleString()}\n`
-      if (totalAllowances > 0) text += `  手当合計: +¥${totalAllowances.toLocaleString()}\n`
-    }
 
     text += `\nご確認よろしくお願いいたします！`
     return text
@@ -257,8 +300,6 @@ export default function PayrollPage() {
     })
   }
 
-  const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v)
-
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -266,7 +307,7 @@ export default function PayrollPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">報酬・バック計算</h1>
-            <p className="text-sm text-slate-500 mt-1">セラピストごとの日次報酬明細を計算し、LINE動作用のテキストを出力します。</p>
+            <p className="text-sm text-slate-500 mt-1">セラピストごとの日次報酬明細を表示します。予約登録時に自動計算されたバック額を確認できます。</p>
           </div>
         </div>
 
@@ -300,13 +341,23 @@ export default function PayrollPage() {
               ))}
             </select>
           </div>
-          <button
-            onClick={handleCalculate}
-            disabled={loading || !selectedTherapistId || !targetDate}
-            className="w-full md:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? '計算中...' : '報酬を計算する'}
-          </button>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={() => handleCalculate(false)}
+              disabled={loading || !selectedTherapistId || !targetDate}
+              className="flex-1 md:flex-none px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '読込中...' : '精算を表示'}
+            </button>
+            <button
+              onClick={() => handleCalculate(true)}
+              disabled={loading || !selectedTherapistId || !targetDate}
+              className="px-4 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              title="バック設定変更後に再計算する場合に使用"
+            >
+              再計算
+            </button>
+          </div>
         </div>
 
         {/* 結果エリア */}
@@ -339,6 +390,11 @@ export default function PayrollPage() {
                               <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100">
                                 予約 {idx + 1}
                               </span>
+                              {row.fromCache && (
+                                <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-xs font-medium border border-emerald-100">
+                                  計算済み
+                                </span>
+                              )}
                               <span className="font-bold text-slate-800 text-lg">
                                 {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
                               </span>
@@ -362,29 +418,12 @@ export default function PayrollPage() {
                           </div>
                         </div>
 
-                        <div className={`grid gap-4 ${r.totalDiscount > 0 ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div className="text-xs text-slate-500 mb-1">基本バック</div>
-                            <div className="font-bold text-slate-800">¥{r.courseBack.toLocaleString()}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-slate-500">
+                            {r.calcMethod}
                           </div>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div className="text-xs text-slate-500 mb-1">指名料バック</div>
-                            <div className="font-bold text-slate-800">¥{r.nominationBack.toLocaleString()}</div>
-                          </div>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div className="text-xs text-slate-500 mb-1">OPバック</div>
-                            <div className="font-bold text-slate-800">¥{r.optionBack.toLocaleString()}</div>
-                          </div>
-                          {r.totalDiscount > 0 && (
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                              <div className="text-xs text-slate-500 mb-1">割引負担</div>
-                              <div className={`font-bold ${r.therapistDiscountBurden > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
-                                {r.therapistDiscountBurden > 0 ? `-¥${r.therapistDiscountBurden.toLocaleString()}` : '¥0'}
-                              </div>
-                            </div>
-                          )}
-                          <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-indigo-900">
-                            <div className="text-xs text-indigo-500 font-medium mb-1">バック合計</div>
+                          <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 text-indigo-900">
+                            <div className="text-xs text-indigo-500 font-medium">バック合計</div>
                             <div className="font-bold text-lg leading-tight">¥{r.netBack.toLocaleString()}</div>
                           </div>
                         </div>
@@ -414,7 +453,6 @@ export default function PayrollPage() {
                             </div>
                           )
                         })()}
-
                       </div>
                     )
                   })}
@@ -429,6 +467,11 @@ export default function PayrollPage() {
                 <div className="text-4xl font-extrabold mb-4 font-mono tracking-tighter">
                   ¥{netPay.toLocaleString()}
                 </div>
+                {shiftAllowance > 0 && (
+                  <div className="text-sm text-indigo-200 mb-2">
+                    交通費手当含む: +¥{shiftAllowance.toLocaleString()}
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-sm text-indigo-100 pt-4 border-t border-white/20">
                   <span>総売上</span>
                   <span className="font-bold">¥{totalSales.toLocaleString()}</span>

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
+import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib/calculateBack'
 
 type Customer = {
   id: string
@@ -31,7 +32,18 @@ type Option = {
 type Therapist = {
   id: string
   name: string
+  rank_id: string | null
+  back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
   therapist_ranks?: { name: string } | null
+}
+
+type DesignationTypeItem = {
+  id: string
+  slug: string
+  display_name: string
+  display_order: number
+  is_store_paid_back: boolean
+  treats_as_confirmed: boolean
 }
 
 type TherapistPricing = {
@@ -80,6 +92,8 @@ export default function NewReservationPage() {
   const [selectedDiscountId, setSelectedDiscountId] = useState<string>('')
   const [availableTherapistIds, setAvailableTherapistIds] = useState<string[]>([])
   const [availableShifts, setAvailableShifts] = useState<Shift[]>([])
+  const [designationTypes, setDesignationTypes] = useState<DesignationTypeItem[]>([])
+  const [resolvedBasePrice, setResolvedBasePrice] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -88,7 +102,7 @@ export default function NewReservationPage() {
     end_time: '11:00',
     course_id: '',
     therapist_id: '',
-    designation_type: 'free' as 'free' | 'nomination' | 'confirmed' | 'princess' | 'photo',
+    designation_type: 'free',
     selected_options: [] as string[],
     discount_amount: 0,
     discount_reason: '',
@@ -176,8 +190,8 @@ export default function NewReservationPage() {
   }, [selectedShop])
 
   useEffect(() => {
-    calculatePrice()
-  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies]) // eslint-disable-line react-hooks/exhaustive-deps
+    void calculatePrice()
+  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies, designationTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (formData.start_time && calculatedPrice.duration > 0) {
@@ -196,14 +210,15 @@ export default function NewReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
-      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes] = await Promise.all([
+      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
+        supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       ])
 
       if (customersRes.error) throw customersRes.error
@@ -217,10 +232,11 @@ export default function NewReservationPage() {
       setCustomers(customersRes.data || [])
       setCourses(coursesRes.data || [])
       setOptions(optionsRes.data || [])
-      setTherapists(therapistsRes.data || [])
+      setTherapists((therapistsRes.data || []) as unknown as Therapist[])
       setTherapistPricings(pricingRes.data || [])
       setSystemSettings(settingsRes.data?.[0] || null)
       setDiscountPolicies(discountsRes.data || [])
+      setDesignationTypes((designationRes.data || []) as DesignationTypeItem[])
     } catch (error) {
       console.error('データの取得に失敗:', error)
       alert('データの取得に失敗しました')
@@ -229,13 +245,30 @@ export default function NewReservationPage() {
     }
   }
 
-  const calculatePrice = () => {
+  const calculatePrice = async () => {
     const selectedCourse = courses.find(c => c.id === formData.course_id)
     const therapistPricing = therapistPricings.find(p => p.therapist_id === formData.therapist_id)
+    const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
 
-    const basePrice = selectedCourse?.base_price || 0
+    let basePrice = selectedCourse?.base_price || 0
     let optionsPrice = 0
     let duration = selectedCourse?.duration || 0
+
+    // course_back_amounts から顧客料金を自動解決
+    if (selectedShop && formData.course_id && formData.designation_type) {
+      const rankId = selectedTherapist?.rank_id || null
+      const resolved = await resolveCustomerPrice(
+        selectedShop.id,
+        formData.course_id,
+        rankId,
+        formData.designation_type,
+        basePrice
+      )
+      basePrice = resolved.customerPrice
+      setResolvedBasePrice(resolved.customerPrice)
+    } else {
+      setResolvedBasePrice(null)
+    }
 
     // オプション料金と時間を計算
     formData.selected_options.forEach(optionId => {
@@ -246,32 +279,36 @@ export default function NewReservationPage() {
       }
     })
 
-    // 指名料を計算（デフォルトを採用し、個別設定があれば優先）
-    const defaultNominationFee = systemSettings?.default_nomination_fee || 0
-    const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
-    const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
-    const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
-      therapistFee && therapistFee > 0 ? therapistFee : defaultFee
-
+    // 指名料を計算（designation_types マスタの設定で判定）
     let nominationFee = 0
-    const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
-    const therapistRankName = (selectedTherapist?.therapist_ranks as any)?.name ?? null
+    const selectedDesignation = designationTypes.find(d => d.slug === formData.designation_type)
 
-    if (selectedCourse?.includes_nomination_fee) {
-      // コミコミコース：認定ランク＋写真指名または本指名の場合のみ+1,000円
-      if (
-        therapistRankName === '認定' &&
-        (formData.designation_type === 'photo' || formData.designation_type === 'confirmed' || formData.designation_type === 'nomination')
-      ) {
-        nominationFee = 1000
-      }
-    } else {
-      if (formData.designation_type === 'nomination') {
-        nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
-      } else if (formData.designation_type === 'confirmed') {
-        nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
-      } else if (formData.designation_type === 'princess') {
-        nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+    // 姫予約の場合はお客様負担なし（is_store_paid_back=true）
+    if (selectedDesignation?.is_store_paid_back) {
+      nominationFee = 0
+    } else if (formData.designation_type !== 'free') {
+      // 指名フィーは course_back_amounts の customer_price に含まれている場合と
+      // 別途 system_settings で設定されている場合がある
+      // customer_price と base_price の差分が指名料
+      const originalBase = selectedCourse?.base_price || 0
+      if (basePrice > originalBase) {
+        // course_back_amounts で解決した結果に指名料が含まれている
+        nominationFee = 0 // 既にbasePriceに含有
+      } else {
+        // system_settings / therapist_pricing のフォールバック
+        const defaultNominationFee = systemSettings?.default_nomination_fee || 0
+        const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
+        const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
+        const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
+          therapistFee && therapistFee > 0 ? therapistFee : defaultFee
+
+        if (formData.designation_type === 'first_nomination' || formData.designation_type === 'nomination') {
+          nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
+        } else if (formData.designation_type === 'confirmed') {
+          nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
+        } else if (formData.designation_type === 'princess') {
+          nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+        }
       }
     }
 
@@ -550,6 +587,9 @@ export default function NewReservationPage() {
       // 終了時刻：手動入力を優先、なければ自動計算
       const endTime = formData.end_time
 
+      // 指名種別IDをlookup
+      const selectedDesignationType = designationTypes.find(d => d.slug === formData.designation_type)
+
       const { data: createdRes, error } = await supabase
         .from('reservations')
         .insert([{
@@ -566,6 +606,7 @@ export default function NewReservationPage() {
           total_price: calculatedPrice.totalPrice,
           discount_amount: calculatedPrice.discountAmount,
           designation_type: formData.designation_type,
+          designation_type_id: selectedDesignationType?.id || null,
           notes: formData.notes,
           status: 'confirmed',
           created_by_id: user?.id,
@@ -582,15 +623,15 @@ export default function NewReservationPage() {
 
       if (reservationId) {
         // オプションを別テーブルに登録
-        if (formData.selected_options.length > 0) {
-          const optionInserts = formData.selected_options.map(optionId => {
-            const option = options.find(o => o.id === optionId)
-            return {
-              reservation_id: reservationId,
-              option_id: optionId,
-              price: option?.price || 0,
-            }
-          })
+        const optionInserts = formData.selected_options.map(optionId => {
+          const option = options.find(o => o.id === optionId)
+          return {
+            reservation_id: reservationId,
+            option_id: optionId,
+            price: option?.price || 0,
+          }
+        })
+        if (optionInserts.length > 0) {
           await supabase.from('reservation_options').insert(optionInserts)
         }
 
@@ -606,6 +647,42 @@ export default function NewReservationPage() {
             adhoc_name: !selectedPolicy ? '手動割引' : null,
             note: formData.discount_reason || null
           }])
+        }
+
+        // ★ バック自動計算 — 予約登録時に即座にバック額を算出して保存
+        try {
+          const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
+          const selectedCourse = courses.find(c => c.id === formData.course_id)
+          
+          const backInput: BackCalculationInput = {
+            shopId: selectedShop.id,
+            therapistId: formData.therapist_id,
+            therapistRankId: selectedTherapist?.rank_id || null,
+            therapistBackCalcType: selectedTherapist?.back_calc_type || null,
+            courseId: formData.course_id,
+            coursePrice: selectedCourse?.base_price || 0,
+            courseDuration: selectedCourse?.duration || 0,
+            designationType: formData.designation_type,
+            nominationFee: calculatedPrice.nominationFee,
+            options: optionInserts.map(o => ({ option_id: o.option_id, price: o.price })),
+            discounts: calculatedPrice.discountAmount > 0
+              ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || formData.manual_burden_type) as 'shop_only' | 'split' | 'therapist_only' }]
+              : [],
+            date: formData.date,
+            startTime: formData.start_time,
+          }
+
+          const backResult = await calculateBack(backInput)
+          
+          // 計算結果を予約レコードに保存
+          await supabase.from('reservations').update({
+            therapist_back_amount: backResult.netBack,
+            shop_revenue: backResult.shopRevenue,
+            back_calculated_at: new Date().toISOString(),
+            business_date: backResult.businessDate,
+          }).eq('id', reservationId)
+        } catch (backErr) {
+          console.warn('バック計算に失敗しましたが予約は登録されています:', backErr)
         }
       }
 
@@ -962,68 +1039,31 @@ export default function NewReservationPage() {
                     {designationSearchLoading ? '検索中...' : '履歴から自動判定する'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setFormData({ ...formData, designation_type: 'free' })
-                      e.currentTarget.blur()
-                      scrollToSection(sectionRef6)
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'free' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="font-bold text-sm">フリー</span>
-                    <span className={`text-xs mt-1 ${formData.designation_type === 'free' ? 'text-indigo-100' : 'text-slate-500'}`}>指名料なし</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setFormData({ ...formData, designation_type: 'nomination' })
-                      e.currentTarget.blur()
-                      scrollToSection(sectionRef6)
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'nomination' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="font-bold text-sm">指名</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setFormData({ ...formData, designation_type: 'photo' })
-                      e.currentTarget.blur()
-                      scrollToSection(sectionRef6)
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'photo' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="font-bold text-sm">写真指名</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setFormData({ ...formData, designation_type: 'confirmed' })
-                      e.currentTarget.blur()
-                      scrollToSection(sectionRef6)
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'confirmed' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="font-bold text-sm">本指名</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setFormData({ ...formData, designation_type: 'princess' })
-                      e.currentTarget.blur()
-                      scrollToSection(sectionRef6)
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === 'princess' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="font-bold text-sm">姫予約</span>
-                  </button>
+                <div className={`grid grid-cols-2 sm:grid-cols-${Math.min(designationTypes.length, 5)} gap-3`}>
+                  {designationTypes.map(dt => (
+                    <button
+                      key={dt.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setFormData({ ...formData, designation_type: dt.slug })
+                        e.currentTarget.blur()
+                        scrollToSection(sectionRef6)
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                    >
+                      <span className="font-bold text-sm">{dt.display_name}</span>
+                      {dt.is_store_paid_back && (
+                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>店負担バック</span>
+                      )}
+                      {dt.slug === 'free' && (
+                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>指名料なし</span>
+                      )}
+                    </button>
+                  ))}
+                  {designationTypes.length === 0 && (
+                    <p className="text-sm text-amber-600 col-span-full bg-amber-50 p-3 rounded-lg">指名種別が未設定です。システム管理から設定してください。</p>
+                  )}
                 </div>
               </div>
             </div>
