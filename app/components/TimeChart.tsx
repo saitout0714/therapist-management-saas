@@ -184,21 +184,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
     setTimeout(() => {
       if (contentTimelineRef.current) {
         const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        const currentMinutesFromStart = currentHour * 60 + currentMinute - 10 * 60;
+        const h = now.getHours();
+        const m = now.getMinutes();
 
-        if (currentMinutesFromStart < 0 || currentMinutesFromStart > 19 * 60) {
-          return;
+        let idx = 0;
+        if (h >= 10 && h <= 23) {
+          idx = (h - 10) * 12 + Math.floor(m / 5);
+        } else if (h >= 0 && h <= 5) {
+          idx = 14 * 12 + h * 12 + Math.floor(m / 5);
+        } else {
+          return; // 6〜9時は表示範囲外
         }
 
-        // Adjust for new cell width
-        const scrollPosition = (currentMinutesFromStart / 5) * 20 - 100;
-        if (scrollPosition > 0) {
-          contentTimelineRef.current.scrollLeft = scrollPosition;
-          if (headerTimelineRef.current) {
-            headerTimelineRef.current.scrollLeft = scrollPosition;
-          }
+        const cellWidth = 20;
+        const containerWidth = contentTimelineRef.current.clientWidth;
+        const scrollPosition = idx * cellWidth - containerWidth / 2;
+
+        contentTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
+        if (headerTimelineRef.current) {
+          headerTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
         }
       }
     }, 100);
@@ -254,17 +258,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 {/* Active indicator bar */}
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                {therapist.avatar ? (
-                  <img
-                    src={therapist.avatar}
-                    alt={therapist.name}
-                    className="w-8 h-8 rounded-full object-cover shadow-sm ring-2 ring-white flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-500 flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-white flex-shrink-0">
-                    {therapist.name.charAt(0)}
-                  </div>
-                )}
                 <div className="flex flex-col justify-center gap-1">
                   <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors">
                     {therapist.name}
@@ -506,34 +499,34 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     onClick={handleScheduleClick}
                   >
                     {/* Inner content wrapper to handle overflow nicely */}
-                    <div className="w-full h-full flex flex-col justify-center overflow-hidden gap-0.5">
+                    <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5">
                       {/* Row 1: Time */}
-                      <div className="text-[9px] font-medium text-white leading-none">
+                      <div className="text-[10px] font-medium text-white leading-none">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                       </div>
 
                       {/* Row 2: Name and New/Member */}
                       <div className="flex items-center justify-start gap-1 min-w-0">
-                        <span className="font-bold text-[11px] text-white leading-none truncate drop-shadow-sm">
+                        <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
                           {schedule.customerName || schedule.title}
                         </span>
                         {isReservation && (
-                          <span className={`flex-shrink-0 text-[8px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
+                          <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                             {schedule.isNewCustomer ? '新規' : '会員'}
                           </span>
                         )}
                       </div>
 
                       {/* Row 3: Duration, Designation and Price */}
-                      <div className="text-[9px] font-medium text-white flex items-center gap-1 leading-none">
+                      <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none">
                         {schedule.courseDuration && (
                           <span className="opacity-90">{schedule.courseDuration}分</span>
                         )}
                         {schedule.designationLabel && (
-                          <span className="bg-white/20 px-1 rounded-sm text-[8px] text-white border border-white/10">{schedule.designationLabel}</span>
+                          <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">{schedule.designationLabel}</span>
                         )}
                         {isReservation && schedule.totalPrice !== undefined && (
-                          <span className="text-[10px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
+                          <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
                             ¥{schedule.totalPrice.toLocaleString()}
                           </span>
                         )}

@@ -64,6 +64,12 @@ interface Schedule {
 
 type ViewMode = 'day' | 'week';
 
+const getBusinessDate = () => {
+  const now = new Date()
+  if (now.getHours() < 6) now.setDate(now.getDate() - 1)
+  return now
+}
+
 export default function ShiftsPage() {
   const { selectedShop } = useShop();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
@@ -74,7 +80,7 @@ export default function ShiftsPage() {
   const [filterDate, setFilterDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
-  const [weekStartDate, setWeekStartDate] = useState<Date>(() => new Date());
+  const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -419,7 +425,7 @@ export default function ShiftsPage() {
                     翌週 →
                   </button>
                   <button
-                    onClick={() => setWeekStartDate(new Date())}
+                    onClick={() => setWeekStartDate(getBusinessDate())}
                     className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
                   >
                     今週

@@ -43,12 +43,21 @@ type CalculatedRow = {
   fromCache: boolean // 予約登録時に計算済みかどうか
 }
 
+const getBusinessDate = () => {
+  const now = new Date()
+  // 朝6時前は前日の営業日
+  if (now.getHours() < 6) {
+    now.setDate(now.getDate() - 1)
+  }
+  return now.toLocaleDateString('ja-JP').split('/').join('-').replace(/\b\d\b/g, '0$&')
+}
+
 export default function PayrollPage() {
   const { selectedShop } = useShop()
   const [therapists, setTherapists] = useState<TherapistItem[]>([])
 
   // フォーム状態
-  const [targetDate, setTargetDate] = useState<string>(new Date().toLocaleDateString('ja-JP').split('/').join('-').replace(/\b\d\b/g, '0$&'))
+  const [targetDate, setTargetDate] = useState<string>(getBusinessDate())
   const [selectedTherapistId, setSelectedTherapistId] = useState<string>('')
 
   // 結果状態
@@ -60,22 +69,40 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function fetchTherapists() {
-      if (!selectedShop) {
+      if (!selectedShop || !targetDate) {
         setTherapists([])
         return
       }
+      // 対象日に出勤しているセラピストのIDを取得
+      const { data: shiftData } = await supabase
+        .from('shifts')
+        .select('therapist_id')
+        .eq('shop_id', selectedShop.id)
+        .eq('date', targetDate)
+
+      const shiftTherapistIds = (shiftData || []).map((s: { therapist_id: string }) => s.therapist_id)
+      if (shiftTherapistIds.length === 0) {
+        setTherapists([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('therapists')
         .select('id, name, rank_id, back_calc_type')
         .eq('shop_id', selectedShop.id)
+        .in('id', shiftTherapistIds)
         .order('order', { ascending: true })
 
       if (!error && data) {
         setTherapists(data as TherapistItem[])
+        // 現在選択中のセラピストが出勤していなければリセット
+        if (selectedTherapistId && !shiftTherapistIds.includes(selectedTherapistId)) {
+          setSelectedTherapistId('')
+        }
       }
     }
     fetchTherapists()
-  }, [selectedShop])
+  }, [selectedShop, targetDate])
 
   const handleCalculate = async (forceRecalculate = false) => {
     if (!selectedShop) return
