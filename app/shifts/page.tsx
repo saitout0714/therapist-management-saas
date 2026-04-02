@@ -336,7 +336,7 @@ export default function ShiftsPage() {
   ];
 
   // 週間表示用：全セラピストをシンプルな形式にマップ
-  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name }));
+  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, reservation_interval_minutes: t.intervalMinutes ?? null }));
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-8">

@@ -9,6 +9,7 @@ interface Therapist {
   id: string
   name: string
   avatar?: string
+  reservation_interval_minutes?: number | null
 }
 
 interface Room {
@@ -247,25 +248,28 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                           </button>
 
                           {/* セラピスト情報 — TimeChart の左列と同スタイル */}
-                          <div className="flex items-center gap-3 px-3 pt-3 pb-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                                {therapist.name}
-                              </p>
-                              {/* シフト時間 — TimeChart の emerald バッジと同じ */}
-                              <span className="inline-block text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-100 mt-1 leading-tight">
+                          <div className="flex flex-col justify-center gap-1 px-3 pt-3 pb-2">
+                            <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors truncate">
+                              {therapist.name}
+                            </p>
+                            {therapist.reservation_interval_minutes != null && (
+                              <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200 self-start">
+                                {therapist.reservation_interval_minutes}分
+                              </span>
+                            )}
+                            <p className="text-[10px] font-medium whitespace-nowrap leading-none">
+                              <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
                                 {shift.start_time.slice(0, 5)} - {endDisplay}
                               </span>
-                              {/* ルーム */}
-                              {roomName && (
-                                <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 font-medium truncate">
-                                  <svg className="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                  </svg>
-                                  {roomName}
-                                </p>
-                              )}
-                            </div>
+                            </p>
+                            {roomName && (
+                              <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
+                                <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                {roomName}
+                              </p>
+                            )}
                           </div>
 
                           {/* 予約リスト — TimeChart の予約ブロックと完全同一スタイル */}
@@ -279,14 +283,14 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                                     className="rounded-lg px-2 py-1.5 bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20 text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg"
                                     onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
                                   >
-                                    <div className="flex flex-col gap-0.5 overflow-hidden">
+                                    <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
                                       {/* Row 1: 時間 */}
-                                      <div className="text-[10px] font-medium text-white/95 leading-none">
+                                      <div className="text-[10px] font-medium text-white leading-none">
                                         <span className="whitespace-nowrap">{res.start_time.slice(0, 5)}-{res.end_time.slice(0, 5)}</span>
                                       </div>
                                       {/* Row 2: 顧客名 + 新規/会員バッジ */}
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span className="font-bold text-[13px] truncate drop-shadow-sm leading-none">
+                                      <div className="flex items-center justify-start gap-1 min-w-0">
+                                        <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
                                           {res.customers?.name || '—'}
                                         </span>
                                         <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
@@ -294,17 +298,17 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                                         </span>
                                       </div>
                                       {/* Row 3: コース時間・指名種別・金額 */}
-                                      <div className="text-[10px] font-medium text-white/90 flex items-center gap-1 leading-none flex-wrap">
+                                      <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                                         {res.courses?.duration && (
                                           <span className="opacity-90">{res.courses.duration}分</span>
                                         )}
                                         {res.designation_type && (
-                                          <span className="bg-white/20 px-1 rounded-sm text-[9px] border border-white/10">
+                                          <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">
                                             {DESIGNATION_LABEL[res.designation_type] || res.designation_type}
                                           </span>
                                         )}
                                         {res.total_price !== undefined && (
-                                          <span className="text-[10px] font-extrabold text-white bg-black/15 px-1 rounded backdrop-blur-[1px]">
+                                          <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
                                             ¥{res.total_price.toLocaleString()}
                                           </span>
                                         )}
