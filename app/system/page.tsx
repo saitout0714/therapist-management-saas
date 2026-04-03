@@ -65,17 +65,17 @@ export default function SystemPage() {
     const row = (data?.[0] as SystemSettings | undefined) || null
     setSettings(row)
     setForm({
-      default_nomination_fee:             row?.default_nomination_fee ?? 0,
-      default_confirmed_nomination_fee:   row?.default_confirmed_nomination_fee ?? 0,
-      default_princess_reservation_fee:   row?.default_princess_reservation_fee ?? 0,
-      reservation_interval_minutes:       row?.reservation_interval_minutes ?? 20,
-      nomination_back_amount:             row?.nomination_back_amount ?? 0,
-      confirmed_nomination_back_amount:   row?.confirmed_nomination_back_amount ?? 0,
-      princess_back_amount:               row?.princess_back_amount ?? 0,
-      credit_card_fee_rate:               row?.credit_card_fee_rate ?? 10,
-      extension_unit_minutes:             row?.extension_unit_minutes ?? 30,
-      extension_unit_price:               row?.extension_unit_price ?? 0,
-      extension_unit_back:                row?.extension_unit_back ?? 0,
+      default_nomination_fee: row?.default_nomination_fee ?? 0,
+      default_confirmed_nomination_fee: row?.default_confirmed_nomination_fee ?? 0,
+      default_princess_reservation_fee: row?.default_princess_reservation_fee ?? 0,
+      reservation_interval_minutes: row?.reservation_interval_minutes ?? 20,
+      nomination_back_amount: row?.nomination_back_amount ?? 0,
+      confirmed_nomination_back_amount: row?.confirmed_nomination_back_amount ?? 0,
+      princess_back_amount: row?.princess_back_amount ?? 0,
+      credit_card_fee_rate: row?.credit_card_fee_rate ?? 10,
+      extension_unit_minutes: row?.extension_unit_minutes ?? 30,
+      extension_unit_price: row?.extension_unit_price ?? 0,
+      extension_unit_back: row?.extension_unit_back ?? 0,
     })
     setLoading(false)
   }
@@ -111,13 +111,14 @@ export default function SystemPage() {
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'pricing_defaults', label: '基本設定' },
-    { key: 'courses',          label: 'コース管理' },
+    { key: 'courses', label: 'コース管理' },
     { key: 'designation_types', label: '指名種別' },
-    { key: 'options',          label: 'オプション管理' },
-    { key: 'ranks',            label: 'ランク設定' },
-    { key: 'back_amounts',     label: '給与・料金詳細設定' },
-    { key: 'discounts',        label: '割引' },
-    { key: 'deductions',       label: '控除' },
+    { key: 'options', label: 'オプション管理' },
+    { key: 'discounts', label: '割引' },
+    { key: 'deductions', label: '控除' },
+    { key: 'ranks', label: 'ランク設定' },
+    { key: 'back_amounts', label: 'ランク別 料金バック' },
+
   ]
 
   return (
@@ -134,24 +135,23 @@ export default function SystemPage() {
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-                activeTab === tab.key
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
+              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.key
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {activeTab === 'courses'      && <CourseManagementTab />}
+        {activeTab === 'courses' && <CourseManagementTab />}
         {activeTab === 'designation_types' && <DesignationTypesTab />}
-        {activeTab === 'options'      && <OptionManagementTab />}
-        {activeTab === 'ranks'        && <TherapistRankManagementTab />}
+        {activeTab === 'options' && <OptionManagementTab />}
+        {activeTab === 'ranks' && <TherapistRankManagementTab />}
         {activeTab === 'back_amounts' && <CourseBackAmountsTab />}
-        {activeTab === 'discounts'    && <DiscountPoliciesTab />}
-        {activeTab === 'deductions'   && <DeductionRulesTab />}
+        {activeTab === 'discounts' && <DiscountPoliciesTab />}
+        {activeTab === 'deductions' && <DeductionRulesTab />}
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-2xl space-y-8">
@@ -230,6 +230,7 @@ export default function SystemPage() {
                   例: 延長 {form.extension_unit_minutes}分 × 3回 = +{form.extension_unit_minutes * 3}分 / +¥{(form.extension_unit_price * 3).toLocaleString()} / バック +¥{(form.extension_unit_back * 3).toLocaleString()}
                 </p>
               )}
+              <p className="mt-2 text-xs text-slate-400">ランク別の料金・バックは「ランク別 料金バック」タブで設定できます。</p>
             </div>
 
             {/* クレジット決済手数料 */}

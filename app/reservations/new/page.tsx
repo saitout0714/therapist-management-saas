@@ -65,6 +65,12 @@ type SystemSettings = {
   extension_unit_back?: number
 }
 
+type ExtensionRankPrice = {
+  rank_id: string
+  extension_unit_price: number
+  extension_unit_back: number
+}
+
 type DiscountPolicy = {
   id: string
   name: string
@@ -96,6 +102,7 @@ export default function NewReservationPage() {
   const [availableTherapistIds, setAvailableTherapistIds] = useState<string[]>([])
   const [availableShifts, setAvailableShifts] = useState<Shift[]>([])
   const [designationTypes, setDesignationTypes] = useState<DesignationTypeItem[]>([])
+  const [extensionRankPrices, setExtensionRankPrices] = useState<ExtensionRankPrice[]>([])
   const [resolvedBasePrice, setResolvedBasePrice] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
@@ -215,7 +222,7 @@ export default function NewReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
-      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes] = await Promise.all([
+      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
@@ -224,6 +231,7 @@ export default function NewReservationPage() {
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
       ])
 
       if (customersRes.error) throw customersRes.error
@@ -242,6 +250,7 @@ export default function NewReservationPage() {
       setSystemSettings(settingsRes.data?.[0] || null)
       setDiscountPolicies(discountsRes.data || [])
       setDesignationTypes((designationRes.data || []) as DesignationTypeItem[])
+      setExtensionRankPrices((extRankPricesRes.data || []) as ExtensionRankPrice[])
     } catch (error) {
       console.error('データの取得に失敗:', error)
       alert('データの取得に失敗しました')
@@ -284,9 +293,13 @@ export default function NewReservationPage() {
       }
     })
 
-    // 延長料金と時間を計算
+    // 延長料金と時間を計算（ランク別オーバーライド → デフォルト の優先順）
     const extUnitMinutes = systemSettings?.extension_unit_minutes ?? 30
-    const extUnitPrice   = systemSettings?.extension_unit_price ?? 0
+    const selectedTherapistRankId = selectedTherapist?.rank_id || null
+    const rankExtPrice = selectedTherapistRankId
+      ? extensionRankPrices.find(p => p.rank_id === selectedTherapistRankId)
+      : null
+    const extUnitPrice = rankExtPrice?.extension_unit_price ?? systemSettings?.extension_unit_price ?? 0
     const extensionPrice = formData.extension_count * extUnitPrice
     duration += formData.extension_count * extUnitMinutes
 
@@ -686,7 +699,12 @@ export default function NewReservationPage() {
           }
 
           const backResult = await calculateBack(backInput)
-          const extensionBack = formData.extension_count * (systemSettings?.extension_unit_back ?? 0)
+          const selectedTherapistForBack = therapists.find(t => t.id === formData.therapist_id)
+          const rankExtPriceForBack = selectedTherapistForBack?.rank_id
+            ? extensionRankPrices.find(p => p.rank_id === selectedTherapistForBack.rank_id)
+            : null
+          const extUnitBackResolved = rankExtPriceForBack?.extension_unit_back ?? systemSettings?.extension_unit_back ?? 0
+          const extensionBack = formData.extension_count * extUnitBackResolved
 
           // 計算結果を予約レコードに保存
           await supabase.from('reservations').update({

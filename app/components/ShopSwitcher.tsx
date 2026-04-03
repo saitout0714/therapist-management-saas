@@ -50,7 +50,7 @@ export default function ShopSwitcher() {
                 店舗を切り替え
                 <span className="bg-slate-100 text-slate-500 py-0.5 px-2 rounded-full text-[10px]">{shops.length} 店舗</span>
               </div>
-              <div className="py-1 space-y-0.5 max-h-60 overflow-y-auto custom-scrollbar">
+              <div className="py-1 space-y-0.5 max-h-60 overflow-y-auto overscroll-contain custom-scrollbar">
                 {shops.map((shop) => (
                   <button
                     key={shop.id}

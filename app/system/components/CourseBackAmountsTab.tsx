@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 
 type Course = { id: string; name: string; duration: number; base_price: number }
 type Rank = { id: string; name: string }
+type ExtensionRankPrice = { rank_id: string; extension_unit_price: number; extension_unit_back: number }
 type BackAmount = {
   id: string
   shop_id: string
@@ -30,16 +31,22 @@ export function CourseBackAmountsTab() {
   const [selectedRank, setSelectedRank] = useState<string>('all')
   // editableCells: key = `${designation_type}` => { back_amount, customer_price }
   const [editableCells, setEditableCells] = useState<Record<string, { back_amount: string; customer_price: string }>>({})
+  const [extensionRankPrices, setExtensionRankPrices] = useState<ExtensionRankPrice[]>([])
+  const [extensionDefaults, setExtensionDefaults] = useState({ price: 0, back: 0 })
+  const [extRankSaving, setExtRankSaving] = useState(false)
+  const [extRankSaved, setExtRankSaved] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!selectedShop) { setLoading(false); return }
     setLoading(true)
 
-    const [coursesRes, ranksRes, amountsRes, dtRes] = await Promise.all([
+    const [coursesRes, ranksRes, amountsRes, dtRes, extPricesRes, settingsRes] = await Promise.all([
       supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
       supabase.from('course_back_amounts').select('*').eq('shop_id', selectedShop.id),
       supabase.from('designation_types').select('slug, display_name').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+      supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+      supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id).limit(1),
     ])
 
     const c = (coursesRes.data as Course[]) || []
@@ -55,6 +62,17 @@ export function CourseBackAmountsTab() {
       { value: 'first_nomination', label: '初指名' },
       { value: 'confirmed', label: '本指名' },
     ])
+
+    const fetchedExtPrices = (extPricesRes.data || []) as ExtensionRankPrice[]
+    // 全ランクに対してデフォルト 0/0 で初期化し、既存データで上書き
+    setExtensionRankPrices(
+      r.map(rank => {
+        const existing = fetchedExtPrices.find(p => p.rank_id === rank.id)
+        return { rank_id: rank.id, extension_unit_price: existing?.extension_unit_price ?? 0, extension_unit_back: existing?.extension_unit_back ?? 0 }
+      })
+    )
+    const ss = settingsRes.data?.[0] as { extension_unit_price?: number; extension_unit_back?: number } | undefined
+    setExtensionDefaults({ price: ss?.extension_unit_price ?? 0, back: ss?.extension_unit_back ?? 0 })
 
     if (c.length > 0 && !selectedCourse) setSelectedCourse(c[0].id)
     setLoading(false)
@@ -129,6 +147,26 @@ export function CourseBackAmountsTab() {
     alert('保存しました')
     setSaving(false)
     void fetchData()
+  }
+
+  const handleSaveExtensionRankPrices = async () => {
+    if (!selectedShop) return
+    setExtRankSaving(true)
+    for (const rp of extensionRankPrices) {
+      const { error } = await supabase
+        .from('extension_rank_prices')
+        .upsert({
+          shop_id: selectedShop.id,
+          rank_id: rp.rank_id,
+          extension_unit_price: rp.extension_unit_price,
+          extension_unit_back: rp.extension_unit_back,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'shop_id,rank_id' })
+      if (error) { alert('保存に失敗しました'); setExtRankSaving(false); return }
+    }
+    setExtRankSaving(false)
+    setExtRankSaved(true)
+    setTimeout(() => setExtRankSaved(false), 2500)
   }
 
   const handleDelete = async (designationType: string) => {
@@ -386,6 +424,93 @@ export function CourseBackAmountsTab() {
                 }
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* ランク別延長設定 */}
+      {ranks.length > 0 && (
+        <div className="mt-10 bg-white rounded-2xl border border-slate-200 p-6">
+          <div className="mb-4">
+            <h3 className="text-base font-bold text-slate-800">ランク別 延長料金・バック設定</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              延長最小単位は「基本設定」で設定します。ランク未設定の場合は基本設定のデフォルト（料金 ¥{extensionDefaults.price.toLocaleString()} / バック ¥{extensionDefaults.back.toLocaleString()}）が使用されます。
+            </p>
+          </div>
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs">ランク</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs">延長料金（1回あたり）</th>
+                  <th className="px-4 py-3 text-center font-semibold text-indigo-600 text-xs">延長バック（1回あたり）</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ranks.map((rank) => {
+                  const rp = extensionRankPrices.find(p => p.rank_id === rank.id) || { rank_id: rank.id, extension_unit_price: 0, extension_unit_back: 0 }
+                  return (
+                    <tr key={rank.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-700">{rank.name}</td>
+                      <td className="px-4 py-3">
+                        <div className="relative max-w-[160px] mx-auto">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={100}
+                            value={rp.extension_unit_price}
+                            onChange={(e) => setExtensionRankPrices(prev =>
+                              prev.map(p => p.rank_id === rank.id ? { ...p, extension_unit_price: Math.max(0, Number(e.target.value)) } : p)
+                            )}
+                            className="w-full border border-slate-200 rounded-lg bg-white pl-7 pr-2 py-2 text-sm text-right"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="relative max-w-[160px] mx-auto">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={100}
+                            value={rp.extension_unit_back}
+                            onChange={(e) => setExtensionRankPrices(prev =>
+                              prev.map(p => p.rank_id === rank.id ? { ...p, extension_unit_back: Math.max(0, Number(e.target.value)) } : p)
+                            )}
+                            className="w-full border border-emerald-100 rounded-lg bg-emerald-50/30 pl-7 pr-2 py-2 text-sm text-right font-bold text-indigo-700"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => void handleSaveExtensionRankPrices()}
+              disabled={extRankSaving}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
+            >
+              {extRankSaving ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+              )}
+              延長設定を保存する
+            </button>
+            {extRankSaved && (
+              <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                保存しました
+              </span>
+            )}
           </div>
         </div>
       )}
