@@ -9,6 +9,7 @@ type Shop = {
   description: string | null
   is_active: boolean
   created_at: string
+  order: number | null
 }
 
 export default function AdminPage() {
@@ -21,6 +22,7 @@ export default function AdminPage() {
     description: '',
     is_active: true,
   })
+  const [draggedId, setDraggedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchShops()
@@ -31,7 +33,7 @@ export default function AdminPage() {
       const { data, error } = await supabase
         .from('shops')
         .select('*')
-        .order('name', { ascending: true })
+        .order('order', { ascending: true, nullsFirst: false })
 
       if (error) throw error
       setShops(data || [])
@@ -41,6 +43,46 @@ export default function AdminPage() {
     } finally {
       setShopsLoading(false)
     }
+  }
+
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, shopId: string) => {
+    setDraggedId(shopId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragEnd = () => {
+    setDraggedId(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetShop: Shop) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetShop.id) {
+      setDraggedId(null)
+      return
+    }
+
+    const draggedIndex = shops.findIndex((s) => s.id === draggedId)
+    const targetIndex = shops.findIndex((s) => s.id === targetShop.id)
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null)
+      return
+    }
+
+    const newShops = [...shops]
+    const [draggedItem] = newShops.splice(draggedIndex, 1)
+    newShops.splice(targetIndex, 0, draggedItem)
+    setShops(newShops)
+
+    for (let i = 0; i < newShops.length; i++) {
+      await supabase.from('shops').update({ order: i }).eq('id', newShops[i].id)
+    }
+
+    setDraggedId(null)
   }
 
   const handleShopSubmit = async (e: React.FormEvent) => {
@@ -224,6 +266,7 @@ export default function AdminPage() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="w-10 px-3 py-4"></th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">店舗名</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:table-cell">説明</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状態</th>
@@ -239,13 +282,31 @@ export default function AdminPage() {
                         </tr>
                       ) : (
                         shops.map((shop) => (
-                          <tr key={shop.id} className={`hover:bg-slate-50/50 hover:-translate-y-[1px] hover:shadow-sm transition-all ${!shop.is_active ? 'opacity-60 bg-slate-50/30' : ''}`}>
+                          <tr
+                            key={shop.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, shop.id)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, shop)}
+                            className={`transition-all group ${
+                              draggedId === shop.id
+                                ? 'opacity-40 bg-indigo-50/60 border-dashed'
+                                : 'hover:bg-slate-50/50'
+                            } ${!shop.is_active ? 'opacity-60' : ''}`}
+                          >
+                            <td className="px-3 py-4 w-10">
+                              <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                </svg>
+                              </div>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                                 {shop.name}
                               </div>
-                              {/* モバイルのみ説明文を表示 */}
                               {shop.description && (
                                 <div className="text-xs text-slate-500 mt-1 line-clamp-1 sm:hidden ml-4">{shop.description}</div>
                               )}

@@ -5,6 +5,7 @@ import { ShopProvider } from "@/app/contexts/ShopContext";
 import { AuthProvider } from "@/app/contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import ShopSwitcher from "./ShopSwitcher";
+import ShopTabBar from "./ShopTabBar";
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,6 +34,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
               {children}
             </main>
+            <ShopTabBar />
           </div>
         </div>
       </ShopProvider>
