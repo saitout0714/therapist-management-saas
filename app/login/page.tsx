@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       await login(loginId, password)
-      router.replace('/')
+      window.location.href = '/'
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'ログインに失敗しました'
       setError(message)
