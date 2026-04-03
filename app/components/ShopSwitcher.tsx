@@ -2,15 +2,53 @@
 
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 export default function ShopSwitcher() {
   const { shops, selectedShop, setSelectedShop } = useShop()
   const { user, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+
+  // 作業中ページかどうか（編集・新規作成）
+  const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
+
+  // ドロップダウンが開いている間、背後のページスクロールをロック
+  useEffect(() => {
+    const anyOpen = isOpen || isUserMenuOpen
+    if (anyOpen) {
+      document.body.style.overflow = 'hidden'
+      document.body.style.touchAction = 'none'
+    } else {
+      document.body.style.overflow = ''
+      document.body.style.touchAction = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.touchAction = ''
+    }
+  }, [isOpen, isUserMenuOpen])
+
+  const handleShopSelect = (shop: typeof selectedShop) => {
+    if (!shop || shop.id === selectedShop?.id) {
+      setIsOpen(false)
+      return
+    }
+
+    if (isEditingPage) {
+      const ok = window.confirm(
+        `編集中のページを離れて「${shop!.name}」のダッシュボードへ移動しますか？\n\n保存されていない変更は失われます。`
+      )
+      if (!ok) return
+    }
+
+    setSelectedShop(shop)
+    setIsOpen(false)
+    router.push('/')
+  }
 
   const handleLogout = async () => {
     await logout()
@@ -50,14 +88,11 @@ export default function ShopSwitcher() {
                 店舗を切り替え
                 <span className="bg-slate-100 text-slate-500 py-0.5 px-2 rounded-full text-[10px]">{shops.length} 店舗</span>
               </div>
-              <div className="py-1 space-y-0.5 max-h-60 overflow-y-auto overscroll-contain custom-scrollbar">
+              <div className="py-1 space-y-0.5 max-h-60 overflow-y-auto overscroll-contain custom-scrollbar" style={{ touchAction: 'pan-y' }}>
                 {shops.map((shop) => (
                   <button
                     key={shop.id}
-                    onClick={() => {
-                      setSelectedShop(shop)
-                      setIsOpen(false)
-                    }}
+                    onClick={() => handleShopSelect(shop)}
                     className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors border border-transparent ${selectedShop.id === shop.id
                       ? 'bg-indigo-50 border-indigo-100 text-indigo-700 shadow-sm'
                       : 'text-slate-700 hover:bg-slate-50 hover:border-slate-100'
@@ -75,7 +110,7 @@ export default function ShopSwitcher() {
             </div>
           )}
 
-          {isOpen && <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />}
+          {isOpen && <div className="fixed inset-0 z-40 cursor-pointer" onClick={() => setIsOpen(false)} />}
         </div>
       )}
 
@@ -146,7 +181,7 @@ export default function ShopSwitcher() {
             </div>
           )}
 
-          {isUserMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />}
+          {isUserMenuOpen && <div className="fixed inset-0 z-40 cursor-pointer" onClick={() => setIsUserMenuOpen(false)} />}
         </div>
       )}
     </div>
