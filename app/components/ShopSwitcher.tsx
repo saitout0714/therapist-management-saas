@@ -47,7 +47,7 @@ export default function ShopSwitcher() {
 
     setSelectedShop(shop)
     setIsOpen(false)
-    router.push('/')
+    router.push('/shifts')
   }
 
   const handleLogout = async () => {
