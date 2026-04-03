@@ -26,6 +26,7 @@ interface ReservationWithDetails {
   date: string
   start_time: string
   end_time: string
+  extension_count: number
   credit_fee_amount: number
   course: { duration: number } | null
   reservation_options: { option_id: string; price: number }[]
@@ -130,7 +131,8 @@ export default function AggregationPage() {
             discounts: res.reservation_discounts || [],
             discountAmount: res.discount_amount || 0,
             date: res.date,
-            startTime: res.start_time
+            startTime: res.start_time,
+            extensionCount: res.extension_count || 0,
           }
 
           const calc = await calculateBack(input)

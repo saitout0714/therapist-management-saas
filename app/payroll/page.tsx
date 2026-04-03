@@ -24,11 +24,13 @@ type ReservationWithDetails = {
   date: string
   start_time: string
   end_time: string
+  extension_count: number
   payment_method: 'cash' | 'credit' | null
   options_payment_method: 'cash' | 'credit' | null
   credit_fee_amount: number
   // 計算済みバック額（予約登録時に保存されたもの）
   therapist_back_amount: number | null
+  total_price: number | null
   shop_revenue: number | null
   back_calculated_at: string | null
   course: { name: string; duration: number } | null
@@ -126,7 +128,7 @@ export default function PayrollPage() {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, shop_revenue, back_calculated_at,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at,
           course:courses(name, duration),
           customer:customers(name),
           reservation_options(option_id, price),
@@ -152,7 +154,7 @@ export default function PayrollPage() {
           // 簡易的なresult構築（計算済み値を使用）
           const totalOptionsPrice = res.reservation_options?.reduce((s, o) => s + o.price, 0) || 0
           const totalDiscount = res.reservation_discounts?.reduce((s, d) => s + d.applied_amount, 0) || res.discount_amount || 0
-          const totalPrice = (res.base_price || 0) + totalOptionsPrice + (res.nomination_fee || 0) - totalDiscount
+          const totalPrice = res.total_price !== null && res.total_price !== undefined ? res.total_price : Math.max(0, (res.base_price || 0) + totalOptionsPrice + (res.nomination_fee || 0) - totalDiscount)
           
           rows.push({
             reservation: res,
@@ -192,7 +194,8 @@ export default function PayrollPage() {
             discounts: res.reservation_discounts || [],
             discountAmount: res.discount_amount || 0,
             date: res.date,
-            startTime: res.start_time
+            startTime: res.start_time,
+            extensionCount: res.extension_count || 0
           }
 
           const result = await calculateBack(input)

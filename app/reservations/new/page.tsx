@@ -690,6 +690,7 @@ export default function NewReservationPage() {
             courseDuration: selectedCourse?.duration || 0,
             designationType: formData.designation_type,
             nominationFee: calculatedPrice.nominationFee,
+            extensionCount: formData.extension_count,
             options: optionInserts.map(o => ({ option_id: o.option_id, price: o.price })),
             discounts: calculatedPrice.discountAmount > 0
               ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || formData.manual_burden_type) as 'shop_only' | 'split' | 'therapist_only' }]
@@ -699,16 +700,10 @@ export default function NewReservationPage() {
           }
 
           const backResult = await calculateBack(backInput)
-          const selectedTherapistForBack = therapists.find(t => t.id === formData.therapist_id)
-          const rankExtPriceForBack = selectedTherapistForBack?.rank_id
-            ? extensionRankPrices.find(p => p.rank_id === selectedTherapistForBack.rank_id)
-            : null
-          const extUnitBackResolved = rankExtPriceForBack?.extension_unit_back ?? systemSettings?.extension_unit_back ?? 0
-          const extensionBack = formData.extension_count * extUnitBackResolved
 
           // 計算結果を予約レコードに保存
           await supabase.from('reservations').update({
-            therapist_back_amount: backResult.netBack + extensionBack,
+            therapist_back_amount: backResult.netBack,
             shop_revenue: backResult.shopRevenue,
             back_calculated_at: new Date().toISOString(),
             business_date: backResult.businessDate,

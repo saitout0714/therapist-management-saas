@@ -93,6 +93,7 @@ export type BackCalculationInput = {
   // 延長コース（サブコース）
   extensionCourseId?: string
   extensionCoursePrice?: number
+  extensionCount?: number
 }
 
 export type BackCalculationResult = {
@@ -240,6 +241,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   let extensionBack = 0
   let optionBack = 0
   let nominationBack = 0
+  let extensionPrice = input.extensionCoursePrice || 0
   let calcMethod = ''
 
   // Step 5b: 折半方式の場合は先に処理
@@ -248,21 +250,38 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     const totalDiscount = (input.discounts && input.discounts.length > 0)
       ? input.discounts.reduce((sum, d) => sum + d.applied_amount, 0)
       : (input.discountAmount || 0)
-    const totalSales = effectiveCoursePrice + totalOptionsPrice + input.nominationFee - totalDiscount
+
+    // Calculate extension if needed
+    if (input.extensionCount && input.extensionCount > 0) {
+      const { data: sysData } = await supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
+      let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
+      let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
+      if (input.therapistRankId) {
+        const { data: rankData } = await supabase.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+        if (rankData && rankData.length > 0) {
+          extUnitPrice = rankData[0].extension_unit_price
+          extUnitBack = rankData[0].extension_unit_back
+        }
+      }
+      extensionPrice += input.extensionCount * extUnitPrice
+      extensionBack += input.extensionCount * extUnitBack
+    }
+
+    const totalSales = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
     const totalBack = applyRounding(totalSales * resolved.courseRate / 100, shopRule.rounding_method)
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
     return {
       courseBack: totalBack,
-      extensionBack: 0,
+      extensionBack: extensionBack,
       optionBack: 0,
       nominationBack: 0,
-      totalBack,
+      totalBack: totalBack + extensionBack,
       deductions: deductionResult.deductions,
       allowances: deductionResult.allowances,
-      netBack: totalBack - deductionResult.deductions + deductionResult.allowances,
-      shopRevenue: totalSales - totalBack,
+      netBack: totalBack + extensionBack - deductionResult.deductions + deductionResult.allowances,
+      shopRevenue: totalSales - (totalBack + extensionBack),
       totalPrice: totalSales + totalDiscount,
       resolvedCustomerPrice: effectiveCoursePrice,
       totalDiscount: totalDiscount,
@@ -311,10 +330,26 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     )
     
     if (resolved.calcType === 'percentage') {
-      extensionBack = applyRounding((extPrice.customerPrice) * resolved.courseRate / 100, shopRule.rounding_method)
+      extensionBack += applyRounding((extPrice.customerPrice) * resolved.courseRate / 100, shopRule.rounding_method)
     } else if (resolved.calcType === 'fixed') {
-      extensionBack = extPrice.backAmount ?? 0
+      extensionBack += extPrice.backAmount ?? 0
     }
+  }
+
+  // Step 2c: 延長回数の計算
+  if (input.extensionCount && input.extensionCount > 0) {
+    const { data: sysData } = await supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
+    let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
+    let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
+    if (input.therapistRankId) {
+      const { data: rankData } = await supabase.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+      if (rankData && rankData.length > 0) {
+        extUnitPrice = rankData[0].extension_unit_price
+        extUnitBack = rankData[0].extension_unit_back
+      }
+    }
+    extensionPrice += input.extensionCount * extUnitPrice
+    extensionBack += input.extensionCount * extUnitBack
   }
 
   // Step 3: オプションバック額の算出
@@ -392,7 +427,6 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
-  const extensionPrice = input.extensionCoursePrice || 0
   const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
 
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances
