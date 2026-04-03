@@ -60,6 +60,9 @@ type SystemSettings = {
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
   credit_card_fee_rate?: number
+  extension_unit_minutes?: number
+  extension_unit_price?: number
+  extension_unit_back?: number
 }
 
 type DiscountPolicy = {
@@ -104,6 +107,7 @@ export default function NewReservationPage() {
     therapist_id: '',
     designation_type: 'free',
     selected_options: [] as string[],
+    extension_count: 0,
     discount_amount: 0,
     discount_reason: '',
     manual_burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
@@ -150,6 +154,7 @@ export default function NewReservationPage() {
   const [calculatedPrice, setCalculatedPrice] = useState({
     basePrice: 0,
     optionsPrice: 0,
+    extensionPrice: 0,
     nominationFee: 0,
     discountAmount: 0,
     totalPrice: 0,
@@ -279,6 +284,12 @@ export default function NewReservationPage() {
       }
     })
 
+    // 延長料金と時間を計算
+    const extUnitMinutes = systemSettings?.extension_unit_minutes ?? 30
+    const extUnitPrice   = systemSettings?.extension_unit_price ?? 0
+    const extensionPrice = formData.extension_count * extUnitPrice
+    duration += formData.extension_count * extUnitMinutes
+
     // 指名料を計算（designation_types マスタの設定で判定）
     let nominationFee = 0
     const selectedDesignation = designationTypes.find(d => d.slug === formData.designation_type)
@@ -324,19 +335,20 @@ export default function NewReservationPage() {
       }
     }
 
-    const totalPrice = basePrice + optionsPrice + nominationFee - dynamicDiscount
+    const totalPrice = basePrice + optionsPrice + extensionPrice + nominationFee - dynamicDiscount
 
     // クレジット手数料の計算
     const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
     let creditFeeAmount = 0
     if (formData.payment_method === 'credit') {
-      const creditBase = basePrice + nominationFee + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
+      const creditBase = basePrice + nominationFee + extensionPrice + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
       creditFeeAmount = Math.floor(creditBase * feeRate)
     }
 
     setCalculatedPrice({
       basePrice,
       optionsPrice,
+      extensionPrice,
       nominationFee,
       discountAmount: dynamicDiscount,
       totalPrice: Math.max(0, totalPrice),
@@ -602,6 +614,7 @@ export default function NewReservationPage() {
           end_time: endTime,
           base_price: calculatedPrice.basePrice,
           options_price: calculatedPrice.optionsPrice,
+          extension_count: formData.extension_count,
           nomination_fee: calculatedPrice.nominationFee,
           total_price: calculatedPrice.totalPrice,
           discount_amount: calculatedPrice.discountAmount,
@@ -673,10 +686,11 @@ export default function NewReservationPage() {
           }
 
           const backResult = await calculateBack(backInput)
-          
+          const extensionBack = formData.extension_count * (systemSettings?.extension_unit_back ?? 0)
+
           // 計算結果を予約レコードに保存
           await supabase.from('reservations').update({
-            therapist_back_amount: backResult.netBack,
+            therapist_back_amount: backResult.netBack + extensionBack,
             shop_revenue: backResult.shopRevenue,
             back_calculated_at: new Date().toISOString(),
             business_date: backResult.businessDate,
@@ -956,10 +970,45 @@ export default function NewReservationPage() {
             </div>
           </div>
 
+          {/* 延長 */}
+          {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+              <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">4</span>
+                延長
+              </h2>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, extension_count: Math.max(0, prev.extension_count - 1) }))}
+                  className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xl font-bold flex items-center justify-center hover:bg-slate-100 transition-colors disabled:opacity-30"
+                  disabled={formData.extension_count === 0}
+                >−</button>
+                <div className="flex-1 text-center">
+                  <div className="text-3xl font-extrabold text-indigo-600">{formData.extension_count}<span className="text-base font-semibold text-slate-500 ml-1">回</span></div>
+                  {formData.extension_count > 0 && (
+                    <div className="text-sm text-slate-500 mt-1">
+                      +{formData.extension_count * (systemSettings.extension_unit_minutes ?? 30)}分 / ¥{(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, extension_count: prev.extension_count + 1 }))}
+                  className="w-10 h-10 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 text-xl font-bold flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                >＋</button>
+              </div>
+              <p className="text-xs text-slate-400 mt-3">
+                {systemSettings.extension_unit_minutes ?? 30}分 × {formData.extension_count}回
+                {(systemSettings.extension_unit_price ?? 0) > 0 ? ` = ¥${(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}` : ''}
+              </p>
+            </div>
+          )}
+
           {/* オプション選択 */}
           <div ref={sectionRef4} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">4</span>
+              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">{systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 ? '5' : '4'}</span>
               オプション
             </h2>
             {options.length === 0 ? (
@@ -1067,9 +1116,6 @@ export default function NewReservationPage() {
                       <span className="font-bold text-sm">{dt.display_name}</span>
                       {dt.is_store_paid_back && (
                         <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>店負担バック</span>
-                      )}
-                      {dt.slug === 'free' && (
-                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>指名料なし</span>
                       )}
                     </button>
                   ))}
@@ -1261,6 +1307,13 @@ export default function NewReservationPage() {
                 <div className="flex justify-between items-center text-slate-600">
                   <span className="font-medium">オプション:</span>
                   <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.optionsPrice.toLocaleString()}</span>
+                </div>
+              )}
+
+              {calculatedPrice.extensionPrice > 0 && (
+                <div className="flex justify-between items-center text-slate-600">
+                  <span className="font-medium">延長 ({formData.extension_count}回):</span>
+                  <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.extensionPrice.toLocaleString()}</span>
                 </div>
               )}
 

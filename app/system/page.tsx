@@ -23,6 +23,9 @@ type SystemSettings = {
   confirmed_nomination_back_amount: number
   princess_back_amount: number
   credit_card_fee_rate: number
+  extension_unit_minutes: number
+  extension_unit_price: number
+  extension_unit_back: number
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
@@ -43,6 +46,9 @@ export default function SystemPage() {
     confirmed_nomination_back_amount: 0,
     princess_back_amount: 0,
     credit_card_fee_rate: 10,
+    extension_unit_minutes: 30,
+    extension_unit_price: 0,
+    extension_unit_back: 0,
   })
 
   async function fetchSettings() {
@@ -67,6 +73,9 @@ export default function SystemPage() {
       confirmed_nomination_back_amount:   row?.confirmed_nomination_back_amount ?? 0,
       princess_back_amount:               row?.princess_back_amount ?? 0,
       credit_card_fee_rate:               row?.credit_card_fee_rate ?? 10,
+      extension_unit_minutes:             row?.extension_unit_minutes ?? 30,
+      extension_unit_price:               row?.extension_unit_price ?? 0,
+      extension_unit_back:                row?.extension_unit_back ?? 0,
     })
     setLoading(false)
   }
@@ -167,6 +176,61 @@ export default function SystemPage() {
             </div>
 
 
+
+            {/* 延長設定 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">延長設定</h3>
+              <p className="text-xs text-slate-400 mb-4">延長の最小単位・料金・セラピストバックを設定します。予約画面で延長回数を指定すると自動計算されます。</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">延長最小単位</label>
+                  <div className="relative">
+                    <select
+                      value={form.extension_unit_minutes}
+                      onChange={(e) => setForm({ ...form, extension_unit_minutes: Number(e.target.value) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
+                    >
+                      {[10, 15, 20, 30, 45, 60].map(m => (
+                        <option key={m} value={m}>{m}分</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">延長料金（1回あたり）</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={form.extension_unit_price}
+                      onChange={(e) => setForm({ ...form, extension_unit_price: Math.max(0, Number(e.target.value)) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-7 pr-3 py-2.5 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">延長バック（1回あたり）</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={form.extension_unit_back}
+                      onChange={(e) => setForm({ ...form, extension_unit_back: Math.max(0, Number(e.target.value)) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pl-7 pr-3 py-2.5 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              {form.extension_unit_price > 0 && (
+                <p className="mt-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+                  例: 延長 {form.extension_unit_minutes}分 × 3回 = +{form.extension_unit_minutes * 3}分 / +¥{(form.extension_unit_price * 3).toLocaleString()} / バック +¥{(form.extension_unit_back * 3).toLocaleString()}
+                </p>
+              )}
+            </div>
 
             {/* クレジット決済手数料 */}
             <div className="border-b border-slate-100 pb-6">
