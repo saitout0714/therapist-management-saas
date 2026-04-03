@@ -966,24 +966,36 @@ export default function NewReservationPage() {
               <p className="text-slate-500 text-sm bg-slate-50 p-4 rounded-xl">オプションがありません</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {options.map(option => (
-                  <label key={option.id} className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${formData.selected_options.includes(option.id) ? 'bg-indigo-50/50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}>
-                    <input
-                      type="checkbox"
-                      checked={formData.selected_options.includes(option.id)}
-                      onChange={() => handleOptionToggle(option.id)}
-                      className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                    />
-                    <div className="ml-3 flex-1">
-                      <div className="font-bold text-slate-800">{option.name}</div>
-                      <div className="text-sm text-slate-500 flex items-center justify-between mt-1">
-                        {option.duration > 0 ? <span>+{option.duration}分</span> : <span></span>}
-                        <span className="font-bold text-slate-700">¥{option.price.toLocaleString()}</span>
+                {options.map(option => {
+                  const isSelected = formData.selected_options.includes(option.id)
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleOptionToggle(option.id)}
+                      className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all text-left w-full ${isSelected ? 'bg-indigo-50 border-indigo-400' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      <span
+                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="ml-3 flex-1">
+                        <div className={`font-bold ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{option.name}</div>
+                        <div className="text-sm text-slate-500 flex items-center justify-between mt-1">
+                          {option.duration > 0 ? <span>+{option.duration}分</span> : <span></span>}
+                          <span className="font-bold text-slate-700">¥{option.price.toLocaleString()}</span>
+                        </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
