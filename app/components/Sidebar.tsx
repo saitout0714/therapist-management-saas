@@ -13,7 +13,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 w-64 md:w-48 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform ${isOpen ? "translate-x-0" : "-translate-x-full"
           } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}
       >
         <div className="flex items-center justify-center h-16 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
