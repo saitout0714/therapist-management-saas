@@ -3,7 +3,7 @@
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function ShopSwitcher() {
   const { shops, selectedShop, setSelectedShop } = useShop()
@@ -12,6 +12,27 @@ export default function ShopSwitcher() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const shopDropdownRef = useRef<HTMLDivElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // 外側クリック・タップでドロップダウンを閉じる
+  useEffect(() => {
+    if (!isOpen && !isUserMenuOpen) return
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (isOpen && shopDropdownRef.current && !shopDropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+      if (isUserMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [isOpen, isUserMenuOpen])
 
   // 作業中ページかどうか（編集・新規作成）
   const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
@@ -59,7 +80,7 @@ export default function ShopSwitcher() {
     <div className="flex items-center gap-3 md:gap-4 z-50">
       {/* 店舗切り替え */}
       {selectedShop && shops.length > 1 && (
-        <div className="relative inline-block text-left">
+        <div ref={shopDropdownRef} className="relative inline-block text-left">
           <button
             onClick={() => setIsOpen(!isOpen)}
             className={`inline-flex items-center justify-center px-3 py-2 md:px-4 md:py-2 border rounded-xl text-sm font-bold transition-all focus:outline-none ${isOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm'}`}
@@ -110,13 +131,12 @@ export default function ShopSwitcher() {
             </div>
           )}
 
-          {isOpen && <div className="fixed inset-0 z-40 cursor-pointer" onClick={() => setIsOpen(false)} />}
         </div>
       )}
 
       {/* ユーザーメニュー */}
       {user && (
-        <div className="relative inline-block text-left z-50">
+        <div ref={userMenuRef} className="relative inline-block text-left z-50">
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
             className={`inline-flex items-center justify-center p-1 md:px-3 md:py-1.5 border rounded-full md:rounded-xl text-sm font-medium transition-all focus:outline-none ${isUserMenuOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'}`}
@@ -181,7 +201,6 @@ export default function ShopSwitcher() {
             </div>
           )}
 
-          {isUserMenuOpen && <div className="fixed inset-0 z-40 cursor-pointer" onClick={() => setIsUserMenuOpen(false)} />}
         </div>
       )}
     </div>
