@@ -61,6 +61,7 @@ export default function PayrollPage() {
   // フォーム状態
   const [targetDate, setTargetDate] = useState<string>(getBusinessDate())
   const [selectedTherapistId, setSelectedTherapistId] = useState<string>('')
+  const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30)
 
   // 結果状態
   const [loading, setLoading] = useState(false)
@@ -76,11 +77,24 @@ export default function PayrollPage() {
         return
       }
       // 対象日に出勤しているセラピストのIDを取得
-      const { data: shiftData } = await supabase
-        .from('shifts')
-        .select('therapist_id')
-        .eq('shop_id', selectedShop.id)
-        .eq('date', targetDate)
+      const [shiftsRes, sysRes] = await Promise.all([
+        supabase
+          .from('shifts')
+          .select('therapist_id')
+          .eq('shop_id', selectedShop.id)
+          .eq('date', targetDate),
+        supabase
+          .from('system_settings')
+          .select('extension_unit_minutes')
+          .eq('shop_id', selectedShop.id)
+          .limit(1)
+      ])
+
+      if (sysRes.data && sysRes.data.length > 0) {
+        setExtensionUnitMinutes(sysRes.data[0].extension_unit_minutes || 30)
+      }
+
+      const shiftData = shiftsRes.data
 
       const shiftTherapistIds = (shiftData || []).map((s: { therapist_id: string }) => s.therapist_id)
       if (shiftTherapistIds.length === 0) {
@@ -264,6 +278,11 @@ export default function PayrollPage() {
     }
   }, [calculatedRows, shiftAllowance])
 
+  const totalExtensionMinutes = useMemo(() => {
+    const count = calculatedRows.reduce((sum, row) => sum + (row.reservation.extension_count || 0), 0)
+    return count * extensionUnitMinutes
+  }, [calculatedRows, extensionUnitMinutes])
+
   const designationLabel = (v: string) => {
     const map: Record<string, string> = { free: 'フリー', nomination: '指名', first_nomination: '初回指名', confirmed: '本指名', princess: '姫予約' }
     return map[v] || v
@@ -290,6 +309,9 @@ export default function PayrollPage() {
       const res = row.reservation
       const r = row.result
       text += `■ ${index + 1}予約目 (${res.start_time.slice(0, 5)}〜${res.end_time.slice(0, 5)}) ${res.customer?.name || 'お客様'}\n`
+      if (res.extension_count > 0) {
+        text += `・延長時間: ${res.extension_count * extensionUnitMinutes}分\n`
+      }
       if (res.payment_method === 'credit') {
         const optsCash = res.options_payment_method === 'cash' && (res.options_price || 0) > 0
         text += `【💳 クレジット決済】コース・指名料はクレジット払い${optsCash ? ' / オプションは現金' : ''}\n`
@@ -304,6 +326,9 @@ export default function PayrollPage() {
     const shopCashBalance = totalCashReceived - netPay
     text += `------------------------\n`
     text += `★ 本日合計売上: ¥${totalSales.toLocaleString()}\n`
+    if (totalExtensionMinutes > 0) {
+      text += `★ 本日延長合計: ${totalExtensionMinutes}分\n`
+    }
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
     if (shiftAllowance > 0) {
       text += `  (交通費手当込み: +¥${shiftAllowance.toLocaleString()})\n`
@@ -431,6 +456,11 @@ export default function PayrollPage() {
                             </div>
                             <div className="text-sm font-medium text-slate-600">
                               {res.customer?.name || 'フリー客'} 様 / {res.course?.name} ({res.course?.duration}分)
+                              {res.extension_count > 0 && (
+                                <span className="ml-2 text-orange-600 font-bold bg-orange-50 px-1.5 py-0.5 rounded text-xs border border-orange-100">
+                                  延長 +{res.extension_count * extensionUnitMinutes}分
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -506,10 +536,16 @@ export default function PayrollPage() {
                   <span>総売上</span>
                   <span className="font-bold">¥{totalSales.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm text-indigo-100 pt-2">
+                <div className="flex justify-between items-center text-sm text-indigo-100 pt-2 mb-2">
                   <span>店落ち</span>
                   <span className="font-bold border-b border-white/30 truncate">¥{(totalSales - netPay).toLocaleString()}</span>
                 </div>
+                {totalExtensionMinutes > 0 && (
+                  <div className="flex justify-between items-center text-sm text-indigo-100 pt-3 border-t border-white/20">
+                    <span>延長合計時間</span>
+                    <span className="font-bold text-orange-200 text-lg">{totalExtensionMinutes} <span className="text-xs font-normal">分</span></span>
+                  </div>
+                )}
                 {hasCreditReservation && (
                   <div className="mt-3 pt-3 border-t border-white/20">
                     <div className="text-xs text-indigo-200 mb-1 font-bold uppercase tracking-wider">現金残（クレジット着金前）</div>
