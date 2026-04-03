@@ -9,6 +9,7 @@ type Shop = {
   description: string | null
   is_active: boolean
   created_at: string
+  order: number | null
 }
 
 type ShopContextType = {
@@ -33,7 +34,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         .from('shops')
         .select('*')
         .eq('is_active', true)
-        .order('name', { ascending: true })
+        .order('order', { ascending: true, nullsFirst: false })
 
       if (error) throw error
       setShops(data || [])
