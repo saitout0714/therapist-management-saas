@@ -40,3 +40,62 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* iOS Safari: フォーム要素のテキストが見えない問題の修正 */
+select,
+input,
+textarea {
+  color: #1e293b !important; /* slate-800 */
+  -webkit-text-fill-color: #1e293b;
+  opacity: 1; /* iOS Safari が disabled 風に薄くするのを防止 */
+  font-size: 16px !important; /* iOS Safari 自動ズーム防止（16px未満でズームされる） */
+  -webkit-appearance: none; /* iOS デフォルトスタイルを解除 */
+  -moz-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  max-width: 100%; /* はみ出し防止 */
+}
+
+/* select に矢印アイコンを復元（appearance: none で消えるため） */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7d96' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 32px !important;
+}
+
+/* iOS Safari: select の option テキスト */
+select option {
+  color: #1e293b;
+}
+
+/* iOS Safari: placeholder は薄いグレーを維持 */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+  -webkit-text-fill-color: #94a3b8;
+  opacity: 1;
+}
+
+/* iOS Safari: date/time input の値が未選択時 */
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit {
+  color: #1e293b;
+  -webkit-text-fill-color: #1e293b;
+}
+
+/* iOS Safari: input/select の高さを統一 */
+@supports (-webkit-touch-callout: none) {
+  select,
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  textarea {
+    min-height: 48px;
+    line-height: 1.4;
+  }
+}
