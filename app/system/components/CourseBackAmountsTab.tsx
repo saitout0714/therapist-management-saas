@@ -162,7 +162,7 @@ export function CourseBackAmountsTab() {
           extension_unit_back: rp.extension_unit_back,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'shop_id,rank_id' })
-      if (error) { alert('保存に失敗しました'); setExtRankSaving(false); return }
+      if (error) { alert(`保存に失敗しました: ${error.message}`); console.error(error); setExtRankSaving(false); return }
     }
     setExtRankSaving(false)
     setExtRankSaved(true)

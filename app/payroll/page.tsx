@@ -33,6 +33,8 @@ type ReservationWithDetails = {
   total_price: number | null
   shop_revenue: number | null
   back_calculated_at: string | null
+  is_hime: boolean | null
+  hime_bonus: number | null
   course: { name: string; duration: number } | null
   customer: { name: string } | null
   reservation_options: { option_id: string; price: number }[]
@@ -142,7 +144,7 @@ export default function PayrollPage() {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at, is_hime, hime_bonus,
           course:courses(name, duration),
           customer:customers(name),
           reservation_options(option_id, price),
@@ -181,6 +183,7 @@ export default function PayrollPage() {
               deductions: 0,
               allowances: 0,
               netBack: res.therapist_back_amount,
+              himeBonus: res.hime_bonus || 0,
               shopRevenue: res.shop_revenue || 0,
               totalPrice: Math.max(0, totalPrice),
               resolvedCustomerPrice: res.base_price || 0,
@@ -209,7 +212,8 @@ export default function PayrollPage() {
             discountAmount: res.discount_amount || 0,
             date: res.date,
             startTime: res.start_time,
-            extensionCount: res.extension_count || 0
+            extensionCount: res.extension_count || 0,
+            himeBonus: res.is_hime ? (res.hime_bonus || 0) : 0,
           }
 
           const result = await calculateBack(input)
@@ -239,11 +243,13 @@ export default function PayrollPage() {
     }
   }
 
-  const { totalSales, totalBack, totalDeductions, totalAllowances, netPay, totalCashReceived, hasCreditReservation } = useMemo(() => {
+  const { totalSales, totalBack, totalDeductions, totalAllowances, totalHimeBonus, netPay, totalCashReceived, hasCreditReservation } = useMemo(() => {
     let sales = 0
     let back = 0
     let ded = 0
     let all = 0
+    let hime = 0
+    let netTotal = 0
     let cashReceived = 0
     let hasCredit = false
 
@@ -252,6 +258,10 @@ export default function PayrollPage() {
       back += result.totalBack
       ded += result.deductions
       all += result.allowances
+      // himeBonus は予約レコードから直接取得（キャッシュ時の二重計上を防ぐ）
+      hime += res.is_hime ? (res.hime_bonus || 0) : 0
+      // netBack は両パスで正しく himeBonus・控除・手当を含む
+      netTotal += result.netBack
 
       if (res.payment_method === 'credit') {
         hasCredit = true
@@ -265,13 +275,14 @@ export default function PayrollPage() {
 
     // シフト手当を加算
     all += shiftAllowance
-    const net = back - ded + all
+    const net = netTotal + shiftAllowance
 
     return {
       totalSales: sales,
       totalBack: back,
       totalDeductions: ded,
       totalAllowances: all,
+      totalHimeBonus: hime,
       netPay: net,
       totalCashReceived: cashReceived,
       hasCreditReservation: hasCredit,
@@ -332,6 +343,9 @@ export default function PayrollPage() {
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
     if (shiftAllowance > 0) {
       text += `  (交通費手当込み: +¥${shiftAllowance.toLocaleString()})\n`
+    }
+    if (totalHimeBonus > 0) {
+      text += `  (姫予約ボーナス込み: +¥${totalHimeBonus.toLocaleString()})\n`
     }
     if (hasCreditReservation) {
       text += `★ 本日店落ち（現金）: ${shopCashBalance < 0 ? `-¥${Math.abs(shopCashBalance).toLocaleString()}` : `¥${shopCashBalance.toLocaleString()}`}\n`
@@ -403,14 +417,6 @@ export default function PayrollPage() {
               className="flex-1 md:flex-none px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '読込中...' : '精算を表示'}
-            </button>
-            <button
-              onClick={() => handleCalculate(true)}
-              disabled={loading || !selectedTherapistId || !targetDate}
-              className="px-4 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              title="バック設定変更後に再計算する場合に使用"
-            >
-              再計算
             </button>
           </div>
         </div>
@@ -530,6 +536,11 @@ export default function PayrollPage() {
                 {shiftAllowance > 0 && (
                   <div className="text-sm text-indigo-200 mb-2">
                     交通費手当含む: +¥{shiftAllowance.toLocaleString()}
+                  </div>
+                )}
+                {totalHimeBonus > 0 && (
+                  <div className="text-sm text-pink-200 mb-2">
+                    ♥ 姫予約ボーナス含む: +¥{totalHimeBonus.toLocaleString()}
                   </div>
                 )}
                 <div className="flex justify-between items-center text-sm text-indigo-100 pt-4 border-t border-white/20">

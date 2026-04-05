@@ -14,6 +14,8 @@ export default function ShopTabBar() {
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const [showLeftFade, setShowLeftFade] = useState(false)
   const [showRightFade, setShowRightFade] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startX: 0, scrollLeft: 0, moved: false })
 
   const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
 
@@ -57,7 +59,7 @@ export default function ShopTabBar() {
   if (!user || !selectedShop || shops.length <= 1) return null
 
   const handleShopSelect = (shop: typeof selectedShop) => {
-    if (!shop || shop.id === selectedShop?.id) return
+    if (!shop || shop.id === selectedShop?.id || dragRef.current.moved) return
     if (isEditingPage) {
       const ok = window.confirm(
         `編集中のページを離れて「${shop.name}」のダッシュボードへ移動しますか？\n\n保存されていない変更は失われます。`
@@ -68,24 +70,74 @@ export default function ShopTabBar() {
     router.push('/shifts')
   }
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = scrollRef.current
+    if (!el) return
+    dragRef.current = { startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft, moved: false }
+    setIsDragging(true)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return
+    const el = scrollRef.current
+    if (!el) return
+    e.preventDefault()
+    const x = e.pageX - el.offsetLeft
+    const delta = x - dragRef.current.startX
+    if (Math.abs(delta) > 4) dragRef.current.moved = true
+    el.scrollLeft = dragRef.current.scrollLeft - delta
+  }
+
+  const handleMouseUp = () => setIsDragging(false)
+
+  const scrollBy = (direction: 'left' | 'right') => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: direction === 'left' ? -160 : 160, behavior: 'smooth' })
+  }
+
   return (
     <div
       className="flex-shrink-0 relative bg-white border-t-2 border-slate-200"
       style={{ height: '52px', boxShadow: '0 -4px 24px rgba(0,0,0,0.07)' }}
     >
-      {/* 左フェード */}
+      {/* 左スクロールボタン */}
       {showLeftFade && (
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-r from-white to-transparent" />
+        <>
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-14 z-10 bg-gradient-to-r from-white to-transparent" />
+          <button
+            onClick={() => scrollBy('left')}
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </>
       )}
-      {/* 右フェード */}
+      {/* 右スクロールボタン */}
       {showRightFade && (
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-l from-white to-transparent" />
+        <>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-14 z-10 bg-gradient-to-l from-white to-transparent" />
+          <button
+            onClick={() => scrollBy('right')}
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
       )}
 
       <div
         ref={scrollRef}
-        className="h-full flex items-center gap-1.5 px-3 overflow-x-auto"
+        className={`h-full flex items-center gap-1.5 px-3 overflow-x-auto ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         {shops.map((shop) => {
           const isActive = shop.id === selectedShop?.id

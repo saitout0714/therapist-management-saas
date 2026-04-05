@@ -94,6 +94,8 @@ export type BackCalculationInput = {
   extensionCourseId?: string
   extensionCoursePrice?: number
   extensionCount?: number
+  // 姫予約ボーナス
+  himeBonus?: number
 }
 
 export type BackCalculationResult = {
@@ -105,6 +107,7 @@ export type BackCalculationResult = {
   deductions: number
   allowances: number
   netBack: number
+  himeBonus: number
   shopRevenue: number
   totalPrice: number
   resolvedCustomerPrice: number   // course_back_amounts から解決した顧客料金
@@ -429,7 +432,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
   const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
 
-  const netBack = totalBack - deductionResult.deductions + deductionResult.allowances
+  const himeBonus = input.himeBonus ?? 0
+  const netBack = totalBack - deductionResult.deductions + deductionResult.allowances + himeBonus
   const shopRevenue = totalPrice - totalBack + therapistDiscountBurden
 
   return {
@@ -441,6 +445,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     deductions: deductionResult.deductions,
     allowances: deductionResult.allowances,
     netBack: Math.max(0, netBack),
+    himeBonus,
     shopRevenue: Math.max(0, shopRevenue),
     totalPrice: Math.max(0, totalPrice),
     resolvedCustomerPrice: effectiveCoursePrice,

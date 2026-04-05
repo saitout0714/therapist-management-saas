@@ -125,6 +125,8 @@ export default function EditReservationPage() {
     reception_source: 'staff' as 'staff' | 'client' | 'therapist',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
+    is_hime: false,
+    hime_bonus: 0,
   })
   const [creatorName, setCreatorName] = useState<string | null>(null)
 
@@ -217,6 +219,8 @@ export default function EditReservationPage() {
         reception_source: reservation.reception_source || 'staff',
         payment_method: reservation.payment_method || 'cash',
         options_payment_method: reservation.options_payment_method || 'cash',
+        is_hime: reservation.is_hime || false,
+        hime_bonus: reservation.hime_bonus || 0,
       })
 
       if (mainDiscount?.policy_id) {
@@ -435,6 +439,8 @@ export default function EditReservationPage() {
           payment_method: formData.payment_method,
           options_payment_method: formData.options_payment_method,
           credit_fee_amount: calculatedPrice.creditFeeAmount,
+          is_hime: formData.is_hime,
+          hime_bonus: formData.is_hime ? formData.hime_bonus : 0,
         })
         .eq('id', reservationId)
 
@@ -491,6 +497,7 @@ export default function EditReservationPage() {
             : [],
           date: formData.date,
           startTime: formData.start_time,
+          himeBonus: formData.is_hime ? formData.hime_bonus : 0,
         }
         const backResult = await calculateBack(backInput)
         await supabase.from('reservations').update({
@@ -823,6 +830,36 @@ export default function EditReservationPage() {
                     <p className="text-sm text-amber-600 col-span-full bg-amber-50 p-3 rounded-lg">指名種別が未設定です。</p>
                   )}
                 </div>
+              </div>
+
+              {/* 姫予約 */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_hime}
+                    onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
+                    className="w-5 h-5 rounded accent-pink-500 cursor-pointer appearance-auto"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">
+                    <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
+                  </span>
+                </label>
+                {formData.is_hime && (
+                  <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">ボーナス金額 (円)</label>
+                    <input
+                      type="number"
+                      value={formData.hime_bonus}
+                      onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
+                      min={0}
+                      step={100}
+                      className="w-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all"
+                      placeholder="0"
+                    />
+                    <p className="mt-1.5 text-xs text-slate-400">セラピストに支払うボーナス額（0円の場合は空欄可）</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

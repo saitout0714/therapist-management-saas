@@ -43,7 +43,7 @@ body {
 
 /* iOS Safari: フォーム要素のテキストが見えない問題の修正 */
 select,
-input,
+input:not([type="checkbox"]):not([type="radio"]),
 textarea {
   color: #1e293b !important; /* slate-800 */
   -webkit-text-fill-color: #1e293b;
