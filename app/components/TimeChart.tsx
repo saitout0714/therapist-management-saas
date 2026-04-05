@@ -27,6 +27,7 @@ interface Schedule {
   designationLabel?: string;
   totalPrice?: number;
   isNewCustomer?: boolean;
+  isHime?: boolean;
 }
 
 interface TimeChartProps {
@@ -480,7 +481,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
-                    ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20'
+                    ? schedule.isHime
+                      ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
+                      : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20';
 
                 return (

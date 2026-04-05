@@ -27,6 +27,7 @@ interface Reservation {
   status: string;
   total_price: number;
   designation_type: string;
+  is_hime: boolean | null;
   customers: { name: string; created_at: string } | null;
   courses: { name: string; duration: number } | null;
 }
@@ -60,6 +61,7 @@ interface Schedule {
   designationLabel?: string;
   totalPrice?: number;
   isNewCustomer?: boolean;
+  isHime?: boolean;
 }
 
 type ViewMode = 'day' | 'week';
@@ -261,6 +263,7 @@ export default function ShiftsPage() {
           status,
           total_price,
           designation_type,
+          is_hime,
           customers(name, created_at),
           courses(name, duration)
         `)
@@ -286,7 +289,7 @@ export default function ShiftsPage() {
     return h * 60 + m;
   };
 
-  const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+  const designationLabel = (v: string) => ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
 
   const schedules: Schedule[] = [
     ...reservations
@@ -304,6 +307,7 @@ export default function ShiftsPage() {
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
+        isHime: reservation.is_hime ?? false,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')

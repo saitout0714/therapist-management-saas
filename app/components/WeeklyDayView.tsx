@@ -34,6 +34,7 @@ interface Reservation {
   end_time: string
   status: string
   designation_type: string
+  is_hime: boolean | null
   total_price: number
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
@@ -69,6 +70,7 @@ const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
 
 const DESIGNATION_LABEL: Record<string, string> = {
   free: 'フリー',
+  first_nomination: '初回指名',
   nomination: '指名',
   confirmed: '本指名',
   princess: '姫予約',
@@ -107,7 +109,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, total_price, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -280,7 +282,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                                 return (
                                   <div
                                     key={res.id}
-                                    className="rounded-lg px-2 py-1.5 bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20 text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+                                    className={`rounded-lg px-2 py-1.5 border shadow-md text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${res.is_hime ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-pink-300/50 shadow-pink-500/20' : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border-indigo-400/50 shadow-indigo-500/20'}`}
                                     onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
                                   >
                                     <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
