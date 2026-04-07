@@ -14,6 +14,14 @@ type DesignationType = {
   default_back_amount: number
 }
 
+const SYSTEM_SLUGS = ['free', 'first_nomination', 'confirmed']
+
+const DEFAULT_DESIGNATION_TYPES = [
+  { slug: 'free', display_name: 'フリー', display_order: 0, default_fee: 0, default_back_amount: 0, is_active: true },
+  { slug: 'first_nomination', display_name: '初回指名', display_order: 1, default_fee: 0, default_back_amount: 0, is_active: true },
+  { slug: 'confirmed', display_name: '本指名', display_order: 2, default_fee: 0, default_back_amount: 0, is_active: true },
+]
+
 export function DesignationTypesTab() {
   const { selectedShop } = useShop()
   const [items, setItems] = useState<DesignationType[]>([])
@@ -80,7 +88,24 @@ export function DesignationTypesTab() {
       .eq('shop_id', selectedShop.id)
       .order('display_order')
     if (error) { alert('読み込みに失敗しました'); setLoading(false); return }
-    setItems((data || []) as DesignationType[])
+
+    // システムデフォルト3種（フリー・初回指名・本指名）が未登録なら自動追加
+    const existingSlugs = (data || []).map((d: DesignationType) => d.slug)
+    const missing = DEFAULT_DESIGNATION_TYPES.filter(d => !existingSlugs.includes(d.slug))
+    if (missing.length > 0) {
+      await supabase.from('designation_types').insert(
+        missing.map(d => ({ ...d, shop_id: selectedShop.id }))
+      )
+      // 再取得
+      const { data: refetched } = await supabase
+        .from('designation_types')
+        .select('*')
+        .eq('shop_id', selectedShop.id)
+        .order('display_order')
+      setItems((refetched || []) as DesignationType[])
+    } else {
+      setItems((data || []) as DesignationType[])
+    }
     setLoading(false)
   }
 
@@ -261,7 +286,12 @@ export function DesignationTypesTab() {
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
                     <button onClick={() => handleEdit(item)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">編集</button>
-                    <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700 text-sm font-medium">削除</button>
+                    {!SYSTEM_SLUGS.includes(item.slug) && (
+                      <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700 text-sm font-medium">削除</button>
+                    )}
+                    {SYSTEM_SLUGS.includes(item.slug) && (
+                      <span className="text-xs text-slate-400 ml-1">デフォルト</span>
+                    )}
                   </td>
                 </tr>
               ))}

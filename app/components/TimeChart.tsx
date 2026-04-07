@@ -51,6 +51,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
+  const [hoverData, setHoverData] = useState<{ x: number, y: number, time: string } | null>(null);
   const dragDistanceRef = useRef(0);
 
   // スクロール同期ハンドラー（コンテンツがスクロール時、ヘッダーを同期）
@@ -112,6 +113,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
       window.removeEventListener('blur', handleDragEnd);
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
+      setHoverData(null); // ドラッグ終了時にも消す
       setTimeout(() => setIsDragging(false), 50); // slight delay to prevent click fire
     };
 
@@ -383,6 +385,16 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       style={{ ...cellStyle, height: `${rowHeight}px` }}
                       onClick={handleCellClick}
                       onMouseDown={() => { dragDistanceRef.current = 0; }}
+                      onMouseEnter={(e) => {
+                        if (isDragging || dragDistanceRef.current > 5) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setHoverData({
+                          x: rect.left + rect.width / 2,
+                          y: rect.top, // Cell top
+                          time: timeSlot
+                        });
+                      }}
+                      onMouseLeave={() => setHoverData(null)}
                     >
                     </div>
                   );
@@ -542,6 +554,18 @@ const TimeChart: React.FC<TimeChartProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Hover Popup */}
+      {hoverData && (
+        <div
+          className="fixed pointer-events-none z-50 bg-slate-800 text-white font-bold text-xs rounded shadow-lg px-2.5 py-1.5 whitespace-nowrap transform -translate-x-1/2 -translate-y-full transition-opacity duration-75"
+          style={{ top: hoverData.y - 4, left: hoverData.x }}
+        >
+          {hoverData.time}
+          {/* Default Tailwind small arrow base on bottom */}
+          <div className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-[4px] border-l-transparent border-t-[4px] border-t-slate-800 border-r-[4px] border-r-transparent"></div>
+        </div>
+      )}
 
       {/* Custom Scrollbar Styles for the timeline */}
       <style dangerouslySetInnerHTML={{

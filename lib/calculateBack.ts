@@ -61,8 +61,9 @@ type DeductionRule = {
 }
 
 type ReservationOption = {
-  option_id: string
+  option_id: string | null
   price: number
+  custom_back_amount?: number  // カスタムオプション（option_id=null）のバック額
 }
 
 type DesignationType = {
@@ -96,6 +97,8 @@ export type BackCalculationInput = {
   extensionCount?: number
   // 姫予約ボーナス
   himeBonus?: number
+  // courses.back_amount（コース管理で設定したコース単位の固定バック額）
+  courseBackAmount?: number
 }
 
 export type BackCalculationResult = {
@@ -230,6 +233,17 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   )
   const effectiveCoursePrice = resolved_price.customerPrice
 
+  // designation_types の default_fee がコース料金に折り込まれている場合、
+  // 指名料部分を分離してバック計算を独立させる。
+  // （UI側で basePrice > originalBase を検知して nominationFee=0 にしているため）
+  const implicitNominationFee = (
+    input.nominationFee === 0 &&
+    resolved_price.source === 'default' &&
+    effectiveCoursePrice > input.coursePrice
+  ) ? effectiveCoursePrice - input.coursePrice : 0
+  const courseOnlyPrice = effectiveCoursePrice - implicitNominationFee
+  const nominationFeeForBack = input.nominationFee + implicitNominationFee
+
   // Step 1: 適用バック率の解決（オーバーライドチェーン）
   const resolved = await resolveBackRates(
     input.shopId,
@@ -270,22 +284,30 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       extensionBack += input.extensionCount * extUnitBack
     }
 
-    const totalSales = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
-    const totalBack = applyRounding(totalSales * resolved.courseRate / 100, shopRule.rounding_method)
+    // 指名料は折半の対象外として計算（designation_types の default_back_amount があれば優先）
+    const halfSplitNominationBack = (implicitNominationFee > 0 && resolved_price.backAmount !== null)
+      ? resolved_price.backAmount
+      : nominationFeeForBack
+    // courses.back_amount が設定されていればコース部分は固定バック
+    const courseHalfBack = (input.courseBackAmount && input.courseBackAmount > 0)
+      ? input.courseBackAmount
+      : applyRounding((courseOnlyPrice + extensionPrice + totalOptionsPrice - totalDiscount) * resolved.courseRate / 100, shopRule.rounding_method)
+    const totalBack = courseHalfBack + halfSplitNominationBack
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
+    const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee
     return {
-      courseBack: totalBack,
+      courseBack: courseHalfBack,
       extensionBack: extensionBack,
       optionBack: 0,
-      nominationBack: 0,
+      nominationBack: halfSplitNominationBack,
       totalBack: totalBack + extensionBack,
       deductions: deductionResult.deductions,
       allowances: deductionResult.allowances,
       netBack: totalBack + extensionBack - deductionResult.deductions + deductionResult.allowances,
-      shopRevenue: totalSales - (totalBack + extensionBack),
-      totalPrice: totalSales + totalDiscount,
+      shopRevenue: totalPrice - totalDiscount - (totalBack + extensionBack),
+      totalPrice: totalPrice - totalDiscount,
       resolvedCustomerPrice: effectiveCoursePrice,
       totalDiscount: totalDiscount,
       therapistDiscountBurden: 0,
@@ -297,17 +319,22 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 2: コースバック額の算出
+  // 優先順: マトリクス固定額(course_back_amounts) > コース設定バック(courses.back_amount) > ショップレート計算
   if (resolved.calcType === 'percentage') {
-    courseBack = applyRounding(effectiveCoursePrice * resolved.courseRate / 100, shopRule.rounding_method)
-    calcMethod = `パーセンテージ（${resolved.courseRate}%）`
-  } else if (resolved.calcType === 'fixed') {
-    // resolveCustomerPrice で既に back_amount を取得済みなら使う
-    if (resolved_price.backAmount !== null) {
-      courseBack = resolved_price.backAmount
-      const label = resolved_price.source === 'default' ? 'マスタデフォルト' : '詳細設定'
-      calcMethod = `固定額（${label}: ¥${courseBack.toLocaleString()}）`
+    if (input.courseBackAmount && input.courseBackAmount > 0) {
+      // courses.back_amount が設定されていれば固定バックとして優先
+      courseBack = input.courseBackAmount
+      calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
     } else {
-      // 念のため、さらにDB再検索（通常は不要だが、マスタ経由でも見つからない場合）
+      courseBack = applyRounding(courseOnlyPrice * resolved.courseRate / 100, shopRule.rounding_method)
+      calcMethod = `パーセンテージ（${resolved.courseRate}%）`
+    }
+  } else if (resolved.calcType === 'fixed') {
+    // マトリクス(source==='matrix')の back_amount が最優先
+    if (resolved_price.source === 'matrix' && resolved_price.backAmount !== null) {
+      courseBack = resolved_price.backAmount
+      calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+    } else {
       const fixedAmount = await fetchCourseBackAmount(
         input.shopId,
         input.courseId,
@@ -317,6 +344,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       if (fixedAmount) {
         courseBack = fixedAmount.back_amount
         calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+      } else if (input.courseBackAmount && input.courseBackAmount > 0) {
+        courseBack = input.courseBackAmount
+        calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
       } else {
         calcMethod = '固定額（未設定 → 0円）'
       }
@@ -358,6 +388,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 3: オプションバック額の算出
   for (const opt of input.options) {
+    // カスタムオプション（手入力）: option_id がない場合は custom_back_amount をそのまま使用
+    if (!opt.option_id) {
+      optionBack += opt.custom_back_amount || 0
+      continue
+    }
+
     const optRule = await fetchOptionBackRule(input.shopId, opt.option_id)
 
     if (optRule) {
@@ -387,18 +423,24 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
   }
 
-  // Step 4: 指名料バック額の算出
-  if (input.nominationFee > 0) {
-    switch (shopRule.nomination_calc_type) {
-      case 'full_back':
-        nominationBack = input.nominationFee
-        break
-      case 'percentage':
-        const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
-        nominationBack = applyRounding(input.nominationFee * nomRate / 100, shopRule.rounding_method)
-        break
-      default:
-        nominationBack = input.nominationFee
+  // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
+  if (nominationFeeForBack > 0) {
+    // designation_types の default_back_amount が設定されている場合はそれを優先
+    // （指名種別ごとに固有の指名料バック額を設定できる）
+    if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
+      nominationBack = resolved_price.backAmount
+    } else {
+      switch (shopRule.nomination_calc_type) {
+        case 'full_back':
+          nominationBack = nominationFeeForBack
+          break
+        case 'percentage':
+          const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
+          nominationBack = applyRounding(nominationFeeForBack * nomRate / 100, shopRule.rounding_method)
+          break
+        default:
+          nominationBack = nominationFeeForBack
+      }
     }
   }
 

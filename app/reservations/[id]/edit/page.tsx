@@ -18,6 +18,7 @@ type Course = {
   name: string
   duration: number
   base_price: number
+  back_amount: number
   includes_nomination_fee?: boolean
 }
 
@@ -130,6 +131,14 @@ export default function EditReservationPage() {
   })
   const [creatorName, setCreatorName] = useState<string | null>(null)
 
+  type CustomOption = { name: string; price: number; backAmount: number }
+  const [customOptions, setCustomOptions] = useState<CustomOption[]>([])
+
+  const addCustomOption = () => setCustomOptions(prev => [...prev, { name: '', price: 0, backAmount: 0 }])
+  const removeCustomOption = (idx: number) => setCustomOptions(prev => prev.filter((_, i) => i !== idx))
+  const updateCustomOption = (idx: number, field: keyof CustomOption, value: string | number) =>
+    setCustomOptions(prev => prev.map((o, i) => i === idx ? { ...o, [field]: value } : o))
+
   const [calculatedPrice, setCalculatedPrice] = useState({
     basePrice: 0,
     optionsPrice: 0,
@@ -141,6 +150,14 @@ export default function EditReservationPage() {
     creditFeeAmount: 0,
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+
+  const normalizedSearch = customerSearch.trim().toLowerCase()
+  const filteredCustomers = normalizedSearch
+    ? customers.filter(c => `${c.name ?? ''} ${c.phone ?? ''} ${c.email ?? ''}`.toLowerCase().includes(normalizedSearch))
+    : []
+  const selectedCustomer = customers.find(c => c.id === formData.customer_id)
+
   const calcEndTime = (start: string, durationMin: number): string => {
     const [h, m] = start.split(':').map(Number)
     const total = h * 60 + m + durationMin
@@ -153,7 +170,7 @@ export default function EditReservationPage() {
 
   useEffect(() => {
     void calculatePrice()
-  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies, designationTypes])
+  }, [formData, courses, options, therapistPricings, systemSettings, selectedDiscountId, discountPolicies, designationTypes, customOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (formData.start_time && calculatedPrice.duration > 0) {
@@ -171,7 +188,7 @@ export default function EditReservationPage() {
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-        supabase.from('reservations').select('*, reservation_options(option_id), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
+        supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
@@ -197,7 +214,12 @@ export default function EditReservationPage() {
       setExtensionRankPrices((extRankPricesRes.data || []) as ExtensionRankPrice[])
 
       const reservation = reservationRes.data
-      const selectedOptions = (reservation.reservation_options as any[])?.map((ro) => ro.option_id) || []
+      const allResOptions = (reservation.reservation_options as any[]) || []
+      const selectedOptions = allResOptions.filter((ro: any) => ro.option_id).map((ro: any) => ro.option_id)
+      const loadedCustomOptions = allResOptions
+        .filter((ro: any) => !ro.option_id)
+        .map((ro: any) => ({ name: ro.custom_name || '', price: ro.price || 0, backAmount: ro.custom_back_amount || 0 }))
+      setCustomOptions(loadedCustomOptions)
       const appliedDiscounts = (reservation.reservation_discounts as any[]) || []
       const mainDiscount = appliedDiscounts[0]
 
@@ -284,6 +306,8 @@ export default function EditReservationPage() {
         duration += option.duration
       }
     })
+    // 手入力カスタムオプション
+    customOptions.forEach(co => { optionsPrice += co.price || 0 })
 
     // 延長料金と時間を計算（ランク別オーバーライド → デフォルト の優先順）
     const extUnitMinutes = systemSettings?.extension_unit_minutes ?? 30
@@ -458,8 +482,18 @@ export default function EditReservationPage() {
           price: option?.price || 0,
         }
       })
-      if (optionInserts.length > 0) {
-        await supabase.from('reservation_options').insert(optionInserts)
+      const customOptionInserts = customOptions
+        .filter(co => co.name.trim() && co.price > 0)
+        .map(co => ({
+          reservation_id: reservationId,
+          option_id: null as string | null,
+          price: co.price,
+          custom_name: co.name.trim(),
+          custom_back_amount: co.backAmount,
+        }))
+      const allOptionInserts = [...optionInserts, ...customOptionInserts]
+      if (allOptionInserts.length > 0) {
+        await supabase.from('reservation_options').insert(allOptionInserts)
       }
 
       // 割引情報の適用
@@ -487,11 +521,15 @@ export default function EditReservationPage() {
           therapistBackCalcType: selectedTherapist?.back_calc_type || null,
           courseId: formData.course_id,
           coursePrice: selectedCourse?.base_price || 0,
+          courseBackAmount: selectedCourse?.back_amount || 0,
           courseDuration: selectedCourse?.duration || 0,
           designationType: formData.designation_type,
           nominationFee: calculatedPrice.nominationFee,
           extensionCount: formData.extension_count,
-          options: optionInserts.map(o => ({ option_id: o.option_id, price: o.price })),
+          options: [
+            ...optionInserts.map(o => ({ option_id: o.option_id, price: o.price })),
+            ...customOptionInserts.map(co => ({ option_id: null as string | null, price: co.price, custom_back_amount: co.custom_back_amount })),
+          ],
           discounts: calculatedPrice.discountAmount > 0
             ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || formData.manual_burden_type) as 'shop_only' | 'split' | 'therapist_only' }]
             : [],
@@ -540,28 +578,163 @@ export default function EditReservationPage() {
               <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">1</span>
               お客様情報
             </h2>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">お客様名 <span className="text-rose-500">*</span></label>
-              <select
-                value={formData.customer_id}
-                onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                required
-              >
-                <option value="">選択してください</option>
-                {customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} {customer.phone && `(${customer.phone})`}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-3">
+              {/* 選択済み表示 */}
+              {selectedCustomer ? (
+                <div className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 text-sm text-indigo-900 font-medium">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {selectedCustomer.name}
+                    {selectedCustomer.phone ? ` (${selectedCustomer.phone})` : ''}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setFormData({ ...formData, customer_id: '' }); setCustomerSearch('') }}
+                    className="text-xs text-slate-400 hover:text-rose-500 underline ml-3 transition-colors"
+                  >
+                    変更する
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">電話番号・お客様名で検索 <span className="text-rose-500">*</span></label>
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="電話番号・名前・メールで検索"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all"
+                    autoFocus
+                  />
+                  <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-2">
+                    {!normalizedSearch ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">電話番号や名前を入力してください</div>
+                    ) : filteredCustomers.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
+                    ) : (
+                      filteredCustomers.slice(0, 50).map(customer => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => { setFormData({ ...formData, customer_id: customer.id }); setCustomerSearch('') }}
+                          className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                        >
+                          <span className="font-medium">{customer.name}</span>{' '}
+                          <span className="text-gray-500">{customer.phone ? `(${customer.phone})` : ''}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* セラピスト情報 */}
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center mr-3">2</span>
+              担当セラピスト
+            </h2>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">担当するセラピスト <span className="text-rose-500">*</span></label>
+                <select
+                  value={formData.therapist_id}
+                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                  required
+                >
+                  <option value="">選択してください</option>
+                  {therapists.map(therapist => (
+                    <option key={therapist.id} value={therapist.id}>
+                      {therapist.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-semibold text-slate-700">指名タイプ <span className="text-rose-500">*</span></label>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleDesignationSearch()
+                    }}
+                    disabled={designationSearchLoading}
+                    className="px-4 py-1.5 text-sm font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                  >
+                    {designationSearchLoading ? '検索中...' : '履歴から自動判定する'}
+                  </button>
+                </div>
+                <div className={`grid grid-cols-2 sm:grid-cols-${Math.min(designationTypes.length, 5)} gap-3`}>
+                  {designationTypes.map(dt => (
+                    <button
+                      key={dt.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setFormData({
+                          ...formData,
+                          designation_type: dt.slug,
+                          is_hime: dt.slug === 'princess' ? true : formData.is_hime
+                        })
+                        e.currentTarget.blur()
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                    >
+                      <span className="font-bold text-sm">{dt.display_name}</span>
+                      {dt.is_store_paid_back && (
+                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>店負担バック</span>
+                      )}
+                    </button>
+                  ))}
+                  {designationTypes.length === 0 && (
+                    <p className="text-sm text-amber-600 col-span-full bg-amber-50 p-3 rounded-lg">指名種別が未設定です。</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 姫予約 */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_hime}
+                    onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
+                    className="w-5 h-5 rounded accent-pink-500 cursor-pointer appearance-auto"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">
+                    <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
+                  </span>
+                </label>
+                {formData.is_hime && (
+                  <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">ボーナス金額 (円)</label>
+                    <input
+                      type="number"
+                      value={formData.hime_bonus}
+                      onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
+                      min={0}
+                      step={100}
+                      className="w-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all"
+                      placeholder="0"
+                    />
+                    <p className="mt-1.5 text-xs text-slate-400">セラピストに支払うボーナス額（0円の場合は空欄可）</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* 日時情報 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">2</span>
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3">3</span>
               日時
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
@@ -669,7 +842,7 @@ export default function EditReservationPage() {
           {/* コース情報 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center mr-3">3</span>
+              <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center mr-3">4</span>
               コース
             </h2>
             <div>
@@ -694,7 +867,7 @@ export default function EditReservationPage() {
           {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
               <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">4</span>
+                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">5</span>
                 延長
               </h2>
               <div className="flex items-center gap-4">
@@ -728,7 +901,7 @@ export default function EditReservationPage() {
           {/* オプション選択 */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">{systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 ? '5' : '4'}</span>
+              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">{systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 ? '6' : '5'}</span>
               オプション
             </h2>
             {options.length === 0 ? (
@@ -767,103 +940,62 @@ export default function EditReservationPage() {
                 })}
               </div>
             )}
-          </div>
 
-          {/* セラピスト情報 */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center mr-3">5</span>
-              担当セラピスト
-            </h2>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">担当するセラピスト <span className="text-rose-500">*</span></label>
-                <select
-                  value={formData.therapist_id}
-                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                  required
+            {/* 手入力カスタムオプション */}
+            <div className="mt-5 pt-5 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-slate-600">手入力オプション（セラピスト個別）</span>
+                <button
+                  type="button"
+                  onClick={addCustomOption}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
                 >
-                  <option value="">選択してください</option>
-                  {therapists.map(therapist => (
-                    <option key={therapist.id} value={therapist.id}>
-                      {therapist.name}
-                    </option>
-                  ))}
-                </select>
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs">+</span>
+                  追加
+                </button>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-semibold text-slate-700">指名タイプ <span className="text-rose-500">*</span></label>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleDesignationSearch()
-                    }}
-                    disabled={designationSearchLoading}
-                    className="px-4 py-1.5 text-sm font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
-                  >
-                    {designationSearchLoading ? '検索中...' : '履歴から自動判定する'}
-                  </button>
-                </div>
-                <div className={`grid grid-cols-2 sm:grid-cols-${Math.min(designationTypes.length, 5)} gap-3`}>
-                  {designationTypes.map(dt => (
-                    <button
-                      key={dt.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setFormData({ 
-                          ...formData, 
-                          designation_type: dt.slug,
-                          is_hime: dt.slug === 'princess' ? true : formData.is_hime
-                        })
-                        e.currentTarget.blur()
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                    >
-                      <span className="font-bold text-sm">{dt.display_name}</span>
-                      {dt.is_store_paid_back && (
-                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>店負担バック</span>
-                      )}
-                    </button>
-                  ))}
-                  {designationTypes.length === 0 && (
-                    <p className="text-sm text-amber-600 col-span-full bg-amber-50 p-3 rounded-lg">指名種別が未設定です。</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 姫予約 */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_hime}
-                    onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
-                    className="w-5 h-5 rounded accent-pink-500 cursor-pointer appearance-auto"
-                  />
-                  <span className="text-sm font-semibold text-slate-700">
-                    <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
-                  </span>
-                </label>
-                {formData.is_hime && (
-                  <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">ボーナス金額 (円)</label>
+              {customOptions.length === 0 && (
+                <p className="text-xs text-slate-400">セラピストごとの個別オプションがある場合は追加してください</p>
+              )}
+              <div className="space-y-2">
+                {customOptions.map((co, idx) => (
+                  <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <input
-                      type="number"
-                      value={formData.hime_bonus}
-                      onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
-                      min={0}
-                      step={100}
-                      className="w-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all"
-                      placeholder="0"
+                      type="text"
+                      value={co.name}
+                      onChange={(e) => updateCustomOption(idx, 'name', e.target.value)}
+                      placeholder="オプション名"
+                      className="flex-1 min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
                     />
-                    <p className="mt-1.5 text-xs text-slate-400">セラピストに支払うボーナス額（0円の場合は空欄可）</p>
+                    <div className="relative w-24 flex-shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                      <input
+                        type="number"
+                        value={co.price || ''}
+                        onChange={(e) => updateCustomOption(idx, 'price', Number(e.target.value))}
+                        placeholder="料金"
+                        className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      />
+                    </div>
+                    <div className="relative w-24 flex-shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
+                      <input
+                        type="number"
+                        value={co.backAmount || ''}
+                        onChange={(e) => updateCustomOption(idx, 'backAmount', Number(e.target.value))}
+                        placeholder="バック"
+                        className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 text-indigo-700"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCustomOption(idx)}
+                      className="text-rose-400 hover:text-rose-600 text-lg leading-none flex-shrink-0"
+                    >
+                      ×
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>

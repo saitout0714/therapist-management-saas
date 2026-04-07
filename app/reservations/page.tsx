@@ -25,6 +25,20 @@ export default function ReservationsPage() {
   const { selectedShop } = useShop()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
+  const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
+
+  async function fetchDesignationTypes() {
+    if (!selectedShop) return
+    const { data } = await supabase
+      .from('designation_types')
+      .select('slug, display_name')
+      .eq('shop_id', selectedShop.id)
+    if (data) {
+      const map: Record<string, string> = {}
+      data.forEach((d: { slug: string; display_name: string }) => { map[d.slug] = d.display_name })
+      setDesignationTypes(map)
+    }
+  }
 
   async function fetchReservations() {
     if (!selectedShop) {
@@ -57,10 +71,11 @@ export default function ReservationsPage() {
     void fetchReservations()
   }
 
-  const designationLabel = (v: string) => ({ free: 'フリー', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v)
+  const designationLabel = (v: string) => designationTypes[v] || v
   const statusLabel = (v: string) => ({ pending: '保留中', confirmed: '確定', cancelled: 'キャンセル' }[v] || v)
 
   useEffect(() => {
+    void fetchDesignationTypes()
     void fetchReservations()
   }, [selectedShop])
 
