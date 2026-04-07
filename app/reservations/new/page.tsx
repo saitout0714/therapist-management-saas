@@ -1120,7 +1120,11 @@ export default function NewReservationPage() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault()
-                        setFormData({ ...formData, designation_type: dt.slug })
+                        setFormData({ 
+                          ...formData, 
+                          designation_type: dt.slug,
+                          is_hime: dt.slug === 'princess' ? true : formData.is_hime
+                        })
                         e.currentTarget.blur()
                         scrollToSection(sectionRef6)
                       }}

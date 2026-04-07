@@ -282,7 +282,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
                                 return (
                                   <div
                                     key={res.id}
-                                    className={`rounded-lg px-2 py-1.5 border shadow-md text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${res.is_hime ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-pink-300/50 shadow-pink-500/20' : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border-indigo-400/50 shadow-indigo-500/20'}`}
+                                    className={`rounded-lg px-2 py-1.5 border shadow-md text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${ (res.is_hime || res.designation_type === 'princess') ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-pink-300/50 shadow-pink-500/20' : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border-indigo-400/50 shadow-indigo-500/20'}`}
                                     onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
                                   >
                                     <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">

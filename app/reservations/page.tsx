@@ -67,7 +67,7 @@ export default function ReservationsPage() {
   const designationStyle = (value: string) => {
     if (value === 'confirmed') return 'bg-violet-50 text-violet-700 border border-violet-200'
     if (value === 'nomination') return 'bg-sky-50 text-sky-700 border border-sky-200'
-    if (value === 'princess') return 'bg-amber-50 text-amber-700 border border-amber-200'
+    if (value === 'princess') return 'bg-pink-50 text-pink-700 border border-pink-200'
     return 'bg-slate-100 text-slate-600 border border-slate-200'
   }
 

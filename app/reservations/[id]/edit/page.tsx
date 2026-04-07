@@ -815,7 +815,11 @@ export default function EditReservationPage() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault()
-                        setFormData({ ...formData, designation_type: dt.slug })
+                        setFormData({ 
+                          ...formData, 
+                          designation_type: dt.slug,
+                          is_hime: dt.slug === 'princess' ? true : formData.is_hime
+                        })
                         e.currentTarget.blur()
                       }}
                       className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}

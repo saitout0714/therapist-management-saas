@@ -307,7 +307,7 @@ export default function ShiftsPage() {
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
-        isHime: reservation.is_hime ?? false,
+        isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
