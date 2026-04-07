@@ -114,7 +114,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       setHoverData(null); // ドラッグ終了時にも消す
-      setTimeout(() => setIsDragging(false), 50); // slight delay to prevent click fire
+      setTimeout(() => {
+        setIsDragging(false);
+        dragDistanceRef.current = 0; // ドラッグ終了後にリセットしてホバーを復活させる
+      }, 50); // slight delay to prevent click fire
     };
 
     window.addEventListener('mousemove', handleDragMove);
