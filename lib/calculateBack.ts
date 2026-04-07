@@ -289,6 +289,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       resolvedCustomerPrice: effectiveCoursePrice,
       totalDiscount: totalDiscount,
       therapistDiscountBurden: 0,
+      himeBonus: 0,
       businessDate,
       appliedRate: resolved.courseRate,
       calcMethod: `総売上折半方式（${resolved.courseRate}%）`,
