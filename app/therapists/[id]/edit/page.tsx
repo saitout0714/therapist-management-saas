@@ -29,6 +29,11 @@ export default function EditTherapistPage() {
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
   const [nominationFees, setNominationFees] = useState<{ id: string, name: string }[]>([]);
   const [feeOverrides, setFeeOverrides] = useState<Record<string, string>>({});
+  const [therapistShopId, setTherapistShopId] = useState<string | null>(null);
+  const [optionCategories, setOptionCategories] = useState<string[]>([]);
+  const [designationTypes, setDesignationTypes] = useState<{ slug: string; display_name: string }[]>([]);
+  // Matrix key: `${category}||${desig_slug}` where desig_slug = '__all__' for 全種別共通
+  const [optionBackMatrix, setOptionBackMatrix] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchTherapistData = async () => {
@@ -45,34 +50,44 @@ export default function EditTherapistPage() {
 
         if (therapistError) throw therapistError;
 
-        // Fetch ranks & fees for shop
-        const { data: ranksData } = await supabase
-          .from("therapist_ranks")
-          .select("id, name")
-          .eq("shop_id", therapist.shop_id)
-          .order("display_order");
+        setTherapistShopId(therapist.shop_id);
 
-        const { data: feesData } = await supabase
-          .from("nomination_fees")
-          .select("id, name")
-          .eq("shop_id", therapist.shop_id);
+        // Fetch ranks, fees, option data in parallel
+        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes] = await Promise.all([
+          supabase.from("therapist_ranks").select("id, name").eq("shop_id", therapist.shop_id).order("display_order"),
+          supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
+          supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
+          supabase.from("options").select("back_category").eq("shop_id", therapist.shop_id).eq("is_active", true),
+          supabase.from("designation_types").select("slug, display_name").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order"),
+          supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
+        ]);
 
-        // Fetch overrides
-        const { data: overridesData } = await supabase
-          .from("therapist_fee_overrides")
-          .select("fee_type_id, override_price")
-          .eq("therapist_id", therapistId);
-
-        setRanks(ranksData || []);
-        setNominationFees(feesData || []);
+        setRanks(ranksRes.data || []);
+        setNominationFees(feesRes.data || []);
 
         const overridesObj: Record<string, string> = {};
-        if (overridesData) {
-          overridesData.forEach(o => {
+        if (overridesRes.data) {
+          overridesRes.data.forEach((o: { fee_type_id: string; override_price: number }) => {
             overridesObj[o.fee_type_id] = String(o.override_price);
           });
         }
         setFeeOverrides(overridesObj);
+
+        // オプションカテゴリ（重複除去）
+        const cats = [...new Set((optCatRes.data || []).map((o: { back_category: string }) => o.back_category).filter(Boolean))] as string[];
+        // 衣装を先頭に、その他を末尾に固定ソート
+        cats.sort((a, b) => a === '衣装' ? -1 : b === '衣装' ? 1 : a.localeCompare(b));
+        setOptionCategories(cats);
+        setDesignationTypes((dtRes.data || []) as { slug: string; display_name: string }[]);
+
+        // オプションバックマトリクスを構築
+        const matrix: Record<string, string> = {};
+        for (const back of (optBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]) {
+          const catKey = back.option_category ?? '__all__';
+          const desigKey = back.designation_type ?? '__all__';
+          matrix[`${catKey}||${desigKey}`] = String(back.back_rate);
+        }
+        setOptionBackMatrix(matrix);
 
         setProfile({
           name: therapist.name || "",
@@ -186,6 +201,31 @@ export default function EditTherapistPage() {
 
       if (overrideError) {
         setError("例外料金設定の保存に失敗しました: " + overrideError.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // オプションバック設定を保存
+    await supabase.from("therapist_option_backs").delete().eq("therapist_id", therapistId);
+
+    const optionBackRows = Object.entries(optionBackMatrix)
+      .filter(([, val]) => val !== '')
+      .map(([key, val]) => {
+        const [catKey, desigKey] = key.split('||');
+        return {
+          shop_id: therapistShopId,
+          therapist_id: therapistId,
+          option_category: catKey === '__all__' ? null : catKey,
+          designation_type: desigKey === '__all__' ? null : desigKey,
+          back_rate: parseFloat(val),
+        };
+      });
+
+    if (optionBackRows.length > 0) {
+      const { error: optBackError } = await supabase.from("therapist_option_backs").insert(optionBackRows);
+      if (optBackError) {
+        setError("オプションバック設定の保存に失敗しました: " + optBackError.message);
         setLoading(false);
         return;
       }
@@ -385,6 +425,64 @@ export default function EditTherapistPage() {
                     <div className="text-sm text-slate-500 py-2">システム設定から指名料マスタを登録してください。</div>
                   )}
                 </div>
+              </div>
+
+              {/* オプションバック設定 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+                  オプションバック設定
+                </h3>
+                <p className="text-xs text-slate-400">
+                  オプションカテゴリ × 指名種別ごとのバック率を設定します。未設定の場合は店舗のデフォルトが適用されます。
+                </p>
+                {optionCategories.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-2">有効なオプションが登録されていません。</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full border-collapse text-left">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-xs font-semibold text-slate-600 min-w-[80px]">カテゴリ</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-slate-600 min-w-[130px]">全種別共通</th>
+                          {designationTypes.map(dt => (
+                            <th key={dt.slug} className="px-4 py-3 text-xs font-semibold text-slate-600 min-w-[130px]">{dt.display_name}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {optionCategories.map(cat => (
+                          <tr key={cat} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${cat === '衣装' ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {cat}
+                              </span>
+                            </td>
+                            {['__all__', ...designationTypes.map(dt => dt.slug)].map(desig => {
+                              const key = `${cat}||${desig}`;
+                              return (
+                                <td key={desig} className="px-4 py-3">
+                                  <select
+                                    value={optionBackMatrix[key] || ''}
+                                    onChange={(e) => setOptionBackMatrix(prev => ({ ...prev, [key]: e.target.value }))}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                                  >
+                                    <option value="">未設定</option>
+                                    <option value="1">フルバック（100%）</option>
+                                    <option value="0.5">折半（50%）</option>
+                                  </select>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="text-xs text-slate-400">
+                  解決優先順位：カテゴリ×指名種別 → カテゴリ×全種別共通 → 店舗デフォルト
+                </p>
               </div>
 
               <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">

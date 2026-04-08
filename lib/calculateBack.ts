@@ -209,6 +209,30 @@ export async function resolveCustomerPrice(
 
 
 // ============================================================
+// Helper: Resolve therapist option back rate (in-memory, no DB calls)
+// ============================================================
+
+function resolveTherapistOptionRate(
+  backs: { option_category: string | null; designation_type: string | null; back_rate: number }[],
+  category: string,
+  designationType: string
+): number | null {
+  // 1. カテゴリ × 指名種別（最優先）
+  const r1 = backs.find(b => b.option_category === category && b.designation_type === designationType)
+  if (r1) return r1.back_rate
+  // 2. カテゴリ × 全種別共通
+  const r2 = backs.find(b => b.option_category === category && b.designation_type === null)
+  if (r2) return r2.back_rate
+  // 3. 全カテゴリ共通 × 指名種別
+  const r3 = backs.find(b => b.option_category === null && b.designation_type === designationType)
+  if (r3) return r3.back_rate
+  // 4. 全カテゴリ × 全種別共通
+  const r4 = backs.find(b => b.option_category === null && b.designation_type === null)
+  if (r4) return r4.back_rate
+  return null
+}
+
+// ============================================================
 // Main calculation function
 // ============================================================
 
@@ -216,6 +240,17 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 0: 営業日の決定
   const shopRule = await fetchShopBackRule(input.shopId)
   if (!shopRule) throw new Error('店舗のバック設定が見つかりません')
+
+  // Step 0c: セラピスト個別オプションバック設定とオプションカテゴリを一括取得
+  const optionIds = input.options.filter(o => o.option_id).map(o => o.option_id as string)
+  const [therapistOptBacksRes, optCategoriesRes] = await Promise.all([
+    supabase.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
+    optionIds.length > 0
+      ? supabase.from('options').select('id, back_category').in('id', optionIds)
+      : Promise.resolve({ data: [] as { id: string; back_category: string }[] }),
+  ])
+  const therapistOptBacks = (therapistOptBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]
+  const optCategoryMap = new Map((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
 
   const businessDate = resolveBusinessDate(
     input.date,
@@ -394,6 +429,18 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       continue
     }
 
+    // セラピスト個別オプションバック設定を最優先で解決
+    // 解決優先順位: カテゴリ×指名種別 > カテゴリ×全種別 > 全カテゴリ×指名種別 > 全カテゴリ×全種別 > shop default
+    if (therapistOptBacks.length > 0) {
+      const optCat = optCategoryMap.get(opt.option_id) ?? 'その他'
+      const therapistRate = resolveTherapistOptionRate(therapistOptBacks, optCat, input.designationType)
+      if (therapistRate !== null) {
+        optionBack += applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        continue
+      }
+    }
+
+    // option_back_rules（オプション個別設定）にフォールバック
     const optRule = await fetchOptionBackRule(input.shopId, opt.option_id)
 
     if (optRule) {

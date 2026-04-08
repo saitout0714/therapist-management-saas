@@ -12,6 +12,7 @@ type Option = {
     display_order: number
     option_type: 'extension' | 'item' | 'treatment'
     duration_minutes_added: number
+    back_category: string
 }
 
 export function OptionManagementTab() {
@@ -23,6 +24,7 @@ export function OptionManagementTab() {
     const [formData, setFormData] = useState({
         name: '', price: 0, back_amount: 0, description: '', is_active: true,
         display_order: 0, option_type: 'extension' as 'extension' | 'item' | 'treatment', duration_minutes_added: 0,
+        back_category: 'その他',
     })
 
     async function fetchOptions() {
@@ -35,7 +37,7 @@ export function OptionManagementTab() {
     }
 
     const resetForm = () => {
-        setFormData({ name: '', price: 0, back_amount: 0, description: '', is_active: true, display_order: 0, option_type: 'extension', duration_minutes_added: 0 })
+        setFormData({ name: '', price: 0, back_amount: 0, description: '', is_active: true, display_order: 0, option_type: 'extension', duration_minutes_added: 0, back_category: 'その他' })
         setEditingOption(null)
         setShowForm(false)
     }
@@ -84,7 +86,7 @@ export function OptionManagementTab() {
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         required
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <div>
                             <label className="block mb-1 text-xs font-semibold text-slate-600">オプション種別</label>
                             <select
@@ -96,6 +98,18 @@ export function OptionManagementTab() {
                                 <option value="item">アイテム備品等</option>
                                 <option value="treatment">施術</option>
                             </select>
+                        </div>
+                        <div>
+                            <label className="block mb-1 text-xs font-semibold text-indigo-700">バックカテゴリ</label>
+                            <select
+                                className="w-full border border-indigo-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none bg-indigo-50/50"
+                                value={formData.back_category}
+                                onChange={(e) => setFormData({ ...formData, back_category: e.target.value })}
+                            >
+                                <option value="その他">その他</option>
+                                <option value="衣装">衣装</option>
+                            </select>
+                            <p className="text-xs text-slate-400 mt-1">セラピスト個別バック設定で使用</p>
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-semibold text-slate-600">追加料金（顧客請求額）</label>
@@ -176,6 +190,7 @@ export function OptionManagementTab() {
                                 <th className="p-4 w-24">追加時間</th>
                                 <th className="p-4 w-28">料金</th>
                                 <th className="p-4 w-28 text-indigo-600">バック額</th>
+                                <th className="p-4 w-24 text-indigo-600">カテゴリ</th>
                                 <th className="p-4 w-20">状態</th>
                                 <th className="p-4 w-28 text-right">操作</th>
                             </tr>
@@ -200,6 +215,11 @@ export function OptionManagementTab() {
                                     <td className="p-4 text-sm font-bold text-slate-800">¥{option.price.toLocaleString()}</td>
                                     <td className="p-4 text-sm font-bold text-indigo-700">¥{(option.back_amount ?? 0).toLocaleString()}</td>
                                     <td className="p-4 text-sm">
+                                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${option.back_category === '衣装' ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+                                            {option.back_category || 'その他'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-sm">
                                         <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${option.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                                             {option.is_active ? '有効' : '無効'}
                                         </span>
@@ -209,7 +229,7 @@ export function OptionManagementTab() {
                                             className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                                             onClick={() => {
                                                 setEditingOption(option)
-                                                setFormData({ name: option.name, price: option.price, back_amount: option.back_amount ?? 0, description: option.description || '', is_active: option.is_active, display_order: option.display_order, option_type: option.option_type, duration_minutes_added: option.duration_minutes_added })
+                                                setFormData({ name: option.name, price: option.price, back_amount: option.back_amount ?? 0, description: option.description || '', is_active: option.is_active, display_order: option.display_order, option_type: option.option_type, duration_minutes_added: option.duration_minutes_added, back_category: option.back_category || 'その他' })
                                                 setShowForm(true)
                                             }}
                                         >編集</button>
@@ -217,7 +237,7 @@ export function OptionManagementTab() {
                                     </td>
                                 </tr>
                             ))}
-                            {options.length === 0 && <tr><td className="p-8 text-center text-slate-500" colSpan={7}>オプションがありません</td></tr>}
+                            {options.length === 0 && <tr><td className="p-8 text-center text-slate-500" colSpan={8}>オプションがありません</td></tr>}
                         </tbody>
                     </table>
                 </div>
