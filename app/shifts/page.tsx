@@ -448,12 +448,14 @@ export default function ShiftsPage() {
         )}
 
         {/* タイムチャートビュー */}
-        {viewMode === 'day' && !loading && (
-          <div className="bg-white rounded-lg shadow-lg overflow-visible">
-            <div className="h-[calc(100svh-200px)] md:h-[600px] w-full">
-              {(() => {
-                const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
-                return therapistsWithShift.length > 0 ? (
+        {viewMode === 'day' && !loading && (() => {
+          const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
+          // TimeChart 内の rowHeight(72px) × 人数 + header(56px) + scrollbar(10px)
+          const chartHeight = 56 + therapistsWithShift.length * 72 + 10;
+          return (
+            <div className="bg-white rounded-lg shadow-lg overflow-visible">
+              <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
+                {therapistsWithShift.length > 0 ? (
                   <TimeChart
                     therapists={therapistsWithShift}
                     schedules={schedules}
@@ -466,11 +468,11 @@ export default function ShiftsPage() {
                   <div className="h-full flex items-center justify-center text-gray-500">
                     <p>シフトがあるセラピストがいません</p>
                   </div>
-                );
-              })()}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 週間表示ビュー */}
         {viewMode === 'week' && (

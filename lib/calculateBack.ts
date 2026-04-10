@@ -18,10 +18,13 @@ import { supabase } from '@/lib/supabase'
 type ShopBackRule = {
   course_calc_type: 'percentage' | 'fixed'
   course_back_rate: number
+  course_back_amount?: number | null  // add-default-back-amounts.sql 以降の固定額列
   option_calc_type: 'full_back' | 'percentage' | 'fixed' | 'per_item'
   option_back_rate: number
+  option_back_amount?: number | null
   nomination_calc_type: 'full_back' | 'percentage' | 'fixed'
   nomination_back_rate: number
+  nomination_back_amount?: number | null
   rounding_method: 'floor' | 'ceil' | 'round'
   business_day_cutoff: string
 }
@@ -239,7 +242,7 @@ function resolveTherapistOptionRate(
 export async function calculateBack(input: BackCalculationInput): Promise<BackCalculationResult> {
   // Step 0: 営業日の決定
   const shopRule = await fetchShopBackRule(input.shopId)
-  if (!shopRule) throw new Error('店舗のバック設定が見つかりません')
+  if (!shopRule) throw new Error('店舗のバック設定の取得に失敗しました。システム管理者にお問い合わせください。')
 
   // Step 0c: セラピスト個別オプションバック設定とオプションカテゴリを一括取得
   const optionIds = input.options.filter(o => o.option_id).map(o => o.option_id as string)
@@ -705,7 +708,43 @@ async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
     .select('*')
     .eq('shop_id', shopId)
     .limit(1)
-  return data?.[0] as ShopBackRule | null ?? null
+
+  if (data && data.length > 0) {
+    const row = data[0] as ShopBackRule
+    // course_back_amount 列が設定されており _rate 側がデフォルト値(0)の場合、
+    // 新スキーマ（ShopBackRulesTab）で保存されたレコードとみなして fixed に補正する
+    if (
+      row.course_back_amount != null &&
+      row.course_back_amount > 0 &&
+      row.course_calc_type === 'percentage' &&
+      row.course_back_rate === 0
+    ) {
+      row.course_calc_type = 'fixed'
+    }
+    return row
+  }
+
+  // レコードが存在しない場合、デフォルト設定で自動作成する
+  const defaults = {
+    shop_id: shopId,
+    course_calc_type: 'fixed' as const,
+    course_back_rate: 0,
+    course_back_amount: 0,
+    option_calc_type: 'full_back' as const,
+    option_back_rate: 100,
+    option_back_amount: 0,
+    nomination_calc_type: 'full_back' as const,
+    nomination_back_rate: 100,
+    nomination_back_amount: 0,
+    rounding_method: 'floor' as const,
+    business_day_cutoff: '06:00',
+  }
+  const { data: inserted } = await supabase
+    .from('shop_back_rules')
+    .insert([defaults])
+    .select()
+    .limit(1)
+  return (inserted?.[0] as ShopBackRule) ?? (defaults as ShopBackRule)
 }
 
 async function fetchTherapistOverride(therapistId: string, courseId: string): Promise<TherapistBackOverride | null> {
