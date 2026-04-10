@@ -193,41 +193,41 @@ export default function ReservationPreviewPage() {
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} ¥${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.name || ''} ￥${reservation.base_price.toLocaleString()}\n`
     reservation.reservation_options?.forEach(ro => {
       if (ro.option_id && ro.options) {
         // 通常オプション
-        text += `${ro.options.name} ¥${ro.options.price.toLocaleString()}\n`
+        text += `${ro.options.name} ￥${ro.options.price.toLocaleString()}\n`
       } else if (!ro.option_id && ro.custom_name) {
         // 手入力オプション
-        text += `${ro.custom_name} ¥${ro.price.toLocaleString()}\n`
+        text += `${ro.custom_name} ￥${ro.price.toLocaleString()}\n`
       }
     })
 
     // 指名（指名料がある場合のみ）
     if (reservation.nomination_fee > 0) {
-      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} ¥${reservation.nomination_fee.toLocaleString()}\n`
+      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} ￥${reservation.nomination_fee.toLocaleString()}\n`
     }
 
     // お支払い予定金額
     text += `\n■ お支払い予定金額\n`
-    text += `基本料金：¥${reservation.base_price.toLocaleString()}\n`
+    text += `基本料金：￥${reservation.base_price.toLocaleString()}\n`
     if (reservation.options_price > 0) {
-      text += `オプション：¥${reservation.options_price.toLocaleString()}\n`
+      text += `オプション：￥${reservation.options_price.toLocaleString()}\n`
     }
     if (reservation.nomination_fee > 0) {
-      text += `指名料：¥${reservation.nomination_fee.toLocaleString()}\n`
+      text += `指名料：￥${reservation.nomination_fee.toLocaleString()}\n`
     }
     if (reservation.discount_amount > 0) {
-      text += `割引：-¥${reservation.discount_amount.toLocaleString()}\n`
+      text += `割引：-￥${reservation.discount_amount.toLocaleString()}\n`
     }
     text += `------------------------\n`
-    text += `合計：¥${reservation.total_price.toLocaleString()}\n`
+    text += `合計：￥${reservation.total_price.toLocaleString()}\n`
     if (reservation.credit_fee_amount > 0) {
-      text += `クレジット手数料：¥${reservation.credit_fee_amount.toLocaleString()}\n`
-      text += `💳 クレジット請求額：¥${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}\n`
+      text += `クレジット手数料：￥${reservation.credit_fee_amount.toLocaleString()}\n`
+      text += `💳 クレジット請求額：￥${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}\n`
       if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
-        text += `（うちオプション¥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
+        text += `（うちオプション￥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
       }
     }
 
@@ -264,11 +264,11 @@ export default function ReservationPreviewPage() {
 
     // コース（コース名＋料金のみ）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} ¥${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.name || ''} ￥${reservation.base_price.toLocaleString()}\n`
 
     // 指名料（コースに加算）
     if (reservation.nomination_fee > 0) {
-      text += `${designationLabel(reservation.designation_type)} ¥${reservation.nomination_fee.toLocaleString()}\n`
+      text += `${designationLabel(reservation.designation_type)} ￥${reservation.nomination_fee.toLocaleString()}\n`
     }
 
     // オプション（通常＋手入力）
@@ -279,9 +279,9 @@ export default function ReservationPreviewPage() {
       text += `\n■ オプション\n`
       allOptions.forEach(ro => {
         if (ro.option_id && ro.options) {
-          text += `${ro.options.name} ¥${ro.options.price.toLocaleString()}\n`
+          text += `${ro.options.name} ￥${ro.options.price.toLocaleString()}\n`
         } else if (!ro.option_id && ro.custom_name) {
-          text += `${ro.custom_name} ¥${ro.price.toLocaleString()}\n`
+          text += `${ro.custom_name} ￥${ro.price.toLocaleString()}\n`
         }
       })
     }
@@ -293,15 +293,15 @@ export default function ReservationPreviewPage() {
       if (discounts.length > 0) {
         discounts.forEach(d => {
           const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
-          text += `${discountName} -¥${d.applied_amount.toLocaleString()}\n`
+          text += `${discountName} -￥${d.applied_amount.toLocaleString()}\n`
         })
       } else {
-        text += `割引 -¥${reservation.discount_amount.toLocaleString()}\n`
+        text += `割引 -￥${reservation.discount_amount.toLocaleString()}\n`
       }
     }
 
     text += `------------------------\n`
-    text += `合計：¥${reservation.total_price.toLocaleString()}`
+    text += `合計：￥${reservation.total_price.toLocaleString()}`
 
     if (reservation.notes) {
       text += `\n\n■ 備考\n${reservation.notes}`
