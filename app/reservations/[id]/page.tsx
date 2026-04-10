@@ -193,20 +193,20 @@ export default function ReservationPreviewPage() {
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} \\${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.name || ''} ¥${reservation.base_price.toLocaleString()}\n`
     reservation.reservation_options?.forEach(ro => {
       if (ro.option_id && ro.options) {
         // 通常オプション
-        text += `${ro.options.name} \\${ro.options.price.toLocaleString()}\n`
+        text += `${ro.options.name} ¥${ro.options.price.toLocaleString()}\n`
       } else if (!ro.option_id && ro.custom_name) {
         // 手入力オプション
-        text += `${ro.custom_name} \\${ro.price.toLocaleString()}\n`
+        text += `${ro.custom_name} ¥${ro.price.toLocaleString()}\n`
       }
     })
 
     // 指名（指名料がある場合のみ）
     if (reservation.nomination_fee > 0) {
-      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} \\${reservation.nomination_fee.toLocaleString()}\n`
+      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} ¥${reservation.nomination_fee.toLocaleString()}\n`
     }
 
     // お支払い予定金額
@@ -264,11 +264,11 @@ export default function ReservationPreviewPage() {
 
     // コース（コース名＋料金のみ）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} \\${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.name || ''} ¥${reservation.base_price.toLocaleString()}\n`
 
     // 指名料（コースに加算）
     if (reservation.nomination_fee > 0) {
-      text += `${designationLabel(reservation.designation_type)} \\${reservation.nomination_fee.toLocaleString()}\n`
+      text += `${designationLabel(reservation.designation_type)} ¥${reservation.nomination_fee.toLocaleString()}\n`
     }
 
     // オプション（通常＋手入力）
@@ -279,9 +279,9 @@ export default function ReservationPreviewPage() {
       text += `\n■ オプション\n`
       allOptions.forEach(ro => {
         if (ro.option_id && ro.options) {
-          text += `${ro.options.name} \\${ro.options.price.toLocaleString()}\n`
+          text += `${ro.options.name} ¥${ro.options.price.toLocaleString()}\n`
         } else if (!ro.option_id && ro.custom_name) {
-          text += `${ro.custom_name} \\${ro.price.toLocaleString()}\n`
+          text += `${ro.custom_name} ¥${ro.price.toLocaleString()}\n`
         }
       })
     }
