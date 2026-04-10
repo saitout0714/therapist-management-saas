@@ -10,7 +10,7 @@ export default function EditRoomPage() {
   const params = useParams();
   const roomId = params.id as string;
   
-  const [formData, setFormData] = useState({ name: '', description: '', address: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', address: '', google_map_url: '' });
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function EditRoomPage() {
         if (fetchError) throw fetchError;
         
         if (data) {
-          setFormData({ name: data.name, description: data.description || '', address: data.address || '' });
+          setFormData({ name: data.name, description: data.description || '', address: data.address || '', google_map_url: data.google_map_url || '' });
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー';
@@ -67,6 +67,7 @@ export default function EditRoomPage() {
         name: formData.name,
         description: formData.description,
         address: formData.address,
+        google_map_url: formData.google_map_url || null,
       })
       .eq('id', roomId);
 
@@ -140,6 +141,20 @@ export default function EditRoomPage() {
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
                     placeholder="例: 東京都新宿区○○ビル 201号室"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    Google マップURL <span className="ml-2 text-xs text-slate-400 font-normal">お客様用LINEテキストに記載されます</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="google_map_url"
+                    value={formData.google_map_url}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="https://maps.app.goo.gl/..."
                   />
                 </div>
 

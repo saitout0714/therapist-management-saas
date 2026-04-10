@@ -118,7 +118,7 @@ export default function NewReservationPage() {
     extension_count: 0,
     discount_amount: 0,
     discount_reason: '',
-    manual_burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
+    manual_therapist_burden: 0,
     notes: '',
     reception_source: 'staff' as 'staff' | 'client' | 'therapist',
     payment_method: 'cash' as 'cash' | 'credit',
@@ -700,7 +700,8 @@ export default function NewReservationPage() {
             reservation_id: reservationId,
             policy_id: selectedPolicy ? selectedPolicy.id : null,
             applied_amount: calculatedPrice.discountAmount,
-            burden_type: selectedPolicy ? selectedPolicy.burden_type : formData.manual_burden_type,
+            burden_type: selectedPolicy ? selectedPolicy.burden_type : 'shop_only',
+            therapist_burden_amount: selectedPolicy ? null : formData.manual_therapist_burden,
             is_adhoc: !selectedPolicy,
             adhoc_name: !selectedPolicy ? '手動割引' : null,
             note: formData.discount_reason || null
@@ -729,7 +730,7 @@ export default function NewReservationPage() {
               ...customOptionInserts.map(co => ({ option_id: null as string | null, price: co.price, custom_back_amount: co.custom_back_amount })),
             ],
             discounts: calculatedPrice.discountAmount > 0
-              ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || formData.manual_burden_type) as 'shop_only' | 'split' | 'therapist_only' }]
+              ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || 'shop_only') as 'shop_only' | 'split' | 'therapist_only', therapist_burden_amount: selectedDiscountId ? null : formData.manual_therapist_burden }]
               : [],
             date: formData.date,
             startTime: formData.start_time,
@@ -761,6 +762,9 @@ export default function NewReservationPage() {
   if (loading) {
     return <div className="p-4 md:p-8">読み込み中...</div>
   }
+
+  const hasExtension = !!(systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0)
+  const n = (base: number) => String(base + (hasExtension ? 1 : 0))
 
   return (
     <div className="p-4 md:p-8 mx-auto">
@@ -911,7 +915,7 @@ export default function NewReservationPage() {
                           is_hime: dt.slug === 'princess' ? true : formData.is_hime
                         })
                         e.currentTarget.blur()
-                        scrollToSection(sectionRef6)
+                        scrollToSection(sectionRef3)
                       }}
                       className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                     >
@@ -1132,7 +1136,7 @@ export default function NewReservationPage() {
           {/* オプション選択 */}
           <div ref={sectionRef5} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">{systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 ? '6' : '5'}</span>
+              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-3">{hasExtension ? '6' : '5'}</span>
               オプション
             </h2>
             {options.length === 0 ? (
@@ -1188,40 +1192,48 @@ export default function NewReservationPage() {
               {customOptions.length === 0 && (
                 <p className="text-xs text-slate-400">セラピストごとの個別オプションがある場合は追加してください</p>
               )}
+              {customOptions.length > 0 && (
+                <div className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 px-3 mb-1">
+                  <span className="text-xs font-medium text-slate-400">オプション名</span>
+                  <span className="text-xs font-medium text-slate-400 text-center">料金</span>
+                  <span className="text-xs font-medium text-indigo-400 text-center">バック</span>
+                  <span />
+                </div>
+              )}
               <div className="space-y-2">
                 {customOptions.map((co, idx) => (
-                  <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <input
                       type="text"
                       value={co.name}
                       onChange={(e) => updateCustomOption(idx, 'name', e.target.value)}
                       placeholder="オプション名"
-                      className="flex-1 min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      className="min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
                     />
-                    <div className="relative w-24 flex-shrink-0">
+                    <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
                       <input
                         type="number"
                         value={co.price || ''}
                         onChange={(e) => updateCustomOption(idx, 'price', Number(e.target.value))}
-                        placeholder="料金"
+                        placeholder="0"
                         className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
                       />
                     </div>
-                    <div className="relative w-24 flex-shrink-0">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">¥</span>
                       <input
                         type="number"
                         value={co.backAmount || ''}
                         onChange={(e) => updateCustomOption(idx, 'backAmount', Number(e.target.value))}
-                        placeholder="バック"
+                        placeholder="0"
                         className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 text-indigo-700"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => removeCustomOption(idx)}
-                      className="text-rose-400 hover:text-rose-600 text-lg leading-none flex-shrink-0"
+                      className="text-rose-400 hover:text-rose-600 text-lg leading-none text-center"
                     >
                       ×
                     </button>
@@ -1234,7 +1246,7 @@ export default function NewReservationPage() {
           {/* 割引情報 */}
           <div ref={sectionRef6} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3">7</span>
+              <span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3">{n(6)}</span>
               割引・キャンペーン
             </h2>
             <div className="space-y-6">
@@ -1269,11 +1281,23 @@ export default function NewReservationPage() {
                       type="number"
                       value={formData.discount_amount}
                       onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
-                      step="100"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                      placeholder="0"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 font-medium"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">セラピスト負担額 (円)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.manual_therapist_burden || ''}
+                      onChange={(e) => setFormData({ ...formData, manual_therapist_burden: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 font-medium"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">0円＝店舗全額負担、割引額と同額＝セラピスト全額負担</p>
+                  </div>
+                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">割引理由</label>
                     <input
                       type="text"
@@ -1291,7 +1315,7 @@ export default function NewReservationPage() {
           {/* 支払方法 */}
           <div ref={sectionRef7} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mr-3">7</span>
+              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mr-3">{n(7)}</span>
               支払方法
             </h2>
             <div className="space-y-5">

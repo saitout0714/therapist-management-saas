@@ -55,6 +55,7 @@ type OptionBackRule = {
 type ReservationDiscount = {
   applied_amount: number
   burden_type: 'shop_only' | 'split' | 'therapist_only'
+  therapist_burden_amount?: number | null  // 具体的なセラピスト負担額（設定時は burden_type より優先）
 }
 
 type DeductionRule = {
@@ -502,7 +503,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   if (input.discounts && input.discounts.length > 0) {
     for (const d of input.discounts) {
       totalDiscount += d.applied_amount
-      if (d.burden_type === 'shop_only') {
+      if (d.therapist_burden_amount != null) {
+        // 具体的な金額が指定されている場合はそちらを優先
+        const tBurden = Math.min(d.therapist_burden_amount, d.applied_amount)
+        therapistDiscountBurden += tBurden
+        shopDiscountBurden += d.applied_amount - tBurden
+      } else if (d.burden_type === 'shop_only') {
         shopDiscountBurden += d.applied_amount
       } else if (d.burden_type === 'therapist_only') {
         therapistDiscountBurden += d.applied_amount

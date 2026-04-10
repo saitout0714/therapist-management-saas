@@ -7,11 +7,21 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type CustomOption = {
+  option_id: string | null
+  price: number
+  custom_name: string | null
   options: {
     name: string
     price: number
     duration: number
   } | null
+}
+
+type ReservationDiscount = {
+  applied_amount: number
+  adhoc_name: string | null
+  is_adhoc: boolean
+  policy: { name: string } | null
 }
 
 type Reservation = {
@@ -37,11 +47,13 @@ type Reservation = {
   courses: { name: string; duration: number; base_price: number } | null
   therapists: { name: string } | null
   reservation_options: CustomOption[]
+  reservation_discounts: ReservationDiscount[]
 }
 
 type RoomInfo = {
   name: string
   address: string | null
+  google_map_url: string | null
 }
 
 export default function ReservationPreviewPage() {
@@ -54,6 +66,8 @@ export default function ReservationPreviewPage() {
 
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null)
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
+  const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -72,7 +86,12 @@ export default function ReservationPreviewPage() {
           courses(name, duration, base_price),
           therapists!reservations_therapist_id_fkey(name),
           reservation_options(
+            option_id, price, custom_name,
             options(name, price, duration)
+          ),
+          reservation_discounts(
+            applied_amount, adhoc_name, is_adhoc,
+            policy:discount_policies(name)
           )
         `)
         .eq('id', reservationId)
@@ -84,11 +103,32 @@ export default function ReservationPreviewPage() {
 
       setReservation(resData as unknown as Reservation)
 
-      // 2. Fetch Room from Shift
+      // 2. 新規/会員判定（当該予約より前の予約があれば会員）
+      const { count } = await supabase
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('customer_id', resData.customer_id)
+        .eq('shop_id', selectedShop.id)
+        .neq('id', reservationId)
+        .lt('date', resData.date)
+      setIsNewCustomer((count ?? 0) === 0)
+
+      // 3. Fetch designation_types for display_name mapping
+      const { data: dtData } = await supabase
+        .from('designation_types')
+        .select('slug, display_name')
+        .eq('shop_id', selectedShop.id)
+      if (dtData) {
+        const map: Record<string, string> = {}
+        dtData.forEach((d: { slug: string; display_name: string }) => { map[d.slug] = d.display_name })
+        setDesignationMap(map)
+      }
+
+      // 3. Fetch Room from Shift
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
         .select(`
-          rooms(name, address)
+          rooms(name, address, google_map_url)
         `)
         .eq('therapist_id', resData.therapist_id)
         .eq('date', resData.date)
@@ -101,6 +141,7 @@ export default function ReservationPreviewPage() {
         setRoomInfo({
           name: room?.name || '',
           address: room?.address || null,
+          google_map_url: room?.google_map_url || null,
         })
       }
     } catch (error) {
@@ -112,9 +153,12 @@ export default function ReservationPreviewPage() {
   }
 
   const designationLabel = (type: string) => {
+    if (designationMap[type]) return designationMap[type]
+    // フォールバック（DBに存在しない場合）
     switch (type) {
       case 'free': return 'フリー'
       case 'nomination': return '指名'
+      case 'first_nomination': return '初回指名'
       case 'confirmed': return '本指名'
       case 'princess': return '姫予約'
       default: return type
@@ -141,38 +185,38 @@ export default function ReservationPreviewPage() {
 
   const generateCustomerLineText = () => {
     if (!reservation) return ''
-    
+
     let text = `【ご予約内容のご確認】\n\n`
-    text += `■ 日時\n${reservation.date} ${reservation.start_time.slice(0, 5)} ～ ${reservation.end_time.slice(0, 5)}\n\n`
-    text += `■ コース\n${reservation.courses?.name || ''} (${reservation.courses?.duration || 0}分)\n`
-    
-    // Options
-    const options = reservation.reservation_options
-      ?.map(ro => ro.options?.name)
-      .filter(Boolean)
-    
-    if (options && options.length > 0) {
-      text += `オプション：${options.join(', ')}\n`
+
+    // 日時（日付と時間を別行）
+    text += `■ 日時\n${reservation.date}\n${reservation.start_time.slice(0, 5)} ～ ${reservation.end_time.slice(0, 5)}\n\n`
+
+    // コース（コース名＋料金、オプションも各行）
+    text += `■ コース\n`
+    text += `${reservation.courses?.name || ''} \\${reservation.base_price.toLocaleString()}\n`
+    reservation.reservation_options?.forEach(ro => {
+      if (ro.option_id && ro.options) {
+        // 通常オプション
+        text += `${ro.options.name} \\${ro.options.price.toLocaleString()}\n`
+      } else if (!ro.option_id && ro.custom_name) {
+        // 手入力オプション
+        text += `${ro.custom_name} \\${ro.price.toLocaleString()}\n`
+      }
+    })
+
+    // 指名（指名料がある場合のみ）
+    if (reservation.nomination_fee > 0) {
+      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} \\${reservation.nomination_fee.toLocaleString()}\n`
     }
-    
-    // Designation
-    text += `\n■ 指名タイプ\n${designationLabel(reservation.designation_type)}\n`
-    
-    // Room
-    text += `\n■ ルーム（ご来店場所）\n`
-    text += `${roomInfo?.name || '未定'}\n`
-    if (roomInfo?.address) {
-      text += `住所：${roomInfo.address}\n`
-    }
-    
-    // Price
+
+    // お支払い予定金額
     text += `\n■ お支払い予定金額\n`
     text += `基本料金：¥${reservation.base_price.toLocaleString()}\n`
     if (reservation.options_price > 0) {
       text += `オプション：¥${reservation.options_price.toLocaleString()}\n`
     }
     if (reservation.nomination_fee > 0) {
-      text += `指名料等：¥${reservation.nomination_fee.toLocaleString()}\n`
+      text += `指名料：¥${reservation.nomination_fee.toLocaleString()}\n`
     }
     if (reservation.discount_amount > 0) {
       text += `割引：-¥${reservation.discount_amount.toLocaleString()}\n`
@@ -186,72 +230,95 @@ export default function ReservationPreviewPage() {
         text += `（うちオプション¥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
       }
     }
+
+    // ルーム（末尾、住所 + Google Maps URL）
+    text += `\n■ ルーム（ご来店場所）\n`
+    if (roomInfo?.address) {
+      text += `住所：${roomInfo.address}\n`
+    } else {
+      text += `${roomInfo?.name || '未定'}\n`
+    }
+    if (roomInfo?.google_map_url) {
+      text += `📍 ${roomInfo.google_map_url}\n`
+    }
+
     text += `\nご来店を心よりお待ちしております。`
-    
+
     return text
   }
 
   const generateTherapistLineText = () => {
     if (!reservation) return ''
-    
+
     let text = `【${reservation.date} ご予約詳細】\n\n`
+
+    // 日時
     text += `■ 日時\n${reservation.start_time.slice(0, 5)} ～ ${reservation.end_time.slice(0, 5)}\n\n`
-    text += `■ お客様\n${reservation.customers?.name || '未設定'} 様\n`
-    text += `指名区分：${designationLabel(reservation.designation_type)}\n\n`
-    
-    text += `■ コース\n${reservation.courses?.name || ''} (${reservation.courses?.duration || 0}分)\n`
-    
-    // Options
-    const options = reservation.reservation_options
-      ?.map(ro => ro.options?.name)
-      .filter(Boolean)
-    
-    if (options && options.length > 0) {
-      text += `オプション：${options.join(', ')}\n`
-    }
-    
-    text += `\n■ ルーム\n${roomInfo?.name || '未定'}\n\n`
-    
-    // Payment method
-    if (reservation.payment_method === 'credit') {
-      const optsCash = reservation.options_payment_method === 'cash' && reservation.options_price > 0
-      text += `■ お支払い方法\n`
-      text += `💳 クレジット決済（コース・指名料）\n`
-      if (optsCash) {
-        text += `💴 オプションは現金（¥${reservation.options_price.toLocaleString()}）をセラピストへ直接お支払い\n`
-      }
-      text += `\n`
+
+    // ルーム
+    text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
+
+    // お客様（新規/会員 + 氏名）
+    const customerPrefix = isNewCustomer ? '新規' : '会員'
+    text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様\n\n`
+
+    // コース（コース名＋料金のみ）
+    text += `■ コース\n`
+    text += `${reservation.courses?.name || ''} \\${reservation.base_price.toLocaleString()}\n`
+
+    // 指名料（コースに加算）
+    if (reservation.nomination_fee > 0) {
+      text += `${designationLabel(reservation.designation_type)} \\${reservation.nomination_fee.toLocaleString()}\n`
     }
 
-    // Price Details (Revenue)
-    text += `■ 売上詳細\n`
-    text += `基本料金：¥${reservation.base_price.toLocaleString()}\n`
-    if (reservation.options_price > 0) {
-      text += `オプション：¥${reservation.options_price.toLocaleString()}\n`
+    // オプション（通常＋手入力）
+    const allOptions = reservation.reservation_options?.filter(ro =>
+      (ro.option_id && ro.options) || (!ro.option_id && ro.custom_name)
+    ) ?? []
+    if (allOptions.length > 0) {
+      text += `\n■ オプション\n`
+      allOptions.forEach(ro => {
+        if (ro.option_id && ro.options) {
+          text += `${ro.options.name} \\${ro.options.price.toLocaleString()}\n`
+        } else if (!ro.option_id && ro.custom_name) {
+          text += `${ro.custom_name} \\${ro.price.toLocaleString()}\n`
+        }
+      })
     }
-    if (reservation.nomination_fee > 0) {
-      text += `指名料等：¥${reservation.nomination_fee.toLocaleString()}\n`
-    }
+
+    // 割引
     if (reservation.discount_amount > 0) {
-      text += `割引：-¥${reservation.discount_amount.toLocaleString()}\n`
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      text += `\n■ 割引\n`
+      if (discounts.length > 0) {
+        discounts.forEach(d => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
+          text += `${discountName} -¥${d.applied_amount.toLocaleString()}\n`
+        })
+      } else {
+        text += `割引 -¥${reservation.discount_amount.toLocaleString()}\n`
+      }
     }
+
     text += `------------------------\n`
     text += `合計：¥${reservation.total_price.toLocaleString()}`
-    
+
     if (reservation.notes) {
       text += `\n\n■ 備考\n${reservation.notes}`
     }
-    
+
     return text
   }
 
-  const handleCopy = async (text: string, type: string) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const handleCopy = async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert(`${type}用のテキストをコピーしました`)
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 2000)
     } catch (err) {
       console.error('コピーに失敗しました', err)
-      alert('コピーに失敗しました')
     }
   }
 
@@ -313,13 +380,22 @@ export default function ReservationPreviewPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-4 pt-4">
               <button
-                onClick={() => handleCopy(generateCustomerLineText(), 'お客様')}
-                className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+                onClick={() => handleCopy(generateCustomerLineText(), 'customer')}
+                className={`w-full py-3 text-white font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 ${copiedKey === 'customer' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-                </svg>
-                お客様用ご案内をコピー
+                {copiedKey === 'customer' ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    コピーしました
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                    </svg>
+                    お客様用ご案内をコピー
+                  </>
+                )}
               </button>
             </div>
             <pre className="mx-4 mb-4 mt-3 p-3 text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl border border-slate-100 h-36 overflow-y-auto">
@@ -331,13 +407,22 @@ export default function ReservationPreviewPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-4 pt-4">
               <button
-                onClick={() => handleCopy(generateTherapistLineText(), 'セラピスト')}
-                className="w-full py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+                onClick={() => handleCopy(generateTherapistLineText(), 'therapist')}
+                className={`w-full py-3 text-white font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 ${copiedKey === 'therapist' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-                </svg>
-                セラピスト用詳細をコピー
+                {copiedKey === 'therapist' ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    コピーしました
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                    </svg>
+                    セラピスト用詳細をコピー
+                  </>
+                )}
               </button>
             </div>
             <pre className="mx-4 mb-4 mt-3 p-3 text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl border border-slate-100 h-36 overflow-y-auto">
