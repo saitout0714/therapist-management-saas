@@ -71,6 +71,7 @@ export default function PayrollPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [shiftAllowance, setShiftAllowance] = useState(0)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     async function fetchTherapists() {
@@ -402,10 +403,10 @@ export default function PayrollPage() {
     const text = generateLineText()
     if (!text) return
     navigator.clipboard.writeText(text).then(() => {
-      alert('クリップボードにコピーしました！')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }).catch(err => {
       console.error(err)
-      alert('コピーに失敗しました。')
     })
   }
 
@@ -622,12 +623,21 @@ export default function PayrollPage() {
                   </h3>
                   <button
                     onClick={handleCopy}
-                    className="text-xs font-bold bg-white text-indigo-600 hover:text-indigo-800 border border-indigo-200 px-3 py-1.5 rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-1.5"
+                    className={`text-xs font-bold border px-3 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1.5 ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-indigo-600 hover:text-indigo-800 border-indigo-200'}`}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    テキストをコピー
+                    {copied ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        コピーしました
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        テキストをコピー
+                      </>
+                    )}
                   </button>
                 </div>
                 <div className="p-4 flex-1 bg-slate-50/50">
