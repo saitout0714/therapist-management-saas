@@ -15,6 +15,7 @@ type BackAmount = {
   designation_type: string
   back_amount: number
   customer_price: number | null
+  course_price_override: number | null
 }
 
 type DesignationTypeItem = { value: string; label: string }
@@ -29,8 +30,8 @@ export function CourseBackAmountsTab() {
   const [saving, setSaving] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<string>('')
   const [selectedRank, setSelectedRank] = useState<string>('all')
-  // editableCells: key = `${designation_type}` => { back_amount, customer_price }
-  const [editableCells, setEditableCells] = useState<Record<string, { back_amount: string; customer_price: string }>>({})
+  // editableCells: key = designation_type => { course_price, back_amount, customer_price }
+  const [editableCells, setEditableCells] = useState<Record<string, { course_price: string; back_amount: string; customer_price: string }>>({})
   const [extensionRankPrices, setExtensionRankPrices] = useState<ExtensionRankPrice[]>([])
   const [extensionDefaults, setExtensionDefaults] = useState({ price: 0, back: 0 })
   const [extRankSaving, setExtRankSaving] = useState(false)
@@ -82,7 +83,7 @@ export function CourseBackAmountsTab() {
 
   // 選択中のコース×ランクに該当する amounts をフィルタし、editable cells を構築
   useEffect(() => {
-    const cells: Record<string, { back_amount: string; customer_price: string }> = {}
+    const cells: Record<string, { course_price: string; back_amount: string; customer_price: string }> = {}
     const rankFilter = selectedRank === 'all' ? null : selectedRank
 
     for (const dt of designationTypes) {
@@ -92,6 +93,7 @@ export function CourseBackAmountsTab() {
           a.designation_type === dt.value
       )
       cells[dt.value] = {
+        course_price: existing?.course_price_override != null ? String(existing.course_price_override) : '',
         back_amount: existing ? String(existing.back_amount) : '',
         customer_price: existing?.customer_price != null ? String(existing.customer_price) : '',
       }
@@ -99,7 +101,7 @@ export function CourseBackAmountsTab() {
     setEditableCells(cells)
   }, [selectedCourse, selectedRank, amounts, designationTypes])
 
-  const handleCellChange = (designationType: string, field: 'back_amount' | 'customer_price', value: string) => {
+  const handleCellChange = (designationType: string, field: 'course_price' | 'back_amount' | 'customer_price', value: string) => {
     setEditableCells(prev => ({
       ...prev,
       [designationType]: { ...prev[designationType], [field]: value },
@@ -114,12 +116,14 @@ export function CourseBackAmountsTab() {
 
     for (const dt of designationTypes) {
       const cell = editableCells[dt.value]
-      if (!cell || cell.back_amount === '') continue
+      // コース料金・給与バック額・合計請求額がすべて未入力の行はスキップ
+      if (!cell || (cell.course_price === '' && cell.back_amount === '' && cell.customer_price === '')) continue
 
-      const backAmount = parseInt(cell.back_amount, 10)
+      const backAmount = cell.back_amount !== '' ? parseInt(cell.back_amount, 10) : 0
       if (isNaN(backAmount)) continue
 
-      const customerPrice = cell.customer_price ? parseInt(cell.customer_price, 10) : null
+      const customerPrice = cell.customer_price !== '' ? parseInt(cell.customer_price, 10) : null
+      const coursePriceOverride = cell.course_price !== '' ? parseInt(cell.course_price, 10) : null
 
       const existing = amounts.find(
         a => a.course_id === selectedCourse &&
@@ -128,11 +132,18 @@ export function CourseBackAmountsTab() {
       )
 
       if (existing) {
-        await supabase.from('course_back_amounts')
-          .update({ back_amount: backAmount, customer_price: customerPrice, updated_at: new Date().toISOString() })
+        const { error } = await supabase.from('course_back_amounts')
+          .update({ back_amount: backAmount, customer_price: customerPrice, course_price_override: coursePriceOverride, updated_at: new Date().toISOString() })
           .eq('id', existing.id)
+        if (error) {
+          const msg = error.message || error.details || error.hint || error.code || JSON.stringify(error)
+          console.error('更新エラー詳細:', { message: error.message, details: error.details, hint: error.hint, code: error.code })
+          alert(`保存に失敗しました（${dt.label}）: ${msg}`)
+          setSaving(false)
+          return
+        }
       } else {
-        await supabase.from('course_back_amounts')
+        const { error } = await supabase.from('course_back_amounts')
           .insert([{
             shop_id: selectedShop.id,
             course_id: selectedCourse,
@@ -140,7 +151,15 @@ export function CourseBackAmountsTab() {
             designation_type: dt.value,
             back_amount: backAmount,
             customer_price: customerPrice,
+            course_price_override: coursePriceOverride,
           }])
+        if (error) {
+          const msg = error.message || error.details || error.hint || error.code || JSON.stringify(error)
+          console.error('挿入エラー詳細:', { message: error.message, details: error.details, hint: error.hint, code: error.code })
+          alert(`保存に失敗しました（${dt.label}）: ${msg}`)
+          setSaving(false)
+          return
+        }
       }
     }
 
@@ -186,6 +205,7 @@ export function CourseBackAmountsTab() {
 
   const selectedCourseName = courses.find(c => c.id === selectedCourse)
   const selectedRankName = selectedRank === 'all' ? '全ランク共通' : ranks.find(r => r.id === selectedRank)?.name
+  const baseCoursePrice = selectedCourseName?.base_price || 0
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
@@ -252,23 +272,34 @@ export function CourseBackAmountsTab() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {designationTypes.map((dt: DesignationTypeItem) => {
-              const cell = editableCells[dt.value] || { back_amount: '', customer_price: '' }
-              const coursePrice = selectedCourseName?.base_price || 0
-              
-              // 現在の合計額（未入力ならベース価格）
+              const cell = editableCells[dt.value] || { course_price: '', back_amount: '', customer_price: '' }
+              // 行ごとのコース料金: 入力値があればそれ、なければコースのデフォルト
+              const coursePrice = cell.course_price !== '' ? (parseInt(cell.course_price, 10) || 0) : baseCoursePrice
+
+              // 現在の合計額（未入力ならコース料金）
               const currentTotalPrice = cell.customer_price !== '' ? (parseInt(cell.customer_price, 10) || 0) : coursePrice
               // 指名料 = 合計額 - コース料金
               const nominationFee = currentTotalPrice - coursePrice
-              
+
               const backNum = parseInt(cell.back_amount, 10) || 0
               const shopProfit = currentTotalPrice - backNum
-              const hasValue = cell.back_amount !== ''
+              const hasValue = cell.back_amount !== '' || cell.customer_price !== '' || cell.course_price !== ''
 
-              // 指名料の変更ハンドラ
+              // 指名料の変更ハンドラ（合計額 = コース料金 + 指名料）
               const handleNominationFeeChange = (valStr: string) => {
                 const nh = parseInt(valStr, 10) || 0
                 const newTotal = coursePrice + nh
                 handleCellChange(dt.value, 'customer_price', String(newTotal))
+              }
+
+              // コース料金変更時: 指名料を固定したまま合計額を再計算
+              const handleCoursePriceChange = (valStr: string) => {
+                handleCellChange(dt.value, 'course_price', valStr)
+                if (cell.customer_price !== '') {
+                  const newCoursePrice = parseInt(valStr, 10) || 0
+                  const newTotal = newCoursePrice + nominationFee
+                  handleCellChange(dt.value, 'customer_price', String(newTotal))
+                }
               }
 
               return (
@@ -284,8 +315,18 @@ export function CourseBackAmountsTab() {
                       {dt.label}
                     </span>
                   </td>
-                  <td className="p-3 text-sm text-slate-500 font-medium">
-                    ¥{coursePrice.toLocaleString()}
+                  <td className="p-3">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={cell.course_price}
+                        onChange={(e) => handleCoursePriceChange(e.target.value)}
+                        placeholder={String(baseCoursePrice)}
+                        className="w-full border border-slate-200 rounded-lg pl-7 pr-2 py-2 text-sm bg-slate-50/60 focus:ring-2 focus:ring-slate-400/50 outline-none font-medium text-slate-600"
+                      />
+                    </div>
                   </td>
                   <td className="p-3">
                     <div className="relative">
@@ -368,7 +409,7 @@ export function CourseBackAmountsTab() {
             )}
             設定を保存する
           </button>
-          <span className="text-xs text-slate-400">※給与バック額が空欄の行は保存されません</span>
+          <span className="text-xs text-slate-400">※指名料・合計請求額・給与バック額のいずれかを入力した行が保存されます</span>
         </div>
       </div>
 
@@ -405,7 +446,7 @@ export function CourseBackAmountsTab() {
                            designationTypes.findIndex((d: DesignationTypeItem) => d.value === b.designation_type)
                   })
                   .map(a => {
-                    const coursePrice = courses.find(c => c.id === a.course_id)?.base_price || 0
+                    const coursePrice = a.course_price_override ?? courses.find(c => c.id === a.course_id)?.base_price ?? 0
                     const rankName = a.rank_id ? ranks.find(r => r.id === a.rank_id)?.name || '不明' : '全ランク共通'
                     const dtLabel = designationTypes.find((d: DesignationTypeItem) => d.value === a.designation_type)?.label || a.designation_type
                     const price = a.customer_price ?? coursePrice
