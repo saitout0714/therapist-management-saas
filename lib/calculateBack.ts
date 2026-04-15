@@ -44,6 +44,7 @@ type TherapistBackOverride = {
 type CourseBackAmount = {
   back_amount: number
   customer_price: number | null
+  course_price_override: number | null
 }
 
 type OptionBackRule = {
@@ -153,21 +154,23 @@ export async function resolveCustomerPrice(
   rankId: string | null,
   designationSlug: string,
   fallbackBasePrice: number
-): Promise<{ customerPrice: number; backAmount: number | null; source: 'matrix' | 'default' | 'fallback' }> {
+): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; source: 'matrix' | 'default' | 'fallback' }> {
   // 1. ランク指定ありで検索（マトリクス表）
   if (rankId) {
     const { data } = await supabase
       .from('course_back_amounts')
-      .select('back_amount, customer_price')
+      .select('back_amount, customer_price, course_price_override')
       .eq('shop_id', shopId)
       .eq('course_id', courseId)
       .eq('rank_id', rankId)
       .eq('designation_type', designationSlug)
       .limit(1)
     if (data && data.length > 0) {
+      const row = data[0] as CourseBackAmount
       return {
-        customerPrice: data[0].customer_price ?? fallbackBasePrice,
-        backAmount: data[0].back_amount,
+        customerPrice: row.customer_price ?? row.course_price_override ?? fallbackBasePrice,
+        backAmount: row.back_amount,
+        coursePriceOverride: row.course_price_override,
         source: 'matrix'
       }
     }
@@ -176,16 +179,18 @@ export async function resolveCustomerPrice(
   // 2. ランクNULL（全ランク共通）にフォールバック（マトリクス表）
   const { data: commonData } = await supabase
     .from('course_back_amounts')
-    .select('back_amount, customer_price')
+    .select('back_amount, customer_price, course_price_override')
     .eq('shop_id', shopId)
     .eq('course_id', courseId)
     .is('rank_id', null)
     .eq('designation_type', designationSlug)
     .limit(1)
   if (commonData && commonData.length > 0) {
+    const row = commonData[0] as CourseBackAmount
     return {
-      customerPrice: commonData[0].customer_price ?? fallbackBasePrice,
-      backAmount: commonData[0].back_amount,
+      customerPrice: row.customer_price ?? row.course_price_override ?? fallbackBasePrice,
+      backAmount: row.back_amount,
+      coursePriceOverride: row.course_price_override,
       source: 'matrix'
     }
   }
@@ -197,18 +202,19 @@ export async function resolveCustomerPrice(
     .eq('shop_id', shopId)
     .eq('slug', designationSlug)
     .limit(1)
-  
+
   if (dtData && dtData.length > 0) {
     const dt = dtData[0]
     return {
       customerPrice: fallbackBasePrice + (dt.default_fee || 0),
       backAmount: dt.default_back_amount ?? null,
+      coursePriceOverride: null,
       source: 'default'
     }
   }
 
   // 4. 最終フォールバック
-  return { customerPrice: fallbackBasePrice, backAmount: null, source: 'fallback' }
+  return { customerPrice: fallbackBasePrice, backAmount: null, coursePriceOverride: null, source: 'fallback' }
 }
 
 
@@ -272,10 +278,15 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   )
   const effectiveCoursePrice = resolved_price.customerPrice
 
+  // マトリクスにback_amountが設定されている場合、それを最優先で使用する。
+  // customer_price（合計）はすでにコース料金+指名料を含むため、
+  // 予約の nomination_fee を totalPrice に重ねて加算しない。
+  const matrixBackUsed = resolved_price.source === 'matrix' && resolved_price.backAmount !== null
+
   // designation_types の default_fee がコース料金に折り込まれている場合、
   // 指名料部分を分離してバック計算を独立させる。
-  // （UI側で basePrice > originalBase を検知して nominationFee=0 にしているため）
   const implicitNominationFee = (
+    !matrixBackUsed &&
     input.nominationFee === 0 &&
     resolved_price.source === 'default' &&
     effectiveCoursePrice > input.coursePrice
@@ -335,7 +346,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
 
-    const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee
+    const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee)
     return {
       courseBack: courseHalfBack,
       extensionBack: extensionBack,
@@ -358,8 +369,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 2: コースバック額の算出
-  // 優先順: マトリクス固定額(course_back_amounts) > コース設定バック(courses.back_amount) > ショップレート計算
-  if (resolved.calcType === 'percentage') {
+  // 優先順: マトリクス設定(course_back_amounts.back_amount) > コース設定バック(courses.back_amount) > ショップレート計算
+  // マトリクスに back_amount が設定されている場合は calc_type に関わらず最優先で使用
+  if (matrixBackUsed) {
+    courseBack = resolved_price.backAmount!
+    calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+  } else if (resolved.calcType === 'percentage') {
     if (input.courseBackAmount && input.courseBackAmount > 0) {
       // courses.back_amount が設定されていれば固定バックとして優先
       courseBack = input.courseBackAmount
@@ -369,26 +384,20 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       calcMethod = `パーセンテージ（${resolved.courseRate}%）`
     }
   } else if (resolved.calcType === 'fixed') {
-    // マトリクス(source==='matrix')の back_amount が最優先
-    if (resolved_price.source === 'matrix' && resolved_price.backAmount !== null) {
-      courseBack = resolved_price.backAmount
+    const fixedAmount = await fetchCourseBackAmount(
+      input.shopId,
+      input.courseId,
+      input.therapistRankId,
+      input.designationType
+    )
+    if (fixedAmount) {
+      courseBack = fixedAmount.back_amount
       calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+    } else if (input.courseBackAmount && input.courseBackAmount > 0) {
+      courseBack = input.courseBackAmount
+      calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
     } else {
-      const fixedAmount = await fetchCourseBackAmount(
-        input.shopId,
-        input.courseId,
-        input.therapistRankId,
-        input.designationType
-      )
-      if (fixedAmount) {
-        courseBack = fixedAmount.back_amount
-        calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
-      } else if (input.courseBackAmount && input.courseBackAmount > 0) {
-        courseBack = input.courseBackAmount
-        calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
-      } else {
-        calcMethod = '固定額（未設定 → 0円）'
-      }
+      calcMethod = '固定額（未設定 → 0円）'
     }
   }
 
@@ -475,9 +484,10 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
-  if (nominationFeeForBack > 0) {
+  // マトリクスの back_amount を使用した場合は指名料バックを別途計算しない
+  // （back_amount がコース+指名料の合計バックとして設定されているため）
+  if (!matrixBackUsed && nominationFeeForBack > 0) {
     // designation_types の default_back_amount が設定されている場合はそれを優先
-    // （指名種別ごとに固有の指名料バック額を設定できる）
     if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
       nominationBack = resolved_price.backAmount
     } else {
@@ -529,7 +539,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
-  const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + input.nominationFee - totalDiscount
+  // マトリクスの customer_price（合計）を使用した場合は nomination_fee を加算しない（二重計上防止）
+  const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee) - totalDiscount
 
   const himeBonus = input.himeBonus ?? 0
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances + himeBonus
