@@ -24,6 +24,7 @@ export default function EditTherapistPage() {
     hip: "",
     rank_id: "",
     reservation_interval_minutes: "",
+    is_active: true,
   });
 
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
@@ -100,6 +101,7 @@ export default function EditTherapistPage() {
           reservation_interval_minutes: therapist.reservation_interval_minutes != null
             ? String(therapist.reservation_interval_minutes)
             : "",
+          is_active: therapist.is_active !== false,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "不明なエラー";
@@ -167,6 +169,7 @@ export default function EditTherapistPage() {
         hip: profile.hip ? Number(profile.hip) : null,
         rank_id: profile.rank_id || null,
         has_fee_override: hasOverrides,
+        is_active: profile.is_active,
       })
       .eq("id", therapistId);
 
@@ -350,6 +353,42 @@ export default function EditTherapistPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* 在籍状況 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2">在籍状況</h3>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setProfile({ ...profile, is_active: true })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-medium text-sm transition-all ${
+                      profile.is_active
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${profile.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                    在籍中
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfile({ ...profile, is_active: false })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-medium text-sm transition-all ${
+                      !profile.is_active
+                        ? 'border-rose-400 bg-rose-50 text-rose-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${!profile.is_active ? 'bg-rose-400' : 'bg-slate-300'}`}></span>
+                    退店
+                  </button>
+                </div>
+                {!profile.is_active && (
+                  <p className="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                    退店に設定すると、シフト登録画面に表示されなくなります。
+                  </p>
+                )}
               </div>
 
               {/* インターバル設定 */}

@@ -207,8 +207,8 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70">
+    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full">
+      <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70 flex-shrink-0">
         <button
           className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() - 7 * 86400000))}
@@ -226,7 +226,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
         </button>
       </div>
 
-      <div className="overflow-auto">
+      <div className="overflow-auto flex-1">
         <table className="w-full text-sm border-collapse min-w-[900px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">

@@ -24,6 +24,7 @@ export default function RegisterShift() {
         .from('therapists')
         .select('id, name, order')
         .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
         .order('order', { ascending: true, nullsFirst: false });
 
       if (error) {
@@ -44,9 +45,9 @@ export default function RegisterShift() {
   }, [selectedShop]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
-      <div className="w-full mx-auto">
-        <div className="mb-8">
+    <div className="h-screen overflow-hidden bg-gray-100 flex flex-col p-6 md:p-8">
+      <div className="w-full mx-auto flex flex-col flex-1 min-h-0">
+        <div className="mb-6 flex-shrink-0">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">シフト登録</h1>
           <p className="text-sm text-slate-500 mt-1">店舗に所属するセラピストのシフト（出勤枠）を週単位で登録・編集できます。</p>
         </div>
@@ -59,8 +60,8 @@ export default function RegisterShift() {
         )}
 
         {!loading && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="h-[700px]">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 min-h-0">
+            <div className="h-full">
               {therapists.length > 0 ? (
                 <WeeklyShiftCalendar
                   therapists={therapists}
