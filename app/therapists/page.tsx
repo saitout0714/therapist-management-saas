@@ -168,13 +168,24 @@ export default function TherapistsPage() {
               在籍中
               <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">{activeTherapists.length}</span>
             </h2>
-            <Link
-              href="/therapists/new"
-              className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <span className="text-lg leading-none">+</span>
-              <span>新規登録</span>
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/therapists/import"
+                className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>HPから一括取込</span>
+              </Link>
+              <Link
+                href="/therapists/new"
+                className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span className="text-lg leading-none">+</span>
+                <span>新規登録</span>
+              </Link>
+            </div>
           </div>
 
           <div className="p-4 md:p-6">

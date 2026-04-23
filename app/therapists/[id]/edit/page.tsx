@@ -20,8 +20,10 @@ export default function EditTherapistPage() {
     age: "",
     height: "",
     bust: "",
+    bust_cup: "",
     waist: "",
     hip: "",
+    comment: "",
     rank_id: "",
     reservation_interval_minutes: "",
     is_active: true,
@@ -95,7 +97,9 @@ export default function EditTherapistPage() {
           age: therapist.age ? String(therapist.age) : "",
           height: therapist.height ? String(therapist.height) : "",
           bust: therapist.bust ? String(therapist.bust) : "",
+          bust_cup: therapist.bust_cup || "",
           waist: therapist.waist ? String(therapist.waist) : "",
+          comment: therapist.comment || "",
           hip: therapist.hip ? String(therapist.hip) : "",
           rank_id: therapist.rank_id || "",
           reservation_interval_minutes: therapist.reservation_interval_minutes != null
@@ -165,7 +169,9 @@ export default function EditTherapistPage() {
         age: profile.age ? Number(profile.age) : null,
         height: profile.height ? Number(profile.height) : null,
         bust: profile.bust ? Number(profile.bust) : null,
+        bust_cup: profile.bust_cup || null,
         waist: profile.waist ? Number(profile.waist) : null,
+        comment: profile.comment || null,
         hip: profile.hip ? Number(profile.hip) : null,
         rank_id: profile.rank_id || null,
         has_fee_override: hasOverrides,
@@ -336,6 +342,20 @@ export default function EditTherapistPage() {
                       />
                     </div>
                     <div className="w-px bg-slate-200"></div>
+                    <div className="relative flex items-center" style={{ width: '72px' }}>
+                      <select
+                        name="bust_cup"
+                        value={profile.bust_cup}
+                        onChange={handleChange}
+                        className="w-full py-3 px-2 bg-transparent outline-none text-slate-800 text-center appearance-none cursor-pointer"
+                      >
+                        <option value="">C</option>
+                        {['A','B','C','D','E','F','G','H','I','J','K'].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-px bg-slate-200"></div>
                     <div className="flex-1 relative flex items-center">
                       <span className="absolute left-3 text-slate-400 text-sm font-bold">W</span>
                       <input
@@ -352,6 +372,19 @@ export default function EditTherapistPage() {
                       />
                     </div>
                   </div>
+                  <p className="text-xs text-slate-400 mt-1">バスト数値の隣のドロップダウンでカップを選択</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">コメント</label>
+                  <textarea
+                    name="comment"
+                    value={profile.comment}
+                    onChange={(e) => setProfile({ ...profile, comment: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none"
+                    placeholder="店長おすすめポイント、セラピストからのメッセージなど"
+                  />
                 </div>
               </div>
 
