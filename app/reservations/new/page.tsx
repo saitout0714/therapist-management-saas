@@ -152,6 +152,10 @@ export default function NewReservationPage() {
     phone: '',
   })
   const [customerSearch, setCustomerSearch] = useState('')
+  const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false)
+  const [selectedCustomerObj, setSelectedCustomerObj] = useState<Customer | null>(null)
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   type CustomOption = { name: string; price: number; backAmount: number }
   const [customOptions, setCustomOptions] = useState<CustomOption[]>([])
@@ -229,6 +233,29 @@ export default function NewReservationPage() {
   useEffect(() => {
     fetchAvailableTherapists()
   }, [formData.date, selectedShop])
+
+  useEffect(() => {
+    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+    const q = customerSearch.trim()
+    if (!q || !selectedShop) {
+      setCustomerSearchResults([])
+      return
+    }
+    customerSearchTimer.current = setTimeout(async () => {
+      setCustomerSearchLoading(true)
+      const normalized = q.replace(/-/g, '')
+      const { data } = await supabase
+        .from('customers')
+        .select('id, name, email, phone')
+        .eq('shop_id', selectedShop.id)
+        .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
+        .order('name')
+        .limit(50)
+      setCustomerSearchResults(data || [])
+      setCustomerSearchLoading(false)
+    }, 300)
+    return () => { if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current) }
+  }, [customerSearch, selectedShop])
 
   const fetchInitialData = async () => {
     if (!selectedShop) return
@@ -511,6 +538,7 @@ export default function NewReservationPage() {
 
       const newCust = data[0]
       setCustomers([...customers, newCust])
+      setSelectedCustomerObj(newCust)
       setFormData({ ...formData, customer_id: newCust.id })
       setNewCustomer({ show: false, name: '', email: '', phone: '' })
       scrollToSection(sectionRef2)
@@ -530,13 +558,7 @@ export default function NewReservationPage() {
   }
 
   const normalizedSearch = customerSearch.trim().toLowerCase()
-  const filteredCustomers = normalizedSearch
-    ? customers.filter((customer) => {
-      const target = `${customer.name ?? ''} ${customer.phone ?? ''} ${customer.email ?? ''}`.toLowerCase()
-      return target.includes(normalizedSearch)
-    })
-    : []
-  const selectedCustomer = customers.find((c) => c.id === formData.customer_id)
+  const filteredCustomers = normalizedSearch ? customerSearchResults : []
   const availableTherapists = therapists.filter((t) => availableTherapistIds.includes(t.id))
   const availableShiftText = (therapistId: string) => {
     const times = availableShifts
@@ -801,7 +823,7 @@ export default function NewReservationPage() {
                           <button
                             key={customer.id}
                             type="button"
-                            onClick={() => { setFormData({ ...formData, customer_id: customer.id }); scrollToSection(sectionRef2) }}
+                            onClick={() => { setSelectedCustomerObj(customer); setFormData({ ...formData, customer_id: customer.id }); scrollToSection(sectionRef2) }}
                             className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 ${formData.customer_id === customer.id ? 'bg-indigo-50/50 text-indigo-900 border-l-4 border-l-indigo-500 pl-3' : ''}`}
                           >
                             <span className="font-medium">{customer.name}</span>{' '}
@@ -812,18 +834,18 @@ export default function NewReservationPage() {
                       )}
                     </div>
                   )}
-                  {selectedCustomer && (
+                  {selectedCustomerObj && (
                     <div className="mt-3 p-3 bg-indigo-50/50 rounded-xl text-sm text-indigo-900 font-medium flex items-center justify-between">
                       <div className="flex items-center">
                         <svg className="w-5 h-5 mr-2 text-indigo-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        選択中: {selectedCustomer.name}
-                        {selectedCustomer.phone ? ` (${selectedCustomer.phone})` : ''}
+                        選択中: {selectedCustomerObj.name}
+                        {selectedCustomerObj.phone ? ` (${selectedCustomerObj.phone})` : ''}
                       </div>
                       <button
                         type="button"
-                        onClick={() => { setFormData({ ...formData, customer_id: '' }); setCustomerSearch('') }}
+                        onClick={() => { setFormData({ ...formData, customer_id: '' }); setCustomerSearch(''); setSelectedCustomerObj(null) }}
                         className="text-xs text-slate-400 hover:text-slate-600 underline ml-3"
                       >
                         変更
@@ -833,7 +855,7 @@ export default function NewReservationPage() {
                 </div>
 
                 {/* 新規お客様：検索して該当なしの場合に自動表示 */}
-                {normalizedSearch && filteredCustomers.length === 0 && !formData.customer_id && (
+                {customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
                   <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3">
                     <p className="text-sm font-semibold text-amber-800">新規お客様として登録します（予約登録時に同時に作成されます）</p>
                     <div>

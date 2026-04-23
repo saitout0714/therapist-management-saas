@@ -394,6 +394,10 @@ export default function PayrollPage() {
     text += `\n------------------------\n`
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
     text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
+    if (hasCreditReservation) {
+      const cashBalance = totalCashReceived - netPay
+      text += `★ 現金残: ${cashBalance < 0 ? `-¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}\n`
+    }
     text += `------------------------\n`
     text += `\nご確認よろしくお願いいたします！`
     return text
