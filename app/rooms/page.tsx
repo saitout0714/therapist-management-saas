@@ -1,57 +1,84 @@
-'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
+'use client'
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useShop } from '@/app/contexts/ShopContext';
-import Link from 'next/link';
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useShop } from '@/app/contexts/ShopContext'
+import Link from 'next/link'
 
 interface Room {
-  id: string;
-  name: string;
-  description: string;
-  address: string | null;
-  created_at: string;
+  id: string
+  name: string
+  description: string
+  address: string | null
+  created_at: string
+  order: number | null
 }
 
 export default function RoomsList() {
-  const { selectedShop } = useShop();
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { selectedShop } = useShop()
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
 
   async function fetchRooms() {
-    if (!selectedShop) return;
-    setLoading(true);
+    if (!selectedShop) return
+    setLoading(true)
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
       .eq('shop_id', selectedShop.id)
-      .order('created_at', { ascending: false });
+      .order('order', { ascending: true, nullsFirst: false })
 
     if (error) {
-      console.error('Error fetching rooms:', error);
+      console.error('Error fetching rooms:', error)
     } else {
-      setRooms((data as Room[]) || []);
+      setRooms((data as Room[]) || [])
     }
-    setLoading(false);
+    setLoading(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このルームを削除しますか？')) return;
-
-    const { error } = await supabase.from('rooms').delete().eq('id', id);
-
+    if (!confirm('このルームを削除しますか？')) return
+    const { error } = await supabase.from('rooms').delete().eq('id', id)
     if (error) {
-      alert('削除に失敗しました: ' + error.message);
+      alert('削除に失敗しました: ' + error.message)
     } else {
-      alert('ルームを削除しました');
-      fetchRooms();
+      fetchRooms()
     }
-  };
+  }
 
-  useEffect(() => {
-    fetchRooms();
-  }, [selectedShop]);
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, roomId: string) => {
+    setDraggedId(roomId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragEnd = () => setDraggedId(null)
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetRoom: Room) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetRoom.id) { setDraggedId(null); return }
+
+    const draggedIndex = rooms.findIndex(r => r.id === draggedId)
+    const targetIndex = rooms.findIndex(r => r.id === targetRoom.id)
+    if (draggedIndex === -1 || targetIndex === -1) { setDraggedId(null); return }
+
+    const newRooms = [...rooms]
+    const [draggedItem] = newRooms.splice(draggedIndex, 1)
+    newRooms.splice(targetIndex, 0, draggedItem)
+    setRooms(newRooms)
+
+    for (let i = 0; i < newRooms.length; i++) {
+      await supabase.from('rooms').update({ order: i }).eq('id', newRooms[i].id)
+    }
+    setDraggedId(null)
+  }
+
+  useEffect(() => { fetchRooms() }, [selectedShop])
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-8">
@@ -59,7 +86,7 @@ export default function RoomsList() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム管理</h1>
-            <p className="text-sm text-slate-500 mt-1">店舗に紐づくルーム（部屋）の登録・編集を行います。</p>
+            <p className="text-sm text-slate-500 mt-1">店舗に紐づくルーム（部屋）の登録・編集を行います。ドラッグで並び順を変更できます。</p>
           </div>
           <Link
             href="/rooms/new"
@@ -91,22 +118,42 @@ export default function RoomsList() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
+                    <th className="w-10 px-3 py-4"></th>
                     <th className="px-6 py-4 whitespace-nowrap">ルーム名</th>
                     <th className="px-6 py-4 whitespace-nowrap">住所</th>
-                    <th className="px-6 py-4 whitespace-nowrap">説明</th>
+                    <th className="px-6 py-4 whitespace-nowrap hidden md:table-cell">説明</th>
                     <th className="px-6 py-4 whitespace-nowrap w-32 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rooms.map((room) => (
-                    <tr key={room.id} className="hover:bg-slate-100 transition-colors group">
+                    <tr
+                      key={room.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, room.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, room)}
+                      className={`transition-all group ${
+                        draggedId === room.id
+                          ? 'opacity-40 bg-indigo-50/60'
+                          : 'hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <td className="px-3 py-4 w-10">
+                        <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                          </svg>
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <span className="font-medium text-slate-800">{room.name}</span>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         {room.address || <span className="text-slate-400 italic">未入力</span>}
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-slate-600 hidden md:table-cell">
                         {room.description || <span className="text-slate-400 italic">未設定</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -138,7 +185,5 @@ export default function RoomsList() {
         )}
       </div>
     </div>
-  );
+  )
 }
-
-

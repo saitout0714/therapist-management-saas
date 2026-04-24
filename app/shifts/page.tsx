@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import TimeChart from '../components/TimeChart';
@@ -38,12 +38,15 @@ interface TherapistRow {
   reservation_interval_minutes: number | null;
 }
 
+type SortMode = 'shift' | 'room' | 'reservation'
+
 interface Therapist {
   id: string;
   name: string;
   avatar?: string;
   shiftStart?: string;
   shiftEnd?: string;
+  roomId?: string | null;
   intervalMinutes?: number | null;
 }
 
@@ -85,6 +88,8 @@ export default function ShiftsPage() {
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [sortMode, setSortMode] = useState<SortMode>('shift');
+  const [roomOrderMap, setRoomOrderMap] = useState<Map<string, number>>(new Map());
 
   // 予約不可編集モーダル
   const [blockedModal, setBlockedModal] = useState<{
@@ -130,6 +135,20 @@ export default function ShiftsPage() {
     fetchReservations();
   }, [filterDate, selectedShop, refreshCounter]);
 
+  useEffect(() => {
+    if (!selectedShop) return;
+    supabase
+      .from('rooms')
+      .select('id, order')
+      .eq('shop_id', selectedShop.id)
+      .order('order', { ascending: true, nullsFirst: false })
+      .then(({ data }) => {
+        const map = new Map<string, number>();
+        (data || []).forEach((r: any, i: number) => map.set(r.id, r.order ?? i));
+        setRoomOrderMap(map);
+      });
+  }, [selectedShop, refreshCounter]);
+
   const fetchTherapists = async () => {
     if (!selectedShop) return;
     try {
@@ -161,7 +180,7 @@ export default function ShiftsPage() {
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, rooms(name), start_time, end_time')
+        .select('therapist_id, room_id, rooms(name), start_time, end_time')
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
@@ -170,7 +189,7 @@ export default function ShiftsPage() {
         return;
       }
 
-      const shiftsMap = new Map<string, { therapist_id: string; start_time: string | null; end_time: string | null; rooms: { name: string } | null }>();
+      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; rooms: { name: string } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
@@ -186,6 +205,7 @@ export default function ShiftsPage() {
           avatar: undefined,
           shiftStart: startTime,
           shiftEnd: endTime,
+          roomId: shift?.room_id ?? null,
           room: shift?.rooms?.name,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
         };
@@ -339,6 +359,64 @@ export default function ShiftsPage() {
       }),
   ];
 
+  const sortedTherapistsWithShift = useMemo(() => {
+    const withShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
+    if (sortMode === 'shift') return withShift;
+    if (sortMode === 'room') {
+      return [...withShift].sort((a, b) => {
+        const aOrder = a.roomId ? (roomOrderMap.get(a.roomId) ?? 9999) : 9999;
+        const bOrder = b.roomId ? (roomOrderMap.get(b.roomId) ?? 9999) : 9999;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
+      });
+    }
+    if (sortMode === 'reservation') {
+      const now = new Date();
+      let currentMins = now.getHours() * 60 + now.getMinutes();
+      if (now.getHours() < 6) currentMins += 24 * 60;
+
+      const getShiftEndMins = (t: Therapist): number => {
+        let endMins = hhmToMinutes(t.shiftEnd!);
+        const startMins = hhmToMinutes(t.shiftStart || '00:00');
+        if (endMins <= startMins) endMins += 24 * 60;
+        return endMins;
+      };
+
+      // 退勤済み or 最後の予約+インターバル後にシフト終了時刻を超えている（実質受付不可）
+      const isEffectivelyFinished = (t: Therapist): boolean => {
+        if (!t.shiftEnd) return false;
+        const shiftEndMins = getShiftEndMins(t);
+        if (currentMins >= shiftEndMins) return true;
+        const interval = t.intervalMinutes ?? shopIntervalMinutes;
+        const therapistReservations = reservations.filter(
+          (r: any) => r.therapist_id === t.id && r.status === 'confirmed'
+        );
+        if (therapistReservations.length === 0) return false;
+        const maxEndMins = Math.max(
+          ...therapistReservations.map((r: any) => hhmToMinutes(r.end_time.slice(0, 5)))
+        );
+        return (maxEndMins + interval) >= shiftEndMins;
+      };
+
+      const earliestMap = new Map<string, number>();
+      reservations.filter((r: any) => r.status === 'confirmed').forEach(r => {
+        const mins = hhmToMinutes(r.start_time.slice(0, 5));
+        const cur = earliestMap.get(r.therapist_id) ?? 9999;
+        if (mins < cur) earliestMap.set(r.therapist_id, mins);
+      });
+      return [...withShift].sort((a, b) => {
+        const aFinished = isEffectivelyFinished(a);
+        const bFinished = isEffectivelyFinished(b);
+        if (aFinished !== bFinished) return aFinished ? 1 : -1;
+        const aMin = earliestMap.get(a.id) ?? 9999;
+        const bMin = earliestMap.get(b.id) ?? 9999;
+        if (aMin !== bMin) return aMin - bMin;
+        return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
+      });
+    }
+    return withShift;
+  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes]);
+
   // 週間表示用：全セラピストをシンプルな形式にマップ
   const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, reservation_interval_minutes: t.intervalMinutes ?? null }));
 
@@ -378,6 +456,27 @@ export default function ShiftsPage() {
                 週間表示
               </button>
             </div>
+
+            {/* 並び替えモード */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start">
+                {([
+                  { key: 'shift', label: '出勤時間順' },
+                  { key: 'room', label: 'ルーム順' },
+                  { key: 'reservation', label: '受付時間順' },
+                ] as { key: SortMode; label: string }[]).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortMode(key)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${
+                      sortMode === key
+                        ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
             {/* 日付ナビゲーション */}
             <div className="flex gap-1 items-center bg-slate-50 p-1 rounded-lg border border-slate-200 w-fit">
@@ -449,15 +548,13 @@ export default function ShiftsPage() {
 
         {/* タイムチャートビュー */}
         {viewMode === 'day' && !loading && (() => {
-          const therapistsWithShift = therapists.filter(t => t.shiftStart && t.shiftEnd);
-          // TimeChart 内の rowHeight(72px) × 人数 + header(56px) + scrollbar(10px)
-          const chartHeight = 56 + therapistsWithShift.length * 72 + 10;
+          const chartHeight = 56 + sortedTherapistsWithShift.length * 72 + 10;
           return (
             <div className="bg-white rounded-lg shadow-lg overflow-visible">
               <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
-                {therapistsWithShift.length > 0 ? (
+                {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart
-                    therapists={therapistsWithShift}
+                    therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
                     onBlockedClick={(id, startTime, endTime) =>
@@ -466,7 +563,7 @@ export default function ShiftsPage() {
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
-                    <p>シフトがあるセラピストがいません</p>
+                    シフトがあるセラピストがいません
                   </div>
                 )}
               </div>
@@ -479,6 +576,9 @@ export default function ShiftsPage() {
           <WeeklyDayView
             therapists={therapistsForWeekly}
             weekStartDate={weekStartDate}
+            sortMode={sortMode}
+            roomOrderMap={roomOrderMap}
+            shopIntervalMinutes={shopIntervalMinutes}
             onDayClick={(date) => {
               setFilterDate(date);
               setViewMode('day');

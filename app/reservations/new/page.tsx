@@ -78,6 +78,7 @@ type DiscountPolicy = {
   discount_type: 'fixed' | 'percentage'
   discount_value: number
   burden_type: 'shop_only' | 'split' | 'therapist_only'
+  therapist_burden_amount: number | null
   is_active: boolean
 }
 
@@ -723,7 +724,7 @@ export default function NewReservationPage() {
             policy_id: selectedPolicy ? selectedPolicy.id : null,
             applied_amount: calculatedPrice.discountAmount,
             burden_type: selectedPolicy ? selectedPolicy.burden_type : 'shop_only',
-            therapist_burden_amount: selectedPolicy ? null : formData.manual_therapist_burden,
+            therapist_burden_amount: selectedPolicy ? (selectedPolicy.therapist_burden_amount ?? null) : formData.manual_therapist_burden,
             is_adhoc: !selectedPolicy,
             adhoc_name: !selectedPolicy ? '手動割引' : null,
             note: formData.discount_reason || null
@@ -752,7 +753,7 @@ export default function NewReservationPage() {
               ...customOptionInserts.map(co => ({ option_id: null as string | null, price: co.price, custom_back_amount: co.custom_back_amount })),
             ],
             discounts: calculatedPrice.discountAmount > 0
-              ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || 'shop_only') as 'shop_only' | 'split' | 'therapist_only', therapist_burden_amount: selectedDiscountId ? null : formData.manual_therapist_burden }]
+              ? [{ applied_amount: calculatedPrice.discountAmount, burden_type: (discountPolicies.find(p => p.id === selectedDiscountId)?.burden_type || 'shop_only') as 'shop_only' | 'split' | 'therapist_only', therapist_burden_amount: selectedDiscountId ? (discountPolicies.find(p => p.id === selectedDiscountId)?.therapist_burden_amount ?? null) : formData.manual_therapist_burden }]
               : [],
             date: formData.date,
             startTime: formData.start_time,

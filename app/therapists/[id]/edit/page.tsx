@@ -195,7 +195,6 @@ export default function EditTherapistPage() {
         .update({ reservation_interval_minutes: intervalValue })
         .eq("id", therapistId);
       if (intervalError) {
-        // 列が未追加の場合は警告のみ（他の保存は完了済み）
         console.warn("インターバルの保存をスキップ（DBマイグレーション未適用の可能性）:", intervalError.message);
       }
     }
@@ -386,6 +385,7 @@ export default function EditTherapistPage() {
                     placeholder="店長おすすめポイント、セラピストからのメッセージなど"
                   />
                 </div>
+
               </div>
 
               {/* 在籍状況 */}

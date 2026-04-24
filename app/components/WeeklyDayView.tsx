@@ -40,10 +40,15 @@ interface Reservation {
   courses: { name: string; duration: number } | null
 }
 
+type SortMode = 'shift' | 'room' | 'reservation'
+
 interface WeeklyDayViewProps {
   therapists: Therapist[]
   weekStartDate: Date
   onDayClick?: (date: string) => void
+  sortMode?: SortMode
+  roomOrderMap?: Map<string, number>
+  shopIntervalMinutes?: number
 }
 
 function formatDate(date: Date): string {
@@ -78,7 +83,14 @@ const DESIGNATION_LABEL: Record<string, string> = {
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
-const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate, onDayClick }) => {
+const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
+  therapists,
+  weekStartDate,
+  onDayClick,
+  sortMode = 'shift',
+  roomOrderMap = new Map(),
+  shopIntervalMinutes = 20,
+}) => {
   const router = useRouter()
   const { selectedShop } = useShop()
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -152,11 +164,62 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({ therapists, weekStartDate
       const list = map.get(s.date)
       if (list) list.push(s)
     })
-    map.forEach(list => {
-      list.sort((a, b) => toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5)))
+
+    const todayStr = formatDate(new Date())
+    const now = new Date()
+    let nowMins = now.getHours() * 60 + now.getMinutes()
+    if (now.getHours() < 6) nowMins += 24 * 60
+
+    map.forEach((list, dateStr) => {
+      if (sortMode === 'shift') {
+        list.sort((a, b) => toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5)))
+      } else if (sortMode === 'room') {
+        list.sort((a, b) => {
+          const aOrder = a.room_id ? (roomOrderMap.get(a.room_id) ?? 9999) : 9999
+          const bOrder = b.room_id ? (roomOrderMap.get(b.room_id) ?? 9999) : 9999
+          if (aOrder !== bOrder) return aOrder - bOrder
+          return toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5))
+        })
+      } else if (sortMode === 'reservation') {
+        const earliestMap = new Map<string, number>()
+        reservations
+          .filter(r => r.date === dateStr && r.status === 'confirmed')
+          .forEach(r => {
+            const mins = toMinutes(r.start_time.slice(0, 5))
+            const cur = earliestMap.get(r.therapist_id) ?? 9999
+            if (mins < cur) earliestMap.set(r.therapist_id, mins)
+          })
+
+        const isEffectivelyFinished = (shift: Shift): boolean => {
+          if (dateStr !== todayStr) return false
+          let endMins = toMinutes(shift.end_time.slice(0, 5))
+          const startMins = toMinutes(shift.start_time.slice(0, 5))
+          if (endMins <= startMins) endMins += 24 * 60
+          if (nowMins >= endMins) return true
+          const therapist = therapistMap.get(shift.therapist_id)
+          const interval = therapist?.reservation_interval_minutes ?? shopIntervalMinutes
+          const therapistReservations = reservations.filter(
+            r => r.therapist_id === shift.therapist_id && r.date === dateStr && r.status === 'confirmed'
+          )
+          if (therapistReservations.length === 0) return false
+          const maxEndMins = Math.max(...therapistReservations.map(r => toMinutes(r.end_time.slice(0, 5))))
+          return (maxEndMins + interval) >= endMins
+        }
+
+        list.sort((a, b) => {
+          const aFinished = isEffectivelyFinished(a)
+          const bFinished = isEffectivelyFinished(b)
+          if (aFinished !== bFinished) return aFinished ? 1 : -1
+          const aMin = earliestMap.get(a.therapist_id) ?? 9999
+          const bMin = earliestMap.get(b.therapist_id) ?? 9999
+          if (aMin !== bMin) return aMin - bMin
+          return toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5))
+        })
+      }
     })
+
     return map
-  }, [shifts, weekDates])
+  }, [shifts, weekDates, sortMode, roomOrderMap, reservations, therapistMap, shopIntervalMinutes])
 
   const reservationsByDateTherapist = useMemo(() => {
     const map = new Map<string, Reservation[]>()

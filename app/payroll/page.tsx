@@ -38,7 +38,7 @@ type ReservationWithDetails = {
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
   customer: { name: string } | null
   reservation_options: { option_id: string | null; price: number; custom_name: string | null; custom_back_amount: number | null; option: { name: string } | null }[]
-  reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
+  reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only'; therapist_burden_amount: number | null }[]
 }
 
 type CalculatedRow = {
@@ -149,7 +149,7 @@ export default function PayrollPage() {
           course:courses(name, duration, base_price, back_amount),
           customer:customers(name),
           reservation_options(option_id, price, custom_name, custom_back_amount, option:options(name)),
-          reservation_discounts(applied_amount, burden_type)
+          reservation_discounts(applied_amount, burden_type, therapist_burden_amount)
         `)
         .eq('shop_id', selectedShop.id)
         .eq('therapist_id', selectedTherapistId)

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 type Shop = {
   id: string
   name: string
+  short_name: string | null
   description: string | null
   is_active: boolean
   created_at: string

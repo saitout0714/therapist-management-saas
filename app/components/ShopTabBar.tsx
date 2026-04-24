@@ -99,7 +99,7 @@ export default function ShopTabBar() {
   return (
     <div
       className="flex-shrink-0 relative bg-white border-t-2 border-slate-200"
-      style={{ height: '52px', boxShadow: '0 -4px 24px rgba(0,0,0,0.07)' }}
+      style={{ height: '44px', boxShadow: '0 -4px 24px rgba(0,0,0,0.07)' }}
     >
       {/* 左スクロールボタン */}
       {showLeftFade && (
@@ -146,23 +146,20 @@ export default function ShopTabBar() {
               key={shop.id}
               ref={isActive ? activeTabRef : undefined}
               onClick={() => handleShopSelect(shop)}
+              title={shop.name}
               className={`
-                relative flex-shrink-0 flex items-center gap-2 px-4 h-9 rounded-lg text-sm
+                relative flex-shrink-0 flex items-center gap-1.5 px-3 h-7 rounded-md text-xs
                 transition-all duration-150 focus:outline-none whitespace-nowrap
                 ${isActive
-                  ? 'bg-indigo-600 text-white font-semibold shadow-md shadow-indigo-200'
-                  : 'bg-slate-50 text-slate-500 font-medium hover:bg-indigo-50 hover:text-indigo-600'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-200'
+                  : 'bg-slate-100 text-slate-500 font-medium hover:bg-indigo-50 hover:text-indigo-600'
                 }
               `}
             >
-              {/* アクティブインジケータードット */}
               <span
-                className={`
-                  w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-150
-                  ${isActive ? 'bg-white/70' : 'bg-slate-400'}
-                `}
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-150 ${isActive ? 'bg-white/70' : 'bg-slate-400'}`}
               />
-              {shop.name}
+              {shop.short_name || shop.name}
             </button>
           )
         })}

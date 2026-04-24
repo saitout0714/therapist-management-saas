@@ -24,6 +24,7 @@ interface Shift {
   end_time: string
 }
 
+
 interface WeeklyShiftCalendarProps {
   therapists: Therapist[]
   onShiftUpdate?: () => void
@@ -106,7 +107,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
         setRooms([])
         return
       }
-      const { data } = await supabase.from('rooms').select('id, name').eq('shop_id', selectedShop.id)
+      const { data } = await supabase.from('rooms').select('id, name').eq('shop_id', selectedShop.id).order('order', { ascending: true, nullsFirst: false })
       setRooms((data as Room[]) || [])
     }
     void run()
@@ -130,17 +131,41 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     void fetchWeeklyShifts()
   }, [selectedShop, weekDates])
 
-  const filteredTherapists = useMemo(() => {
-    if (!showOnlyWithShift) return therapists
-    const ids = new Set(shifts.map((s) => s.therapist_id))
-    return therapists.filter((t) => ids.has(t.id))
-  }, [therapists, shifts, showOnlyWithShift])
-
   const shiftMap = useMemo(() => {
     const map = new Map<string, Shift>()
     shifts.forEach((s) => map.set(`${s.therapist_id}_${s.date}`, s))
     return map
   }, [shifts])
+
+  const filteredTherapists = useMemo(() => {
+    const todayStr = formatDate(new Date())
+    // 当日以降の日付リスト（表示週内で今日以降）
+    const upcomingDates = weekDates.map(formatDate).filter(d => d >= todayStr)
+
+    const list = showOnlyWithShift
+      ? (() => { const ids = new Set(shifts.map((s) => s.therapist_id)); return therapists.filter((t) => ids.has(t.id)) })()
+      : therapists
+
+    // セラピストごとに「当日以降で最初にあるシフト」を取得（当日優先）
+    const firstShift = (therapistId: string): Shift | null => {
+      for (const d of upcomingDates) {
+        const s = shiftMap.get(`${therapistId}_${d}`)
+        if (s) return s
+      }
+      return null
+    }
+
+    return [...list].sort((a, b) => {
+      const sa = firstShift(a.id)
+      const sb = firstShift(b.id)
+      if (!sa && !sb) return 0
+      if (!sa) return 1
+      if (!sb) return -1
+      // 日付が違う場合は日付優先、同日なら開始時刻で比較
+      if (sa.date !== sb.date) return sa.date.localeCompare(sb.date)
+      return sa.start_time.localeCompare(sb.start_time)
+    })
+  }, [therapists, shifts, showOnlyWithShift, shiftMap, weekDates])
 
   const openModal = (therapistId: string, date: string) => {
     const existing = shiftMap.get(`${therapistId}_${date}`) || null
@@ -319,6 +344,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
           </div>
         </div>
       )}
+
     </div>
   )
 }
