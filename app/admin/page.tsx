@@ -220,7 +220,31 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div className="mt-8 p-5 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex gap-4 items-start">
+            {/* インポートリンク */}
+            <div className="mt-6">
+              <button
+                onClick={() => router.push('/admin/import')}
+                className="w-full flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-2xl hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-slate-800 text-sm">Googleカレンダーインポート</div>
+                    <div className="text-xs text-slate-500 mt-0.5">過去の予約データを一括インポートします</div>
+                  </div>
+                </div>
+                <svg className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-6 p-5 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex gap-4 items-start">
               <div className="bg-white p-2 rounded-xl text-indigo-600 shadow-sm shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -1,5 +1,4 @@
 'use client'
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -21,9 +20,13 @@ type Reservation = {
   created_by: { name: string } | null
 }
 
+const PAGE_SIZE = 100
+
 export default function ReservationsPage() {
   const { selectedShop } = useShop()
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
 
@@ -40,23 +43,34 @@ export default function ReservationsPage() {
     }
   }
 
-  async function fetchReservations() {
+  async function fetchReservations(currentPage: number) {
     if (!selectedShop) {
       setReservations([])
+      setTotalCount(0)
       setLoading(false)
       return
     }
 
     setLoading(true)
-    const { data, error } = await supabase
+    const from = (currentPage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, error, count } = await supabase
       .from('reservations')
-      .select('id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)')
+      .select(
+        'id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        { count: 'exact' }
+      )
       .eq('shop_id', selectedShop.id)
       .neq('status', 'blocked')
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     if (error) alert('予約の取得に失敗しました')
-    else setReservations((data as unknown as Reservation[]) || [])
+    else {
+      setReservations((data as unknown as Reservation[]) || [])
+      setTotalCount(count ?? 0)
+    }
     setLoading(false)
   }
 
@@ -68,16 +82,24 @@ export default function ReservationsPage() {
       alert('削除に失敗しました')
       return
     }
-    void fetchReservations()
+    void fetchReservations(page)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    void fetchReservations(newPage)
   }
 
   const designationLabel = (v: string) => designationTypes[v] || v
-  const statusLabel = (v: string) => ({ pending: '保留中', confirmed: '確定', cancelled: 'キャンセル' }[v] || v)
+  const statusLabel = (v: string) => ({ pending: '保留中', confirmed: '確定', cancelled: 'キャンセル', completed: '完了' }[v] || v)
 
   useEffect(() => {
+    setPage(1)
     void fetchDesignationTypes()
-    void fetchReservations()
+    void fetchReservations(1)
   }, [selectedShop])
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   const designationStyle = (value: string) => {
     if (value === 'confirmed') return 'bg-violet-50 text-violet-700 border border-violet-200'
@@ -88,6 +110,7 @@ export default function ReservationsPage() {
 
   const statusStyle = (value: string) => {
     if (value === 'confirmed') return 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+    if (value === 'completed') return 'bg-blue-50 text-blue-700 border border-blue-200'
     if (value === 'cancelled') return 'bg-rose-50 text-rose-700 border border-rose-200'
     return 'bg-amber-50 text-amber-700 border border-amber-200'
   }
@@ -124,7 +147,14 @@ export default function ReservationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-6 md:px-8 md:py-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-800">予約一覧</h2>
-            <span className="text-sm font-medium text-slate-500">{reservations.length} 件</span>
+            <span className="text-sm font-medium text-slate-500">
+              全 {totalCount.toLocaleString()} 件
+              {totalPages > 1 && (
+                <span className="ml-2 text-slate-400">
+                  （{(page - 1) * PAGE_SIZE + 1}〜{Math.min(page * PAGE_SIZE, totalCount)} 件表示）
+                </span>
+              )}
+            </span>
           </div>
 
           <div className="overflow-x-auto">
@@ -165,7 +195,9 @@ export default function ReservationsPage() {
                         {statusLabel(r.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                      {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-3">
@@ -187,6 +219,54 @@ export default function ReservationsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* ページネーション */}
+          {totalPages > 1 && (
+            <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                ← 前のページ
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                  .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-slate-400">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => handlePageChange(p as number)}
+                        className={`w-9 h-9 text-sm font-medium rounded-xl transition-all ${
+                          page === p
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page === totalPages}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                次のページ →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
