@@ -27,6 +27,7 @@ export default function ImportTherapistsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [duplicateCount, setDuplicateCount] = useState(0)
 
   const handleScrape = async () => {
     if (!url.trim()) return
@@ -34,6 +35,7 @@ export default function ImportTherapistsPage() {
     setScrapeError(null)
     setTherapists([])
     setSelected(new Set())
+    setDuplicateCount(0)
     try {
       const res = await fetch('/api/scrape-therapists', {
         method: 'POST',
@@ -43,8 +45,22 @@ export default function ImportTherapistsPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'エラーが発生しました')
       const list = (json.therapists as ScrapedTherapist[]) || []
-      setTherapists(list)
-      setSelected(new Set(list.map((_, i) => i)))
+
+      let existingNames = new Set<string>()
+      if (selectedShop) {
+        const { data: existing } = await supabase
+          .from('therapists')
+          .select('name')
+          .eq('shop_id', selectedShop.id)
+        if (existing) {
+          existingNames = new Set(existing.map((t: { name: string }) => t.name.trim().toLowerCase()))
+        }
+      }
+
+      const filtered = list.filter((t) => !existingNames.has(t.name.trim().toLowerCase()))
+      setDuplicateCount(list.length - filtered.length)
+      setTherapists(filtered)
+      setSelected(new Set(filtered.map((_, i) => i)))
     } catch (e) {
       setScrapeError(e instanceof Error ? e.message : 'エラーが発生しました')
     } finally {
@@ -170,6 +186,11 @@ export default function ImportTherapistsPage() {
           </div>
           {scrapeError && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-sm">{scrapeError}</div>
+          )}
+          {duplicateCount > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-sm">
+              すでに登録済みのセラピストが {duplicateCount}人 含まれていたため、除外しました。
+            </div>
           )}
         </div>
 

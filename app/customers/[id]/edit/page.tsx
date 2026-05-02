@@ -18,6 +18,7 @@ export default function EditCustomerPage() {
     name: '',
     email: '',
     phone: '',
+    phone2: '',
   })
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function EditCustomerPage() {
           name: customer.name || '',
           email: customer.email || '',
           phone: customer.phone || '',
+          phone2: customer.phone2 || '',
         })
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー'
@@ -73,6 +75,7 @@ export default function EditCustomerPage() {
           name: form.name,
           email: form.email || null,
           phone: form.phone || null,
+          phone2: form.phone2 || null,
         })
         .eq('id', customerId)
 
@@ -150,7 +153,7 @@ export default function EditCustomerPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                      電話番号 <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
+                      電話番号① <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
                     </label>
                     <input
                       type="tel"
@@ -162,6 +165,19 @@ export default function EditCustomerPage() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                      電話番号② <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone2"
+                      value={form.phone2}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                      placeholder="080-9876-5432"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
                       メールアドレス <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
                     </label>

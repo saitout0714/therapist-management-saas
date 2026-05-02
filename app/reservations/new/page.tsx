@@ -804,74 +804,95 @@ export default function NewReservationPage() {
             </h2>
 
             <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">電話番号・お客様名で検索</label>
-                  <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={(e) => { setCustomerSearch(e.target.value); setNewCustomer(prev => ({ ...prev, name: '' })) }}
-                    placeholder="電話番号・名前・メールで検索"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all mb-2"
-                  />
-                  {!formData.customer_id && (
-                    <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1">
-                      {!normalizedSearch ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">電話番号や名前を入力してください</div>
-                      ) : filteredCustomers.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
-                      ) : (
-                        filteredCustomers.slice(0, 50).map((customer) => (
-                          <button
-                            key={customer.id}
-                            type="button"
-                            onClick={() => { setSelectedCustomerObj(customer); setFormData({ ...formData, customer_id: customer.id }); scrollToSection(sectionRef2) }}
-                            className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 ${formData.customer_id === customer.id ? 'bg-indigo-50/50 text-indigo-900 border-l-4 border-l-indigo-500 pl-3' : ''}`}
-                          >
-                            <span className="font-medium">{customer.name}</span>{' '}
-                            <span className="text-gray-600">{customer.phone ? `(${customer.phone})` : ''}</span>
-                            {customer.email && <span className="text-gray-500 ml-2">{customer.email}</span>}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  {selectedCustomerObj && (
-                    <div className="mt-3 p-3 bg-indigo-50/50 rounded-xl text-sm text-indigo-900 font-medium flex items-center justify-between">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-indigo-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        選択中: {selectedCustomerObj.name}
-                        {selectedCustomerObj.phone ? ` (${selectedCustomerObj.phone})` : ''}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { setFormData({ ...formData, customer_id: '' }); setCustomerSearch(''); setSelectedCustomerObj(null) }}
-                        className="text-xs text-slate-400 hover:text-slate-600 underline ml-3"
-                      >
-                        変更
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* 新規お客様：検索して該当なしの場合に自動表示 */}
-                {customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
-                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3">
-                    <p className="text-sm font-semibold text-amber-800">新規お客様として登録します（予約登録時に同時に作成されます）</p>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1">お客様名 <span className="text-rose-500">*</span></label>
-                      <input
-                        type="text"
-                        value={newCustomer.name}
-                        onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                        placeholder="お客様名を入力"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      />
-                    </div>
+              {/* 電話番号フィールド */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">電話番号</label>
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setCustomerSearch(val)
+                    setNewCustomer(prev => ({ ...prev, name: '' }))
+                    if (formData.customer_id) {
+                      setFormData({ ...formData, customer_id: '' })
+                      setSelectedCustomerObj(null)
+                    }
+                  }}
+                  placeholder="電話番号・名前・メールで検索"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all"
+                />
+                {/* 検索結果ドロップダウン */}
+                {!formData.customer_id && normalizedSearch && (
+                  <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
+                    ) : (
+                      filteredCustomers.slice(0, 50).map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCustomerObj(customer)
+                            setFormData({ ...formData, customer_id: customer.id })
+                            setCustomerSearch(customer.phone || '')
+                            scrollToSection(sectionRef2)
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                        >
+                          <span className="font-medium">{customer.name}</span>{' '}
+                          <span className="text-gray-600">{customer.phone ? `(${customer.phone})` : ''}</span>
+                          {customer.email && <span className="text-gray-500 ml-2">{customer.email}</span>}
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* お客様名フィールド */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  お客様名
+                  {!selectedCustomerObj && customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
+                    <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">新規登録</span>
+                  )}
+                </label>
+                {selectedCustomerObj ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-bold text-indigo-900 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {selectedCustomerObj.name}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, customer_id: '' })
+                        setCustomerSearch('')
+                        setSelectedCustomerObj(null)
+                      }}
+                      className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      変更
+                    </button>
+                  </div>
+                ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
+                  <input
+                    type="text"
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                    placeholder="お客様名を入力（新規登録）"
+                    className="w-full px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-amber-400"
+                  />
+                ) : (
+                  <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
+                    電話番号や名前を検索してお客様を選択してください
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* セラピスト情報 */}

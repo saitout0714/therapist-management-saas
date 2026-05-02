@@ -10,6 +10,7 @@ type Customer = {
   name: string
   email: string | null
   phone: string | null
+  phone2: string | null
   created_at: string
 }
 
@@ -141,13 +142,19 @@ export default function CustomerDetailPage() {
               <p className="text-lg font-bold text-indigo-600">{reservations.length} 回</p>
             </div>
             <div>
-              <p className="text-sm text-slate-500 font-medium mb-1">電話番号</p>
+              <p className="text-sm text-slate-500 font-medium mb-1">電話番号①</p>
               <p className="text-slate-800 font-medium">{customer.phone || <span className="text-slate-400 font-normal italic">未登録</span>}</p>
             </div>
             <div>
               <p className="text-sm text-slate-500 font-medium mb-1">メールアドレス</p>
               <p className="text-slate-800 font-medium">{customer.email || <span className="text-slate-400 font-normal italic">未登録</span>}</p>
             </div>
+            {customer.phone2 && (
+              <div>
+                <p className="text-sm text-slate-500 font-medium mb-1">電話番号②</p>
+                <p className="text-slate-800 font-medium">{customer.phone2}</p>
+              </div>
+            )}
           </div>
         </div>
 

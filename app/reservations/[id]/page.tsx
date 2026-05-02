@@ -322,6 +322,18 @@ export default function ReservationPreviewPage() {
     }
   }
 
+  const handleSendSMS = () => {
+    const phone = reservation?.customers?.phone
+    if (!phone) {
+      alert('この顧客には電話番号が登録されていません')
+      return
+    }
+    const text = generateCustomerLineText()
+    // iOS は &body=、Android は ?body= → ?& で両対応
+    const smsUrl = `sms:${phone}?&body=${encodeURIComponent(text)}`
+    window.location.href = smsUrl
+  }
+
   const goBack = () => {
     if (fromPage === 'shifts') {
       router.push('/shifts')
@@ -378,7 +390,7 @@ export default function ReservationPreviewPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Customer Copy */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-4 pt-4">
+            <div className="px-4 pt-4 space-y-2">
               <button
                 onClick={() => handleCopy(generateCustomerLineText(), 'customer')}
                 className={`w-full py-3 text-white font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 ${copiedKey === 'customer' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
@@ -396,6 +408,16 @@ export default function ReservationPreviewPage() {
                     お客様用ご案内をコピー
                   </>
                 )}
+              </button>
+              <button
+                onClick={handleSendSMS}
+                disabled={!reservation?.customers?.phone}
+                className="w-full py-3 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                {reservation?.customers?.phone ? `SMS送信 (${reservation.customers.phone})` : 'SMS送信（電話番号なし）'}
               </button>
             </div>
             <pre className="mx-4 mb-4 mt-3 p-3 text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl border border-slate-100 h-36 overflow-y-auto">
