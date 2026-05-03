@@ -19,6 +19,8 @@ export default function EditCustomerPage() {
     email: '',
     phone: '',
     phone2: '',
+    status: '予約可',
+    ng_reason: '',
   })
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export default function EditCustomerPage() {
           email: customer.email || '',
           phone: customer.phone || '',
           phone2: customer.phone2 || '',
+          status: customer.status || '予約可',
+          ng_reason: customer.ng_reason || '',
         })
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー'
@@ -52,7 +56,7 @@ export default function EditCustomerPage() {
     fetchCustomerData()
   }, [customerId])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
@@ -76,6 +80,8 @@ export default function EditCustomerPage() {
           email: form.email || null,
           phone: form.phone || null,
           phone2: form.phone2 || null,
+          status: form.status,
+          ng_reason: form.ng_reason || null,
         })
         .eq('id', customerId)
 
@@ -191,6 +197,46 @@ export default function EditCustomerPage() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* ステータス・NG */}
+              <div className="space-y-5 pt-6 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pb-2 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </span>
+                  ステータス・NG設定
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">ステータス</label>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
+                  >
+                    <option value="予約可">予約可</option>
+                    <option value="要注意">要注意</option>
+                    <option value="出禁">出禁</option>
+                  </select>
+                </div>
+                {(form.status === '要注意' || form.status === '出禁') && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      NG理由・注意事項 <span className="text-xs text-slate-400 font-normal">任意</span>
+                    </label>
+                    <textarea
+                      name="ng_reason"
+                      value={form.ng_reason}
+                      onChange={handleChange}
+                      rows={3}
+                      placeholder="NG・注意の理由を記入してください"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end mt-8">

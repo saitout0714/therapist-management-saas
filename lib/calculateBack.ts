@@ -176,26 +176,7 @@ export async function resolveCustomerPrice(
     }
   }
 
-  // 2. ランクNULL（全ランク共通）にフォールバック（マトリクス表）
-  const { data: commonData } = await supabase
-    .from('course_back_amounts')
-    .select('back_amount, customer_price, course_price_override')
-    .eq('shop_id', shopId)
-    .eq('course_id', courseId)
-    .is('rank_id', null)
-    .eq('designation_type', designationSlug)
-    .limit(1)
-  if (commonData && commonData.length > 0) {
-    const row = commonData[0] as CourseBackAmount
-    return {
-      customerPrice: row.customer_price ?? row.course_price_override ?? fallbackBasePrice,
-      backAmount: row.back_amount,
-      coursePriceOverride: row.course_price_override,
-      source: 'matrix'
-    }
-  }
-
-  // 3. 指名種別マスタのデフォルトを確認
+  // 2. 指名種別マスタのデフォルトを確認
   const { data: dtData } = await supabase
     .from('designation_types')
     .select('default_fee, default_back_amount')
@@ -213,7 +194,7 @@ export async function resolveCustomerPrice(
     }
   }
 
-  // 4. 最終フォールバック
+  // 3. 最終フォールバック（courses.base_price）
   return { customerPrice: fallbackBasePrice, backAmount: null, coursePriceOverride: null, source: 'fallback' }
 }
 
@@ -809,15 +790,7 @@ async function fetchCourseBackAmount(
     if (data && data.length > 0) return data[0] as CourseBackAmount
   }
 
-  const { data } = await supabase
-    .from('course_back_amounts')
-    .select('back_amount, customer_price')
-    .eq('shop_id', shopId)
-    .eq('course_id', courseId)
-    .is('rank_id', null)
-    .eq('designation_type', designationType)
-    .limit(1)
-  return data?.[0] as CourseBackAmount | null ?? null
+  return null
 }
 
 async function fetchOptionBackRule(shopId: string, optionId: string): Promise<OptionBackRule | null> {

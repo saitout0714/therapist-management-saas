@@ -29,7 +29,7 @@ export function CourseBackAmountsTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<string>('')
-  const [selectedRank, setSelectedRank] = useState<string>('all')
+  const [selectedRank, setSelectedRank] = useState<string>('')
   // editableCells: key = designation_type => { course_price, back_amount, customer_price }
   const [editableCells, setEditableCells] = useState<Record<string, { course_price: string; back_amount: string; customer_price: string }>>({})
   const [extensionRankPrices, setExtensionRankPrices] = useState<ExtensionRankPrice[]>([])
@@ -76,20 +76,20 @@ export function CourseBackAmountsTab() {
     setExtensionDefaults({ price: ss?.extension_unit_price ?? 0, back: ss?.extension_unit_back ?? 0 })
 
     if (c.length > 0 && !selectedCourse) setSelectedCourse(c[0].id)
+    if (r.length > 0 && !selectedRank) setSelectedRank(r[0].id)
     setLoading(false)
-  }, [selectedShop, selectedCourse])
+  }, [selectedShop, selectedCourse, selectedRank])
 
   useEffect(() => { void fetchData() }, [fetchData])
 
   // 選択中のコース×ランクに該当する amounts をフィルタし、editable cells を構築
   useEffect(() => {
     const cells: Record<string, { course_price: string; back_amount: string; customer_price: string }> = {}
-    const rankFilter = selectedRank === 'all' ? null : selectedRank
 
     for (const dt of designationTypes) {
       const existing = amounts.find(
         a => a.course_id === selectedCourse &&
-          (rankFilter ? a.rank_id === rankFilter : a.rank_id === null) &&
+          a.rank_id === selectedRank &&
           a.designation_type === dt.value
       )
       cells[dt.value] = {
@@ -109,10 +109,10 @@ export function CourseBackAmountsTab() {
   }
 
   const handleSave = async () => {
-    if (!selectedShop || !selectedCourse) return
+    if (!selectedShop || !selectedCourse || !selectedRank) return
     setSaving(true)
 
-    const rankId = selectedRank === 'all' ? null : selectedRank
+    const rankId = selectedRank
 
     for (const dt of designationTypes) {
       const cell = editableCells[dt.value]
@@ -127,7 +127,7 @@ export function CourseBackAmountsTab() {
 
       const existing = amounts.find(
         a => a.course_id === selectedCourse &&
-          (rankId ? a.rank_id === rankId : a.rank_id === null) &&
+          a.rank_id === rankId &&
           a.designation_type === dt.value
       )
 
@@ -189,7 +189,7 @@ export function CourseBackAmountsTab() {
   }
 
   const handleDelete = async (designationType: string) => {
-    const rankId = selectedRank === 'all' ? null : selectedRank
+    const rankId = selectedRank
     const existing = amounts.find(
       a => a.course_id === selectedCourse &&
         (rankId ? a.rank_id === rankId : a.rank_id === null) &&
@@ -204,7 +204,7 @@ export function CourseBackAmountsTab() {
   if (loading) return <div className="p-6">読み込み中...</div>
 
   const selectedCourseName = courses.find(c => c.id === selectedCourse)
-  const selectedRankName = selectedRank === 'all' ? '全ランク共通' : ranks.find(r => r.id === selectedRank)?.name
+  const selectedRankName = ranks.find(r => r.id === selectedRank)?.name
   const baseCoursePrice = selectedCourseName?.base_price || 0
 
   return (
@@ -238,7 +238,6 @@ export function CourseBackAmountsTab() {
             onChange={(e) => setSelectedRank(e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
           >
-            <option value="all">全ランク共通（デフォルト）</option>
             {ranks.map(r => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}

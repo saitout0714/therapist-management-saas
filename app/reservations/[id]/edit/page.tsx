@@ -100,6 +100,7 @@ export default function EditReservationPage() {
   const [discountPolicies, setDiscountPolicies] = useState<DiscountPolicy[]>([])
   const [selectedDiscountId, setSelectedDiscountId] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [options, setOptions] = useState<Option[]>([])
@@ -563,8 +564,6 @@ export default function EditReservationPage() {
         console.warn('バック計算に失敗しましたが予約は更新されています:', backErr)
       }
 
-      alert('予約を更新しました')
-
       // 遷移元に応じて戻る先を変更
       if (fromPage === 'shifts') {
         router.push('/shifts')
@@ -573,7 +572,7 @@ export default function EditReservationPage() {
       }
     } catch (error: any) {
       console.error('予約の更新に失敗:', error)
-      alert(`予約の更新に失敗しました: ${error.message || '不明なエラー'}`)
+      setSaveError(`予約の更新に失敗しました: ${error.message || '不明なエラー'}`)
     }
   }
 
@@ -1312,6 +1311,12 @@ export default function EditReservationPage() {
                     ※ オプション ¥{calculatedPrice.optionsPrice.toLocaleString()} は現金でセラピストへ
                   </div>
                 )}
+              </div>
+            )}
+
+            {saveError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                {saveError}
               </div>
             )}
 

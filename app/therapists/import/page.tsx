@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+
+type ShopRank = { id: string; name: string }
 
 type ScrapedTherapist = {
   name: string
@@ -15,6 +17,23 @@ type ScrapedTherapist = {
   waist: number | null
   hip: number | null
   comment: string | null
+  profile_url?: string | null
+  rank?: string | null       // HPから抽出したランク表記
+  rank_id?: string | null    // 店舗ランクとマッチングした結果
+}
+
+function matchRank(extracted: string | null | undefined, ranks: ShopRank[]): string | null {
+  if (!extracted || ranks.length === 0) return null
+  const q = extracted.toLowerCase().trim()
+  // 完全一致
+  const exact = ranks.find(r => r.name.toLowerCase() === q)
+  if (exact) return exact.id
+  // 部分一致（どちらかが相手を含む）
+  const partial = ranks.find(r => {
+    const rn = r.name.toLowerCase()
+    return rn.includes(q) || q.includes(rn)
+  })
+  return partial?.id ?? null
 }
 
 export default function ImportTherapistsPage() {
@@ -24,10 +43,14 @@ export default function ImportTherapistsPage() {
   const [scraping, setScraping] = useState(false)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [therapists, setTherapists] = useState<ScrapedTherapist[]>([])
+  const [shopRanks, setShopRanks] = useState<ShopRank[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [duplicateCount, setDuplicateCount] = useState(0)
+  const [enhancing, setEnhancing] = useState(false)
+  const [enhanceProgress, setEnhanceProgress] = useState({ done: 0, total: 0 })
+  const cancelEnhance = useRef(false)
 
   const handleScrape = async () => {
     if (!url.trim()) return
@@ -36,6 +59,8 @@ export default function ImportTherapistsPage() {
     setTherapists([])
     setSelected(new Set())
     setDuplicateCount(0)
+    cancelEnhance.current = true
+
     try {
       const res = await fetch('/api/scrape-therapists', {
         method: 'POST',
@@ -46,26 +71,95 @@ export default function ImportTherapistsPage() {
       if (!res.ok) throw new Error(json.error || 'エラーが発生しました')
       const list = (json.therapists as ScrapedTherapist[]) || []
 
+      // 既存セラピスト・ランク情報を並列取得
       let existingNames = new Set<string>()
+      let ranks: ShopRank[] = []
       if (selectedShop) {
-        const { data: existing } = await supabase
-          .from('therapists')
-          .select('name')
-          .eq('shop_id', selectedShop.id)
-        if (existing) {
-          existingNames = new Set(existing.map((t: { name: string }) => t.name.trim().toLowerCase()))
+        const [existingRes, ranksRes] = await Promise.all([
+          supabase.from('therapists').select('name').eq('shop_id', selectedShop.id),
+          supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
+        ])
+        if (existingRes.data) {
+          existingNames = new Set(existingRes.data.map((t: { name: string }) => t.name.trim().toLowerCase()))
         }
+        ranks = (ranksRes.data || []) as ShopRank[]
+        setShopRanks(ranks)
       }
 
-      const filtered = list.filter((t) => !existingNames.has(t.name.trim().toLowerCase()))
+      const filtered = list
+        .filter(t => !existingNames.has(t.name.trim().toLowerCase()))
+        .map(t => ({
+          ...t,
+          rank_id: matchRank(t.rank, ranks),
+        }))
+
       setDuplicateCount(list.length - filtered.length)
       setTherapists(filtered)
       setSelected(new Set(filtered.map((_, i) => i)))
+
+      // プロフィールURLがある全員を個人ページで補完
+      const toEnhance = filtered.filter(t => t.profile_url)
+      if (toEnhance.length > 0) {
+        setScraping(false)
+        enhanceInBackground(filtered, toEnhance, ranks)
+      }
     } catch (e) {
       setScrapeError(e instanceof Error ? e.message : 'エラーが発生しました')
     } finally {
       setScraping(false)
     }
+  }
+
+  const enhanceInBackground = async (
+    allTherapists: ScrapedTherapist[],
+    toEnhance: ScrapedTherapist[],
+    ranks: ShopRank[]
+  ) => {
+    void allTherapists
+    cancelEnhance.current = false
+    setEnhancing(true)
+    setEnhanceProgress({ done: 0, total: toEnhance.length })
+
+    for (let i = 0; i < toEnhance.length; i++) {
+      if (cancelEnhance.current) break
+
+      const t = toEnhance[i]
+      try {
+        const res = await fetch('/api/scrape-therapist-detail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: t.profile_url, name: t.name }),
+        })
+        if (res.ok) {
+          const detail = await res.json()
+          const newRankId = matchRank(detail.rank, ranks)
+          setTherapists(prev => prev.map(p =>
+            p.name === t.name
+              ? {
+                  ...p,
+                  age: detail.age ?? p.age,
+                  height: detail.height ?? p.height,
+                  bust: detail.bust ?? p.bust,
+                  bust_cup: detail.bust_cup ?? p.bust_cup,
+                  waist: detail.waist ?? p.waist,
+                  hip: detail.hip ?? p.hip,
+                  rank: detail.rank ?? p.rank,
+                  rank_id: newRankId ?? p.rank_id,
+                }
+              : p
+          ))
+        }
+      } catch {
+        // 個別失敗は無視して続行
+      }
+
+      setEnhanceProgress({ done: i + 1, total: toEnhance.length })
+      if (i < toEnhance.length - 1 && !cancelEnhance.current) {
+        await new Promise(r => setTimeout(r, 4000))
+      }
+    }
+
+    setEnhancing(false)
   }
 
   const toggleAll = () => {
@@ -84,31 +178,20 @@ export default function ImportTherapistsPage() {
   }
 
   const handleSave = async () => {
-    if (!selectedShop) {
-      setSaveError('店舗を選択してください')
-      return
-    }
+    if (!selectedShop) { setSaveError('店舗を選択してください'); return }
     if (selected.size === 0) return
     setSaving(true)
     setSaveError(null)
 
     const { data: maxOrderData } = await supabase
-      .from('therapists')
-      .select('order')
-      .eq('shop_id', selectedShop.id)
-      .order('order', { ascending: false })
-      .limit(1)
+      .from('therapists').select('order').eq('shop_id', selectedShop.id)
+      .order('order', { ascending: false }).limit(1)
     let nextOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order !== null
-      ? maxOrderData[0].order + 1
-      : 0
+      ? maxOrderData[0].order + 1 : 0
 
     const rows = [...selected].sort((a, b) => a - b).map((i) => {
       const t = therapists[i]
-      const row: Record<string, unknown> = {
-        name: t.name,
-        shop_id: selectedShop.id,
-        order: nextOrder++,
-      }
+      const row: Record<string, unknown> = { name: t.name, shop_id: selectedShop.id, order: nextOrder++ }
       if (t.age != null) row.age = t.age
       if (t.height != null) row.height = t.height
       if (t.bust != null) row.bust = t.bust
@@ -116,17 +199,13 @@ export default function ImportTherapistsPage() {
       if (t.waist != null) row.waist = t.waist
       if (t.hip != null) row.hip = t.hip
       if (t.comment != null) row.comment = t.comment
+      if (t.rank_id) row.rank_id = t.rank_id
       return row
     })
 
     const { error } = await supabase.from('therapists').insert(rows)
     setSaving(false)
-
-    if (error) {
-      setSaveError('登録に失敗しました: ' + error.message)
-      return
-    }
-
+    if (error) { setSaveError('登録に失敗しました: ' + error.message); return }
     router.push('/therapists')
   }
 
@@ -144,7 +223,7 @@ export default function ImportTherapistsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">HPから一括インポート</h1>
-            <p className="text-sm text-slate-500 mt-1">店舗HPのセラピスト一覧ページURLを入力すると、全員を自動で読み取ります。</p>
+            <p className="text-sm text-slate-500 mt-1">セラピスト一覧ページURLを入力すると全員を自動で読み取ります。プロフィール・ランクも個人ページから取得します。</p>
           </div>
         </div>
 
@@ -172,7 +251,7 @@ export default function ImportTherapistsPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  取得中...
+                  読み取り中...
                 </>
               ) : (
                 <>
@@ -193,6 +272,19 @@ export default function ImportTherapistsPage() {
             </div>
           )}
         </div>
+
+        {/* 補完中バナー */}
+        {enhancing && (
+          <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center gap-3 text-sm text-indigo-700">
+            <svg className="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span>
+              個人ページからプロフィール・ランクを取得中... ({enhanceProgress.done}/{enhanceProgress.total}人完了)
+            </span>
+          </div>
+        )}
 
         {/* 結果一覧 */}
         {therapists.length > 0 && (
@@ -244,13 +336,26 @@ export default function ImportTherapistsPage() {
                     {t.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-800">{t.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-slate-800">{t.name}</p>
+                      {/* ランク表示 */}
+                      {t.rank_id ? (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                          {shopRanks.find(r => r.id === t.rank_id)?.name}
+                        </span>
+                      ) : t.rank && enhancing ? (
+                        <span className="text-xs text-amber-500">「{t.rank}」照合中...</span>
+                      ) : t.rank ? (
+                        <span className="text-xs text-slate-400">「{t.rank}」→ 未一致</span>
+                      ) : null}
+                    </div>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {[
                         t.age != null && `${t.age}歳`,
                         t.height != null && `${t.height}cm`,
-                        (t.bust != null || t.waist != null || t.hip != null) &&
-                          `B${t.bust ?? '-'}${t.bust_cup ?? ''} W${t.waist ?? '-'} H${t.hip ?? '-'}`,
+                        (t.bust != null || t.waist != null || t.hip != null)
+                          ? `B${t.bust ?? '-'}${t.bust_cup ?? ''} W${t.waist ?? '-'} H${t.hip ?? '-'}`
+                          : (enhancing && t.profile_url ? '取得中...' : null),
                       ].filter(Boolean).join(' · ') || '詳細情報なし'}
                     </p>
                     {t.comment && (
@@ -262,32 +367,35 @@ export default function ImportTherapistsPage() {
             </ul>
 
             <div className="p-5 border-t border-slate-100 flex items-center justify-between">
-              {saveError && (
-                <p className="text-sm text-rose-600">{saveError}</p>
-              )}
-              <div className="ml-auto flex gap-3">
-                <Link
-                  href="/therapists"
-                  className="px-5 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  キャンセル
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving || selected.size === 0}
-                  className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      登録中...
-                    </>
-                  ) : `${selected.size}人を登録する`}
-                </button>
+              {saveError && <p className="text-sm text-rose-600">{saveError}</p>}
+              <div className="ml-auto flex flex-col items-end gap-1">
+                {enhancing && (
+                  <p className="text-xs text-amber-600">ランク・プロフィール取得完了後に登録できます</p>
+                )}
+                <div className="flex gap-3">
+                  <Link
+                    href="/therapists"
+                    className="px-5 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    キャンセル
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving || selected.size === 0 || enhancing}
+                    className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        登録中...
+                      </>
+                    ) : `${selected.size}人を登録する`}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

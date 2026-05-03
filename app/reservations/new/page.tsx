@@ -12,6 +12,8 @@ type Customer = {
   name: string
   email: string | null
   phone: string | null
+  status?: string
+  ng_reason?: string | null
 }
 
 type Course = {
@@ -93,6 +95,7 @@ export default function NewReservationPage() {
   const { selectedShop } = useShop()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [options, setOptions] = useState<Option[]>([])
@@ -156,6 +159,7 @@ export default function NewReservationPage() {
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false)
   const [selectedCustomerObj, setSelectedCustomerObj] = useState<Customer | null>(null)
+  const [customerNgTherapistIds, setCustomerNgTherapistIds] = useState<Set<string>>(new Set())
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   type CustomOption = { name: string; price: number; backAmount: number }
@@ -232,6 +236,20 @@ export default function NewReservationPage() {
   }, [formData.customer_id, formData.therapist_id])
 
   useEffect(() => {
+    if (!formData.customer_id) {
+      setCustomerNgTherapistIds(new Set())
+      return
+    }
+    supabase
+      .from('customer_therapist_ng')
+      .select('therapist_id')
+      .eq('customer_id', formData.customer_id)
+      .then(({ data }) => {
+        setCustomerNgTherapistIds(new Set((data || []).map((r: { therapist_id: string }) => r.therapist_id)))
+      })
+  }, [formData.customer_id])
+
+  useEffect(() => {
     fetchAvailableTherapists()
   }, [formData.date, selectedShop])
 
@@ -247,7 +265,7 @@ export default function NewReservationPage() {
       const normalized = q.replace(/-/g, '')
       const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone')
+        .select('id, name, email, phone, status, ng_reason')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
@@ -262,7 +280,7 @@ export default function NewReservationPage() {
     if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('customers').select('id, name, email, phone, status, ng_reason').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
@@ -617,10 +635,9 @@ export default function NewReservationPage() {
           reception_source: formData.reception_source,
         }])
         if (error) throw error
-        alert('予約不可ブロックを登録しました')
         router.push('/shifts')
       } catch (error: any) {
-        alert(`登録に失敗しました: ${error.message}`)
+        setSaveError(`登録に失敗しました: ${error.message}`)
       }
       return
     }
@@ -774,11 +791,10 @@ export default function NewReservationPage() {
         }
       }
 
-      alert('予約を登録しました')
       router.push('/shifts')
     } catch (error: any) {
       console.error('予約の登録に失敗:', error)
-      alert(`予約の登録に失敗しました: ${error.message || '不明なエラー'}`)
+      setSaveError(`予約の登録に失敗しました: ${error.message || '不明なエラー'}`)
     }
   }
 
@@ -859,24 +875,42 @@ export default function NewReservationPage() {
                   )}
                 </label>
                 {selectedCustomerObj ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-bold text-indigo-900 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {selectedCustomerObj.name}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex-1 px-4 py-3 border rounded-xl text-sm font-bold flex items-center gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
+                        <svg className={`w-4 h-4 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {selectedCustomerObj.name}
+                        {selectedCustomerObj.status && selectedCustomerObj.status !== '予約可' && (
+                          <span className={`ml-1 px-2 py-0.5 text-xs rounded-full font-bold ${selectedCustomerObj.status === '出禁' ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>
+                            {selectedCustomerObj.status}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, customer_id: '' })
+                          setCustomerSearch('')
+                          setSelectedCustomerObj(null)
+                        }}
+                        className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                      >
+                        変更
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData({ ...formData, customer_id: '' })
-                        setCustomerSearch('')
-                        setSelectedCustomerObj(null)
-                      }}
-                      className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
-                    >
-                      変更
-                    </button>
+                    {(selectedCustomerObj.status === '出禁' || selectedCustomerObj.status === '要注意') && (
+                      <div className={`px-4 py-3 rounded-xl text-sm flex items-start gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                          <span className="font-bold">このお客様は「{selectedCustomerObj.status}」です。</span>
+                          {selectedCustomerObj.ng_reason && <span className="ml-1">{selectedCustomerObj.ng_reason}</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
                   <input
@@ -928,6 +962,14 @@ export default function NewReservationPage() {
                     </svg>
                     選択した日付に出勤セラピストがいません
                   </p>
+                )}
+                {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
+                  <div className="mt-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
+                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    <span className="font-bold">このセラピストはお客様のNGリストに登録されています。</span>
+                  </div>
                 )}
               </div>
 
@@ -1532,6 +1574,12 @@ export default function NewReservationPage() {
                     ※ オプション ¥{calculatedPrice.optionsPrice.toLocaleString()} は現金でセラピストへ
                   </div>
                 )}
+              </div>
+            )}
+
+            {saveError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                {saveError}
               </div>
             )}
 
