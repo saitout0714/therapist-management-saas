@@ -26,6 +26,7 @@ interface Schedule {
   courseDuration?: number;
   designationLabel?: string;
   totalPrice?: number;
+  discountAmount?: number;
   isNewCustomer?: boolean;
   isHime?: boolean;
 }
@@ -536,7 +537,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       </div>
 
                       {/* Row 3: Duration, Designation and Price */}
-                      <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none">
+                      <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                         {schedule.courseDuration && (
                           <span className="opacity-90">{schedule.courseDuration}分</span>
                         )}
@@ -546,6 +547,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {isReservation && schedule.totalPrice !== undefined && (
                           <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
                             ¥{schedule.totalPrice.toLocaleString()}
+                          </span>
+                        )}
+                        {isReservation && schedule.discountAmount !== undefined && (
+                          <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
+                            -¥{schedule.discountAmount.toLocaleString()}
                           </span>
                         )}
                       </div>

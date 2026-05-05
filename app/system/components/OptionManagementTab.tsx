@@ -45,7 +45,13 @@ export function OptionManagementTab() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedShop) { alert('店舗を選択してください'); return }
-        const payload = { ...formData, shop_id: selectedShop.id, updated_at: new Date().toISOString() }
+        // duration カラム（旧）と duration_minutes_added（新）を同期する
+        const payload = {
+          ...formData,
+          duration: formData.option_type === 'extension' ? formData.duration_minutes_added : 0,
+          shop_id: selectedShop.id,
+          updated_at: new Date().toISOString(),
+        }
         const result = editingOption
             ? await supabase.from('options').update(payload).eq('id', editingOption.id)
             : await supabase.from('options').insert([payload])

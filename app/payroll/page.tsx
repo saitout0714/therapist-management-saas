@@ -38,7 +38,7 @@ type ReservationWithDetails = {
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
   customer: { name: string } | null
   reservation_options: { option_id: string | null; price: number; custom_name: string | null; custom_back_amount: number | null; option: { name: string } | null }[]
-  reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only'; therapist_burden_amount: number | null }[]
+  reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only'; therapist_burden_amount: number | null; discount_policy: { name: string } | null }[]
 }
 
 type CalculatedRow = {
@@ -149,7 +149,7 @@ export default function PayrollPage() {
           course:courses(name, duration, base_price, back_amount),
           customer:customers(name),
           reservation_options(option_id, price, custom_name, custom_back_amount, option:options(name)),
-          reservation_discounts(applied_amount, burden_type, therapist_burden_amount)
+          reservation_discounts(applied_amount, burden_type, therapist_burden_amount, discount_policy:discount_policies(name))
         `)
         .eq('shop_id', selectedShop.id)
         .eq('therapist_id', selectedTherapistId)
@@ -172,7 +172,13 @@ export default function PayrollPage() {
           const totalOptionsPrice = res.reservation_options?.reduce((s, o) => s + o.price, 0) || 0
           const totalDiscount = res.reservation_discounts?.reduce((s, d) => s + d.applied_amount, 0) || res.discount_amount || 0
           const totalPrice = res.total_price !== null && res.total_price !== undefined ? res.total_price : Math.max(0, (res.base_price || 0) + totalOptionsPrice + (res.nomination_fee || 0) - totalDiscount)
-          
+          const therapistBurden = (res.reservation_discounts || []).reduce((sum, d) => {
+            if (d.therapist_burden_amount != null) return sum + Math.min(d.therapist_burden_amount, d.applied_amount)
+            if (d.burden_type === 'therapist_only') return sum + d.applied_amount
+            if (d.burden_type === 'split') return sum + Math.floor(d.applied_amount / 2)
+            return sum
+          }, 0)
+
           rows.push({
             reservation: res,
             result: {
@@ -189,7 +195,7 @@ export default function PayrollPage() {
               totalPrice: Math.max(0, totalPrice),
               resolvedCustomerPrice: res.base_price || 0,
               totalDiscount: totalDiscount,
-              therapistDiscountBurden: 0,
+              therapistDiscountBurden: therapistBurden,
               businessDate: res.date,
               appliedRate: null,
               calcMethod: '予約登録時に計算済み',
@@ -300,6 +306,15 @@ export default function PayrollPage() {
     return count * extensionUnitMinutes
   }, [calculatedRows, extensionUnitMinutes])
 
+  // reservation_discounts からセラピスト負担額合計を計算（キャッシュ行でも正確に出るよう生データから算出）
+  const calcTherapistBurden = (discounts: ReservationWithDetails['reservation_discounts']): number =>
+    (discounts || []).reduce((sum, d) => {
+      if (d.therapist_burden_amount != null) return sum + Math.min(d.therapist_burden_amount, d.applied_amount)
+      if (d.burden_type === 'therapist_only') return sum + d.applied_amount
+      if (d.burden_type === 'split') return sum + Math.floor(d.applied_amount / 2)
+      return sum
+    }, 0)
+
   const designationLabel = (v: string) => {
     const map: Record<string, string> = { free: 'フリー', nomination: '指名', first_nomination: '初回指名', confirmed: '本指名', princess: '姫予約' }
     return map[v] || v
@@ -370,6 +385,26 @@ export default function PayrollPage() {
               text += `・${o.custom_name || 'オプション'} ¥${optionBack.toLocaleString()}\n`
             }
           })
+        }
+
+        // 割引負担（セラピスト負担分）
+        const discountBurden = calcTherapistBurden(res.reservation_discounts)
+        if (discountBurden > 0) {
+          // 割引ごとに名前付きで表示
+          const burdenLines = (res.reservation_discounts || []).filter(d => {
+            if (d.therapist_burden_amount != null) return d.therapist_burden_amount > 0
+            return d.burden_type === 'therapist_only' || d.burden_type === 'split'
+          })
+          if (burdenLines.length === 1) {
+            const d = burdenLines[0]
+            const name = d.discount_policy?.name || '割引'
+            const amount = d.therapist_burden_amount != null
+              ? Math.min(d.therapist_burden_amount, d.applied_amount)
+              : d.burden_type === 'split' ? Math.floor(d.applied_amount / 2) : d.applied_amount
+            text += `・${name} 負担: -¥${amount.toLocaleString()}\n`
+          } else {
+            text += `・割引負担合計: -¥${discountBurden.toLocaleString()}\n`
+          }
         }
 
         // 姫予約ボーナス
@@ -524,6 +559,11 @@ export default function PayrollPage() {
                             {r.totalDiscount > 0 && (
                               <div className="text-xs text-rose-500 font-medium bg-rose-50 px-2 py-0.5 rounded inline-block">
                                 割引適用: -¥{r.totalDiscount.toLocaleString()}
+                              </div>
+                            )}
+                            {calcTherapistBurden(res.reservation_discounts) > 0 && (
+                              <div className="text-xs text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded inline-block mt-1">
+                                割引負担: -¥{calcTherapistBurden(res.reservation_discounts).toLocaleString()}
                               </div>
                             )}
                           </div>

@@ -26,6 +26,7 @@ interface Reservation {
   end_time: string;
   status: string;
   total_price: number;
+  discount_amount: number;
   designation_type: string;
   is_hime: boolean | null;
   customers: { name: string; created_at: string } | null;
@@ -63,6 +64,7 @@ interface Schedule {
   courseDuration?: number;
   designationLabel?: string;
   totalPrice?: number;
+  discountAmount?: number;
   isNewCustomer?: boolean;
   isHime?: boolean;
 }
@@ -282,6 +284,7 @@ export default function ShiftsPage() {
           end_time,
           status,
           total_price,
+          discount_amount,
           designation_type,
           is_hime,
           customers(name, created_at),
@@ -326,6 +329,7 @@ export default function ShiftsPage() {
         courseDuration: reservation.courses?.duration,
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
+        discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
       })),

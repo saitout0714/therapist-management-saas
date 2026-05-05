@@ -7,6 +7,8 @@ import { useShop } from '@/app/contexts/ShopContext'
 type Course = { id: string; name: string; duration: number; base_price: number }
 type Rank = { id: string; name: string }
 type ExtensionRankPrice = { rank_id: string; extension_unit_price: number; extension_unit_back: number }
+type DiscountPolicy = { id: string; name: string; therapist_burden_amount: number | null; is_active: boolean }
+type DiscountRankOverride = { id?: string; discount_policy_id: string; rank_id: string; therapist_burden_amount: number }
 type BackAmount = {
   id: string
   shop_id: string
@@ -36,18 +38,24 @@ export function CourseBackAmountsTab() {
   const [extensionDefaults, setExtensionDefaults] = useState({ price: 0, back: 0 })
   const [extRankSaving, setExtRankSaving] = useState(false)
   const [extRankSaved, setExtRankSaved] = useState(false)
+  const [discountPolicies, setDiscountPolicies] = useState<DiscountPolicy[]>([])
+  const [discountRankOverrides, setDiscountRankOverrides] = useState<DiscountRankOverride[]>([])
+  const [discountRankSaving, setDiscountRankSaving] = useState(false)
+  const [discountRankSaved, setDiscountRankSaved] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!selectedShop) { setLoading(false); return }
     setLoading(true)
 
-    const [coursesRes, ranksRes, amountsRes, dtRes, extPricesRes, settingsRes] = await Promise.all([
+    const [coursesRes, ranksRes, amountsRes, dtRes, extPricesRes, settingsRes, discountPoliciesRes, discountRankOverridesRes] = await Promise.all([
       supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
       supabase.from('course_back_amounts').select('*').eq('shop_id', selectedShop.id),
       supabase.from('designation_types').select('slug, display_name').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
       supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id).limit(1),
+      supabase.from('discount_policies').select('id, name, therapist_burden_amount, is_active').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
+      supabase.from('discount_rank_overrides').select('id, discount_policy_id, rank_id, therapist_burden_amount').eq('shop_id', selectedShop.id),
     ])
 
     const c = (coursesRes.data as Course[]) || []
@@ -74,6 +82,28 @@ export function CourseBackAmountsTab() {
     )
     const ss = settingsRes.data?.[0] as { extension_unit_price?: number; extension_unit_back?: number } | undefined
     setExtensionDefaults({ price: ss?.extension_unit_price ?? 0, back: ss?.extension_unit_back ?? 0 })
+
+    const fetchedPolicies = (discountPoliciesRes.data || []) as DiscountPolicy[]
+    const fetchedOverrides = (discountRankOverridesRes.data || []) as DiscountRankOverride[]
+    setDiscountPolicies(fetchedPolicies)
+
+    // 全ランク × 全割引の組み合わせを展開してstateに持つ
+    // こうすることで「一度も変更しなかったセル」も保存対象になる
+    const allCombinations: DiscountRankOverride[] = []
+    for (const rank of r) {
+      for (const policy of fetchedPolicies) {
+        const existing = fetchedOverrides.find(
+          o => o.discount_policy_id === policy.id && o.rank_id === rank.id
+        )
+        allCombinations.push({
+          id: existing?.id,
+          discount_policy_id: policy.id,
+          rank_id: rank.id,
+          therapist_burden_amount: existing?.therapist_burden_amount ?? (policy.therapist_burden_amount ?? 0),
+        })
+      }
+    }
+    setDiscountRankOverrides(allCombinations)
 
     if (c.length > 0 && !selectedCourse) setSelectedCourse(c[0].id)
     if (r.length > 0 && !selectedRank) setSelectedRank(r[0].id)
@@ -169,9 +199,10 @@ export function CourseBackAmountsTab() {
   }
 
   const handleSaveExtensionRankPrices = async () => {
-    if (!selectedShop) return
+    if (!selectedShop || !selectedRank) return
     setExtRankSaving(true)
-    for (const rp of extensionRankPrices) {
+    const rp = extensionRankPrices.find(p => p.rank_id === selectedRank)
+    if (rp) {
       const { error } = await supabase
         .from('extension_rank_prices')
         .upsert({
@@ -186,6 +217,45 @@ export function CourseBackAmountsTab() {
     setExtRankSaving(false)
     setExtRankSaved(true)
     setTimeout(() => setExtRankSaved(false), 2500)
+  }
+
+  const handleSaveDiscountRankOverrides = async () => {
+    if (!selectedShop || !selectedRank) return
+    setDiscountRankSaving(true)
+    const rankOverrides = discountRankOverrides.filter(o => o.rank_id === selectedRank)
+    for (const override of rankOverrides) {
+      const { error } = await supabase
+        .from('discount_rank_overrides')
+        .upsert({
+          shop_id: selectedShop.id,
+          discount_policy_id: override.discount_policy_id,
+          rank_id: override.rank_id,
+          therapist_burden_amount: override.therapist_burden_amount,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'discount_policy_id,rank_id' })
+      if (error) { alert(`保存に失敗しました: ${error.message}`); setDiscountRankSaving(false); return }
+    }
+    setDiscountRankSaving(false)
+    setDiscountRankSaved(true)
+    setTimeout(() => setDiscountRankSaved(false), 2500)
+    void fetchData()
+  }
+
+  const getDiscountOverride = (policyId: string, rankId: string) =>
+    discountRankOverrides.find(o => o.discount_policy_id === policyId && o.rank_id === rankId)
+
+  const setDiscountOverrideValue = (policyId: string, rankId: string, amount: number) => {
+    setDiscountRankOverrides(prev => {
+      const existing = prev.find(o => o.discount_policy_id === policyId && o.rank_id === rankId)
+      if (existing) {
+        return prev.map(o =>
+          o.discount_policy_id === policyId && o.rank_id === rankId
+            ? { ...o, therapist_burden_amount: amount }
+            : o
+        )
+      }
+      return [...prev, { discount_policy_id: policyId, rank_id: rankId, therapist_burden_amount: amount }]
+    })
   }
 
   const handleDelete = async (designationType: string) => {
@@ -467,57 +537,118 @@ export function CourseBackAmountsTab() {
           </div>
         </div>
       )}
-      {/* ランク別延長設定 */}
-      {ranks.length > 0 && (
+      {/* 選択ランクの延長料金・バック設定 */}
+      {selectedRank && (() => {
+        const rp = extensionRankPrices.find(p => p.rank_id === selectedRank) || { rank_id: selectedRank, extension_unit_price: 0, extension_unit_back: 0 }
+        return (
+          <div className="mt-10 bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="mb-5">
+              <h3 className="text-base font-bold text-slate-800">延長料金・バック設定</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                「{selectedRankName}」の延長1回あたりの料金とバック額を設定します。未設定の場合は基本設定のデフォルト（料金 ¥{extensionDefaults.price.toLocaleString()} / バック ¥{extensionDefaults.back.toLocaleString()}）が使用されます。
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              <div>
+                <label className="block mb-1.5 text-xs font-semibold text-slate-600">延長料金（1回あたり）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={rp.extension_unit_price}
+                    onChange={(e) => setExtensionRankPrices(prev =>
+                      prev.map(p => p.rank_id === selectedRank ? { ...p, extension_unit_price: Math.max(0, Number(e.target.value)) } : p)
+                    )}
+                    className="w-full border border-slate-200 rounded-lg bg-white pl-7 pr-3 py-2.5 text-sm text-right"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block mb-1.5 text-xs font-semibold text-indigo-600">延長バック（1回あたり）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={rp.extension_unit_back}
+                    onChange={(e) => setExtensionRankPrices(prev =>
+                      prev.map(p => p.rank_id === selectedRank ? { ...p, extension_unit_back: Math.max(0, Number(e.target.value)) } : p)
+                    )}
+                    className="w-full border border-emerald-100 rounded-lg bg-emerald-50/30 pl-7 pr-3 py-2.5 text-sm text-right font-bold text-indigo-700"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => void handleSaveExtensionRankPrices()}
+                disabled={extRankSaving}
+                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
+              >
+                {extRankSaving ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                )}
+                延長設定を保存する
+              </button>
+              {extRankSaved && (
+                <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  保存しました
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 選択ランクの割引セラピスト負担額設定 */}
+      {selectedRank && discountPolicies.length > 0 && (
         <div className="mt-10 bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-800">ランク別 延長料金・バック設定</h3>
+          <div className="mb-5">
+            <h3 className="text-base font-bold text-slate-800">割引セラピスト負担額</h3>
             <p className="text-xs text-slate-500 mt-1">
-              延長最小単位は「基本設定」で設定します。ランク未設定の場合は基本設定のデフォルト（料金 ¥{extensionDefaults.price.toLocaleString()} / バック ¥{extensionDefaults.back.toLocaleString()}）が使用されます。
+              「{selectedRankName}」の割引発生時のセラピスト負担額を設定します。未設定のランクは「割引」タブのデフォルト値が使用されます。
             </p>
           </div>
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs">ランク</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs">延長料金（1回あたり）</th>
-                  <th className="px-4 py-3 text-center font-semibold text-indigo-600 text-xs">延長バック（1回あたり）</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs">割引名</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-500 text-xs">デフォルト</th>
+                  <th className="px-4 py-3 text-center font-semibold text-indigo-600 text-xs">このランクの負担額</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {ranks.map((rank) => {
-                  const rp = extensionRankPrices.find(p => p.rank_id === rank.id) || { rank_id: rank.id, extension_unit_price: 0, extension_unit_back: 0 }
+                {discountPolicies.map(policy => {
+                  const override = getDiscountOverride(policy.id, selectedRank)
+                  const value = override?.therapist_burden_amount ?? (policy.therapist_burden_amount ?? 0)
                   return (
-                    <tr key={rank.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-medium text-slate-700">{rank.name}</td>
-                      <td className="px-4 py-3">
-                        <div className="relative max-w-[160px] mx-auto">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step={100}
-                            value={rp.extension_unit_price}
-                            onChange={(e) => setExtensionRankPrices(prev =>
-                              prev.map(p => p.rank_id === rank.id ? { ...p, extension_unit_price: Math.max(0, Number(e.target.value)) } : p)
-                            )}
-                            className="w-full border border-slate-200 rounded-lg bg-white pl-7 pr-2 py-2 text-sm text-right"
-                          />
-                        </div>
+                    <tr key={policy.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-700">{policy.name}</td>
+                      <td className="px-4 py-3 text-center text-slate-400 text-xs">
+                        ¥{(policy.therapist_burden_amount ?? 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="relative max-w-[160px] mx-auto">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">B</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">¥</span>
                           <input
                             type="number"
                             min={0}
                             step={100}
-                            value={rp.extension_unit_back}
-                            onChange={(e) => setExtensionRankPrices(prev =>
-                              prev.map(p => p.rank_id === rank.id ? { ...p, extension_unit_back: Math.max(0, Number(e.target.value)) } : p)
-                            )}
-                            className="w-full border border-emerald-100 rounded-lg bg-emerald-50/30 pl-7 pr-2 py-2 text-sm text-right font-bold text-indigo-700"
+                            value={value}
+                            onChange={(e) => setDiscountOverrideValue(policy.id, selectedRank, Math.max(0, Number(e.target.value)))}
+                            className="w-full border border-indigo-100 rounded-lg bg-indigo-50/30 pl-7 pr-2 py-2 text-sm text-right font-bold text-indigo-700"
                           />
                         </div>
                       </td>
@@ -530,20 +661,20 @@ export function CourseBackAmountsTab() {
           <div className="flex items-center gap-3 mt-4">
             <button
               type="button"
-              onClick={() => void handleSaveExtensionRankPrices()}
-              disabled={extRankSaving}
+              onClick={() => void handleSaveDiscountRankOverrides()}
+              disabled={discountRankSaving}
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
             >
-              {extRankSaving ? (
+              {discountRankSaving ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
               )}
-              延長設定を保存する
+              割引設定を保存する
             </button>
-            {extRankSaved && (
+            {discountRankSaved && (
               <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />

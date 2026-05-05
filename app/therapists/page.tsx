@@ -43,7 +43,7 @@ export default function TherapistsPage() {
     if (error) {
       setError(error.message);
     } else {
-      setTherapists((data as TherapistItem[]) || []);
+      setTherapists((data as unknown as TherapistItem[]) || []);
       setError(null);
     }
   };

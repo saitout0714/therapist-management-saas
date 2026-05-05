@@ -7,7 +7,11 @@
       "Read(//tmp/**)",
       "Bash(npm install *)",
       "PowerShell(Stop-Process *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\admin\\\\import\\\\page.tsx\" -Force)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\api\\\\admin\\\\import-calendar\\\\route.ts\" -Force)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\admin\\\\import\" -Force -Recurse)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\api\\\\admin\\\\import-calendar\" -Force -Recurse)"
     ]
   }
 }

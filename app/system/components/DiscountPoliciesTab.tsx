@@ -80,7 +80,7 @@ export function DiscountPoliciesTab() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-800">割引ルール管理</h2>
-          <p className="text-sm text-slate-500 mt-1">割引額とセラピスト負担額を設定します。</p>
+          <p className="text-sm text-slate-500 mt-1">割引額とデフォルトのセラピスト負担額を設定します。ランク別の負担額は「ランク別 料金バック」タブで設定できます。</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(v => !v) }} className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors">
           {showForm ? 'キャンセル' : '新規登録'}
@@ -114,7 +114,7 @@ export function DiscountPoliciesTab() {
               </div>
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-indigo-700">セラピスト負担額（円）</label>
+              <label className="block mb-1 text-xs font-semibold text-indigo-700">セラピスト負担額・デフォルト（円）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 font-bold text-sm">¥</span>
                 <input
@@ -125,7 +125,7 @@ export function DiscountPoliciesTab() {
                   className="w-full border border-indigo-200 rounded-lg pl-8 pr-4 py-2.5 bg-indigo-50/50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm font-semibold"
                 />
               </div>
-              <p className="text-xs text-slate-400 mt-1">0円の場合は店舗全額負担。</p>
+              <p className="text-xs text-slate-400 mt-1">0円の場合は店舗全額負担。ランク別設定は「ランク別 料金バック」タブで上書き可。</p>
             </div>
           </div>
 
@@ -152,7 +152,7 @@ export function DiscountPoliciesTab() {
               <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
                 <th className="p-4">割引名</th>
                 <th className="p-4 w-28">割引額</th>
-                <th className="p-4 w-32 text-indigo-600">セラピスト負担</th>
+                <th className="p-4 w-32 text-indigo-600">デフォルト負担</th>
                 <th className="p-4 w-16">併用</th>
                 <th className="p-4 w-16">状態</th>
                 <th className="p-4 w-24 text-right">操作</th>

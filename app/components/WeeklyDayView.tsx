@@ -36,6 +36,7 @@ interface Reservation {
   designation_type: string
   is_hime: boolean | null
   total_price: number
+  discount_amount: number
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
 }
@@ -121,7 +122,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -375,6 +376,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                         {res.total_price !== undefined && (
                                           <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
                                             ¥{res.total_price.toLocaleString()}
+                                          </span>
+                                        )}
+                                        {res.discount_amount > 0 && (
+                                          <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
+                                            -¥{res.discount_amount.toLocaleString()}
                                           </span>
                                         )}
                                       </div>
