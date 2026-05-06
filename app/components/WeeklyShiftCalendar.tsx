@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import TimeSelectHM from './TimeSelectHM'
 
 interface Therapist {
   id: string
@@ -66,12 +67,6 @@ const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
   return base
 }
 
-/** 08:00 〜 29:00 を 30 分刻みで列挙 */
-const TIME_OPTIONS: string[] = []
-for (let h = 8; h <= 29; h++) {
-  TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`)
-  if (h < 29) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`)
-}
 
 const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, onShiftUpdate, showOnlyWithShift = false }) => {
   const { selectedShop } = useShop()
@@ -325,15 +320,19 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">開始</label>
-                <select className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={startTime} onChange={(e) => setStartTime(e.target.value)}>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <TimeSelectHM
+                  value={startTime}
+                  onChange={setStartTime}
+                  selectClassName="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">終了</label>
-                <select className="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50" value={endTime} onChange={(e) => setEndTime(e.target.value)}>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <TimeSelectHM
+                  value={endTime}
+                  onChange={setEndTime}
+                  selectClassName="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                />
               </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">

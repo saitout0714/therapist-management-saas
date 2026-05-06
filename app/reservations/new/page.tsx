@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib/calculateBack'
+import TimeSelectHM from '@/app/components/TimeSelectHM'
 
 type Customer = {
   id: string
@@ -1199,88 +1200,28 @@ export default function NewReservationPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">開始時刻 <span className="text-rose-500">*</span></label>
-                <div className="flex gap-2">
-                  <select
-                    value={formData.start_time.split(':')[0] || ''}
-                    onChange={(e) => {
-                      const hour = e.target.value;
-                      const minute = formData.start_time.split(':')[1] || '00';
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">時</option>
-                    {Array.from({ length: 30 }, (_, i) => (
-                      <option key={i} value={String(i).padStart(2, '0')}>
-                        {String(i).padStart(2, '0')}時
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={formData.start_time.split(':')[1] || ''}
-                    onChange={(e) => {
-                      const hour = formData.start_time.split(':')[0] || '00';
-                      const minute = e.target.value;
-                      setFormData({ ...formData, start_time: `${hour}:${minute}` });
-                      if (minute) scrollToSection(sectionRef4)
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">分</option>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const min = i * 5;
-                      return (
-                        <option key={min} value={String(min).padStart(2, '0')}>
-                          {String(min).padStart(2, '0')}分
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                <TimeSelectHM
+                  value={formData.start_time}
+                  onChange={v => {
+                    const prevMinute = formData.start_time.split(':')[1];
+                    const newMinute = v.split(':')[1];
+                    setFormData({ ...formData, start_time: v });
+                    if (newMinute && newMinute !== prevMinute) scrollToSection(sectionRef4);
+                  }}
+                  placeholder
+                  minHour={0}
+                  required
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">終了時刻 <span className="text-rose-500">*</span></label>
-                <div className="flex gap-2">
-                  <select
-                    value={formData.end_time.split(':')[0] || ''}
-                    onChange={(e) => {
-                      const hour = e.target.value;
-                      const minute = formData.end_time.split(':')[1] || '00';
-                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">時</option>
-                    {Array.from({ length: 30 }, (_, i) => (
-                      <option key={i} value={String(i).padStart(2, '0')}>
-                        {String(i).padStart(2, '0')}時
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={formData.end_time.split(':')[1] || ''}
-                    onChange={(e) => {
-                      const hour = formData.end_time.split(':')[0] || '00';
-                      const minute = e.target.value;
-                      setFormData({ ...formData, end_time: `${hour}:${minute}` });
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    required
-                  >
-                    <option value="">分</option>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const min = i * 5;
-                      return (
-                        <option key={min} value={String(min).padStart(2, '0')}>
-                          {String(min).padStart(2, '0')}分
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                <TimeSelectHM
+                  value={formData.end_time}
+                  onChange={v => setFormData({ ...formData, end_time: v })}
+                  placeholder
+                  minHour={0}
+                  required
+                />
               </div>
             </div>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import TimeSelectHM from '../components/TimeSelectHM';
 import { supabase } from '../../lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import TimeChart from '../components/TimeChart';
@@ -163,6 +164,10 @@ export default function ShiftsPage() {
     saving: boolean;
     error: string;
     unresolvedMemos: TherapistMemo[];
+    blockedSlots: { startTime: string; endTime: string }[];
+    addingBlocked: boolean;
+    newBlockedStart: string;
+    newBlockedEnd: string;
   } | null>(null);
 
   const handleBlockedDelete = async (id: string) => {
@@ -178,18 +183,39 @@ export default function ShiftsPage() {
     const targetDate = date ?? filterDate;
     const therapistName = therapists.find(t => t.id === therapistId)?.name ?? '';
 
-    const [shiftRes, blockedRes, memosRes] = await Promise.all([
+    const [shiftRes, allBlockedRes, memosRes] = await Promise.all([
       supabase.from('shifts').select('id, start_time, end_time, room_id, notes')
         .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('reservations').select('notes')
-        .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).eq('status', 'blocked').limit(1),
+      supabase.from('reservations').select('id, start_time, end_time, notes')
+        .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).eq('status', 'blocked'),
       supabase.from('therapist_memos').select('id, date, content, amount')
         .eq('therapist_id', therapistId).eq('shop_id', selectedShop.id).eq('is_resolved', false)
         .order('date', { ascending: false }),
     ]);
 
     const shift = shiftRes.data?.[0];
-    const isOff = (blockedRes.data?.length ?? 0) > 0;
+    const allBlocked = allBlockedRes.data || [];
+    const shiftStartStr = shift ? shift.start_time.slice(0, 5) : null;
+    const shiftEndStr = shift ? shift.end_time.slice(0, 5) : null;
+
+    let isOff = false;
+    let offMemo = '';
+    const blockedSlots: { startTime: string; endTime: string }[] = [];
+
+    for (const bl of allBlocked) {
+      const blStart = bl.start_time.slice(0, 5);
+      const blEnd = bl.end_time.slice(0, 5);
+      if (shiftStartStr && shiftEndStr && blStart === shiftStartStr && blEnd === shiftEndStr) {
+        isOff = true;
+        offMemo = bl.notes ?? '';
+      } else {
+        blockedSlots.push({ startTime: blStart, endTime: blEnd });
+      }
+    }
+
+    const defaultStart = shift ? shift.start_time.slice(0, 5) : '10:00';
+    const defaultEnd = shift ? shift.end_time.slice(0, 5) : '18:00';
+
     const unresolvedMemos: TherapistMemo[] = (memosRes.data || []).map((m: any) => ({
       id: m.id, date: m.date, content: m.content, amount: m.amount,
     }));
@@ -200,20 +226,35 @@ export default function ShiftsPage() {
       therapistName,
       date: targetDate,
       shiftId: shift?.id ?? null,
-      startTime: shift ? shift.start_time.slice(0, 5) : '10:00',
-      endTime: shift ? shift.end_time.slice(0, 5) : '18:00',
+      startTime: defaultStart,
+      endTime: defaultEnd,
       roomId: shift?.room_id ?? '',
       isOff,
-      memo: blockedRes.data?.[0]?.notes ?? shift?.notes ?? '',
+      memo: isOff ? offMemo : (shift?.notes ?? ''),
       saving: false,
       error: '',
       unresolvedMemos,
+      blockedSlots,
+      addingBlocked: false,
+      newBlockedStart: defaultStart,
+      newBlockedEnd: defaultEnd,
+    });
+  };
+
+  const handleAddBlockedSlot = () => {
+    setShiftEditModal(m => {
+      if (!m || !m.newBlockedStart || !m.newBlockedEnd) return m;
+      return {
+        ...m,
+        blockedSlots: [...m.blockedSlots, { startTime: m.newBlockedStart, endTime: m.newBlockedEnd }],
+        addingBlocked: false,
+      };
     });
   };
 
   const handleSaveShiftEdit = async () => {
     if (!shiftEditModal || !selectedShop) return;
-    const { therapistId, date, shiftId, startTime, endTime, roomId, isOff, memo } = shiftEditModal;
+    const { therapistId, date, shiftId, startTime, endTime, roomId, isOff, memo, blockedSlots } = shiftEditModal;
     setShiftEditModal(m => m ? { ...m, saving: true, error: '' } : null);
 
     const toDbTime = (t: string) => {
@@ -270,6 +311,30 @@ export default function ShiftsPage() {
       }]);
       if (error) {
         setShiftEditModal(m => m ? { ...m, saving: false, error: '受付不可の設定に失敗しました' } : null);
+        return;
+      }
+    } else if (blockedSlots.length > 0) {
+      const { error } = await supabase.from('reservations').insert(
+        blockedSlots.map(slot => ({
+          therapist_id: therapistId,
+          shop_id: selectedShop.id,
+          date,
+          start_time: toDbTime(slot.startTime),
+          end_time: toDbTime(slot.endTime),
+          status: 'blocked',
+          course_id: null,
+          customer_id: null,
+          base_price: 0,
+          options_price: 0,
+          nomination_fee: 0,
+          total_price: 0,
+          discount_amount: 0,
+          designation_type: 'free',
+          notes: null,
+        }))
+      );
+      if (error) {
+        setShiftEditModal(m => m ? { ...m, saving: false, error: '予約不可の設定に失敗しました' } : null);
         return;
       }
     }
@@ -583,11 +648,16 @@ export default function ShiftsPage() {
       return blockedNote != null ? { ...t, notes: blockedNote } : t;
     });
 
-    // 休み（全日受付不可）のセラピストIDセット
-    const blockedIds = new Set(
-      reservations.filter(r => r.status === 'blocked').map(r => r.therapist_id)
-    );
-    const isOff = (t: Therapist) => blockedIds.has(t.id);
+    // 休み（全日受付不可）= シフト全時間帯と一致するblockedスロットを持つ
+    const isOff = (t: Therapist) => {
+      if (!t.shiftStart || !t.shiftEnd) return false;
+      return reservations.some(r =>
+        r.status === 'blocked' &&
+        r.therapist_id === t.id &&
+        r.start_time.slice(0, 5) === t.shiftStart &&
+        r.end_time.slice(0, 5) === t.shiftEnd
+      );
+    };
 
     if (sortMode === 'shift') {
       return [...withShift].sort((a, b) => {
@@ -832,7 +902,7 @@ export default function ShiftsPage() {
       {/* シフト編集モーダル */}
       {shiftEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShiftEditModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
             {/* ヘッダー */}
             <div className="px-6 pt-6 pb-4 border-b border-slate-100">
               <div className="flex items-center justify-between">
@@ -848,25 +918,23 @@ export default function ShiftsPage() {
 
             <div className="px-6 py-4 space-y-4">
               {/* 出退勤時間 */}
-              <div className="flex gap-3">
-                <div className="flex-1">
+              <div className="space-y-3">
+                <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">出勤時間</label>
-                  <input
-                    type="time"
+                  <TimeSelectHM
                     value={shiftEditModal.startTime}
-                    onChange={e => setShiftEditModal(m => m ? { ...m, startTime: e.target.value } : null)}
+                    onChange={v => setShiftEditModal(m => m ? { ...m, startTime: v } : null)}
                     disabled={shiftEditModal.isOff}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                    selectClassName="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                   />
                 </div>
-                <div className="flex-1">
+                <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">退勤時間</label>
-                  <input
-                    type="time"
+                  <TimeSelectHM
                     value={shiftEditModal.endTime}
-                    onChange={e => setShiftEditModal(m => m ? { ...m, endTime: e.target.value } : null)}
+                    onChange={v => setShiftEditModal(m => m ? { ...m, endTime: v } : null)}
                     disabled={shiftEditModal.isOff}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                    selectClassName="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                   />
                 </div>
               </div>
@@ -901,6 +969,77 @@ export default function ShiftsPage() {
                   <p className="text-[10px] text-slate-500 mt-0.5">チェックするとシフト全時間帯が受付不可になります</p>
                 </div>
               </label>
+
+              {/* 予約不可時間帯 */}
+              {!shiftEditModal.isOff && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-800 inline-block"></span>
+                      予約不可時間帯
+                    </label>
+                    <button
+                      onClick={() => setShiftEditModal(m => m ? { ...m, addingBlocked: !m.addingBlocked } : null)}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      {shiftEditModal.addingBlocked ? 'キャンセル' : '＋ 追加'}
+                    </button>
+                  </div>
+
+                  {shiftEditModal.addingBlocked && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 mb-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500 mb-1">開始時刻</label>
+                          <TimeSelectHM
+                            value={shiftEditModal.newBlockedStart}
+                            onChange={v => setShiftEditModal(m => m ? { ...m, newBlockedStart: v } : null)}
+                            selectClassName="flex-1 px-2 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-400/50 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500 mb-1">終了時刻</label>
+                          <TimeSelectHM
+                            value={shiftEditModal.newBlockedEnd}
+                            onChange={v => setShiftEditModal(m => m ? { ...m, newBlockedEnd: v } : null)}
+                            selectClassName="flex-1 px-2 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-400/50 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleAddBlockedSlot}
+                          disabled={!shiftEditModal.newBlockedStart || !shiftEditModal.newBlockedEnd}
+                          className="px-4 py-1.5 bg-red-800 text-white text-xs font-bold rounded-lg hover:bg-red-900 transition-colors disabled:opacity-40"
+                        >
+                          追加
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {shiftEditModal.blockedSlots.length > 0 && (
+                    <div className="space-y-1.5">
+                      {shiftEditModal.blockedSlots.map((slot, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                          <span className="text-xs font-bold text-rose-800 flex-1">{slot.startTime} ～ {slot.endTime}</span>
+                          <button
+                            onClick={() => setShiftEditModal(m => m ? { ...m, blockedSlots: m.blockedSlots.filter((_, j) => j !== i) } : null)}
+                            className="text-rose-400 hover:text-rose-600 transition-colors p-0.5"
+                            title="削除"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {shiftEditModal.blockedSlots.length === 0 && !shiftEditModal.addingBlocked && (
+                    <p className="text-xs text-slate-400 text-center py-1.5">予約不可の時間帯はありません</p>
+                  )}
+                </div>
+              )}
 
               {/* メモ */}
               <div>
@@ -1026,20 +1165,18 @@ export default function ShiftsPage() {
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">開始時刻</label>
-                <input
-                  type="time"
+                <TimeSelectHM
                   value={blockedModal.startTime}
-                  onChange={e => setBlockedModal({ ...blockedModal, startTime: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                  onChange={v => setBlockedModal({ ...blockedModal, startTime: v })}
+                  selectClassName="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">終了時刻</label>
-                <input
-                  type="time"
+                <TimeSelectHM
                   value={blockedModal.endTime}
-                  onChange={e => setBlockedModal({ ...blockedModal, endTime: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                  onChange={v => setBlockedModal({ ...blockedModal, endTime: v })}
+                  selectClassName="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                 />
               </div>
             </div>
