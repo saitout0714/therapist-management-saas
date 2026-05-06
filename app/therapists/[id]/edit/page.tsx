@@ -38,6 +38,53 @@ export default function EditTherapistPage() {
   // Matrix key: `${category}||${desig_slug}` where desig_slug = '__all__' for 全種別共通
   const [optionBackMatrix, setOptionBackMatrix] = useState<Record<string, string>>({});
 
+  // 引き継ぎメモ
+  interface TherapistMemo { id: string; date: string; content: string; amount: number; is_resolved: boolean; }
+  const [memos, setMemos] = useState<TherapistMemo[]>([]);
+  const [memoForm, setMemoForm] = useState({ content: '', amount: '' });
+  const [memoLoading, setMemoLoading] = useState(false);
+  const [showResolved, setShowResolved] = useState(false);
+
+  const fetchMemos = async () => {
+    const { data } = await supabase
+      .from('therapist_memos')
+      .select('id, date, content, amount, is_resolved')
+      .eq('therapist_id', therapistId)
+      .order('date', { ascending: false });
+    setMemos((data || []) as TherapistMemo[]);
+  };
+
+  const handleAddMemo = async () => {
+    if (!memoForm.content.trim()) return;
+    setMemoLoading(true);
+    const { error } = await supabase.from('therapist_memos').insert([{
+      therapist_id: therapistId,
+      shop_id: therapistShopId,
+      date: new Date().toISOString().split('T')[0],
+      content: memoForm.content.trim(),
+      amount: parseInt(memoForm.amount || '0', 10) || 0,
+    }]);
+    setMemoLoading(false);
+    if (error) { alert('メモの追加に失敗しました'); return; }
+    setMemoForm({ content: '', amount: '' });
+    await fetchMemos();
+  };
+
+  const handleResolveMemo = async (id: string) => {
+    await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', id);
+    await fetchMemos();
+  };
+
+  const handleDeleteMemo = async (id: string) => {
+    if (!confirm('このメモを削除しますか？')) return;
+    await supabase.from('therapist_memos').delete().eq('id', id);
+    await fetchMemos();
+  };
+
+  useEffect(() => {
+    if (therapistId) void fetchMemos();
+  }, [therapistId]);
+
   useEffect(() => {
     const fetchTherapistData = async () => {
       if (!therapistId) return;
@@ -573,6 +620,101 @@ export default function EditTherapistPage() {
                 </button>
               </div>
             </form>
+
+            {/* 引き継ぎメモセクション */}
+            <div className="mt-8 border border-amber-200 rounded-2xl overflow-hidden">
+              <div className="bg-amber-50 px-5 py-4 flex items-center justify-between border-b border-amber-200">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                  <h3 className="font-bold text-slate-800 text-sm">引き継ぎメモ</h3>
+                  {memos.filter(m => !m.is_resolved).length > 0 && (
+                    <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      未解決 {memos.filter(m => !m.is_resolved).length}件
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowResolved(v => !v)}
+                  className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  {showResolved ? '解決済みを隠す' : '解決済みも表示'}
+                </button>
+              </div>
+
+              {/* 新規追加フォーム */}
+              <div className="px-5 py-4 bg-white border-b border-amber-100 space-y-3">
+                <textarea
+                  value={memoForm.content}
+                  onChange={e => setMemoForm(f => ({ ...f, content: e.target.value }))}
+                  rows={2}
+                  placeholder="内容（例：精算時に店落ち -1000円、次回出勤時に確認）"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                />
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={memoForm.amount}
+                      onChange={e => setMemoForm(f => ({ ...f, amount: e.target.value }))}
+                      placeholder="金額"
+                      className="w-28 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
+                    />
+                    <span className="text-xs text-slate-500">円　正=余剰 / 負=不足</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddMemo}
+                    disabled={memoLoading || !memoForm.content.trim()}
+                    className="ml-auto px-5 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-40"
+                  >
+                    追加する
+                  </button>
+                </div>
+              </div>
+
+              {/* メモ一覧 */}
+              <div className="divide-y divide-amber-100">
+                {memos
+                  .filter(m => showResolved || !m.is_resolved)
+                  .map(memo => (
+                    <div key={memo.id} className={`px-5 py-3 flex items-start gap-3 ${memo.is_resolved ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-amber-700">{memo.date}</span>
+                          {memo.amount !== 0 && (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                              {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                            </span>
+                          )}
+                          {memo.is_resolved && (
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">解決済み</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-700 leading-snug">{memo.content}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!memo.is_resolved && (
+                          <button
+                            onClick={() => handleResolveMemo(memo.id)}
+                            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-2 py-1 rounded-lg transition-colors"
+                          >
+                            解決済みに
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteMemo(memo.id)}
+                          className="text-[10px] font-bold text-slate-300 hover:text-red-500 border border-slate-200 hover:border-red-300 px-2 py-1 rounded-lg transition-colors"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                {memos.filter(m => showResolved || !m.is_resolved).length === 0 && (
+                  <div className="px-5 py-6 text-center text-sm text-slate-400">メモはありません</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

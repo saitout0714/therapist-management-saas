@@ -25,6 +25,7 @@ type TherapistItem = {
 export default function TherapistsPage() {
   const { selectedShop } = useShop();
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
+  const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
@@ -35,17 +36,31 @@ export default function TherapistsPage() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
 
-    const { data, error } = await supabase
-      .from("therapists")
-      .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name)")
-      .eq("shop_id", selectedShop.id)
-      .order("order", { ascending: true, nullsFirst: false });
-    if (error) {
-      setError(error.message);
+    const [therapistsRes, memosRes] = await Promise.all([
+      supabase
+        .from("therapists")
+        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name)")
+        .eq("shop_id", selectedShop.id)
+        .order("order", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("therapist_memos")
+        .select("therapist_id")
+        .eq("shop_id", selectedShop.id)
+        .eq("is_resolved", false),
+    ]);
+
+    if (therapistsRes.error) {
+      setError(therapistsRes.error.message);
     } else {
-      setTherapists((data as unknown as TherapistItem[]) || []);
+      setTherapists((therapistsRes.data as unknown as TherapistItem[]) || []);
       setError(null);
     }
+
+    const counts = new Map<string, number>();
+    (memosRes.data || []).forEach((m: any) => {
+      counts.set(m.therapist_id, (counts.get(m.therapist_id) ?? 0) + 1);
+    });
+    setUnresolvedMemoCounts(counts);
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLLIElement>, therapistId: string) => {
@@ -185,6 +200,14 @@ export default function TherapistsPage() {
             {rankName && (
               <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
                 {rankName}
+              </span>
+            )}
+            {(unresolvedMemoCounts.get(therapist.id) ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                引継ぎ {unresolvedMemoCounts.get(therapist.id)}件
               </span>
             )}
           </div>

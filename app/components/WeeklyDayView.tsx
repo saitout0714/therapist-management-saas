@@ -24,6 +24,7 @@ interface Shift {
   date: string
   start_time: string
   end_time: string
+  notes?: string | null
 }
 
 interface Reservation {
@@ -37,6 +38,7 @@ interface Reservation {
   is_hime: boolean | null
   total_price: number
   discount_amount: number
+  notes?: string | null
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
 }
@@ -50,6 +52,8 @@ interface WeeklyDayViewProps {
   sortMode?: SortMode
   roomOrderMap?: Map<string, number>
   shopIntervalMinutes?: number
+  minCourseDuration?: number
+  onShiftEditOpen?: (therapistId: string, date: string) => void
 }
 
 function formatDate(date: Date): string {
@@ -91,6 +95,8 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   sortMode = 'shift',
   roomOrderMap = new Map(),
   shopIntervalMinutes = 20,
+  minCourseDuration = 0,
+  onShiftEditOpen,
 }) => {
   const router = useRouter()
   const { selectedShop } = useShop()
@@ -116,17 +122,17 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     const [shiftsRes, reservationsRes] = await Promise.all([
       supabase
         .from('shifts')
-        .select('id, therapist_id, room_id, date, start_time, end_time')
+        .select('id, therapist_id, room_id, date, start_time, end_time, notes')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
-        .eq('status', 'confirmed'),
+        .in('status', ['confirmed', 'blocked']),
     ])
 
     setShifts((shiftsRes.data as Shift[]) || [])
@@ -172,10 +178,20 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     if (now.getHours() < 6) nowMins += 24 * 60
 
     map.forEach((list, dateStr) => {
+      // 休み（blocked）のセラピストIDセット（日付ごと）
+      const blockedIds = new Set(
+        reservations.filter(r => r.date === dateStr && r.status === 'blocked').map(r => r.therapist_id)
+      )
+      const isOff = (s: Shift) => blockedIds.has(s.therapist_id)
+
       if (sortMode === 'shift') {
-        list.sort((a, b) => toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5)))
+        list.sort((a, b) => {
+          if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
+          return toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5))
+        })
       } else if (sortMode === 'room') {
         list.sort((a, b) => {
+          if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
           const aOrder = a.room_id ? (roomOrderMap.get(a.room_id) ?? 9999) : 9999
           const bOrder = b.room_id ? (roomOrderMap.get(b.room_id) ?? 9999) : 9999
           if (aOrder !== bOrder) return aOrder - bOrder
@@ -193,21 +209,27 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 
         const isEffectivelyFinished = (shift: Shift): boolean => {
           if (dateStr !== todayStr) return false
-          let endMins = toMinutes(shift.end_time.slice(0, 5))
+          let shiftEndMins = toMinutes(shift.end_time.slice(0, 5))
           const startMins = toMinutes(shift.start_time.slice(0, 5))
-          if (endMins <= startMins) endMins += 24 * 60
-          if (nowMins >= endMins) return true
+          if (shiftEndMins <= startMins) shiftEndMins += 24 * 60
+          if (nowMins >= shiftEndMins) return true
           const therapist = therapistMap.get(shift.therapist_id)
           const interval = therapist?.reservation_interval_minutes ?? shopIntervalMinutes
           const therapistReservations = reservations.filter(
             r => r.therapist_id === shift.therapist_id && r.date === dateStr && r.status === 'confirmed'
           )
-          if (therapistReservations.length === 0) return false
-          const maxEndMins = Math.max(...therapistReservations.map(r => toMinutes(r.end_time.slice(0, 5))))
-          return (maxEndMins + interval) >= endMins
+          const lastEndMins = therapistReservations.length > 0
+            ? Math.max(...therapistReservations.map(r => toMinutes(r.end_time.slice(0, 5))))
+            : null
+          const nextAvailableMins = lastEndMins !== null
+            ? Math.max(nowMins, lastEndMins + interval)
+            : nowMins
+          const requiredMins = minCourseDuration > 0 ? minCourseDuration : 1
+          return nextAvailableMins + requiredMins > shiftEndMins
         }
 
         list.sort((a, b) => {
+          if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
           const aFinished = isEffectivelyFinished(a)
           const bFinished = isEffectivelyFinished(b)
           if (aFinished !== bFinished) return aFinished ? 1 : -1
@@ -286,7 +308,10 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                       if (!therapist) return null
                       const roomName = shift.room_id ? roomMap.get(shift.room_id) : null
                       const endDisplay = dbTimeToDisplay(shift.end_time, shift.start_time)
-                      const dayReservations = reservationsByDateTherapist.get(`${dateStr}_${shift.therapist_id}`) || []
+                      const allDayReservations = reservationsByDateTherapist.get(`${dateStr}_${shift.therapist_id}`) || []
+                      const dayReservations = allDayReservations.filter(r => r.status === 'confirmed')
+                      const blockedNote = allDayReservations.find(r => r.status === 'blocked')?.notes
+                      const shiftNote = blockedNote != null ? blockedNote : (shift.notes ?? null)
 
                       return (
                         <div
@@ -297,27 +322,48 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
                           <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                          {/* ＋予約ボタン — 右上固定 */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const t = new Date()
-                              t.setHours(t.getHours() + 1, 0, 0, 0)
-                              const time = `${String(t.getHours()).padStart(2, '0')}:00`
-                              const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
-                              if (shift.room_id) params.set('room_id', shift.room_id)
-                              router.push(`/reservations/new?${params.toString()}`)
-                            }}
-                            className="absolute top-2 right-2 z-10 text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
-                          >
-                            ＋予約
-                          </button>
+                          {/* ＋予約・編集ボタン — 右上固定 */}
+                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                            {onShiftEditOpen && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onShiftEditOpen(therapist.id, dateStr)
+                                }}
+                                title="シフトを編集"
+                                className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const t = new Date()
+                                t.setHours(t.getHours() + 1, 0, 0, 0)
+                                const time = `${String(t.getHours()).padStart(2, '0')}:00`
+                                const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
+                                if (shift.room_id) params.set('room_id', shift.room_id)
+                                router.push(`/reservations/new?${params.toString()}`)
+                              }}
+                              className="text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
+                            >
+                              ＋予約
+                            </button>
+                          </div>
 
                           {/* セラピスト情報 — TimeChart の左列と同スタイル */}
                           <div className="flex flex-col justify-center gap-1 px-3 pt-3 pb-2">
-                            <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors truncate">
-                              {therapist.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors flex-shrink-0">
+                                {therapist.name}
+                              </p>
+                              {shiftNote && (
+                                <span className="text-[13px] font-medium text-amber-600 leading-none whitespace-nowrap">
+                                  {shiftNote}
+                                </span>
+                              )}
+                            </div>
                             {therapist.reservation_interval_minutes != null && (
                               <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200 self-start">
                                 {therapist.reservation_interval_minutes}分
