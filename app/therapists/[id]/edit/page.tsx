@@ -422,14 +422,16 @@ export default function EditTherapistPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">メモ</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    スタッフメモ <span className="text-xs text-slate-400 font-normal">シフト画面でセラピスト名にマウスオーバーすると表示されます</span>
+                  </label>
                   <textarea
                     name="comment"
                     value={profile.comment}
                     onChange={(e) => setProfile({ ...profile, comment: e.target.value })}
                     rows={4}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none"
-                    placeholder="店長メモ、セラピストの特徴など"
+                    placeholder="注意事項、引き継ぎ情報など"
                   />
                 </div>
 

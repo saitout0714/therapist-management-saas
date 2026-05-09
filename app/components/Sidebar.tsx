@@ -63,6 +63,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="truncate">セラピスト</span>
           </Link>
           <Link
+            href="/memos"
+            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            onClick={onClose}
+          >
+            <span className="truncate">給与引継ぎメモ</span>
+          </Link>
+          <Link
             href="/customers"
             className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
             onClick={onClose}

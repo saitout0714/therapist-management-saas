@@ -9,8 +9,15 @@ import Link from 'next/link';
 export default function NewRoomPage() {
   const router = useRouter();
   const { selectedShop } = useShop();
-  
-  const [formData, setFormData] = useState({ name: '', description: '', address: '', google_map_url: '' });
+
+  const [formData, setFormData] = useState({
+    name: '',
+    display_name: '',
+    google_map_url: '',
+    memo: '',
+    template_member: '',
+    template_new_customer: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +47,12 @@ export default function NewRoomPage() {
 
     const { error: insertError } = await supabase.from('rooms').insert([
       {
-        ...formData,
+        name: formData.name,
+        display_name: formData.display_name || null,
+        google_map_url: formData.google_map_url || null,
+        memo: formData.memo || null,
+        template_member: formData.template_member || null,
+        template_new_customer: formData.template_new_customer || null,
         shop_id: selectedShop.id,
       },
     ]);
@@ -64,7 +76,7 @@ export default function NewRoomPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">新規ルームの登録</h1>
-            <p className="text-sm text-slate-500 mt-1">新しいルーム（部屋）を作成します。</p>
+            <p className="text-sm text-slate-500 mt-1">ルーム情報とSMS案内テンプレートを設定します。</p>
           </div>
         </div>
 
@@ -80,10 +92,10 @@ export default function NewRoomPage() {
             )}
 
             <form onSubmit={handleSave} className="space-y-6">
-              <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    ルーム名<span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
+                    ルーム名 <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
                   </label>
                   <input
                     type="text"
@@ -91,55 +103,84 @@ export default function NewRoomPage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: ルームA, VIPルーム"
+                    placeholder="例: 海老名A（管理用）"
                     required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    住所<span className="ml-2 text-xs text-slate-400 font-normal">お客様用LINEテキストに記載されます</span>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">シフト・タイムチャート等に表示</span>
                   </label>
                   <input
                     type="text"
-                    name="address"
-                    value={formData.address}
+                    name="display_name"
+                    value={formData.display_name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: 東京都新宿区○○ビル 201号室"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    Google マップURL<span className="ml-2 text-xs text-slate-400 font-normal">お客様用LINEテキストに記載されます</span>
-                  </label>
-                  <input
-                    type="url"
-                    name="google_map_url"
-                    value={formData.google_map_url}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="https://maps.app.goo.gl/..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    説明<span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400"
-                    placeholder="設備や特徴などのメモ（内部のみ表示）"
-                    rows={4}
+                    placeholder="例: 海老名ルーム"
                   />
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end mt-8">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">
+                  GoogleマップURL <span className="text-xs text-slate-400 font-normal">スタッフがスケジュール画面からワンクリックで開けます</span>
+                </label>
+                <input
+                  type="url"
+                  name="google_map_url"
+                  value={formData.google_map_url}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                  placeholder="https://maps.app.goo.gl/..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">
+                  メモ <span className="text-xs text-slate-400 font-normal">スケジュール画面でルーム名にマウスオーバーすると表示されます</span>
+                </label>
+                <textarea
+                  name="memo"
+                  value={formData.memo}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400"
+                  placeholder="例: 駐車場あり、エレベーター不可、鍵の場所など"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">
+                  会員様テンプレ
+                </label>
+                <p className="text-xs text-slate-400">2回目以降のお客様に送るルーム案内文。住所・マップURL・注意事項をすべて含めてください。</p>
+                <textarea
+                  name="template_member"
+                  value={formData.template_member}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                  placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２リージア海老名ビナフロント805号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
+                  rows={10}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700">
+                  ご新規様テンプレ
+                </label>
+                <p className="text-xs text-slate-400">初回のお客様に送るルーム案内文。未入力の場合は会員様テンプレが使用されます。</p>
+                <textarea
+                  name="template_new_customer"
+                  value={formData.template_new_customer}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                  placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目３ー１\nガイアネクスト海老名駅前店（パチンコ屋）付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
+                  rows={10}
+                />
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">
                 <Link
                   href="/rooms"
                   className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
@@ -161,4 +202,3 @@ export default function NewRoomPage() {
     </div>
   );
 }
-

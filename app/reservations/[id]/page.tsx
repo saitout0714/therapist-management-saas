@@ -52,8 +52,9 @@ type Reservation = {
 
 type RoomInfo = {
   name: string
-  address: string | null
-  google_map_url: string | null
+  display_name: string | null
+  template_member: string | null
+  template_new_customer: string | null
 }
 
 export default function ReservationPreviewPage() {
@@ -96,10 +97,14 @@ export default function ReservationPreviewPage() {
         `)
         .eq('id', reservationId)
         .eq('shop_id', selectedShop.id)
-        .single()
+        .maybeSingle()
 
       if (resError) throw resError
-      if (!resData) throw new Error('予約が見つかりません')
+      if (!resData) {
+        // 店舗切替などで該当予約が見つからない場合はシフト管理に遷移
+        router.push('/shifts')
+        return
+      }
 
       setReservation(resData as unknown as Reservation)
 
@@ -127,26 +132,27 @@ export default function ReservationPreviewPage() {
       // 3. Fetch Room from Shift
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
-        .select(`
-          rooms(name, address, google_map_url)
-        `)
+        .select('rooms(name, display_name, template_member, template_new_customer)')
         .eq('therapist_id', resData.therapist_id)
         .eq('date', resData.date)
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
 
-      if (!shiftError && shiftData?.rooms) {
-        // Because of Supabase return types of joined tables
+      if (shiftError) {
+        console.warn('ルーム取得エラー:', shiftError.message)
+      } else if (shiftData?.rooms) {
         const room = Array.isArray(shiftData.rooms) ? shiftData.rooms[0] : shiftData.rooms
         setRoomInfo({
           name: room?.name || '',
-          address: room?.address || null,
-          google_map_url: room?.google_map_url || null,
+          display_name: room?.display_name || null,
+          template_member: room?.template_member || null,
+          template_new_customer: room?.template_new_customer || null,
         })
       }
     } catch (error) {
-      console.error('予約詳細の取得に失敗:', error)
-      alert('予約詳細の取得に失敗しました')
+      const msg = error instanceof Error ? error.message : JSON.stringify(error)
+      console.error('予約詳細の取得に失敗:', msg, error)
+      alert('予約詳細の取得に失敗しました: ' + msg)
     } finally {
       setLoading(false)
     }
@@ -219,7 +225,15 @@ export default function ReservationPreviewPage() {
       text += `指名料：￥${reservation.nomination_fee.toLocaleString()}\n`
     }
     if (reservation.discount_amount > 0) {
-      text += `割引：-￥${reservation.discount_amount.toLocaleString()}\n`
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      if (discounts.length > 0) {
+        discounts.forEach(d => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '割引') : (d.policy?.name || '割引')
+          text += `${discountName}：-￥${d.applied_amount.toLocaleString()}\n`
+        })
+      } else {
+        text += `割引：-￥${reservation.discount_amount.toLocaleString()}\n`
+      }
     }
     text += `------------------------\n`
     text += `合計：￥${reservation.total_price.toLocaleString()}\n`
@@ -231,18 +245,14 @@ export default function ReservationPreviewPage() {
       }
     }
 
-    // ルーム（末尾、住所 + Google Maps URL）
-    text += `\n■ ルーム（ご来店場所）\n`
-    if (roomInfo?.address) {
-      text += `住所：${roomInfo.address}\n`
-    } else {
-      text += `${roomInfo?.name || '未定'}\n`
-    }
-    if (roomInfo?.google_map_url) {
-      text += `📍 ${roomInfo.google_map_url}\n`
-    }
+    // ルームテンプレート（新規・会員で切替）
+    const roomTemplate = isNewCustomer
+      ? (roomInfo?.template_new_customer || roomInfo?.template_member)
+      : (roomInfo?.template_member || roomInfo?.template_new_customer)
 
-    text += `\nご来店を心よりお待ちしております。`
+    if (roomTemplate) {
+      text += `\n${roomTemplate}`
+    }
 
     return text
   }
@@ -342,6 +352,19 @@ export default function ReservationPreviewPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!confirm('この予約を削除しますか？この操作は元に戻せません。')) return
+    const { error } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', reservationId)
+    if (error) {
+      alert('削除に失敗しました: ' + error.message)
+    } else {
+      goBack()
+    }
+  }
+
   if (loading || !reservation) {
     return (
       <div className="flex justify-center items-center py-20 text-indigo-600">
@@ -375,15 +398,26 @@ export default function ReservationPreviewPage() {
               </h1>
             </div>
           </div>
-          <Link
-            href={`/reservations/${reservationId}/edit${fromPage === 'shifts' ? '?from=shifts' : ''}`}
-            className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            予約内容を編集する
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2.5 bg-white border border-rose-200 text-rose-500 font-medium rounded-xl hover:bg-rose-50 hover:border-rose-300 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              削除
+            </button>
+            <Link
+              href={`/reservations/${reservationId}/edit${fromPage === 'shifts' ? '?from=shifts' : ''}`}
+              className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              予約内容を編集する
+            </Link>
+          </div>
         </div>
 
         {/* Action Buttons for LINE */}
@@ -495,8 +529,7 @@ export default function ReservationPreviewPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-slate-500 font-medium">ルーム</div>
                   <div className="col-span-2 text-slate-800 font-bold">
-                    {roomInfo?.name || '未定'}
-                    {roomInfo?.address && <span className="block text-slate-500 font-normal text-xs mt-1">{roomInfo.address}</span>}
+                    {roomInfo?.display_name || roomInfo?.name || '未定'}
                   </div>
                 </div>
               </div>

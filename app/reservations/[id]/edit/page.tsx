@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
@@ -12,6 +12,8 @@ type Customer = {
   name: string
   email: string | null
   phone: string | null
+  status?: string
+  ng_reason?: string | null
 }
 
 type Course = {
@@ -164,12 +166,14 @@ export default function EditReservationPage() {
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false)
   const [selectedCustomerObj, setSelectedCustomerObj] = useState<Customer | null>(null)
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' })
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const normalizedSearch = customerSearch.trim().toLowerCase()
-  const filteredCustomers = normalizedSearch
-    ? customers.filter(c => `${c.name ?? ''} ${c.phone ?? ''} ${c.email ?? ''}`.toLowerCase().includes(normalizedSearch))
-    : []
+  const normalizedSearch = customerSearch.trim()
+  const filteredCustomers = customerSearchResults
 
   const calcEndTime = (start: string, durationMin: number): string => {
     const [h, m] = start.split(':').map(Number)
@@ -180,6 +184,26 @@ export default function EditReservationPage() {
   useEffect(() => {
     fetchInitialData()
   }, [selectedShop])
+
+  useEffect(() => {
+    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+    const q = customerSearch.trim()
+    if (!q || !selectedShop) { setCustomerSearchResults([]); return }
+    customerSearchTimer.current = setTimeout(async () => {
+      setCustomerSearchLoading(true)
+      const normalized = q.replace(/-/g, '')
+      const { data } = await supabase
+        .from('customers')
+        .select('id, name, email, phone, status, ng_reason')
+        .eq('shop_id', selectedShop.id)
+        .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
+        .order('name')
+        .limit(50)
+      setCustomerSearchResults(data || [])
+      setCustomerSearchLoading(false)
+    }, 300)
+    return () => { if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current) }
+  }, [customerSearch, selectedShop])
 
   useEffect(() => {
     void calculatePrice()
@@ -488,7 +512,7 @@ export default function EditReservationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.customer_id || !formData.course_id || !formData.therapist_id) {
+    if ((!formData.customer_id && !newCustomer.name) || !formData.course_id || !formData.therapist_id) {
       alert('必須項目を入力してください')
       return
     }
@@ -499,6 +523,21 @@ export default function EditReservationPage() {
     }
 
     try {
+      // 新規顧客の場合は先に登録
+      if (!formData.customer_id && newCustomer.name) {
+        const { data: createdCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert([{
+            name: newCustomer.name,
+            phone: customerSearch || null,
+            shop_id: selectedShop.id,
+          }])
+          .select()
+          .single()
+        if (customerError) throw new Error('顧客登録に失敗しました: ' + customerError.message)
+        setFormData(prev => ({ ...prev, customer_id: createdCustomer.id }))
+        formData.customer_id = createdCustomer.id
+      }
       const startDate = new Date(`${formData.date}T${formData.start_time}`)
       const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
       const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
@@ -704,19 +743,23 @@ export default function EditReservationPage() {
                   type="text"
                   value={customerSearch}
                   onChange={(e) => {
-                    setCustomerSearch(e.target.value)
-                    if (selectedCustomerObj) {
-                      setSelectedCustomerObj(null)
+                    const val = e.target.value
+                    setCustomerSearch(val)
+                    setNewCustomer(prev => ({ ...prev, name: '' }))
+                    if (formData.customer_id) {
                       setFormData({ ...formData, customer_id: '' })
+                      setSelectedCustomerObj(null)
                     }
                   }}
                   placeholder="電話番号・名前・メールで検索"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all"
                 />
                 {/* 検索結果ドロップダウン（顧客未選択時のみ） */}
-                {!selectedCustomerObj && normalizedSearch && (
+                {!formData.customer_id && normalizedSearch && (
                   <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1">
-                    {filteredCustomers.length === 0 ? (
+                    {customerSearchLoading ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">検索中...</div>
+                    ) : filteredCustomers.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
                     ) : (
                       filteredCustomers.slice(0, 50).map(customer => (
@@ -732,6 +775,7 @@ export default function EditReservationPage() {
                         >
                           <span className="font-medium">{customer.name}</span>{' '}
                           <span className="text-gray-500">{customer.phone ? `(${customer.phone})` : ''}</span>
+                          {customer.email && <span className="text-gray-500 ml-2">{customer.email}</span>}
                         </button>
                       ))
                     )}
@@ -741,27 +785,58 @@ export default function EditReservationPage() {
 
               {/* お客様名フィールド */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">お客様名 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  お客様名 <span className="text-rose-500">*</span>
+                  {!selectedCustomerObj && customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
+                    <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">新規登録</span>
+                  )}
+                </label>
                 {selectedCustomerObj ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-bold text-indigo-900 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {selectedCustomerObj.name}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex-1 px-4 py-3 border rounded-xl text-sm font-bold flex items-center gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
+                        <svg className={`w-4 h-4 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {selectedCustomerObj.name}
+                        {selectedCustomerObj.status && selectedCustomerObj.status !== '予約可' && (
+                          <span className={`ml-1 px-2 py-0.5 text-xs rounded-full font-bold ${selectedCustomerObj.status === '出禁' ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>
+                            {selectedCustomerObj.status}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomerObj(null)
+                          setFormData({ ...formData, customer_id: '' })
+                          setCustomerSearch('')
+                        }}
+                        className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                      >
+                        変更
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCustomerObj(null)
-                        setFormData({ ...formData, customer_id: '' })
-                        setCustomerSearch('')
-                      }}
-                      className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
-                    >
-                      変更
-                    </button>
+                    {(selectedCustomerObj.status === '出禁' || selectedCustomerObj.status === '要注意') && (
+                      <div className={`px-4 py-3 rounded-xl text-sm flex items-start gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                          <span className="font-bold">このお客様は「{selectedCustomerObj.status}」です。</span>
+                          {selectedCustomerObj.ng_reason && <span className="ml-1">{selectedCustomerObj.ng_reason}</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
+                  <input
+                    type="text"
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                    placeholder="お客様名を入力（新規登録）"
+                    className="w-full px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-amber-400"
+                  />
                 ) : (
                   <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
                     電話番号や名前を検索してお客様を選択してください

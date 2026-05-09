@@ -10,6 +10,7 @@ type Shop = {
   short_name: string | null
   description: string | null
   is_active: boolean
+  sms_address_mode: 'unified' | 'split_by_membership' | null
   created_at: string
   order: number | null
 }
@@ -132,6 +133,7 @@ export default function AdminPage() {
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">店舗名</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:table-cell">略称</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden md:table-cell">説明</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">SMS案内</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状態</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">操作</th>
                       </tr>
@@ -139,7 +141,7 @@ export default function AdminPage() {
                     <tbody className="divide-y divide-slate-100">
                       {shops.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                             店舗が登録されていません。上のボタンから追加してください。
                           </td>
                         </tr>
@@ -179,6 +181,12 @@ export default function AdminPage() {
                             </td>
                             <td className="px-6 py-4 hidden md:table-cell">
                               <div className="text-sm text-slate-600 line-clamp-2">{shop.description || <span className="text-slate-400 italic">説明なし</span>}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                              {shop.sms_address_mode === 'split_by_membership'
+                                ? <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-200 text-amber-700">新規／会員で切替</span>
+                                : <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-slate-50 border-slate-200 text-slate-500">一律</span>
+                              }
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${shop.is_active

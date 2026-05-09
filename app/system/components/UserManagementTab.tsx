@@ -27,7 +27,7 @@ export function UserManagementTab() {
   async function fetchUsers() {
     if (!selectedShop) return
     setLoading(true)
-    
+
     try {
       const { data, error } = await supabase
         .from('shop_owners')
@@ -41,14 +41,14 @@ export function UserManagementTab() {
           )
         `)
         .eq('shop_id', selectedShop.id)
-      
+
       if (error) throw error
-      
+
       const rows = (data as any[])
         .map(d => d.users)
         .filter(u => u !== null)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      
+
       setUsers(rows)
     } catch (err) {
       console.error('Failed to fetch users:', err)
@@ -75,7 +75,7 @@ export function UserManagementTab() {
 
     try {
       setLoading(true)
-      
+
       // 1. パスワードハッシュ化
       const salt = await bcrypt.genSalt(10)
       const passwordHash = await bcrypt.hash(form.password, salt)
@@ -166,13 +166,13 @@ export function UserManagementTab() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm('このアカウントを削除してもよろしいですか？この操作は取り消せません。')) return
-    
+
     try {
       setLoading(true)
       // 削除（カスケード設定があれば shop_owners も消えるが、念のため users を消す）
       const { error } = await supabase.from('users').delete().eq('id', userId)
       if (error) throw error
-      
+
       alert('削除しました')
       fetchUsers()
     } catch (err: any) {
@@ -190,15 +190,14 @@ export function UserManagementTab() {
           <p className="text-sm text-slate-500">店舗の管理・操作を行うスタッフのアカウントを管理します。</p>
         </div>
         {!editingUser && (
-          <button 
+          <button
             onClick={() => {
               setEditingUser(null)
               setShowAddForm(!showAddForm)
               setForm({ loginId: '', password: '', name: '', role: 'staff' })
             }}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm ${
-              showAddForm ? 'bg-slate-100 text-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }`}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm ${showAddForm ? 'bg-slate-100 text-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
           >
             {showAddForm ? '閉じる' : '新規スタッフ追加'}
           </button>
@@ -215,11 +214,11 @@ export function UserManagementTab() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">表示名（お名前など）</label>
-              <input 
-                type="text" 
+              <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">マンション名（お名前など）</label>
+              <input
+                type="text"
                 value={form.name}
-                onChange={e => setForm({...form, name: e.target.value})}
+                onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="例: 山田 花子"
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300"
                 required
@@ -227,9 +226,9 @@ export function UserManagementTab() {
             </div>
             <div>
               <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">権限</label>
-              <select 
+              <select
                 value={form.role}
-                onChange={e => setForm({...form, role: e.target.value as any})}
+                onChange={e => setForm({ ...form, role: e.target.value as any })}
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               >
                 <option value="staff">スタッフ（一般）</option>
@@ -239,8 +238,8 @@ export function UserManagementTab() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">ログインID</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={form.loginId}
                 disabled // ログインIDは変更不可とするか、慎重に扱う
                 className="w-full bg-slate-100 border border-indigo-100 px-4 py-2.5 rounded-xl text-sm outline-none text-slate-500"
@@ -250,10 +249,10 @@ export function UserManagementTab() {
               <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">
                 {editingUser ? 'パスワード変更 (変更する場合のみ入力)' : 'パスワード'}
               </label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})}
+                onChange={e => setForm({ ...form, password: e.target.value })}
                 placeholder={editingUser ? "変更する場合のみ入力してください" : "8文字以上推奨"}
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300"
                 required={!editingUser}
@@ -262,15 +261,15 @@ export function UserManagementTab() {
             </div>
           </div>
           <div className="mt-6 flex gap-3">
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="flex-1 bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? '処理中...' : (editingUser ? '更新を保存する' : 'この内容で登録する')}
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => {
                 setEditingUser(null)
                 setShowAddForm(false)
@@ -304,10 +303,9 @@ export function UserManagementTab() {
                   </td>
                   <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                      u.role === 'owner' ? 'bg-indigo-100 text-indigo-600' : 
-                      u.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${u.role === 'owner' ? 'bg-indigo-100 text-indigo-600' :
+                        u.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
+                      }`}>
                       {u.role === 'owner' ? 'オーナー' : u.role === 'admin' ? '管理者' : 'スタッフ'}
                     </span>
                   </td>
@@ -316,14 +314,14 @@ export function UserManagementTab() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <button 
+                      <button
                         onClick={() => startEditing(u)}
                         className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
                         title="情報を編集"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636l-3.536 3.536m0 0l-1.414 1.414M15.828 4.172a4 4 0 015.656 5.656L10 17.657l-4-4L15.828 4.172z" /></svg>
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDeleteUser(u.id)}
                         className="p-2 text-slate-300 hover:text-rose-600 transition-colors"
                         title="アカウントを削除"

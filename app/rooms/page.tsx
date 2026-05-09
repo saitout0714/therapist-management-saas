@@ -8,8 +8,9 @@ import Link from 'next/link'
 interface Room {
   id: string
   name: string
-  description: string
-  address: string | null
+  display_name: string | null
+  template_member: string | null
+  template_new_customer: string | null
   created_at: string
   order: number | null
 }
@@ -120,8 +121,8 @@ export default function RoomsList() {
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
                     <th className="w-10 px-3 py-4"></th>
                     <th className="px-6 py-4 whitespace-nowrap">ルーム名</th>
-                    <th className="px-6 py-4 whitespace-nowrap">住所</th>
-                    <th className="px-6 py-4 whitespace-nowrap hidden md:table-cell">説明</th>
+                    <th className="px-6 py-4 whitespace-nowrap">マンション名</th>
+                    <th className="px-6 py-4 whitespace-nowrap hidden md:table-cell">テンプレ</th>
                     <th className="px-6 py-4 whitespace-nowrap w-32 text-center">操作</th>
                   </tr>
                 </thead>
@@ -134,11 +135,10 @@ export default function RoomsList() {
                       onDragEnd={handleDragEnd}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, room)}
-                      className={`transition-all group ${
-                        draggedId === room.id
+                      className={`transition-all group ${draggedId === room.id
                           ? 'opacity-40 bg-indigo-50/60'
                           : 'hover:bg-slate-50/50'
-                      }`}
+                        }`}
                     >
                       <td className="px-3 py-4 w-10">
                         <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
@@ -151,10 +151,19 @@ export default function RoomsList() {
                         <span className="font-medium text-slate-800">{room.name}</span>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {room.address || <span className="text-slate-400 italic">未入力</span>}
+                        {room.display_name || <span className="text-slate-400 italic">未設定</span>}
                       </td>
                       <td className="px-6 py-4 text-slate-600 hidden md:table-cell">
-                        {room.description || <span className="text-slate-400 italic">未設定</span>}
+                        <div className="flex gap-2 text-xs">
+                          {room.template_member
+                            ? <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">会員あり</span>
+                            : <span className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded-full border border-slate-100">会員なし</span>
+                          }
+                          {room.template_new_customer
+                            ? <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">新規あり</span>
+                            : <span className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded-full border border-slate-100">新規なし</span>
+                          }
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity">

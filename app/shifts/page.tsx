@@ -45,6 +45,13 @@ interface TherapistRow {
   id: string;
   name: string;
   reservation_interval_minutes: number | null;
+  age?: number | null;
+  height?: number | null;
+  bust?: number | null;
+  bust_cup?: string | null;
+  waist?: number | null;
+  hip?: number | null;
+  comment?: string | null;
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -63,6 +70,16 @@ interface Therapist {
   shiftStart?: string;
   shiftEnd?: string;
   roomId?: string | null;
+  room?: string;
+  roomMemo?: string | null;
+  roomMapUrl?: string | null;
+  age?: number | null;
+  height?: number | null;
+  bust?: number | null;
+  bustCup?: string | null;
+  waist?: number | null;
+  hip?: number | null;
+  staffMemo?: string | null;
   intervalMinutes?: number | null;
   notes?: string | null;
   unresolvedMemos?: TherapistMemo[];
@@ -406,7 +423,7 @@ export default function ShiftsPage() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
@@ -431,7 +448,7 @@ export default function ShiftsPage() {
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, room_id, rooms(name), start_time, end_time, notes')
+        .select('therapist_id, room_id, rooms(name, memo, google_map_url), start_time, end_time, notes')
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
@@ -440,7 +457,7 @@ export default function ShiftsPage() {
         return;
       }
 
-      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string } | null }>();
+      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; memo?: string | null; google_map_url?: string | null } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
@@ -458,6 +475,15 @@ export default function ShiftsPage() {
           shiftEnd: endTime,
           roomId: shift?.room_id ?? null,
           room: shift?.rooms?.name,
+          roomMemo: shift?.rooms?.memo ?? null,
+          roomMapUrl: shift?.rooms?.google_map_url ?? null,
+          age: therapist.age ?? null,
+          height: therapist.height ?? null,
+          bust: therapist.bust ?? null,
+          bustCup: therapist.bust_cup ?? null,
+          waist: therapist.waist ?? null,
+          hip: therapist.hip ?? null,
+          staffMemo: therapist.comment ?? null,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
         };

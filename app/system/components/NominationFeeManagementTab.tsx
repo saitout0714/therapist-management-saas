@@ -105,7 +105,7 @@ export function NominationFeeManagementTab() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm text-slate-600 font-medium mb-1">表示名</label>
+                            <label className="block text-sm text-slate-600 font-medium mb-1">マンション名</label>
                             <input className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none" placeholder="初回指名料" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
                         </div>
                         <div>
@@ -127,7 +127,7 @@ export function NominationFeeManagementTab() {
                     <thead className="bg-slate-50">
                         <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
                             <th className="p-4 w-32">種別</th>
-                            <th className="p-4">表示名</th>
+                            <th className="p-4">マンション名</th>
                             <th className="p-4 w-32">基本料金</th>
                             <th className="p-4 w-32 text-right">操作</th>
                         </tr>

@@ -10,6 +10,15 @@ interface Therapist {
   shiftStart?: string; // "HH:mm" format
   shiftEnd?: string; // "HH:mm" format
   room?: string; // ルーム名
+  roomMemo?: string | null;
+  roomMapUrl?: string | null;
+  age?: number | null;
+  height?: number | null;
+  bust?: number | null;
+  bustCup?: string | null;
+  waist?: number | null;
+  hip?: number | null;
+  staffMemo?: string | null;
   intervalMinutes?: number | null;
   notes?: string | null;
   unresolvedMemos?: { id: string; date: string; content: string; amount: number }[];
@@ -58,6 +67,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
   const [hoverData, setHoverData] = useState<{ x: number, y: number, time: string } | null>(null);
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null);
+  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; memo: string; mapUrl: string | null; x: number; y: number } | null>(null);
+  const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
+  const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragDistanceRef = useRef(0);
 
   // スクロール同期ハンドラー（コンテンツがスクロール時、ヘッダーを同期）
@@ -276,7 +289,17 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                   <div className="flex flex-col justify-center gap-1 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors flex-shrink-0">
+                      <p
+                        className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors flex-shrink-0 cursor-default"
+                        onMouseEnter={(e) => {
+                          if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
+                        }}
+                        onMouseLeave={() => {
+                          therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                        }}
+                      >
                         {therapist.name}
                       </p>
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
@@ -310,7 +333,17 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       )}
                     </p>
                     {therapist.room && (
-                      <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
+                      <p
+                        className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium cursor-default"
+                        onMouseEnter={(therapist.roomMemo || therapist.roomMapUrl) ? (e) => {
+                          if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setRoomMemoPopup({ roomName: therapist.room ?? '', memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
+                        } : undefined}
+                        onMouseLeave={(therapist.roomMemo || therapist.roomMapUrl) ? () => {
+                          roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                        } : undefined}
+                      >
                         <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                         {therapist.room}
                       </p>
@@ -651,6 +684,97 @@ const TimeChart: React.FC<TimeChartProps> = ({
           background: #94a3b8;
         }
       `}} />
+
+      {/* セラピスト情報ポップアップ */}
+      {therapistPopup && (
+        <div
+          className="fixed z-[9999]"
+          style={{ left: `${therapistPopup.x}px`, top: `${therapistPopup.y}px` }}
+          onMouseEnter={() => { if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current); }}
+          onMouseLeave={() => setTherapistPopup(null)}
+        >
+          <div className="w-64 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+            {/* ヘッダー */}
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 px-4 py-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                {therapistPopup.therapist.name[0]}
+              </div>
+              <p className="text-white font-bold text-base leading-tight">{therapistPopup.therapist.name}</p>
+            </div>
+            {/* ボディ */}
+            <div className="p-4 space-y-3">
+              {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
+                <div className="flex gap-2 flex-wrap">
+                  {therapistPopup.therapist.age && (
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.age}歳</span>
+                  )}
+                  {therapistPopup.therapist.height && (
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.height}cm</span>
+                  )}
+                </div>
+              )}
+              {(therapistPopup.therapist.bust || therapistPopup.therapist.waist || therapistPopup.therapist.hip) && (
+                <div className="flex gap-2 flex-wrap">
+                  {therapistPopup.therapist.bust && (
+                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">
+                      B{therapistPopup.therapist.bust}{therapistPopup.therapist.bustCup ?? ''}
+                    </span>
+                  )}
+                  {therapistPopup.therapist.waist && (
+                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">W{therapistPopup.therapist.waist}</span>
+                  )}
+                  {therapistPopup.therapist.hip && (
+                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">H{therapistPopup.therapist.hip}</span>
+                  )}
+                </div>
+              )}
+              {therapistPopup.therapist.staffMemo && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">スタッフメモ</p>
+                  <p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">{therapistPopup.therapist.staffMemo}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ルームメモポップアップ */}
+      {roomMemoPopup && (
+        <div
+          className="fixed z-[9999]"
+          style={{ left: `${roomMemoPopup.x}px`, top: `${roomMemoPopup.y}px` }}
+          onMouseEnter={() => { if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current); }}
+          onMouseLeave={() => setRoomMemoPopup(null)}
+        >
+          <div className="w-64 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+            {/* ヘッダー */}
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-3.5 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+              </div>
+              <p className="text-white font-bold text-base leading-tight">{roomMemoPopup.roomName || 'ルーム情報'}</p>
+            </div>
+            {/* ボディ */}
+            <div className="p-4 space-y-3">
+              {roomMemoPopup.memo && (
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
+              )}
+              {roomMemoPopup.mapUrl && (
+                <a
+                  href={roomMemoPopup.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-xl px-4 py-2.5 w-full shadow-sm shadow-emerald-200"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Googleマップを開く
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 未解決メモポップアップ */}
       {memoPopup && (() => {
