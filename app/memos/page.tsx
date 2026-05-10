@@ -30,7 +30,7 @@ export default function MemosPage() {
       .eq('shop_id', selectedShop.id)
       .order('is_resolved', { ascending: true })
       .order('date', { ascending: false });
-    setMemos((data || []) as Memo[]);
+    setMemos((data || []) as unknown as Memo[]);
     setLoading(false);
   };
 
