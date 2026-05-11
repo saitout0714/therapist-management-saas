@@ -767,54 +767,51 @@ export default function ShiftsPage() {
 
         {/* フィルターと表示切り替え */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 md:p-4 mb-2 md:mb-6">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2">
             {/* ビュー切り替えトグル */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1 self-start">
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">
               <button
                 onClick={() => setViewMode('day')}
-                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${
-                  viewMode === 'day'
-                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'day'
+                  ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 タイムチャート
               </button>
               <button
                 onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${
-                  viewMode === 'week'
-                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'week'
+                  ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 週間表示
               </button>
             </div>
 
             {/* 並び替えモード */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start">
-                {([
-                  { key: 'shift', label: '出勤時間順' },
-                  { key: 'room', label: 'ルーム順' },
-                  { key: 'reservation', label: '受付時間順' },
-                ] as { key: SortMode; label: string }[]).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setSortMode(key)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${
-                      sortMode === key
-                        ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
-                        : 'text-slate-500 hover:text-slate-700'
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+              {([
+                { key: 'shift', label: '出勤時間順' },
+                { key: 'room', label: 'ルーム順' },
+                { key: 'reservation', label: '受付時間順' },
+              ] as { key: SortMode; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSortMode(key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${sortMode === key
+                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-700'
                     }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
             {/* 日付ナビゲーション */}
-            <div className="flex gap-1 items-center bg-slate-50 p-1 rounded-lg border border-slate-200 w-fit">
+            <div className="flex gap-1 items-center bg-slate-100 p-1 rounded-lg">
               {viewMode === 'day' ? (
                 <>
                   <button
@@ -827,7 +824,7 @@ export default function ShiftsPage() {
                     type="date"
                     value={filterDate}
                     onChange={(e) => setFilterDate(e.target.value)}
-                    className="w-auto px-2 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm text-xs"
+                    className="w-auto px-2 h-[30px] bg-white border border-slate-200 text-slate-700 font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm text-xs"
                   />
                   <button
                     onClick={handleNextDay}
@@ -853,7 +850,7 @@ export default function ShiftsPage() {
                   <span className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-md text-xs shadow-sm text-center truncate">
                     {[weekStartDate].map(d => {
                       const end = new Date(d.getTime() + 6 * 86400000);
-                      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 〜 ${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`;
+                      return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} 〜 ${String(end.getMonth() + 1).padStart(2, '0')}/${String(end.getDate()).padStart(2, '0')}`;
                     })[0]}
                   </span>
                   <button

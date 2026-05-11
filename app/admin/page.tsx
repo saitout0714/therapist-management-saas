@@ -20,6 +20,10 @@ export default function AdminPage() {
   const [shops, setShops] = useState<Shop[]>([])
   const [shopsLoading, setShopsLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [copySourceId, setCopySourceId] = useState('')
+  const [copyTargetId, setCopyTargetId] = useState('')
+  const [copying, setCopying] = useState(false)
+  const [copyResults, setCopyResults] = useState<string[]>([])
 
   useEffect(() => {
     fetchShops()
@@ -92,6 +96,34 @@ export default function AdminPage() {
     } catch (error) {
       console.error('削除に失敗:', error)
       alert('削除に失敗しました')
+    }
+  }
+
+  const handleCopySettings = async () => {
+    if (!copySourceId || !copyTargetId) { alert('コピー元とコピー先を選択してください'); return }
+    if (copySourceId === copyTargetId) { alert('コピー元とコピー先が同じです'); return }
+    const sourceName = shops.find(s => s.id === copySourceId)?.name
+    const targetName = shops.find(s => s.id === copyTargetId)?.name
+    if (!confirm(`「${sourceName}」のシステム設定を「${targetName}」にコピーします。\n\n※「${targetName}」の既存のコース・ランク・バック設定等は上書きされます。\n\n実行しますか？`)) return
+
+    setCopying(true)
+    setCopyResults([])
+    try {
+      const res = await fetch('/api/admin/copy-shop-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceShopId: copySourceId, targetShopId: copyTargetId }),
+      })
+      const data = await res.json() as { success?: boolean; results?: string[]; error?: string }
+      if (data.error) {
+        alert('エラー: ' + data.error)
+      } else {
+        setCopyResults(data.results ?? [])
+      }
+    } catch (e) {
+      alert('エラーが発生しました: ' + String(e))
+    } finally {
+      setCopying(false)
     }
   }
 
@@ -242,6 +274,71 @@ export default function AdminPage() {
                   <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>「営業中」に設定されている店舗のみが操作可能です。</li>
                 </ul>
               </div>
+            </div>
+          </div>
+
+          {/* システム設定コピー */}
+          <div className="animate-in fade-in duration-300">
+            <h2 className="text-xl font-bold text-slate-800 mb-6">システム設定コピー</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+              <p className="text-sm text-slate-500 mb-6">
+                ある店舗のシステム設定（コース・ランク・バック・指名種別・割引・控除など）を別の店舗にまとめてコピーします。<br />
+                <span className="text-amber-600 font-medium">※コピー先の設定は上書きされます。セラピスト・予約・顧客データには影響しません。</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">コピー元店舗</label>
+                  <select
+                    value={copySourceId}
+                    onChange={e => setCopySourceId(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
+                  >
+                    <option value="">選択してください</option>
+                    {shops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">コピー先店舗</label>
+                  <select
+                    value={copyTargetId}
+                    onChange={e => setCopyTargetId(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
+                  >
+                    <option value="">選択してください</option>
+                    {shops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={() => void handleCopySettings()}
+                disabled={copying || !copySourceId || !copyTargetId || copySourceId === copyTargetId}
+                className="px-6 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
+              >
+                {copying ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    コピー中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    システム設定をコピーする
+                  </>
+                )}
+              </button>
+              {copyResults.length > 0 && (
+                <div className="mt-6 bg-slate-50 rounded-xl p-5 border border-slate-200">
+                  <p className="text-sm font-bold text-slate-700 mb-3">コピー結果：</p>
+                  <div className="space-y-1.5">
+                    {copyResults.map((r, i) => (
+                      <p key={i} className="text-sm text-slate-700 font-medium">{r}</p>
+                    ))}
+                  </div>
+                  <p className="text-xs text-emerald-600 font-bold mt-4">すべてのコピーが完了しました。</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
