@@ -137,7 +137,7 @@ export function DesignationTypesTab() {
 
   const handleSave = async () => {
     if (!selectedShop) return
-    if (!form.slug || !form.display_name) { alert('マンション名は必須です'); return }
+    if (!form.slug || !form.display_name) { alert('種別名は必須です'); return }
 
     if (editingId) {
       const { error } = await supabase.from('designation_types').update({
@@ -175,7 +175,7 @@ export function DesignationTypesTab() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
           <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">マンション名</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">種別名</label>
             <input
               type="text"
               value={form.display_name}
@@ -265,7 +265,7 @@ export function DesignationTypesTab() {
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
                 <th className="px-4 py-3 text-xs font-semibold text-slate-500">順序</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">マンション名</th>
+                <th className="px-4 py-3 text-xs font-semibold text-slate-500">種別名</th>
                 <th className="px-4 py-3 text-xs font-semibold text-slate-500">デフォルト料金</th>
                 <th className="px-4 py-3 text-xs font-semibold text-slate-500">デフォルトバック</th>
                 <th className="px-4 py-3 text-xs font-semibold text-slate-500">状態</th>

@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
-import { calculateBack, calculateShiftAllowances, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
+import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
 
 type TherapistItem = {
   id: string
@@ -47,6 +47,14 @@ type CalculatedRow = {
   fromCache: boolean // 予約登録時に計算済みかどうか
 }
 
+type DeductionRule = {
+  id: string
+  name: string
+  category: 'deduction' | 'allowance' | 'penalty'
+  calc_timing: 'per_reservation' | 'per_shift' | 'monthly' | 'manual'
+  amount: number
+}
+
 const getBusinessDate = () => {
   const now = new Date()
   // 朝6時前は前日の営業日
@@ -70,8 +78,23 @@ export default function PayrollPage() {
   const [calculatedRows, setCalculatedRows] = useState<CalculatedRow[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shiftAllowance, setShiftAllowance] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([])
+  const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    async function fetchDeductionRules() {
+      if (!selectedShop) { setDeductionRules([]); return }
+      const { data } = await supabase
+        .from('deduction_rules')
+        .select('id, name, category, calc_timing, amount')
+        .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
+        .order('category')
+      setDeductionRules((data as DeductionRule[]) || [])
+    }
+    void fetchDeductionRules()
+  }, [selectedShop])
 
   useEffect(() => {
     async function fetchTherapists() {
@@ -137,6 +160,7 @@ export default function PayrollPage() {
     setError(null)
     setLoading(true)
     setHasSearched(false)
+    setSelectedRuleIds(new Set())
 
     try {
       const therapist = therapists.find(t => t.id === selectedTherapistId)
@@ -241,10 +265,6 @@ export default function PayrollPage() {
         }
       }
 
-      // シフトベースの手当（交通費等）を計算
-      const allowance = await calculateShiftAllowances(selectedShop.id, selectedTherapistId, targetDate)
-      setShiftAllowance(allowance)
-
       setCalculatedRows(rows)
       setHasSearched(true)
     } catch (err: any) {
@@ -258,22 +278,17 @@ export default function PayrollPage() {
   const { totalSales, totalBack, totalDeductions, totalAllowances, totalHimeBonus, netPay, totalCashReceived, hasCreditReservation } = useMemo(() => {
     let sales = 0
     let back = 0
-    let ded = 0
-    let all = 0
     let hime = 0
-    let netTotal = 0
+    let baseNetTotal = 0
     let cashReceived = 0
     let hasCredit = false
 
     calculatedRows.forEach(({ reservation: res, result }) => {
       sales += result.totalPrice
       back += result.totalBack
-      ded += result.deductions
-      all += result.allowances
-      // himeBonus は予約レコードから直接取得（キャッシュ時の二重計上を防ぐ）
-      hime += res.is_hime ? (res.hime_bonus || 0) : 0
-      // netBack は両パスで正しく himeBonus・控除・手当を含む
-      netTotal += result.netBack
+      const resHime = res.is_hime ? (res.hime_bonus || 0) : 0
+      hime += resHime
+      baseNetTotal += result.totalBack + resHime
 
       if (res.payment_method === 'credit') {
         hasCredit = true
@@ -285,21 +300,31 @@ export default function PayrollPage() {
       }
     })
 
-    // シフト手当を加算
-    all += shiftAllowance
-    const net = netTotal + shiftAllowance
+    // 手動選択された控除・手当を計算
+    const reservationCount = calculatedRows.length
+    let manualDed = 0
+    let manualAll = 0
+    for (const rule of deductionRules) {
+      if (!selectedRuleIds.has(rule.id)) continue
+      const multiplier = rule.calc_timing === 'per_reservation' ? reservationCount : 1
+      if (rule.category === 'deduction' || rule.category === 'penalty') {
+        manualDed += rule.amount * multiplier
+      } else if (rule.category === 'allowance') {
+        manualAll += rule.amount * multiplier
+      }
+    }
 
     return {
       totalSales: sales,
       totalBack: back,
-      totalDeductions: ded,
-      totalAllowances: all,
+      totalDeductions: manualDed,
+      totalAllowances: manualAll,
       totalHimeBonus: hime,
-      netPay: net,
+      netPay: Math.max(0, baseNetTotal - manualDed + manualAll),
       totalCashReceived: cashReceived,
       hasCreditReservation: hasCredit,
     }
-  }, [calculatedRows, shiftAllowance])
+  }, [calculatedRows, deductionRules, selectedRuleIds])
 
   const totalExtensionMinutes = useMemo(() => {
     const count = calculatedRows.reduce((sum, row) => sum + (row.reservation.extension_count || 0), 0)
@@ -412,18 +437,23 @@ export default function PayrollPage() {
           text += `・姫予約ボーナス ¥${r.himeBonus.toLocaleString()}\n`
         }
 
-        // 控除
-        if (r.deductions > 0) {
-          text += `・控除 -¥${r.deductions.toLocaleString()}\n`
-        }
-
-        // 手当
-        if (r.allowances > 0) {
-          text += `・手当 +¥${r.allowances.toLocaleString()}\n`
-        }
-
-        text += `給与合計: ¥${r.netBack.toLocaleString()}\n`
+        const rowNet = r.totalBack + (res.is_hime ? (res.hime_bonus || 0) : 0)
+        text += `給与合計: ¥${rowNet.toLocaleString()}\n`
       })
+    }
+
+    // 選択された控除・手当
+    const selectedRules = deductionRules.filter(r => selectedRuleIds.has(r.id))
+    if (selectedRules.length > 0) {
+      text += `\n【控除・手当】\n`
+      for (const rule of selectedRules) {
+        const multiplier = rule.calc_timing === 'per_reservation' ? calculatedRows.length : 1
+        const total = rule.amount * multiplier
+        const isDeduction = rule.category === 'deduction' || rule.category === 'penalty'
+        const sign = isDeduction ? '-' : '+'
+        const detail = rule.calc_timing === 'per_reservation' && multiplier > 1 ? `（${multiplier}件 × ¥${rule.amount.toLocaleString()}）` : ''
+        text += `・${rule.name}: ${sign}¥${total.toLocaleString()}${detail}\n`
+      }
     }
 
     text += `\n------------------------\n`
@@ -618,11 +648,6 @@ export default function PayrollPage() {
                 <div className="text-4xl font-extrabold mb-4 font-mono tracking-tighter">
                   ¥{netPay.toLocaleString()}
                 </div>
-                {shiftAllowance > 0 && (
-                  <div className="text-sm text-indigo-200 mb-2">
-                    交通費手当含む: +¥{shiftAllowance.toLocaleString()}
-                  </div>
-                )}
                 {totalHimeBonus > 0 && (
                   <div className="text-sm text-pink-200 mb-2">
                     ♥ 姫予約ボーナス含む: +¥{totalHimeBonus.toLocaleString()}
@@ -656,6 +681,48 @@ export default function PayrollPage() {
                   </div>
                 )}
               </div>
+
+              {/* 控除・手当を選択 */}
+              {deductionRules.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                  <h3 className="font-bold text-slate-700 mb-3 text-sm">控除・手当を選択</h3>
+                  <div className="space-y-1">
+                    {deductionRules.map(rule => {
+                      const multiplier = rule.calc_timing === 'per_reservation' ? calculatedRows.length : 1
+                      const total = rule.amount * multiplier
+                      const isDeduction = rule.category === 'deduction' || rule.category === 'penalty'
+                      return (
+                        <label key={rule.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            className="rounded w-4 h-4 accent-indigo-600"
+                            checked={selectedRuleIds.has(rule.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedRuleIds)
+                              if (e.target.checked) next.add(rule.id)
+                              else next.delete(rule.id)
+                              setSelectedRuleIds(next)
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-slate-700">{rule.name}</div>
+                            <div className="text-xs text-slate-400">
+                              {rule.calc_timing === 'per_reservation'
+                                ? `${calculatedRows.length}件 × ¥${rule.amount.toLocaleString()}`
+                                : rule.calc_timing === 'per_shift' ? '出勤ごと'
+                                : rule.calc_timing === 'monthly' ? '月次'
+                                : '手動'}
+                            </div>
+                          </div>
+                          <div className={`text-sm font-bold ${isDeduction ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {isDeduction ? '-' : '+'}¥{total.toLocaleString()}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">
                 <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">

@@ -30,6 +30,7 @@ const TIMING_LABELS: Record<string, string> = {
   per_reservation: '予約ごと',
   per_shift: '出勤ごと',
   monthly: '月次',
+  manual: '手動',
 }
 
 export function DeductionRulesTab() {
@@ -41,7 +42,7 @@ export function DeductionRulesTab() {
   const [form, setForm] = useState({
     name: '',
     category: 'deduction' as 'deduction' | 'allowance' | 'penalty',
-    calc_timing: 'per_reservation' as 'per_reservation' | 'per_shift' | 'monthly',
+    calc_timing: 'per_reservation' as 'per_reservation' | 'per_shift' | 'monthly' | 'manual',
     amount: 800,
     min_duration: 0,
     is_active: true,
@@ -114,7 +115,7 @@ export function DeductionRulesTab() {
             </div>
             <div>
               <label className="block mb-1 text-xs font-medium text-slate-600">計算タイミング</label>
-              <select value={form.calc_timing} onChange={(e) => setForm({ ...form, calc_timing: e.target.value as 'per_reservation' | 'per_shift' | 'monthly' })} className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-white text-sm outline-none">
+              <select value={form.calc_timing} onChange={(e) => setForm({ ...form, calc_timing: e.target.value as 'per_reservation' | 'per_shift' | 'monthly' | 'manual' })} className="w-full border border-slate-200 rounded-lg px-3 py-2.5 bg-white text-sm outline-none">
                 {Object.entries(TIMING_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
