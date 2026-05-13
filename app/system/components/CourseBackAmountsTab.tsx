@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -278,7 +278,7 @@ export function CourseBackAmountsTab() {
   const baseCoursePrice = selectedCourseName?.base_price || 0
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5">
       <div className="mb-6">
         <h2 className="text-lg font-bold text-slate-800">コース・指名別 給与＆料金設定</h2>
         <p className="text-sm text-slate-500 mt-1">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from "react";
@@ -261,9 +261,9 @@ export default function TherapistsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">セラピスト管理</h1>
             <p className="text-sm text-slate-500 mt-1">所属するセラピストの登録・編集および表示順の並び替えを行います。</p>
@@ -281,7 +281,7 @@ export default function TherapistsPage() {
 
         {/* 在籍中一覧 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
-          <div className="p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 md:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -311,7 +311,7 @@ export default function TherapistsPage() {
             </div>
           </div>
 
-          <div className="p-4 md:p-6">
+          <div className="p-4 md:p-5">
             {activeTherapists.length > 0 ? (
               <ul className="space-y-3">
                 {activeTherapists.map((therapist) => (
@@ -330,7 +330,7 @@ export default function TherapistsPage() {
         {/* 退店一覧 */}
         {inactiveTherapists.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-6 md:p-8 border-b border-slate-100">
+            <div className="p-4 md:p-5 border-b border-slate-100">
               <h2 className="text-lg font-bold text-slate-500 flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -342,7 +342,7 @@ export default function TherapistsPage() {
               </h2>
             </div>
 
-            <div className="p-4 md:p-6">
+            <div className="p-4 md:p-5">
               <ul className="space-y-3">
                 {inactiveTherapists.map((therapist) => (
                   <TherapistRow key={therapist.id} therapist={therapist} />

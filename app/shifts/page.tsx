@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import TimeSelectHM from '../components/TimeSelectHM';
@@ -756,9 +756,9 @@ export default function ShiftsPage() {
   const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, reservation_interval_minutes: t.intervalMinutes ?? null }));
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2 md:p-8">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
-        <div className="mb-2 md:mb-8">
+        <div className="mb-2 md:mb-3">
           <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
           <p className="text-xs md:text-sm text-slate-500">
             {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
@@ -766,7 +766,7 @@ export default function ShiftsPage() {
         </div>
 
         {/* フィルターと表示切り替え */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 md:p-4 mb-2 md:mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 md:p-4 mb-2 md:mb-3">
           <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2">
             {/* ビュー切り替えトグル */}
             <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">

@@ -48,12 +48,20 @@ textarea {
   color: #1e293b !important; /* slate-800 */
   -webkit-text-fill-color: #1e293b;
   opacity: 1; /* iOS Safari が disabled 風に薄くするのを防止 */
-  font-size: 16px !important; /* iOS Safari 自動ズーム防止（16px未満でズームされる） */
   -webkit-appearance: none; /* iOS デフォルトスタイルを解除 */
   -moz-appearance: none;
   appearance: none;
   box-sizing: border-box;
   max-width: 100%; /* はみ出し防止 */
+}
+
+/* iOS Safari 専用: 16px 未満だと入力時に自動ズームされるため */
+@supports (-webkit-touch-callout: none) {
+  select,
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* select に矢印アイコンを復元（appearance: none で消えるため） */

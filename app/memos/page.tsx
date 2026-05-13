@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -132,10 +132,10 @@ export default function MemosPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-3xl mx-auto">
         {/* ヘッダー */}
-        <div className="mb-8">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">給与引継ぎメモ</h1>
           <p className="text-sm text-slate-500 mt-1">給与の過不足を記録し、精算状況を管理します。</p>
         </div>

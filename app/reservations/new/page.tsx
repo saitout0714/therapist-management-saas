@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, RefObject } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -621,7 +621,6 @@ export default function NewReservationPage() {
       setSelectedCustomerObj(newCust)
       setFormData({ ...formData, customer_id: newCust.id })
       setNewCustomer({ show: false, name: '', email: '', phone: '' })
-      scrollToSection(sectionRef2)
       alert('お客様を追加しました')
     } catch (error) {
       console.error('お客様の追加に失敗:', error)
@@ -916,7 +915,7 @@ export default function NewReservationPage() {
   }
 
   if (loading) {
-    return <div className="p-4 md:p-8">読み込み中...</div>
+    return <div className="p-4 md:p-4">読み込み中...</div>
   }
 
   const hasExtension = !!(systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0)
@@ -930,25 +929,23 @@ export default function NewReservationPage() {
 
   return (
     <div className="p-3 md:p-6 mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 tracking-tight mb-4">予約登録</h1>
+      <h1 className="text-lg font-bold text-slate-800 tracking-tight mb-4">予約登録</h1>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-5">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 左側: 入力フォーム */}
-        <div className="lg:col-span-2 space-y-2">
-          {/* 1: お客様情報 */}
-          <div ref={sectionRef1} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(1)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                お客様情報
-                {formData.customer_id && <span className="text-xs font-normal text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">{selectedCustomerObj?.name}</span>}
-              </h2>
-              <Chevron n={1} />
-            </button>
-            <div className={`${!openSections.has(1) ? 'hidden lg:block' : ''} px-4 pb-4 space-y-3`}>
+        <div className="lg:col-span-2 space-y-3">
+          {/* 1: お客様 */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-indigo-500 bg-slate-50/60">
+              <h2 className="text-sm font-bold text-slate-700">お客様</h2>
+              {formData.customer_id && (
+                <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{selectedCustomerObj?.name}</span>
+              )}
+            </div>
+            <div className="px-4 pb-4 pt-3 space-y-3">
               {/* 電話番号フィールド */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">電話番号</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">電話番号</label>
                 <input
                   type="text"
                   value={customerSearch}
@@ -962,13 +959,13 @@ export default function NewReservationPage() {
                     }
                   }}
                   placeholder="電話番号・名前・メールで検索"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all text-sm placeholder:text-xs placeholder:text-slate-400"
                 />
                 {/* 検索結果ドロップダウン */}
                 {!formData.customer_id && normalizedSearch && (
                   <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1">
                     {filteredCustomers.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">該当するお客様がいません</div>
+                      <div className="px-3 py-2 text-xs text-gray-500">該当するお客様がいません</div>
                     ) : (
                       filteredCustomers.slice(0, 50).map((customer) => (
                         <button
@@ -978,9 +975,8 @@ export default function NewReservationPage() {
                             setSelectedCustomerObj(customer)
                             setFormData({ ...formData, customer_id: customer.id })
                             setCustomerSearch(customer.phone || '')
-                            scrollToSection(sectionRef2)
                           }}
-                          className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                         >
                           <span className="font-medium">{customer.name}</span>{' '}
                           <span className="text-gray-600">{customer.phone ? `(${customer.phone})` : ''}</span>
@@ -994,7 +990,7 @@ export default function NewReservationPage() {
 
               {/* お客様名フィールド */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                <label className="block text-xs font-medium text-slate-500 mb-1">
                   お客様名
                   {!selectedCustomerObj && customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
                     <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">新規登録</span>
@@ -1003,7 +999,7 @@ export default function NewReservationPage() {
                 {selectedCustomerObj ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className={`flex-1 px-4 py-3 border rounded-xl text-sm font-bold flex items-center gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
+                      <div className={`flex-1 px-3 py-2 border rounded-xl text-sm font-bold flex items-center gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
                         <svg className={`w-4 h-4 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
@@ -1021,13 +1017,13 @@ export default function NewReservationPage() {
                           setCustomerSearch('')
                           setSelectedCustomerObj(null)
                         }}
-                        className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                        className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
                       >
                         変更
                       </button>
                     </div>
                     {(selectedCustomerObj.status === '出禁' || selectedCustomerObj.status === '要注意') && (
-                      <div className={`px-4 py-3 rounded-xl text-sm flex items-start gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                      <div className={`px-3 py-2 rounded-xl text-xs flex items-start gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
                         <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -1044,34 +1040,32 @@ export default function NewReservationPage() {
                     value={newCustomer.name}
                     onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                     placeholder="お客様名を入力（新規登録）"
-                    className="w-full px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-amber-400"
+                    className="w-full px-3 py-2 bg-amber-50 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-amber-400 placeholder:text-xs text-sm"
                   />
                 ) : (
-                  <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
+                  <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400">
                     電話番号や名前を検索してお客様を選択してください
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* セラピスト情報 */}
-          <div ref={sectionRef2} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(2)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-cyan-50 text-cyan-600 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                担当セラピスト
-                {formData.therapist_id && <span className="text-xs font-normal text-cyan-500 bg-cyan-50 px-2 py-0.5 rounded-full">{therapists.find(t => t.id === formData.therapist_id)?.name}</span>}
-              </h2>
-              <Chevron n={2} />
-            </button>
-            <div className={`${!openSections.has(2) ? 'hidden lg:block' : ''} px-4 pb-4 space-y-4`}>
+          {/* 2: セラピスト・指名 */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-cyan-500 bg-slate-50/60">
+              <h2 className="text-sm font-bold text-slate-700">セラピスト・指名</h2>
+              {formData.therapist_id && (
+                <span className="text-xs font-medium text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">{therapists.find(t => t.id === formData.therapist_id)?.name}</span>
+              )}
+            </div>
+            <div className="px-4 pb-4 pt-3 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">指名するセラピスト <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
                 <select
                   value={formData.therapist_id}
-                  onChange={(e) => { setFormData({ ...formData, therapist_id: e.target.value }); if (e.target.value) scrollToSection(sectionRef3) }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
                   required
                   disabled={availableTherapists.length === 0}
                 >
@@ -1086,15 +1080,15 @@ export default function NewReservationPage() {
                   ))}
                 </select>
                 {!noShiftsRegistered && availableTherapists.length === 0 && (
-                  <p className="mt-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <p className="mt-1.5 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-center">
+                    <svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     選択した日付に出勤セラピストがいません
                   </p>
                 )}
                 {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
-                  <div className="mt-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
+                  <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
                     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
@@ -1104,48 +1098,42 @@ export default function NewReservationPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-semibold text-slate-700">指名タイプ<span className="text-rose-500">*</span></label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-slate-500">指名タイプ <span className="text-rose-500">*</span></label>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleDesignationSearch()
-                    }}
+                    onClick={(e) => { e.preventDefault(); handleDesignationSearch() }}
                     disabled={designationSearchLoading}
-                    className="px-4 py-1.5 text-sm font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                    className="px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
                   >
-                    {designationSearchLoading ? '検索中...' : '履歴から自動判定する'}
+                    {designationSearchLoading ? '検索中...' : '履歴から自動判定'}
                   </button>
                 </div>
-                <div className={`grid grid-cols-2 sm:grid-cols-${Math.min(designationTypes.length, 5)} gap-3`}>
+                <div className="flex flex-wrap gap-2">
                   {designationTypes.map(dt => (
-                    <button
+                    <label
                       key={dt.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setFormData({
-                          ...formData,
-                          designation_type: dt.slug,
-                          is_hime: dt.slug === 'princess' ? true : formData.is_hime
-                        })
-                        e.currentTarget.blur()
-                        scrollToSection(sectionRef3)
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 sm:p-4 border rounded-xl transition-all text-center ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-all select-none ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                     >
-                      <span className="font-bold text-sm">{dt.display_name}</span>
+                      <input
+                        type="radio"
+                        name="designation_type"
+                        value={dt.slug}
+                        checked={formData.designation_type === dt.slug}
+                        onChange={() => setFormData({ ...formData, designation_type: dt.slug, is_hime: dt.slug === 'princess' ? true : formData.is_hime })}
+                        className="w-3.5 h-3.5 accent-indigo-600"
+                      />
+                      <span className="font-bold text-xs">{dt.display_name}</span>
                       {dt.is_store_paid_back && (
-                        <span className={`text-xs mt-1 ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-500'}`}>店負担バック</span>
+                        <span className={`text-[10px] ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-400'}`}>店負担</span>
                       )}
-                    </button>
+                    </label>
                   ))}
                 </div>
               </div>
 
               {/* 姫予約 */}
-              <div className="pt-2 border-t border-slate-100">
+              <div className="border-t border-slate-100 pt-3">
                 <label className="flex items-center gap-3 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1153,550 +1141,461 @@ export default function NewReservationPage() {
                     onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
                     className="w-5 h-5 rounded accent-pink-500 cursor-pointer appearance-auto"
                   />
-                  <span className="text-sm font-semibold text-slate-700">
+                  <span className="text-xs font-semibold text-slate-700">
                     <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
                   </span>
                 </label>
                 {formData.is_hime && (
-                  <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">ボーナス金額 (円)</label>
+                  <div className="mt-3 ml-8">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">ボーナス金額 (円)</label>
                     <input
                       type="number"
                       value={formData.hime_bonus}
                       onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
                       min={0}
                       step={100}
-                      className="w-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all"
+                      className="w-48 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all text-sm placeholder:text-xs"
                       placeholder="0"
                     />
-                    <p className="mt-1.5 text-xs text-slate-400">セラピストに支払うボーナス額（0円の場合は空欄可）</p>
+                    <p className="mt-1 text-xs text-slate-400">セラピストに支払うボーナス額</p>
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* 日時情報 */}
-          <div ref={sectionRef3} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(3)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                日時
-                {formData.date && formData.start_time && <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{formData.date} {formData.start_time}〜</span>}
-              </h2>
-              <Chevron n={3} />
-            </button>
-            <div className={`${!openSections.has(3) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">日付 <span className="text-rose-500">*</span></label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">開始時刻 <span className="text-rose-500">*</span></label>
-                <TimeSelectHM
-                  value={formData.start_time}
-                  onChange={v => {
-                    const prevMinute = formData.start_time.split(':')[1];
-                    const newMinute = v.split(':')[1];
-                    setFormData({ ...formData, start_time: v });
-                    if (newMinute && newMinute !== prevMinute) scrollToSection(sectionRef4);
-                  }}
-                  placeholder
-                  minHour={0}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">終了時刻 <span className="text-rose-500">*</span></label>
-                <TimeSelectHM
-                  value={formData.end_time}
-                  onChange={v => setFormData({ ...formData, end_time: v })}
-                  placeholder
-                  minHour={0}
-                  required
-                />
-              </div>
-            </div>
-            </div>
-          </div>
-
-          {/* コース情報 */}
-          <div ref={sectionRef4} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(4)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-pink-50 text-pink-600 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
-                コース
-                {formData.course_id && formData.course_id !== '__blocked__' && <span className="text-xs font-normal text-pink-500 bg-pink-50 px-2 py-0.5 rounded-full">{courses.find(c => c.id === formData.course_id)?.name}</span>}
-              </h2>
-              <Chevron n={4} />
-            </button>
-            <div className={`${!openSections.has(4) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">コース選択 <span className="text-rose-500">*</span></label>
-              <select
-                value={formData.course_id}
-                onChange={(e) => { setFormData({ ...formData, course_id: e.target.value }); if (e.target.value) scrollToSection(sectionRef5) }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                required
-              >
-                <option value="">選択してください</option>
-                <option value="__blocked__">🚫 予約不可（ブロック）</option>
-                {courses.map(course => (
-                  <option key={course.id} value={course.id}>
-                    {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
-                  </option>
-                ))}
-              </select>
-              {isBlocked && (
-                <p className="mt-2 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
-                  予約不可ブロック：開始・終了時刻を指定してください。お客様情報は必要ありません。
-                </p>
+          {/* 3: 日時・コース */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-emerald-500 bg-slate-50/60">
+              <h2 className="text-sm font-bold text-slate-700">日時・コース</h2>
+              {formData.date && formData.start_time && (
+                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{formData.date} {formData.start_time}〜</span>
               )}
             </div>
-            </div>
-          </div>
-
-          {/* 延長 */}
-          {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <button type="button" onClick={() => toggleSection(5)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-orange-50 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
-                延長
-                {formData.extension_count > 0 && <span className="text-xs font-normal text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">{formData.extension_count}回</span>}
-              </h2>
-              <Chevron n={5} />
-              </button>
-              <div className={`${!openSections.has(5) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, extension_count: Math.max(0, prev.extension_count - 1) }))}
-                  className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xl font-bold flex items-center justify-center hover:bg-slate-100 transition-colors disabled:opacity-30"
-                  disabled={formData.extension_count === 0}
-                >−</button>
-                <div className="flex-1 text-center">
-                  <div className="text-3xl font-extrabold text-indigo-600">{formData.extension_count}<span className="text-base font-semibold text-slate-500 ml-1">回</span></div>
-                  {formData.extension_count > 0 && (
-                    <div className="text-sm text-slate-500 mt-1">
-                      +{formData.extension_count * (systemSettings.extension_unit_minutes ?? 30)}分 / ¥{(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}
-                    </div>
-                  )}
+            <div className="px-4 pb-4 pt-3 space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">日付 <span className="text-rose-500">*</span></label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
+                    required
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, extension_count: prev.extension_count + 1 }))}
-                  className="w-10 h-10 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 text-xl font-bold flex items-center justify-center hover:bg-indigo-100 transition-colors"
-                >＋</button>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">開始時刻 <span className="text-rose-500">*</span></label>
+                  <TimeSelectHM
+                    value={formData.start_time}
+                    onChange={v => setFormData({ ...formData, start_time: v })}
+                    placeholder
+                    minHour={0}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">終了時刻 <span className="text-rose-500">*</span></label>
+                  <TimeSelectHM
+                    value={formData.end_time}
+                    onChange={v => setFormData({ ...formData, end_time: v })}
+                    placeholder
+                    minHour={0}
+                    required
+                  />
+                </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
-                {systemSettings.extension_unit_minutes ?? 30}分 × {formData.extension_count}回
-                {(systemSettings.extension_unit_price ?? 0) > 0 ? ` = ¥${(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}` : ''}
-              </p>
-              </div>
-            </div>
-          )}
 
-          {/* オプション選択 */}
-          <div ref={sectionRef5} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(6)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-orange-50 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{hasExtension ? '6' : '5'}</span>
-                オプション
-                {formData.selected_options.length > 0 && <span className="text-xs font-normal text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">{formData.selected_options.length}個選択</span>}
-              </h2>
-              <Chevron n={6} />
-            </button>
-            <div className={`${!openSections.has(6) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-            {options.length === 0 ? (
-              <p className="text-slate-500 text-sm bg-slate-50 p-4 rounded-xl">オプションがありません</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {options.map(option => {
-                  const isSelected = formData.selected_options.includes(option.id)
-                  const mins = option.duration_minutes_added > 0 ? option.duration_minutes_added : option.duration
-                  return (
-                    <label
-                      key={option.id}
-                      className={`flex items-center gap-3 px-4 py-3 border rounded-xl cursor-pointer transition-all select-none ${isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleOptionToggle(option.id)}
-                        className="w-4 h-4 accent-indigo-600 cursor-pointer flex-shrink-0"
-                      />
-                      <span className={`flex-1 font-semibold text-sm ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{option.name}</span>
-                      {mins > 0 && <span className="text-xs text-slate-400 flex-shrink-0">+{mins}分</span>}
-                      <span className="font-bold text-sm text-slate-700 flex-shrink-0">¥{option.price.toLocaleString()}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* 手入力カスタムオプション */}
-            <div className="mt-5 pt-5 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-slate-600">手入力オプション（セラピスト個別）</span>
-                <button
-                  type="button"
-                  onClick={addCustomOption}
-                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">コース <span className="text-rose-500">*</span></label>
+                <select
+                  value={formData.course_id}
+                  onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
+                  required
                 >
-                  <span className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs">+</span>
-                  追加
-                </button>
+                  <option value="">選択してください</option>
+                  <option value="__blocked__">🚫 予約不可（ブロック）</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+                {isBlocked && (
+                  <p className="mt-1.5 text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
+                    予約不可ブロック：開始・終了時刻を指定してください。お客様情報は必要ありません。
+                  </p>
+                )}
               </div>
-              {customOptions.length === 0 && (
-                <p className="text-xs text-slate-400">セラピストごとの個別オプションがある場合は追加してください</p>
-              )}
-              {customOptions.length > 0 && (
-                <div className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 px-3 mb-1">
-                  <span className="text-xs font-medium text-slate-400">オプション名</span>
-                  <span className="text-xs font-medium text-slate-400 text-center">料金</span>
-                  <span className="text-xs font-medium text-indigo-400 text-center">バック</span>
-                  <span />
-                </div>
-              )}
-              <div className="space-y-2">
-                {customOptions.map((co, idx) => (
-                  <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <input
-                      type="text"
-                      value={co.name}
-                      onChange={(e) => updateCustomOption(idx, 'name', e.target.value)}
-                      placeholder="オプション名"
-                      className="min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
-                      <input
-                        type="number"
-                        value={co.price || ''}
-                        onChange={(e) => updateCustomOption(idx, 'price', Number(e.target.value))}
-                        placeholder="0"
-                        className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30"
-                      />
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">¥</span>
-                      <input
-                        type="number"
-                        value={co.backAmount || ''}
-                        onChange={(e) => updateCustomOption(idx, 'backAmount', Number(e.target.value))}
-                        placeholder="0"
-                        className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 text-indigo-700"
-                      />
+
+              {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
+                <div className="border-t border-slate-100 pt-3">
+                  <label className="block text-xs font-medium text-slate-500 mb-2">延長</label>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, extension_count: Math.max(0, prev.extension_count - 1) }))}
+                      className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xl font-bold flex items-center justify-center hover:bg-slate-100 transition-colors disabled:opacity-30"
+                      disabled={formData.extension_count === 0}
+                    >−</button>
+                    <div className="text-center min-w-[4rem]">
+                      <span className="text-2xl font-extrabold text-indigo-600">{formData.extension_count}</span>
+                      <span className="text-sm font-semibold text-slate-500 ml-1">回</span>
+                      {formData.extension_count > 0 && (
+                        <div className="text-xs text-slate-500">
+                          +{formData.extension_count * (systemSettings.extension_unit_minutes ?? 30)}分 / ¥{(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}
+                        </div>
+                      )}
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeCustomOption(idx)}
-                      className="text-rose-400 hover:text-rose-600 text-lg leading-none text-center"
-                    >
-                      ×
-                    </button>
+                      onClick={() => setFormData(prev => ({ ...prev, extension_count: prev.extension_count + 1 }))}
+                      className="w-9 h-9 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 text-xl font-bold flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                    >＋</button>
                   </div>
-                ))}
-              </div>
-            </div>
-            </div>
-          </div>
+                </div>
+              )}
 
-          {/* 割引情報 */}
-          <div ref={sectionRef6} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(7)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-teal-50 text-teal-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{n(6)}</span>
-                割引・キャンペーン
-                {selectedDiscountIds.length > 0 && <span className="text-xs font-normal text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">{selectedDiscountIds.length}件適用</span>}
-                {selectedDiscountIds.length === 0 && calculatedPrice.discountAmount > 0 && <span className="text-xs font-normal text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">-¥{calculatedPrice.discountAmount.toLocaleString()}</span>}
-              </h2>
-              <Chevron n={7} />
-            </button>
-            <div className={`${!openSections.has(7) ? 'hidden lg:block' : ''} px-4 pb-4 space-y-4`}>
-              <div className="grid grid-cols-1 gap-4">
+            </div>
+          </section>
+
+          {/* 4: オプション・割引・支払 */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-4 py-3 border-l-4 border-amber-500 bg-slate-50/60">
+              <h2 className="text-sm font-bold text-slate-700">オプション・割引・支払</h2>
+            </div>
+            <div className="px-4 pb-4 pt-3 space-y-5">
+
+              {/* オプション */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-2">
+                  オプション
+                  {formData.selected_options.length > 0 && <span className="ml-2 text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[10px]">{formData.selected_options.length}個選択</span>}
+                </label>
+                {options.length === 0 ? (
+                  <p className="text-slate-400 text-xs bg-slate-50 p-3 rounded-xl">オプションがありません</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {options.map(option => {
+                      const isSelected = formData.selected_options.includes(option.id)
+                      const mins = option.duration_minutes_added > 0 ? option.duration_minutes_added : option.duration
+                      return (
+                      <label
+                        key={option.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all select-none ${isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleOptionToggle(option.id)}
+                          className="w-4 h-4 accent-indigo-600 cursor-pointer flex-shrink-0"
+                        />
+                        <span className={`flex-1 font-medium text-xs ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{option.name}</span>
+                        {mins > 0 && <span className="text-xs text-slate-400 flex-shrink-0">+{mins}分</span>}
+                        <span className="font-bold text-xs text-slate-700 flex-shrink-0">¥{option.price.toLocaleString()}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-500">手入力オプション</span>
+                  <button
+                    type="button"
+                    onClick={addCustomOption}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs">+</span>
+                    追加
+                  </button>
+                </div>
+                {customOptions.length === 0 && (
+                  <p className="text-xs text-slate-400">セラピストごとの個別オプションがある場合は追加してください</p>
+                )}
+                {customOptions.length > 0 && (
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 px-1 mb-1">
+                    <span className="text-xs font-medium text-slate-400">オプション名</span>
+                    <span className="text-xs font-medium text-slate-400 text-center">料金</span>
+                    <span className="text-xs font-medium text-indigo-400 text-center">バック</span>
+                    <span />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {customOptions.map((co, idx) => (
+                    <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      <input
+                        type="text"
+                        value={co.name}
+                        onChange={(e) => updateCustomOption(idx, 'name', e.target.value)}
+                        placeholder="オプション名"
+                        className="min-w-0 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-xs outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      />
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                        <input
+                          type="number"
+                          value={co.price || ''}
+                          onChange={(e) => updateCustomOption(idx, 'price', Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full pl-5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-xs outline-none focus:ring-2 focus:ring-indigo-500/30"
+                        />
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold">¥</span>
+                        <input
+                          type="number"
+                          value={co.backAmount || ''}
+                          onChange={(e) => updateCustomOption(idx, 'backAmount', Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full pl-5 pr-2 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs placeholder:text-xs outline-none focus:ring-2 focus:ring-indigo-500/30 text-indigo-700"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCustomOption(idx)}
+                        className="text-rose-400 hover:text-rose-600 text-lg leading-none text-center"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              </div>
+
+              {/* 割引 */}
+              <div className="border-t border-slate-100 pt-4">
+                <label className="block text-xs font-medium text-slate-500 mb-2">
+                  割引・キャンペーン
+                  {selectedDiscountIds.length > 0 && <span className="ml-2 text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full text-[10px]">{selectedDiscountIds.length}件適用</span>}
+                </label>
+                {discountPolicies.length === 0 ? (
+                  <p className="text-xs text-slate-400">登録されている割引ポリシーがありません</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {discountPolicies.map(p => {
+                      const checked = selectedDiscountIds.includes(p.id)
+                      const disabledByNonCombinable = !checked && !p.is_combinable === false
+                        ? false
+                        : !checked && selectedDiscountIds.some(id => {
+                            const sel = discountPolicies.find(dp => dp.id === id)
+                            return sel && !sel.is_combinable
+                          })
+                      return (
+                        <label
+                          key={p.id}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
+                            checked
+                              ? 'bg-teal-50 border-teal-300 text-teal-800'
+                              : disabledByNonCombinable
+                              ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed'
+                              : 'bg-white border-slate-200 hover:bg-teal-50/40 hover:border-teal-200'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+                            checked={checked}
+                            disabled={disabledByNonCombinable}
+                            onChange={() => {
+                              handleDiscountToggle(p.id)
+                              if (!selectedDiscountIds.includes(p.id)) {
+                                setFormData(prev => ({ ...prev, discount_amount: 0, discount_reason: '' }))
+                              }
+                            }}
+                          />
+                          <span className="font-medium text-xs flex-1">{p.name}</span>
+                          <span className="text-xs font-bold text-teal-700">
+                            {p.discount_type === 'fixed' ? `¥${p.discount_value.toLocaleString()}引き` : `${p.discount_value}%引き`}
+                          </span>
+                          {!p.is_combinable && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">併用不可</span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+                {selectedDiscountIds.length === 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">手入力割引額 (円)</label>
+                      <input
+                        type="number"
+                        value={formData.discount_amount}
+                        onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">セラピスト負担 (円)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.manual_therapist_burden || ''}
+                        onChange={(e) => setFormData({ ...formData, manual_therapist_burden: Number(e.target.value) })}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
+                      />
+                      <p className="mt-1 text-xs text-slate-400">0円＝店全額負担</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">割引理由</label>
+                      <input
+                        type="text"
+                        value={formData.discount_reason}
+                        onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm placeholder:text-xs"
+                        placeholder="初回割引、キャンペーン等"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 支払方法 */}
+              <div className="border-t border-slate-100 pt-4">
+                <label className="block text-xs font-medium text-slate-500 mb-2">支払方法</label>
+                <div className="flex gap-3">
+                  <label className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                    <input type="radio" name="payment_method" value="cash" checked={formData.payment_method === 'cash'} onChange={() => setFormData({ ...formData, payment_method: 'cash' })} className="w-3.5 h-3.5 accent-slate-600" />
+                    <span>💴</span>
+                    <span className="font-bold text-xs">現金</span>
+                  </label>
+                  <label className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                    <input type="radio" name="payment_method" value="credit" checked={formData.payment_method === 'credit'} onChange={() => setFormData({ ...formData, payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
+                    <span>💳</span>
+                    <span className="font-bold text-xs">クレジット</span>
+                  </label>
+                </div>
+                {formData.payment_method === 'credit' && (
+                  <div className="mt-3 bg-amber-50 rounded-xl p-3 border border-amber-100 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-2">オプションの支払方法</label>
+                      <div className="flex gap-3">
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="options_payment_method" value="cash" checked={formData.options_payment_method === 'cash'} onChange={() => setFormData({ ...formData, options_payment_method: 'cash' })} className="w-3.5 h-3.5 accent-slate-600" />
+                          <span className="text-xs font-bold">💴 現金（セラピストへ）</span>
+                        </label>
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="options_payment_method" value="credit" checked={formData.options_payment_method === 'credit'} onChange={() => setFormData({ ...formData, options_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
+                          <span className="text-xs font-bold">💳 クレジット</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
+                      手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
+                      {calculatedPrice.creditFeeAmount > 0 && (
+                        <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </section>
+
+          {/* 5: 受付・備考 */}
+          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-4 py-3 border-l-4 border-slate-400 bg-slate-50/60">
+              <h2 className="text-sm font-bold text-slate-700">受付・備考</h2>
+            </div>
+            <div className="px-4 pb-4 pt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">システム割引の適用</label>
-                  {discountPolicies.length === 0 ? (
-                    <p className="text-sm text-slate-400">登録されている割引ポリシーがありません</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {discountPolicies.map(p => {
-                        const checked = selectedDiscountIds.includes(p.id)
-                        const disabledByNonCombinable = !checked && !p.is_combinable === false
-                          ? false
-                          : !checked && selectedDiscountIds.some(id => {
-                              const sel = discountPolicies.find(dp => dp.id === id)
-                              return sel && !sel.is_combinable
-                            })
-                        return (
-                          <label
-                            key={p.id}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
-                              checked
-                                ? 'bg-teal-50 border-teal-300 text-teal-800'
-                                : disabledByNonCombinable
-                                ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed'
-                                : 'bg-white border-slate-200 hover:bg-teal-50/40 hover:border-teal-200'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-                              checked={checked}
-                              disabled={disabledByNonCombinable}
-                              onChange={() => {
-                                handleDiscountToggle(p.id)
-                                if (!selectedDiscountIds.includes(p.id)) {
-                                  setFormData(prev => ({ ...prev, discount_amount: 0, discount_reason: '' }))
-                                }
-                              }}
-                            />
-                            <span className="font-semibold text-sm flex-1">{p.name}</span>
-                            <span className="text-sm font-bold text-teal-700">
-                              {p.discount_type === 'fixed' ? `¥${p.discount_value.toLocaleString()}引き` : `${p.discount_value}%引き`}
-                            </span>
-                            {!p.is_combinable && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">併用不可</span>
-                            )}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {selectedDiscountIds.length === 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2 duration-400">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">手入力割引額 (円)</label>
-                    <input
-                      type="number"
-                      value={formData.discount_amount}
-                      onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
-                      placeholder="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">セラピスト負担額 (円)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={formData.manual_therapist_burden || ''}
-                      onChange={(e) => setFormData({ ...formData, manual_therapist_burden: Number(e.target.value) })}
-                      placeholder="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 font-medium"
-                    />
-                    <p className="mt-1 text-xs text-slate-400">0円＝店舗全額負担、割引額と同額＝セラピスト全額負担</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">割引理由</label>
-                    <input
-                      type="text"
-                      value={formData.discount_reason}
-                      onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                      placeholder="初回割引、キャンペーン等"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 支払方法 */}
-          <div ref={sectionRef7} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(8)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{n(7)}</span>
-                支払方法
-                <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{formData.payment_method === 'cash' ? '現金' : 'クレジット'}</span>
-              </h2>
-              <Chevron n={8} />
-            </button>
-            <div className={`${!openSections.has(8) ? 'hidden lg:block' : ''} px-4 pb-4 space-y-4`}>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">コース・指名料の支払方法</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setFormData({ ...formData, payment_method: 'cash' }); scrollToSection(sectionRef8) }}
-                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                  <label className="block text-xs font-medium text-slate-500 mb-1">受付区分</label>
+                  <select
+                    value={formData.reception_source}
+                    onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
                   >
-                    <span className="text-xl mb-1">💴</span>
-                    <span className="font-bold text-sm">現金</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setFormData({ ...formData, payment_method: 'credit' }); scrollToSection(sectionRef8) }}
-                    className={`flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${formData.payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    <span className="text-xl mb-1">💳</span>
-                    <span className="font-bold text-sm">クレジット</span>
-                  </button>
+                    <option value="staff">スタッフ受付</option>
+                    <option value="client">顧客直接 (WEB等)</option>
+                    <option value="therapist">セラピスト直接</option>
+                  </select>
+                </div>
+                <div className="flex items-end justify-end pb-1">
+                  <div className="text-xs text-slate-400 flex items-center">
+                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    操作者: <span className="font-bold ml-1 text-slate-600">{user?.name || user?.loginId || 'ログインユーザー'}</span>
+                  </div>
                 </div>
               </div>
-
-              {formData.payment_method === 'credit' && (
-                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-3">オプションの支払方法</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, options_payment_method: 'cash' })}
-                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                      >
-                        💴 現金（セラピストへ）
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, options_payment_method: 'credit' })}
-                        className={`flex items-center justify-center gap-2 p-3 border rounded-xl transition-all text-sm font-bold ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                      >
-                        💳 クレジット
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-xs text-amber-700 bg-amber-100 rounded-xl p-3">
-                    手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
-                    {calculatedPrice.creditFeeAmount > 0 && (
-                      <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 受付管理 */}
-          <div ref={sectionRef8} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(9)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold flex-shrink-0">{n(8)}</span>
-                受付管理
-              </h2>
-              <Chevron n={9} />
-            </button>
-            <div className={`${!openSections.has(9) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">受付区分</label>
-                <select 
-                  value={formData.reception_source}
-                  onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
-                  className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm font-medium"
-                >
-                  <option value="staff">スタッフ受付</option>
-                  <option value="client">顧客直接 (WEB等)</option>
-                  <option value="therapist">セラピスト直接</option>
-                </select>
-                <p className="mt-2 text-[10px] text-slate-400 font-medium">※ 集計時に「スタッフ受付分」のみを抽出するために使用します。</p>
-              </div>
-              <div className="flex flex-col justify-end pb-1 text-right">
-                <div className="text-[11px] text-slate-400 flex items-center justify-end">
-                  <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  操作者: <span className="font-bold ml-1 text-slate-600">{user?.name || user?.loginId || 'ログインユーザー'}</span>
-                </div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="特別なリクエストや店内共有事項など"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-sm placeholder:text-xs"
+                  rows={3}
+                />
               </div>
             </div>
-            </div>
-          </div>
-
-          {/* 備考 */}
-          <div ref={sectionRef9} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <button type="button" onClick={() => toggleSection(10)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{n(9)}</span>
-                備考・メモ
-              </h2>
-              <Chevron n={10} />
-            </button>
-            <div className={`${!openSections.has(10) ? 'hidden lg:block' : ''} px-4 pb-4`}>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="特別なリクエストや店内共有事項など"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-sm"
-              rows={3}
-            />
-            </div>
-          </div>
+          </section>
         </div>
 
         {/* 右側: 料金計算サマリー */}
         <div className="col-span-1">
-          <div className="bg-gradient-to-br from-white to-slate-50 p-4 md:p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 sticky top-20">
-            <h2 className="text-base font-bold text-slate-800 mb-4">予約サマリー</h2>
+          <div className="bg-gradient-to-br from-white to-slate-50 p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 sticky top-20">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">予約サマリー</h2>
 
-            <div className="space-y-2.5 text-sm mb-4 pb-4 border-b border-slate-200">
+            <div className="space-y-1.5 text-xs mb-3 pb-3 border-b border-slate-200">
               <div className="flex justify-between items-center text-slate-600">
-                <span className="font-medium">基本料金:</span>
-                <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.basePrice.toLocaleString()}</span>
+                <span>基本料金</span>
+                <span className="font-bold text-slate-800">¥{calculatedPrice.basePrice.toLocaleString()}</span>
               </div>
-
               {calculatedPrice.optionsPrice > 0 && (
                 <div className="flex justify-between items-center text-slate-600">
-                  <span className="font-medium">オプション:</span>
-                  <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.optionsPrice.toLocaleString()}</span>
+                  <span>オプション</span>
+                  <span className="font-bold text-slate-800">¥{calculatedPrice.optionsPrice.toLocaleString()}</span>
                 </div>
               )}
-
               {calculatedPrice.extensionPrice > 0 && (
                 <div className="flex justify-between items-center text-slate-600">
-                  <span className="font-medium">延長 ({formData.extension_count}回):</span>
-                  <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.extensionPrice.toLocaleString()}</span>
+                  <span>延長 ({formData.extension_count}回)</span>
+                  <span className="font-bold text-slate-800">¥{calculatedPrice.extensionPrice.toLocaleString()}</span>
                 </div>
               )}
-
               {calculatedPrice.nominationFee > 0 && (
                 <div className="flex justify-between items-center text-slate-600">
-                  <span className="font-medium">指名料/姫予約:</span>
-                  <span className="font-bold text-slate-800 text-base">¥{calculatedPrice.nominationFee.toLocaleString()}</span>
+                  <span>指名料/姫予約</span>
+                  <span className="font-bold text-slate-800">¥{calculatedPrice.nominationFee.toLocaleString()}</span>
                 </div>
               )}
-
               {calculatedPrice.discountAmount > 0 && (
                 <div className="flex justify-between items-center text-rose-500">
-                  <span className="font-medium">割引:</span>
-                  <span className="font-bold text-base">-¥{calculatedPrice.discountAmount.toLocaleString()}</span>
+                  <span>割引</span>
+                  <span className="font-bold">-¥{calculatedPrice.discountAmount.toLocaleString()}</span>
                 </div>
               )}
-
-              <div className="flex justify-between items-center pt-2">
-                <span className="font-medium text-slate-600">予約枠（施術時間）:</span>
-                <span className="font-bold text-slate-800 bg-slate-100 px-3 py-1 rounded-lg text-xs">{calculatedPrice.duration}分</span>
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-100">
+                <span className="text-slate-500">施術時間</span>
+                <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{calculatedPrice.duration}分</span>
               </div>
             </div>
 
             {calculatedPrice.creditFeeAmount > 0 && (
-              <div className="flex justify-between items-center text-amber-600 mb-2">
-                <span className="font-medium text-sm">クレジット手数料 ({systemSettings?.credit_card_fee_rate ?? 10}%):</span>
-                <span className="font-bold text-base">+¥{calculatedPrice.creditFeeAmount.toLocaleString()}</span>
+              <div className="flex justify-between items-center text-amber-600 mb-2 text-xs">
+                <span>クレジット手数料 ({systemSettings?.credit_card_fee_rate ?? 10}%)</span>
+                <span className="font-bold">+¥{calculatedPrice.creditFeeAmount.toLocaleString()}</span>
               </div>
             )}
 
-            <div className="flex flex-col mb-2">
-              <span className="text-xs font-semibold text-slate-500 mb-0.5">合計金額</span>
+            <div className="flex flex-col mb-3">
+              <span className="text-xs text-slate-500 mb-0.5">合計金額</span>
               <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">¥{calculatedPrice.totalPrice.toLocaleString()}</span>
             </div>
 
             {calculatedPrice.creditFeeAmount > 0 && (
               <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
                 <div className="text-xs text-amber-700 font-medium">💳 クレジット請求総額</div>
-                <div className="text-xl font-extrabold text-amber-600 tracking-tight">
+                <div className="text-xl font-extrabold text-amber-600">
                   ¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()}
                 </div>
                 {formData.options_payment_method === 'cash' && calculatedPrice.optionsPrice > 0 && (
@@ -1708,7 +1607,7 @@ export default function NewReservationPage() {
             )}
 
             {saveError && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 mb-2">
                 {saveError}
               </div>
             )}
@@ -1716,14 +1615,14 @@ export default function NewReservationPage() {
             <div className="space-y-2">
               <button
                 type="submit"
-                className="w-full px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-[0_4px_14px_0_rgb(79,70,229,39%)] hover:bg-indigo-700 font-bold text-base transition-all active:scale-95"
+                className="w-full px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-[0_4px_14px_0_rgb(79,70,229,39%)] hover:bg-indigo-700 font-bold text-sm transition-all active:scale-95"
               >
                 予約を登録する
               </button>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="w-full px-5 py-4 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-bold transition-all active:scale-95"
+                className="w-full px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold text-sm transition-all active:scale-95"
               >
                 キャンセル
               </button>

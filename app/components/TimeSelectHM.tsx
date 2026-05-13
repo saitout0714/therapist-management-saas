@@ -18,7 +18,7 @@ export default function TimeSelectHM({
   disabled,
   required,
   wrapperClassName = 'flex gap-2',
-  selectClassName = 'flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all disabled:opacity-40',
+  selectClassName = 'flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all disabled:opacity-40',
   minHour = 8,
   maxHour = 29,
   placeholder = false,

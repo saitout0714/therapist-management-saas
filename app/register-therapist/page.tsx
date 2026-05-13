@@ -1,4 +1,4 @@
-'use client' // ボタン操作などの動きがあるページにはこれが必要です
+﻿'use client' // ボタン操作などの動きがあるページにはこれが必要です
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -36,7 +36,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div className="h-full bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">セラピスト新規登録</h1>
         <form onSubmit={handleSubmit} className="space-y-4">

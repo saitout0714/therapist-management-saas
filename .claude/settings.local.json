@@ -13,7 +13,31 @@
       "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\admin\\\\import\" -Force -Recurse)",
       "Bash(Remove-Item -Path \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\\\\api\\\\admin\\\\import-calendar\" -Force -Recurse)",
       "Bash(wc -l app/therapists/\\\\\"[id]\\\\\"/edit/page.tsx)",
-      "Bash(powershell -command \"\\(Get-Content 'app/therapists/[id]/edit/page.tsx'\\).Count\")"
+      "Bash(powershell -command \"\\(Get-Content 'app/therapists/[id]/edit/page.tsx'\\).Count\")",
+      "Bash(powershell -Command ' *)",
+      "Bash(powershell -File fix_loading.ps1)",
+      "Bash(powershell -File fix_margins.ps1)",
+      "Bash(powershell -File fix_card_padding.ps1)",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\[id]\\\\edit\\\\page.tsx' -Pattern 'columns-2|break-inside-avoid' | Select-Object -First 5\")",
+      "Bash(Remove-Item *)",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'flex-1 px-3|border rounded-xl text-sm font-bold|designationType|nomination_type|指名' | Select-Object -First 30\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'grid grid-cols.*gap.*map\\\\|\\\\.map.*button.*type.*button\\\\|flex.*border.*rounded-xl.*transition' | Select-Object -First 20\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'type=\\\\\"button\\\\\"' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\[id]\\\\edit\\\\page.tsx' -Pattern 'designationTypes\\\\.map|payment_method.*cash|options_payment_method|flex flex-col items-center justify-center p-4 border' | Select-Object LineNumber, Line\")",
+      "Bash(powershell -File shrink_text.ps1)",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'text-xs font-bold text-slate-700 flex|text-xs font-semibold text-slate-600 mb|text-sm font-bold text-slate-800 mb-3|space-y-1\\\\.5 text-xs' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern '<select ' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\[id]\\\\edit\\\\page.tsx' -Pattern '<select ' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'select|TimeSelect|課目|セラピスト選択' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap | Select-Object -First 30\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\[id]\\\\edit\\\\page.tsx' -Pattern 'className=\\\\\"w-full px-.*bg-slate-50 border border-slate-200 rounded-lg focus|className=\\\\\"w-full px-.*bg-white border border-slate-200 rounded-xl focus.*text-sm' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -File shrink_selects.ps1)",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'text-sm' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap | Select-Object -First 20\")",
+      "Bash(powershell -File shrink_inputs.ps1)",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'text-sm' | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'text-sm' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
+      "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_missing_textsize.ps1)",
+      "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_placeholders.ps1)",
+      "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File shrink_controls.ps1)"
     ]
   }
 }

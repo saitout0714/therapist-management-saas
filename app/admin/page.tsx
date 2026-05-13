@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -128,9 +128,9 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="mx-auto">
-        <div className="mb-8">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">管理者ページ</h1>
           <p className="text-sm text-slate-500 mt-1">システムに登録されている全店舗の管理・追加を行います。</p>
         </div>
@@ -280,7 +280,7 @@ export default function AdminPage() {
           {/* システム設定コピー */}
           <div className="animate-in fade-in duration-300">
             <h2 className="text-xl font-bold text-slate-800 mb-6">システム設定コピー</h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5">
               <p className="text-sm text-slate-500 mb-6">
                 ある店舗のシステム設定（コース・ランク・バック・指名種別・割引・控除など）を別の店舗にまとめてコピーします。<br />
                 <span className="text-amber-600 font-medium">※コピー先の設定は上書きされます。セラピスト・予約・顧客データには影響しません。</span>

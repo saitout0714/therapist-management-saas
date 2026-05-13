@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 
@@ -84,7 +84,7 @@ export function NominationFeeManagementTab() {
     if (loading) return <div className="p-6">読み込み中...</div>
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
                     <h2 className="text-lg font-bold text-slate-800">指名料ルール / マスタ管理</h2>

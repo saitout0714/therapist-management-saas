@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -82,9 +82,9 @@ export default function RoomsList() {
   useEffect(() => { fetchRooms() }, [selectedShop])
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム管理</h1>
             <p className="text-sm text-slate-500 mt-1">店舗に紐づくルーム（部屋）の登録・編集を行います。ドラッグで並び順を変更できます。</p>

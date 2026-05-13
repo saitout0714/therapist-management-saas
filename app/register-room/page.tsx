@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -62,7 +62,7 @@ export default function RegisterRoom() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="bg-gray-100 p-4">
       <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">ルーム登録</h1>
 

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -73,16 +73,16 @@ export default function EditShopPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="h-full bg-gray-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-4">
           <Link
             href="/admin"
             className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 transition-colors"
@@ -97,7 +97,7 @@ export default function EditShopPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
           {error && (
             <div className="mb-5 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{error}</div>
           )}
@@ -216,3 +216,4 @@ export default function EditShopPage() {
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -375,7 +375,7 @@ export default function ReservationPreviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="bg-slate-50 p-4 md:p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Header */}
@@ -489,7 +489,7 @@ export default function ReservationPreviewPage() {
 
         {/* Details Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 md:p-8">
+          <div className="p-4 md:p-5">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center border-b border-slate-100 pb-4">
               <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -630,3 +630,4 @@ export default function ReservationPreviewPage() {
     </div>
   )
 }
+

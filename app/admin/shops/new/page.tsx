@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -37,9 +37,9 @@ export default function NewShopPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-4">
           <Link
             href="/admin"
             className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 transition-colors"
@@ -54,7 +54,7 @@ export default function NewShopPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
           {error && (
             <div className="mb-5 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{error}</div>
           )}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { CourseManagementTab } from './components/CourseManagementTab'
@@ -100,7 +100,7 @@ export default function SystemPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+      <div className="bg-gray-100 p-4 md:p-4">
         <div className="flex justify-center items-center py-20 text-indigo-600">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
           <span className="ml-3 font-medium">読み込み中...</span>
@@ -122,9 +122,9 @@ export default function SystemPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="mx-auto">
-        <div className="mb-8">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
           <p className="text-sm text-slate-500 mt-1">サービス設定と店舗の初期料金設定を管理します。</p>
         </div>
@@ -154,7 +154,7 @@ export default function SystemPage() {
         {activeTab === 'deductions' && <DeductionRulesTab />}
 
         {activeTab === 'pricing_defaults' && (
-          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 max-w-2xl space-y-8">
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 max-w-2xl space-y-8">
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
               <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>

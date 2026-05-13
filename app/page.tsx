@@ -1,12 +1,12 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="p-4 md:p-8 mx-auto">
-      <h1 className="text-2xl font-bold mb-8 text-slate-800 tracking-tight">ダッシュボード</h1>
+    <div className="p-4 md:p-4 mx-auto">
+      <h1 className="text-2xl font-bold mb-4 text-slate-800 tracking-tight">ダッシュボード</h1>
 
       {/* ヒーローセクション（サマリ等を入れる想定のグラデーションカード） */}
-      <div className="mb-8 p-8 rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 shadow-lg text-white relative overflow-hidden group">
+      <div className="mb-4 p-5 rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 shadow-lg text-white relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-1/3 -translate-y-1/3 group-hover:scale-110 transition-transform duration-700">
           <svg className="w-64 h-64" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13.5h-13L12 6.5z" /></svg>
         </div>

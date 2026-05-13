@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -194,9 +194,9 @@ export default function ReservationsPage() {
   const hasActiveFilters = Object.values(applied).some(v => v !== '')
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">予約管理</h1>
             <p className="text-sm text-slate-500 mt-1">予約情報の確認、編集、削除を行います。</p>

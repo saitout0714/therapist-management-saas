@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -268,9 +268,9 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">顧客管理</h1>
             <p className="text-sm text-slate-500 mt-1">店舗を利用されるお客様の情報や来店履歴を管理します。</p>
@@ -494,7 +494,7 @@ export default function CustomersPage() {
                 </button>
               </div>
 
-              <div className="p-6 md:p-8 overflow-y-auto bg-slate-50/50">
+              <div className="p-4 md:p-5 overflow-y-auto bg-slate-50/50">
                 {historyLoading ? (
                   <div className="flex justify-center py-12">
                     <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>

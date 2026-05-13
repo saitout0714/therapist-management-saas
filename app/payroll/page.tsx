@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -480,7 +480,7 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
+    <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-5xl mx-auto space-y-6">
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
