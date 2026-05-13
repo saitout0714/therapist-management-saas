@@ -720,11 +720,11 @@ export default function EditReservationPage() {
   )
 
   return (
-    <div className="p-3 md:p-6 mx-auto">
+    <div className="p-3 md:p-6 max-w-5xl">
       <h1 className="text-lg font-bold text-slate-800 tracking-tight mb-4">予約編集</h1>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-3">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="sm:col-span-2 space-y-3">
           {/* 1: お客様 */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-indigo-500 bg-slate-50/60">
@@ -954,7 +954,7 @@ export default function EditReservationPage() {
               )}
             </div>
             <div className="px-4 pb-4 pt-3 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">日付 <span className="text-rose-500">*</span></label>
                   <input
