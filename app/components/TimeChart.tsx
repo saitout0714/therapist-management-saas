@@ -2,6 +2,7 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface Therapist {
   id: string;
@@ -248,7 +249,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   }
 
   // Row height & Cell width adjustments for compact view
-  const rowHeight = 72; // Row height with vertical breathing room
+  const rowHeight = 76; // Row height with vertical breathing room
   const cellWidth = 20; // Cell width
 
   return (
@@ -282,15 +283,28 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 <div
                   key={therapist.id}
                   style={{ height: `${rowHeight}px` }}
-                  className="flex items-center gap-1 px-1 border-b border-slate-100 bg-white hover:bg-indigo-50/40 transition-colors group relative overflow-hidden"
+                  className="flex items-stretch border-b border-slate-100 bg-white hover:bg-indigo-50/40 transition-colors group relative overflow-hidden"
                 >
                   {/* Active indicator bar */}
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                  <div className="flex flex-col justify-center gap-1 flex-1 min-w-0">
+                  {/* 写真 — 3:4固定比率 */}
+                  <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
+                    <div className="relative w-full overflow-hidden rounded" style={{ aspectRatio: '3/4' }}>
+                      {therapist.avatar ? (
+                        <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* テキスト情報 */}
+                  <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
+                    {/* 名前 + インターバル */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       <p
-                        className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors flex-shrink-0 cursor-default"
+                        className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
                         onMouseEnter={(e) => {
                           if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -302,50 +316,54 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       >
                         {therapist.name}
                       </p>
+                      <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                        {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                      </span>
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                         <span
-                          className="flex-shrink-0 flex items-center text-amber-500 cursor-default"
+                          className="flex-shrink-0 flex items-center text-amber-400 cursor-default"
                           onMouseEnter={e => {
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
                           }}
                           onMouseLeave={() => setMemoPopup(null)}
                         >
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                        </span>
-                      )}
-                      {therapist.notes && (
-                        <span className="text-[13px] font-medium text-amber-600 leading-none whitespace-nowrap" title={therapist.notes}>
-                          {therapist.notes}
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                         </span>
                       )}
                     </div>
-                    <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200 self-start">
-                      {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                    </span>
-                    <p className="text-[10px] font-medium whitespace-nowrap leading-none">
+
+                    {/* 出勤時間 */}
+                    <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
                       {therapist.shiftStart && therapist.shiftEnd ? (
-                        <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
-                          {therapist.shiftStart} - {therapist.shiftEnd}
-                        </span>
+                        <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                       ) : (
-                        <span className="text-slate-500 bg-slate-50 px-1.5 rounded border border-slate-100">シフト未設定</span>
+                        <span className="text-slate-400">未設定</span>
                       )}
                     </p>
+
+                    {/* ルーム */}
                     {therapist.room && (
-                      <p
-                        className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium cursor-default"
-                        onMouseEnter={(therapist.roomMemo || therapist.roomMapUrl) ? (e) => {
+                      <span
+                        className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
+                        onMouseEnter={(e) => {
                           if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setRoomMemoPopup({ roomName: therapist.room ?? '', memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
-                        } : undefined}
-                        onMouseLeave={(therapist.roomMemo || therapist.roomMapUrl) ? () => {
+                        }}
+                        onMouseLeave={() => {
                           roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                        } : undefined}
+                        }}
                       >
                         <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                         {therapist.room}
+                      </span>
+                    )}
+
+                    {/* notes */}
+                    {therapist.notes && (
+                      <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={therapist.notes}>
+                        {therapist.notes}
                       </p>
                     )}
                   </div>
@@ -357,11 +375,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         onShiftEditOpen(therapist.id);
                       }}
                       title="シフトを編集"
-                      className="flex-shrink-0 relative flex flex-col items-center justify-center rounded-lg transition-all text-[9px] font-bold leading-tight px-1 py-1 text-slate-400 hover:text-indigo-600"
-                      style={{ minWidth: '34px', height: '44px' }}
+                      className="flex-shrink-0 flex items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
                     >
-                      <svg className="w-3.5 h-3.5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      <span>編集</span>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
                   )}
                 </div>
@@ -693,48 +709,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
           onMouseEnter={() => { if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current); }}
           onMouseLeave={() => setTherapistPopup(null)}
         >
-          <div className="w-64 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
-            {/* ヘッダー */}
-            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 px-4 py-3.5 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                {therapistPopup.therapist.name[0]}
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
+            {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
+              <div className="flex gap-1.5 flex-wrap">
+                {therapistPopup.therapist.age && (
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.age}歳</span>
+                )}
+                {therapistPopup.therapist.height && (
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.height}cm</span>
+                )}
               </div>
-              <p className="text-white font-bold text-base leading-tight">{therapistPopup.therapist.name}</p>
-            </div>
-            {/* ボディ */}
-            <div className="p-4 space-y-3">
-              {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
-                <div className="flex gap-2 flex-wrap">
-                  {therapistPopup.therapist.age && (
-                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.age}歳</span>
-                  )}
-                  {therapistPopup.therapist.height && (
-                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">{therapistPopup.therapist.height}cm</span>
-                  )}
-                </div>
-              )}
-              {(therapistPopup.therapist.bust || therapistPopup.therapist.waist || therapistPopup.therapist.hip) && (
-                <div className="flex gap-2 flex-wrap">
-                  {therapistPopup.therapist.bust && (
-                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">
-                      B{therapistPopup.therapist.bust}{therapistPopup.therapist.bustCup ?? ''}
-                    </span>
-                  )}
-                  {therapistPopup.therapist.waist && (
-                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">W{therapistPopup.therapist.waist}</span>
-                  )}
-                  {therapistPopup.therapist.hip && (
-                    <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">H{therapistPopup.therapist.hip}</span>
-                  )}
-                </div>
-              )}
-              {therapistPopup.therapist.staffMemo && (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">スタッフメモ</p>
-                  <p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">{therapistPopup.therapist.staffMemo}</p>
-                </div>
-              )}
-            </div>
+            )}
+            {(therapistPopup.therapist.bust || therapistPopup.therapist.waist || therapistPopup.therapist.hip) && (
+              <div className="flex gap-1.5 flex-wrap">
+                {therapistPopup.therapist.bust && (
+                  <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">
+                    B{therapistPopup.therapist.bust}{therapistPopup.therapist.bustCup ?? ''}
+                  </span>
+                )}
+                {therapistPopup.therapist.waist && (
+                  <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">W{therapistPopup.therapist.waist}</span>
+                )}
+                {therapistPopup.therapist.hip && (
+                  <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-xs font-semibold">H{therapistPopup.therapist.hip}</span>
+                )}
+              </div>
+            )}
+            {therapistPopup.therapist.staffMemo && (
+              <p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">{therapistPopup.therapist.staffMemo}</p>
+            )}
           </div>
         </div>
       )}
@@ -747,31 +750,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
           onMouseEnter={() => { if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current); }}
           onMouseLeave={() => setRoomMemoPopup(null)}
         >
-          <div className="w-64 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
-            {/* ヘッダー */}
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-3.5 flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-              </div>
-              <p className="text-white font-bold text-base leading-tight">{roomMemoPopup.roomName || 'ルーム情報'}</p>
-            </div>
-            {/* ボディ */}
-            <div className="p-4 space-y-3">
-              {roomMemoPopup.memo && (
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
-              )}
-              {roomMemoPopup.mapUrl && (
-                <a
-                  href={roomMemoPopup.mapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-xl px-4 py-2.5 w-full shadow-sm shadow-emerald-200"
-                >
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  Googleマップを開く
-                </a>
-              )}
-            </div>
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
+            {roomMemoPopup.memo ? (
+              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
+            ) : (
+              !roomMemoPopup.mapUrl && (
+                <p className="text-xs text-slate-400 italic">メモはありません</p>
+              )
+            )}
+            {roomMemoPopup.mapUrl && (
+              <a
+                href={roomMemoPopup.mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-lg px-3 py-2 w-full text-xs"
+              >
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Googleマップを開く
+              </a>
+            )}
           </div>
         </div>
       )}

@@ -37,7 +37,8 @@
       "Bash(powershell -Command \"Select-String -LiteralPath 'app\\\\reservations\\\\new\\\\page.tsx' -Pattern 'text-sm' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap\")",
       "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_missing_textsize.ps1)",
       "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_placeholders.ps1)",
-      "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File shrink_controls.ps1)"
+      "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File shrink_controls.ps1)",
+      "PowerShell(New-Item *)"
     ]
   }
 }

@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function EditTherapistPage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function EditTherapistPage() {
     reservation_interval_minutes: "",
     is_active: true,
   });
+  const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
   const [nominationFees, setNominationFees] = useState<{ id: string, name: string }[]>([]);
@@ -154,6 +158,14 @@ export default function EditTherapistPage() {
             : "",
           is_active: therapist.is_active !== false,
         });
+        // 写真一覧を取得
+        const { data: photoData } = await supabase
+          .from("therapist_photos")
+          .select("id, photo_url, display_order")
+          .eq("therapist_id", therapistId)
+          .order("display_order", { ascending: true });
+        setPhotos((photoData || []) as { id: string; photo_url: string; display_order: number }[]);
+
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "不明なエラー";
         setError("データの取得に失敗しました: " + message);
@@ -167,6 +179,60 @@ export default function EditTherapistPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`${file.name} は5MB以下にしてください`);
+        continue;
+      }
+      setPhotoUploading(true);
+      setError(null);
+      const photoId = crypto.randomUUID();
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${therapistId}/${photoId}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('therapist-photos')
+        .upload(path, file, { contentType: file.type });
+      if (uploadError) {
+        setError("写真のアップロードに失敗しました: " + uploadError.message);
+        setPhotoUploading(false);
+        continue;
+      }
+      const { data: urlData } = supabase.storage.from('therapist-photos').getPublicUrl(path);
+      const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 0;
+      const { data: inserted } = await supabase
+        .from("therapist_photos")
+        .insert({ therapist_id: therapistId, photo_url: urlData.publicUrl, display_order: nextOrder })
+        .select("id, photo_url, display_order")
+        .single();
+      if (inserted) {
+        setPhotos(prev => [...prev, inserted as { id: string; photo_url: string; display_order: number }]);
+      }
+    }
+    setPhotoUploading(false);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handlePhotoDelete = async (photoId: string) => {
+    if (!confirm("この写真を削除しますか？")) return;
+    await supabase.from("therapist_photos").delete().eq("id", photoId);
+    setPhotos(prev => prev.filter(p => p.id !== photoId));
+  };
+
+  const handlePhotoMove = async (index: number, direction: -1 | 1) => {
+    const newPhotos = [...photos];
+    const swapIndex = index + direction;
+    if (swapIndex < 0 || swapIndex >= newPhotos.length) return;
+    [newPhotos[index], newPhotos[swapIndex]] = [newPhotos[swapIndex], newPhotos[index]];
+    const updated = newPhotos.map((p, i) => ({ ...p, display_order: i }));
+    setPhotos(updated);
+    await Promise.all(
+      updated.map(p => supabase.from("therapist_photos").update({ display_order: p.display_order }).eq("id", p.id))
+    );
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -325,6 +391,92 @@ export default function EditTherapistPage() {
             )}
 
             <form onSubmit={handleSave} className="space-y-8">
+              {/* 写真 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">プロフィール写真</h3>
+                  <span className="text-xs text-slate-400">{photos.length}枚 / 最大10枚</span>
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} className="relative group aspect-[3/4] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                      <Image
+                        src={photo.photo_url}
+                        alt={`写真${index + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      {index === 0 && (
+                        <div className="absolute top-1 left-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                          メイン
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => handlePhotoMove(index, -1)}
+                          disabled={index === 0}
+                          className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-slate-700 disabled:opacity-30 hover:bg-white"
+                          title="前へ"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePhotoMove(index, 1)}
+                          disabled={index === photos.length - 1}
+                          className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-slate-700 disabled:opacity-30 hover:bg-white"
+                          title="後へ"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePhotoDelete(photo.id)}
+                          className="w-7 h-7 bg-rose-500/90 rounded-full flex items-center justify-center text-white hover:bg-rose-500"
+                          title="削除"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {photos.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoUploading}
+                      className="aspect-[3/4] rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors disabled:opacity-50"
+                    >
+                      {photoUploading ? (
+                        <div className="w-5 h-5 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                      )}
+                      <span className="text-xs font-medium">追加</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">JPG・PNG・WebP / 1枚最大5MB / 複数選択可 / 最初の写真がメイン表示</p>
+              </div>
+
               {/* 基本プロフィール */}
               <div className="space-y-5">
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2">基本情報</h3>

@@ -18,33 +18,76 @@ export default function EditShopPage() {
     is_active: true,
     sms_address_mode: 'unified' as 'unified' | 'split_by_membership',
   })
+  const [reservationCode, setReservationCode] = useState('')
+  const [savedCode, setSavedCode] = useState('')
+  const [codeActive, setCodeActive] = useState(true)
+  const [codeSaving, setCodeSaving] = useState(false)
+  const [codeError, setCodeError] = useState('')
 
   useEffect(() => {
     const fetchShop = async () => {
-      const { data, error: fetchError } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const [shopRes, codeRes] = await Promise.all([
+        supabase.from('shops').select('*').eq('id', id).single(),
+        supabase.from('shop_reservation_codes').select('code, is_active').eq('shop_id', id).single(),
+      ])
 
-      if (fetchError || !data) {
+      if (shopRes.error || !shopRes.data) {
         setError('店舗情報の取得に失敗しました')
         setLoading(false)
         return
       }
 
       setForm({
-        name: data.name,
-        short_name: data.short_name || '',
-        description: data.description || '',
-        is_active: data.is_active,
-        sms_address_mode: data.sms_address_mode || 'unified',
+        name: shopRes.data.name,
+        short_name: shopRes.data.short_name || '',
+        description: shopRes.data.description || '',
+        is_active: shopRes.data.is_active,
+        sms_address_mode: shopRes.data.sms_address_mode || 'unified',
       })
+
+      if (!codeRes.error && codeRes.data) {
+        setReservationCode(codeRes.data.code)
+        setSavedCode(codeRes.data.code)
+        setCodeActive(codeRes.data.is_active)
+      }
+
       setLoading(false)
     }
 
     void fetchShop()
   }, [id])
+
+  const handleSaveCode = async () => {
+    setCodeSaving(true)
+    setCodeError('')
+    const code = reservationCode.trim()
+    if (!code) {
+      setCodeError('URLコードを入力してください')
+      setCodeSaving(false)
+      return
+    }
+    if (!/^[a-z0-9-]+$/.test(code)) {
+      setCodeError('半角英小文字・数字・ハイフンのみ使用できます')
+      setCodeSaving(false)
+      return
+    }
+    const { error: upsertError } = await supabase
+      .from('shop_reservation_codes')
+      .upsert({ shop_id: id, code, is_active: codeActive }, { onConflict: 'shop_id' })
+    if (upsertError) {
+      const msg = upsertError.message
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        setCodeError('このコードは既に使用されています')
+      } else if (msg.includes('does not exist') || msg.includes('relation')) {
+        setCodeError('テーブルが存在しません。Supabaseダッシュボードで add-web-reservation.sql を実行してください。')
+      } else {
+        setCodeError('保存に失敗しました: ' + msg)
+      }
+    } else {
+      setSavedCode(code)
+    }
+    setCodeSaving(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,6 +254,64 @@ export default function EditShopPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Web予約URL設定 */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 mt-4">
+          <h2 className="text-base font-bold text-slate-800 mb-1">Web予約URL設定</h2>
+          <p className="text-xs text-slate-500 mb-4">お客様がアクセスするWeb予約ページのURLコードを設定します。</p>
+
+          {codeError && (
+            <div className="mb-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{codeError}</div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">URLコード</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400 whitespace-nowrap">/reserve/</span>
+                <input
+                  type="text"
+                  value={reservationCode}
+                  onChange={e => setReservationCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="shop-abc"
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-mono text-sm"
+                />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">半角英小文字・数字・ハイフンのみ</p>
+            </div>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  checked={codeActive}
+                  onChange={e => setCodeActive(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
+              </div>
+              <span className="text-sm font-medium text-slate-700">{codeActive ? '予約受付中' : '予約停止中'}</span>
+            </label>
+
+            {savedCode && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                <p className="text-xs text-indigo-600 font-medium mb-1">現在の予約URL</p>
+                <p className="text-sm font-mono text-indigo-800 break-all">
+                  {typeof window !== 'undefined' ? window.location.origin : ''}/reserve/{savedCode}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveCode}
+              disabled={codeSaving}
+              className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+            >
+              {codeSaving ? '保存中...' : 'URLコードを保存'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

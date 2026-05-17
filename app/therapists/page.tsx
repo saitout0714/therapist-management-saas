@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
 import Link from "next/link";
+import Image from "next/image";
 
 type TherapistItem = {
   id: string;
@@ -25,6 +26,7 @@ type TherapistItem = {
 export default function TherapistsPage() {
   const { selectedShop } = useShop();
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
+  const [photosMap, setPhotosMap] = useState<Map<string, string>>(new Map());
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -52,8 +54,23 @@ export default function TherapistsPage() {
     if (therapistsRes.error) {
       setError(therapistsRes.error.message);
     } else {
-      setTherapists((therapistsRes.data as unknown as TherapistItem[]) || []);
+      const list = (therapistsRes.data as unknown as TherapistItem[]) || [];
+      setTherapists(list);
       setError(null);
+
+      // 各セラピストの先頭写真を取得
+      if (list.length > 0) {
+        const { data: photosData } = await supabase
+          .from("therapist_photos")
+          .select("therapist_id, photo_url, display_order")
+          .in("therapist_id", list.map((t) => t.id))
+          .order("display_order", { ascending: true });
+        const map = new Map<string, string>();
+        for (const p of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
+          if (!map.has(p.therapist_id)) map.set(p.therapist_id, p.photo_url);
+        }
+        setPhotosMap(map);
+      }
     }
 
     const counts = new Map<string, number>();
@@ -151,6 +168,7 @@ export default function TherapistsPage() {
   const TherapistRow = ({ therapist }: { therapist: TherapistItem }) => {
     const isActive = therapist.is_active !== false;
     const rankName = therapist.therapist_ranks?.name;
+    const photoUrl = photosMap.get(therapist.id);
 
     const sizeLabel = (() => {
       const parts: string[] = [];
@@ -184,8 +202,12 @@ export default function TherapistsPage() {
         </div>
 
         {/* アバター */}
-        <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-lg shadow-inner mt-0.5 ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
-          {therapist.name.charAt(0)}
+        <div className={`w-9 h-12 flex-shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-lg mt-0.5 ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
+          {photoUrl ? (
+            <Image src={photoUrl} alt={therapist.name} fill className="object-cover" unoptimized />
+          ) : (
+            therapist.name.charAt(0)
+          )}
         </div>
 
         {/* 情報エリア */}

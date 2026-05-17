@@ -527,7 +527,22 @@ export default function ShiftsPage() {
         unresolvedMemos: memosMap.get(t.id) || [],
       }));
 
-      setTherapists(withMemos);
+      // 先頭写真を取得して avatar にセット
+      const ids = withMemos.map(t => t.id)
+      if (ids.length > 0) {
+        const { data: photosData } = await supabase
+          .from('therapist_photos')
+          .select('therapist_id, photo_url, display_order')
+          .in('therapist_id', ids)
+          .order('display_order', { ascending: true })
+        const photoMap = new Map<string, string>()
+        for (const p of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
+          if (!photoMap.has(p.therapist_id)) photoMap.set(p.therapist_id, p.photo_url)
+        }
+        setTherapists(withMemos.map(t => ({ ...t, avatar: photoMap.get(t.id) })))
+      } else {
+        setTherapists(withMemos)
+      }
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
     }
@@ -753,7 +768,7 @@ export default function ShiftsPage() {
   }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
 
   // 週間表示用：全セラピストをシンプルな形式にマップ
-  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, reservation_interval_minutes: t.intervalMinutes ?? null }));
+  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, avatar: t.avatar, reservation_interval_minutes: t.intervalMinutes ?? null }));
 
   return (
     <div className="bg-gray-100 p-2 md:p-4">
@@ -880,7 +895,7 @@ export default function ShiftsPage() {
 
         {/* タイムチャートビュー */}
         {viewMode === 'day' && !loading && (() => {
-          const chartHeight = 56 + sortedTherapistsWithShift.length * 72 + 10;
+          const chartHeight = 56 + sortedTherapistsWithShift.length * 76 + 10;
           return (
             <div className="bg-white rounded-lg shadow-lg overflow-visible">
               <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">

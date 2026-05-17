@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import Image from 'next/image'
 import { useShop } from '@/app/contexts/ShopContext'
 
 interface Therapist {
@@ -352,36 +353,51 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                             </button>
                           </div>
 
-                          {/* セラピスト情報 — TimeChart の左列と同スタイル */}
-                          <div className="flex flex-col justify-center gap-1 px-3 pt-3 pb-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors flex-shrink-0">
-                                {therapist.name}
-                              </p>
-                              {shiftNote && (
-                                <span className="text-[13px] font-medium text-amber-600 leading-none whitespace-nowrap">
-                                  {shiftNote}
-                                </span>
-                              )}
+                          {/* セラピスト情報 */}
+                          <div className="flex items-stretch">
+                            {/* 写真 */}
+                            <div className="w-14 flex-shrink-0 bg-white p-1" style={{ minHeight: '72px' }}>
+                              <div className="relative w-full h-full overflow-hidden rounded">
+                                {therapist.avatar ? (
+                                  <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                                ) : (
+                                  <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
+                                )}
+                              </div>
                             </div>
-                            {therapist.reservation_interval_minutes != null && (
-                              <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200 self-start">
-                                {therapist.reservation_interval_minutes}分
-                              </span>
-                            )}
-                            <p className="text-[10px] font-medium whitespace-nowrap leading-none">
-                              <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
-                                {shift.start_time.slice(0, 5)} - {endDisplay}
-                              </span>
-                            </p>
-                            {roomName && (
-                              <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
-                                <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                                {roomName}
+                            {/* テキスト情報 */}
+                            <div className="flex flex-col justify-center gap-0.5 px-2 pt-2 pb-2 flex-1 min-w-0">
+                              <div className="flex items-center gap-1 min-w-0 pr-14">
+                                <p className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none group-hover:text-indigo-700 transition-colors">
+                                  {therapist.name}
+                                </p>
+                              </div>
+                              {shiftNote && (
+                                <p className="text-[10px] font-medium text-amber-600 leading-none whitespace-nowrap truncate">
+                                  {shiftNote}
+                                </p>
+                              )}
+                              <p className="text-[10px] font-medium whitespace-nowrap leading-none">
+                                <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
+                                  {shift.start_time.slice(0, 5)} - {endDisplay}
+                                </span>
                               </p>
-                            )}
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {roomName && (
+                                  <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
+                                    <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    {roomName}
+                                  </p>
+                                )}
+                                {therapist.reservation_interval_minutes != null && (
+                                  <span className="text-[9px] font-medium px-1 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                    {therapist.reservation_interval_minutes}分
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
 
                           {/* 予約リスト — TimeChart の予約ブロックと完全同一スタイル */}
