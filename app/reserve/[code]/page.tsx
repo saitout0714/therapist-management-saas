@@ -255,6 +255,7 @@ export default function ReservePage() {
     name: '', furigana: '', phone: '', email: '', notes: ''
   })
   const [validationErrors, setValidationErrors] = useState<Partial<CustomerForm>>({})
+  const [isFreeReservation, setIsFreeReservation] = useState(false)
   const timelineRef = useRef<HTMLDivElement>(null)
 
   const fetchData = useCallback(async () => {
@@ -301,8 +302,18 @@ export default function ReservePage() {
     : ''
 
   const handleSelectTherapist = (therapist: Therapist, shift: Shift) => {
+    setIsFreeReservation(false)
     setSelectedTherapist(therapist)
     setSelectedShift(shift)
+    setSelectedCourse(null)
+    setSelectedStartTime('')
+    setStep('details')
+  }
+
+  const handleSelectFree = () => {
+    setIsFreeReservation(true)
+    setSelectedTherapist(null)
+    setSelectedShift(null)
     setSelectedCourse(null)
     setSelectedStartTime('')
     setStep('details')
@@ -330,7 +341,8 @@ export default function ReservePage() {
   }
 
   const handleSubmit = async () => {
-    if (!selectedTherapist || !selectedShift || !selectedCourse || !selectedStartTime) return
+    if (!selectedCourse || !selectedStartTime) return
+    if (!isFreeReservation && (!selectedTherapist || !selectedShift)) return
     setSubmitting(true)
     setError(null)
     try {
@@ -338,8 +350,8 @@ export default function ReservePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          therapist_id: selectedTherapist.id,
-          date: selectedShift.date,
+          therapist_id: selectedTherapist?.id ?? null,
+          date: selectedShift?.date ?? selectedDate,
           start_time: selectedStartTime,
           end_time: endTime,
           course_id: selectedCourse.id,
@@ -359,6 +371,25 @@ export default function ReservePage() {
       setSubmitting(false)
     }
   }
+
+  // フリー予約時の仮想シフト（当日の全シフトから最早開始・最遅終了を計算）
+  const freeVirtualShift: Shift | null = isFreeReservation
+    ? (() => {
+        const dayShifts = shifts.filter(s => s.date === selectedDate)
+        if (dayShifts.length === 0) return null
+        const sorted = [...dayShifts].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time))
+        const startTime = sorted[0].start_time
+        let latestEnd = sorted[0].end_time
+        for (const s of sorted) {
+          if (timeToMinutesAbsolute(s.end_time, startTime) > timeToMinutesAbsolute(latestEnd, startTime)) {
+            latestEnd = s.end_time
+          }
+        }
+        return { id: 'free', date: selectedDate, start_time: startTime, end_time: latestEnd, therapists: null }
+      })()
+    : null
+
+  const currentShift = selectedShift ?? freeVirtualShift
 
   if (loading) {
     return (
@@ -499,17 +530,35 @@ export default function ReservePage() {
                     </button>
                   )
                 })}
+                {/* フリー（指名なし）カード */}
+                <button
+                  onClick={handleSelectFree}
+                  className="bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-rose-300 hover:shadow-md transition-all text-left group"
+                >
+                  <div className="aspect-[3/4] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center">
+                      <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium">指名なし</p>
+                  </div>
+                  <div className="p-3">
+                    <p className="font-bold text-slate-700 text-sm">フリー</p>
+                    <p className="text-xs text-slate-400 mt-0.5">セラピストおまかせ</p>
+                  </div>
+                </button>
               </div>
             )}
           </div>
         )}
 
         {/* Step 2: 詳細選択 */}
-        {step === 'details' && selectedTherapist && selectedShift && (
+        {step === 'details' && (selectedTherapist !== null || isFreeReservation) && (
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => { setStep('attendance'); setSelectedTherapist(null); setSelectedShift(null) }}
+                onClick={() => { setStep('attendance'); setSelectedTherapist(null); setSelectedShift(null); setIsFreeReservation(false) }}
                 className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-rose-300"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -518,28 +567,49 @@ export default function ReservePage() {
               </button>
               <div>
                 <h2 className="text-xl font-bold text-slate-800">コース・時間の選択</h2>
-                <p className="text-sm text-slate-500">{selectedTherapist.name} / {formatDate(selectedShift.date)}</p>
+                <p className="text-sm text-slate-500">
+                  {isFreeReservation ? 'フリー（指名なし）' : selectedTherapist?.name} / {formatDate(currentShift?.date ?? selectedDate)}
+                </p>
               </div>
             </div>
 
             {/* セラピスト情報カード */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 relative">
-                <PhotoCarousel
-                  photos={selectedTherapist.photos?.length ? selectedTherapist.photos : (selectedTherapist.photo_url ? [selectedTherapist.photo_url] : [])}
-                  name={selectedTherapist.name}
-                />
+            {selectedTherapist ? (
+              <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 relative">
+                  <PhotoCarousel
+                    photos={selectedTherapist.photos?.length ? selectedTherapist.photos : (selectedTherapist.photo_url ? [selectedTherapist.photo_url] : [])}
+                    name={selectedTherapist.name}
+                  />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800">{selectedTherapist.name}</p>
+                  {selectedTherapist.therapist_ranks && (
+                    <p className="text-xs text-rose-500">{selectedTherapist.therapist_ranks.name}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-1">
+                    出勤: {formatTime(selectedShift!.start_time)} 〜 {formatTime(selectedShift!.end_time)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-bold text-slate-800">{selectedTherapist.name}</p>
-                {selectedTherapist.therapist_ranks && (
-                  <p className="text-xs text-rose-500">{selectedTherapist.therapist_ranks.name}</p>
-                )}
-                <p className="text-xs text-slate-400 mt-1">
-                  出勤: {formatTime(selectedShift.start_time)} 〜 {formatTime(selectedShift.end_time)}
-                </p>
+            ) : (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-4 flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800">フリー（指名なし）</p>
+                  <p className="text-xs text-slate-400 mt-0.5">セラピストはお任せします</p>
+                  {currentShift && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      受付時間: {formatTime(currentShift.start_time)} 〜 {formatTime(currentShift.end_time)}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* コース選択 */}
             <div className="space-y-2">
@@ -568,39 +638,39 @@ export default function ReservePage() {
             </div>
 
             {/* 開始時間選択 */}
-            {selectedCourse && (() => {
-              const interval = selectedTherapist.reservation_interval_minutes ?? systemIntervalMinutes
-              const therapistReservations = existingReservations.filter(
-                r => r.therapist_id === selectedTherapist.id && r.date === selectedShift.date
+            {selectedCourse && currentShift && (() => {
+              const interval = selectedTherapist?.reservation_interval_minutes ?? systemIntervalMinutes
+              const therapistReservations = isFreeReservation ? [] : existingReservations.filter(
+                r => r.therapist_id === selectedTherapist!.id && r.date === currentShift.date
               )
               const now = new Date()
               const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-              const isToday = selectedShift.date === todayStr
+              const isToday = currentShift.date === todayStr
               const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
-              const shiftStartSimpleMin = timeToMinutes(selectedShift.start_time)
+              const shiftStartSimpleMin = timeToMinutes(currentShift.start_time)
               const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
               const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
               const minStartAbsMin = (isToday && inOrNearShift)
-                ? timeToMinutesAbsolute(currentTimeStr, selectedShift.start_time) + 20
+                ? timeToMinutesAbsolute(currentTimeStr, currentShift.start_time) + 20
                 : -Infinity
 
-              const shiftStartMin = timeToMinutes(selectedShift.start_time)
-              const shiftEndMin = timeToMinutesAbsolute(selectedShift.end_time, selectedShift.start_time)
+              const shiftStartMin = timeToMinutes(currentShift.start_time)
+              const shiftEndMin = timeToMinutesAbsolute(currentShift.end_time, currentShift.start_time)
               const totalMin = shiftEndMin - shiftStartMin
 
               // 5分刻みスロット生成
-              const allSlots = generateSlots(selectedShift.start_time, selectedShift.end_time, selectedCourse.duration, 5)
+              const allSlots = generateSlots(currentShift.start_time, currentShift.end_time, selectedCourse.duration, 5)
               const slotsWithAvailability = allSlots.map(slot => {
-                if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time)) {
+                if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, currentShift.start_time)) {
                   return { time: slot, available: false }
                 }
-                if (minStartAbsMin > -Infinity && timeToMinutesAbsolute(slot, selectedShift.start_time) < minStartAbsMin) {
+                if (minStartAbsMin > -Infinity && timeToMinutesAbsolute(slot, currentShift.start_time) < minStartAbsMin) {
                   return { time: slot, available: false }
                 }
                 return { time: slot, available: true }
               })
               const availableCount = slotsWithAvailability.filter(s => s.available).length
-              const timelineSegs = getTimelineSegments(selectedShift.start_time, selectedShift.end_time, therapistReservations, interval)
+              const timelineSegs = getTimelineSegments(currentShift.start_time, currentShift.end_time, therapistReservations, interval)
 
               const handleTap = (clientX: number) => {
                 if (!timelineRef.current) return
@@ -615,12 +685,12 @@ export default function ReservePage() {
                 if (slot?.available) {
                   setSelectedStartTime(timeStr)
                 } else {
-                  const snappedAbs = timeToMinutesAbsolute(timeStr, selectedShift.start_time)
+                  const snappedAbs = timeToMinutesAbsolute(timeStr, currentShift.start_time)
                   const nearest = [...slotsWithAvailability]
                     .filter(s => s.available)
                     .sort((a, b) => {
-                      const da = Math.abs(timeToMinutesAbsolute(a.time, selectedShift.start_time) - snappedAbs)
-                      const db = Math.abs(timeToMinutesAbsolute(b.time, selectedShift.start_time) - snappedAbs)
+                      const da = Math.abs(timeToMinutesAbsolute(a.time, currentShift.start_time) - snappedAbs)
+                      const db = Math.abs(timeToMinutesAbsolute(b.time, currentShift.start_time) - snappedAbs)
                       return da - db
                     })[0]
                   if (nearest) setSelectedStartTime(nearest.time)
@@ -629,7 +699,7 @@ export default function ReservePage() {
 
               const adjustTime = (delta: number) => {
                 if (!selectedStartTime) return
-                const curr = timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time)
+                const curr = timeToMinutesAbsolute(selectedStartTime, currentShift.start_time)
                 const target = curr + delta
                 const ah = Math.floor(target / 60) % 24
                 const am = target % 60
@@ -639,7 +709,7 @@ export default function ReservePage() {
               }
 
               const selectedLeft = selectedStartTime
-                ? ((timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time) - shiftStartMin) / totalMin) * 100
+                ? ((timeToMinutesAbsolute(selectedStartTime, currentShift.start_time) - shiftStartMin) / totalMin) * 100
                 : null
               const selectedWidth = (selectedCourse.duration / totalMin) * 100
 
@@ -684,8 +754,8 @@ export default function ReservePage() {
                       <div className="select-none">
                         {/* 出勤時間ラベル */}
                         <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                          <span>{formatTime(selectedShift.start_time)}</span>
-                          <span>{formatTime(selectedShift.end_time)}</span>
+                          <span>{formatTime(currentShift.start_time)}</span>
+                          <span>{formatTime(currentShift.end_time)}</span>
                         </div>
 
                         {/* 時刻ラベル行 */}
@@ -927,7 +997,7 @@ export default function ReservePage() {
         )}
 
         {/* Step 4: 確認 */}
-        {step === 'confirm' && selectedTherapist && selectedShift && selectedCourse && (
+        {step === 'confirm' && (selectedTherapist !== null || isFreeReservation) && selectedCourse && (
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <button
@@ -950,8 +1020,8 @@ export default function ReservePage() {
               </div>
               <div className="divide-y divide-slate-100">
                 {[
-                  { label: '日時', value: `${formatDate(selectedShift.date)} ${formatTime(selectedStartTime)} 〜 ${formatTime(endTime)}` },
-                  { label: 'セラピスト', value: selectedTherapist.name },
+                  { label: '日時', value: `${formatDate(currentShift?.date ?? selectedDate)} ${formatTime(selectedStartTime)} 〜 ${formatTime(endTime)}` },
+                  { label: 'セラピスト', value: selectedTherapist?.name ?? 'フリー（指名なし）' },
                   { label: 'コース', value: `${selectedCourse.name}（${selectedCourse.duration}分）` },
                   { label: '料金', value: formatPrice(selectedCourse.base_price) },
                   { label: 'お支払い', value: paymentMethod === 'cash' ? '現金' : 'クレジットカード' },
@@ -1016,10 +1086,10 @@ export default function ReservePage() {
                 しばらくお待ちください。
               </p>
             </div>
-            {selectedShift && selectedCourse && selectedTherapist && (
+            {selectedCourse && (currentShift || isFreeReservation) && (
               <div className="bg-white rounded-2xl border border-slate-100 p-5 w-full text-left space-y-2">
-                <p className="text-sm text-slate-500">{formatDate(selectedShift.date)} {formatTime(selectedStartTime)} 〜 {formatTime(endTime)}</p>
-                <p className="font-bold text-slate-800">{selectedTherapist.name}</p>
+                <p className="text-sm text-slate-500">{formatDate(currentShift?.date ?? selectedDate)} {formatTime(selectedStartTime)} 〜 {formatTime(endTime)}</p>
+                <p className="font-bold text-slate-800">{selectedTherapist?.name ?? 'フリー（指名なし）'}</p>
                 <p className="text-sm text-slate-600">{selectedCourse.name}（{selectedCourse.duration}分）</p>
               </div>
             )}
@@ -1030,6 +1100,7 @@ export default function ReservePage() {
                 setSelectedShift(null)
                 setSelectedCourse(null)
                 setSelectedStartTime('')
+                setIsFreeReservation(false)
                 setCustomer({ name: '', furigana: '', phone: '', email: '', notes: '' })
               }}
               className="text-sm text-rose-500 hover:underline"

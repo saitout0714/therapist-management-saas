@@ -8,7 +8,7 @@ function getServiceClient() {
 }
 
 interface ReserveBody {
-  therapist_id: string
+  therapist_id: string | null
   date: string
   start_time: string
   end_time: string
@@ -53,7 +53,7 @@ export async function POST(
   const { therapist_id, date, start_time, end_time, course_id, payment_method, customer } = body
 
   // バリデーション
-  if (!therapist_id || !date || !start_time || !end_time || !course_id || !payment_method) {
+  if (!date || !start_time || !end_time || !course_id || !payment_method) {
     return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
   }
   if (!customer?.name || !customer?.furigana || !customer?.phone || !customer?.email) {
@@ -115,9 +115,15 @@ export async function POST(
   }
 
   // 指名区分の自動判定
-  // 新規顧客 → free、既存顧客で同セラピストの予約履歴あり → confirmed_nomination、なし → nomination
-  let designationType: string = 'free'
-  if (!isNewCustomer) {
+  // therapist_id なし（フリー選択）→ free
+  // therapist_id あり + 既存顧客 + 同セラピスト履歴あり → confirmed（本指名）
+  // therapist_id あり + それ以外 → nomination（初回指名）
+  let designationType: string
+  if (!therapist_id) {
+    designationType = 'free'
+  } else if (isNewCustomer) {
+    designationType = 'nomination'
+  } else {
     const { data: priorReservations } = await supabase
       .from('reservations')
       .select('id')
