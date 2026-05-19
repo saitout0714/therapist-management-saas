@@ -572,10 +572,23 @@ export default function ReservePage() {
                 selectedCourse.duration,
                 interval
               )
-              const slotsWithAvailability = allSlots.map(slot => ({
-                time: slot,
-                available: isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time),
-              }))
+              // 当日は現在時刻+20分より前のスロットを受付不可にする
+              const now = new Date()
+              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+              const isToday = selectedShift.date === todayStr
+              const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+              const currentAbsMin = timeToMinutesAbsolute(currentTimeStr, selectedShift.start_time)
+              const minStartAbsMin = currentAbsMin + 20
+
+              const slotsWithAvailability = allSlots.map(slot => {
+                if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time)) {
+                  return { time: slot, available: false }
+                }
+                if (isToday && timeToMinutesAbsolute(slot, selectedShift.start_time) < minStartAbsMin) {
+                  return { time: slot, available: false }
+                }
+                return { time: slot, available: true }
+              })
               const availableCount = slotsWithAvailability.filter(s => s.available).length
               const timelineSegs = getTimelineSegments(
                 selectedShift.start_time,
