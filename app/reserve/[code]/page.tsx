@@ -163,12 +163,18 @@ function getTimelineSegments(
     if (res.status === 'blocked') {
       segs.push({ left: (clampedStart / total) * 100, width: ((clampedEnd - clampedStart) / total) * 100, type: 'blocked' })
     } else {
+      // 事前インターバル: 予約開始の interval 分前 ～ 予約開始
+      const preIntStart = Math.max(0, rStart - interval)
+      const preIntEnd = Math.min(total, rStart)
+      if (preIntEnd > preIntStart) {
+        segs.push({ left: (preIntStart / total) * 100, width: ((preIntEnd - preIntStart) / total) * 100, type: 'interval' })
+      }
       // 予約本体
       const resBodyEnd = Math.min(total, rEnd)
       if (resBodyEnd > clampedStart) {
         segs.push({ left: (clampedStart / total) * 100, width: ((resBodyEnd - clampedStart) / total) * 100, type: 'reserved' })
       }
-      // インターバル部分
+      // 事後インターバル: 予約終了 ～ 予約終了 + interval
       if (rEnd < total && rEndWithInterval > rEnd) {
         const intStart = Math.max(0, rEnd)
         const intEnd = Math.min(total, rEndWithInterval)

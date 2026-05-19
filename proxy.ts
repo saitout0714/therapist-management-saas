@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
-  // ログインページとログイン用のAPIは認証不要
-  if (request.nextUrl.pathname === '/login') {
+  const { pathname } = request.nextUrl
+  // 認証不要なパス（ログインページ・公開予約ページ）
+  if (pathname === '/login' || pathname.startsWith('/reserve/')) {
     return NextResponse.next()
   }
 
@@ -30,6 +31,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - login (ログインページ)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|login|reserve).*)',
   ],
 }
