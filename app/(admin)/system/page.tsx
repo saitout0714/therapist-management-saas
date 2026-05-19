@@ -26,6 +26,9 @@ type SystemSettings = {
   extension_unit_minutes: number
   extension_unit_price: number
   extension_unit_back: number
+  hp_url: string | null
+  therapist_list_url: string | null
+  schedule_url: string | null
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
@@ -49,6 +52,9 @@ export default function SystemPage() {
     extension_unit_minutes: 30,
     extension_unit_price: 0,
     extension_unit_back: 0,
+    hp_url: '',
+    therapist_list_url: '',
+    schedule_url: '',
   })
 
   async function fetchSettings() {
@@ -76,6 +82,9 @@ export default function SystemPage() {
       extension_unit_minutes: row?.extension_unit_minutes ?? 30,
       extension_unit_price: row?.extension_unit_price ?? 0,
       extension_unit_back: row?.extension_unit_back ?? 0,
+      hp_url: row?.hp_url ?? '',
+      therapist_list_url: row?.therapist_list_url ?? '',
+      schedule_url: row?.schedule_url ?? '',
     })
     setLoading(false)
   }
@@ -158,6 +167,30 @@ export default function SystemPage() {
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
               <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>
+            </div>
+
+            {/* 店舗URL */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">店舗URL設定</h3>
+              <p className="text-xs text-slate-400 mb-4">登録しておくとHPからの取り込み時に自動入力されます。</p>
+              <div className="space-y-3">
+                {([
+                  { key: 'hp_url', label: 'HP（トップページ）', placeholder: 'https://example.com' },
+                  { key: 'therapist_list_url', label: 'セラピスト一覧ページ', placeholder: 'https://example.com/cast' },
+                  { key: 'schedule_url', label: 'スケジュールページ', placeholder: 'https://example.com/schedule' },
+                ] as { key: 'hp_url' | 'therapist_list_url' | 'schedule_url'; label: string; placeholder: string }[]).map(field => (
+                  <div key={field.key}>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">{field.label}</label>
+                    <input
+                      type="url"
+                      value={form[field.key]}
+                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                      placeholder={field.placeholder}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* 予約インターバル */}
