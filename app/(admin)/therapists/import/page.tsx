@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -75,31 +75,6 @@ export default function ImportTherapistsPage() {
 
   // --- 新規取り込みモード ---
   const [url, setUrl] = useState('')
-  const [shopUrls, setShopUrls] = useState<{ hp_url: string; therapist_list_url: string; schedule_url: string } | null>(null)
-
-  useEffect(() => {
-    if (!selectedShop) return
-    const fetchShopUrls = async () => {
-      const { data } = await supabase
-        .from('system_settings')
-        .select('hp_url, therapist_list_url, schedule_url')
-        .eq('shop_id', selectedShop.id)
-        .limit(1)
-      if (data?.[0]) {
-        const urls = {
-          hp_url: data[0].hp_url ?? '',
-          therapist_list_url: data[0].therapist_list_url ?? '',
-          schedule_url: data[0].schedule_url ?? '',
-        }
-        setShopUrls(urls)
-        if (urls.therapist_list_url) {
-          setUrl(urls.therapist_list_url)
-          setPhotoModeUrl(urls.therapist_list_url)
-        }
-      }
-    }
-    void fetchShopUrls()
-  }, [selectedShop])
   const [scraping, setScraping] = useState(false)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [therapists, setTherapists] = useState<ScrapedTherapist[]>([])
@@ -658,37 +633,6 @@ export default function ImportTherapistsPage() {
           <>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6 space-y-4">
               <label className="block text-sm font-semibold text-slate-700">セラピスト一覧ページのURL</label>
-              {shopUrls && (shopUrls.hp_url || shopUrls.therapist_list_url || shopUrls.schedule_url) && (
-                <div className="flex flex-wrap gap-2">
-                  {shopUrls.hp_url && (
-                    <button
-                      type="button"
-                      onClick={() => setUrl(shopUrls.hp_url)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${url === shopUrls.hp_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                    >
-                      HP
-                    </button>
-                  )}
-                  {shopUrls.therapist_list_url && (
-                    <button
-                      type="button"
-                      onClick={() => setUrl(shopUrls.therapist_list_url)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${url === shopUrls.therapist_list_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                    >
-                      セラピスト一覧
-                    </button>
-                  )}
-                  {shopUrls.schedule_url && (
-                    <button
-                      type="button"
-                      onClick={() => setUrl(shopUrls.schedule_url)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${url === shopUrls.schedule_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                    >
-                      スケジュール
-                    </button>
-                  )}
-                </div>
-              )}
               <div className="flex gap-2">
                 <input
                   type="url"
@@ -1051,37 +995,6 @@ export default function ImportTherapistsPage() {
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">セラピスト一覧ページのURL</label>
                 <p className="text-xs text-slate-400 mb-3">HPの一覧ページを読み取り、登録済みセラピストと名前を照合して自動でURLを設定します。</p>
-                {shopUrls && (shopUrls.hp_url || shopUrls.therapist_list_url || shopUrls.schedule_url) && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {shopUrls.hp_url && (
-                      <button
-                        type="button"
-                        onClick={() => setPhotoModeUrl(shopUrls.hp_url)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${photoModeUrl === shopUrls.hp_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                      >
-                        HP
-                      </button>
-                    )}
-                    {shopUrls.therapist_list_url && (
-                      <button
-                        type="button"
-                        onClick={() => setPhotoModeUrl(shopUrls.therapist_list_url)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${photoModeUrl === shopUrls.therapist_list_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                      >
-                        セラピスト一覧
-                      </button>
-                    )}
-                    {shopUrls.schedule_url && (
-                      <button
-                        type="button"
-                        onClick={() => setPhotoModeUrl(shopUrls.schedule_url)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${photoModeUrl === shopUrls.schedule_url ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-400'}`}
-                      >
-                        スケジュール
-                      </button>
-                    )}
-                  </div>
-                )}
                 <div className="flex gap-2">
                   <input
                     type="url"
