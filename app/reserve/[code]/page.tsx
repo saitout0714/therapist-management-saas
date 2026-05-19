@@ -735,11 +735,8 @@ export default function ReservePage() {
 
               return (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div>
                     <h3 className="text-sm font-bold text-slate-700">開始時間を選択</h3>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${availableCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                      空き {availableCount} 枠
-                    </span>
                   </div>
 
                   {availableCount === 0 ? (
