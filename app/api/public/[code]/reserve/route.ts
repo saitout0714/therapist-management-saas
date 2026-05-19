@@ -127,7 +127,7 @@ export async function POST(
       .limit(1)
 
     designationType = priorReservations && priorReservations.length > 0
-      ? 'confirmed_nomination'
+      ? 'confirmed'
       : 'nomination'
   }
 
