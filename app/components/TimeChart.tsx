@@ -41,6 +41,7 @@ interface Schedule {
   discountAmount?: number;
   isNewCustomer?: boolean;
   isHime?: boolean;
+  isPending?: boolean;
 }
 
 interface TimeChartProps {
@@ -594,6 +595,49 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       }}>
                         INT
                       </span>
+                    </div>
+                  );
+                }
+
+                // 仮予約ブロック（Web予約・未確定）
+                if (isReservation && schedule.isPending) {
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute rounded-lg px-2 flex flex-col justify-center cursor-default pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        background: 'rgba(254,243,199,0.95)',
+                        border: '2px dashed rgba(217,119,6,0.8)',
+                        color: '#92400e',
+                      }}
+                      title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime}) 仮予約`}
+                      onClick={handleScheduleClick}
+                    >
+                      <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5">
+                        <div className="text-[10px] font-medium leading-none flex items-center gap-1">
+                          <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                          <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
+                        </div>
+                        <div className="flex items-center justify-start gap-1 min-w-0">
+                          <span className="font-bold text-[13px] leading-none truncate">
+                            {schedule.customerName || schedule.title}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-medium flex items-center gap-1 leading-none flex-wrap">
+                          {schedule.courseDuration && (
+                            <span className="opacity-80">{schedule.courseDuration}分</span>
+                          )}
+                          {schedule.totalPrice !== undefined && (
+                            <span className="text-[11px] font-extrabold bg-amber-200/60 px-1 py-0 rounded">
+                              ¥{schedule.totalPrice.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 }

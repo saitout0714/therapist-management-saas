@@ -6,6 +6,7 @@ import { AuthProvider } from "@/app/contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import ShopSwitcher from "./ShopSwitcher";
 import ShopTabBar from "./ShopTabBar";
+import WebReservationNotifier from "./WebReservationNotifier";
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,6 +39,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               {children}
             </main>
             <ShopTabBar />
+            <WebReservationNotifier />
           </div>
         </div>
       </ShopProvider>

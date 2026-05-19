@@ -101,6 +101,7 @@ interface Schedule {
   discountAmount?: number;
   isNewCustomer?: boolean;
   isHime?: boolean;
+  isPending?: boolean;
 }
 
 type ViewMode = 'day' | 'week';
@@ -389,6 +390,21 @@ export default function ShiftsPage() {
     fetchReservations();
   }, [filterDate, selectedShop, refreshCounter]);
 
+  // 予約のリアルタイム更新（Supabase Realtime）
+  useEffect(() => {
+    if (!selectedShop) return;
+    const channel = supabase
+      .channel(`shifts-reservations-realtime-${selectedShop.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
+        const row = ((payload.new ?? payload.old) || {}) as Record<string, unknown>;
+        if (row.shop_id !== selectedShop.id) return;
+        if (row.date !== filterDate) return;
+        setRefreshCounter(c => c + 1);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [selectedShop, filterDate]);
+
   useEffect(() => {
     if (!selectedShop) return;
     supabase
@@ -604,7 +620,7 @@ export default function ShiftsPage() {
         `)
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate)
-        .in('status', ['confirmed', 'blocked']);
+        .in('status', ['confirmed', 'blocked', 'pending']);
 
       if (error) throw error;
       setReservations((data as unknown as Reservation[]) || []);
@@ -644,6 +660,7 @@ export default function ShiftsPage() {
         discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
+        isPending: reservation.status === 'pending',
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
@@ -656,7 +673,7 @@ export default function ShiftsPage() {
         reservationId: reservation.id,
       })),
     ...reservations
-      .filter((r: any) => r.status !== 'blocked')
+      .filter((r: any) => r.status === 'confirmed')
       .flatMap((reservation) => {
         const therapist = therapists.find(t => t.id === reservation.therapist_id);
         const interval = therapist?.intervalMinutes != null

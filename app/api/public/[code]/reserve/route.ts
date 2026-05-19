@@ -60,14 +60,22 @@ export async function POST(
     return NextResponse.json({ error: 'お客様情報の必須項目が不足しています' }, { status: 400 })
   }
 
-  // 電話番号で既存顧客を検索
+  // 電話番号で既存顧客を検索（ハイフンあり/なし両方対応）
   let customerId: string
-  const { data: existingCustomer } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('shop_id', shopId)
-    .eq('phone', customer.phone)
-    .single()
+  let isNewCustomer = false
+  const phoneNorm = customer.phone.replace(/[^0-9]/g, '')
+  const phoneVariants = [...new Set([customer.phone, phoneNorm])]
+
+  let existingCustomer: { id: string } | null = null
+  for (const phone of phoneVariants) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('shop_id', shopId)
+      .eq('phone', phone)
+      .maybeSingle()
+    if (data) { existingCustomer = data as { id: string }; break }
+  }
 
   if (existingCustomer) {
     customerId = existingCustomer.id
@@ -78,14 +86,14 @@ export async function POST(
       .eq('id', customerId)
       .is('furigana', null)
   } else {
-    // 新規顧客作成
+    // 新規顧客作成（電話番号は数字のみに正規化して保存）
     const { data: newCustomer, error: customerError } = await supabase
       .from('customers')
       .insert({
         shop_id: shopId,
         name: customer.name,
         furigana: customer.furigana,
-        phone: customer.phone,
+        phone: phoneNorm,
         email: customer.email,
         status: '予約可',
       })
@@ -96,6 +104,24 @@ export async function POST(
       return NextResponse.json({ error: '顧客情報の登録に失敗しました' }, { status: 500 })
     }
     customerId = newCustomer.id
+    isNewCustomer = true
+  }
+
+  // 指名区分の自動判定
+  // 新規顧客 → free、既存顧客で同セラピストの予約履歴あり → confirmed_nomination、なし → nomination
+  let designationType: string = 'free'
+  if (!isNewCustomer) {
+    const { data: priorReservations } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('shop_id', shopId)
+      .eq('customer_id', customerId)
+      .eq('therapist_id', therapist_id)
+      .limit(1)
+
+    designationType = priorReservations && priorReservations.length > 0
+      ? 'confirmed_nomination'
+      : 'nomination'
   }
 
   // コース情報取得
@@ -116,12 +142,12 @@ export async function POST(
       start_time,
       end_time,
       course_id,
-      status: 'pending',
+      status: 'confirmed',
       payment_method,
       source: 'web',
       total_price: course?.base_price || 0,
       discount_amount: 0,
-      designation_type: 'free',
+      designation_type: designationType,
       notes: customer.notes || null,
     })
     .select('id')
