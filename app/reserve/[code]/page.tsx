@@ -46,6 +46,14 @@ type Shift = {
   therapists: Therapist | null
 }
 
+type ExistingReservation = {
+  therapist_id: string
+  date: string
+  start_time: string
+  end_time: string
+  status: string
+}
+
 type Step = 'attendance' | 'details' | 'customer' | 'confirm' | 'complete'
 
 type CustomerForm = {
@@ -83,17 +91,94 @@ function timeToMinutes(t: string) {
   return h * 60 + m
 }
 
+// 深夜跨ぎ対応：シフト開始時刻を基準に分に変換
+function timeToMinutesAbsolute(t: string, shiftStart: string): number {
+  const [h, m] = t.split(':').map(Number)
+  const [sh] = shiftStart.split(':').map(Number)
+  let mins = h * 60 + m
+  // シフト開始より1時間以上前なら翌日扱い（深夜跨ぎ）
+  if (mins < sh * 60 - 60) mins += 24 * 60
+  return mins
+}
+
+// スロット候補を生成（開始時刻の文字列リスト）
 function generateSlots(shiftStart: string, shiftEnd: string, durationMin: number, intervalMin: number) {
   const slots: string[] = []
-  let current = timeToMinutes(shiftStart)
-  const end = timeToMinutes(shiftEnd)
+  const base = timeToMinutes(shiftStart)
+  let current = base
+  const end = timeToMinutesAbsolute(shiftEnd, shiftStart)
   while (current + durationMin <= end) {
-    const h = Math.floor(current / 60)
+    const h = Math.floor(current / 60) % 24
     const m = current % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
     current += intervalMin
   }
   return slots
+}
+
+// スロットが既存予約と衝突しないか判定
+// 新規枠 [sStart, sStart+duration] と既存予約を interval 含めてチェック
+function isSlotAvailable(
+  slotStart: string,
+  duration: number,
+  reservations: ExistingReservation[],
+  interval: number,
+  shiftStart: string,
+): boolean {
+  const sStart = timeToMinutesAbsolute(slotStart, shiftStart)
+  const sEnd = sStart + duration
+  for (const res of reservations) {
+    const rStart = timeToMinutesAbsolute(res.start_time, shiftStart)
+    const rEnd = timeToMinutesAbsolute(res.end_time, shiftStart)
+    if (res.status === 'blocked') {
+      if (sStart < rEnd && sEnd > rStart) return false
+    } else {
+      // 既存予約の有効窓 [rStart, rEnd+interval] と新規の有効窓 [sStart, sEnd+interval] が重なる場合NG
+      if (sStart < rEnd + interval && sEnd + interval > rStart) return false
+    }
+  }
+  return true
+}
+
+// タイムラインのブロックセグメントを計算（表示用 %）
+function getTimelineSegments(
+  shiftStart: string,
+  shiftEnd: string,
+  reservations: ExistingReservation[],
+  interval: number,
+): { left: number; width: number; type: 'reserved' | 'interval' | 'blocked' }[] {
+  const shiftStartMin = timeToMinutes(shiftStart)
+  const shiftEndMin = timeToMinutesAbsolute(shiftEnd, shiftStart)
+  const total = shiftEndMin - shiftStartMin
+  if (total <= 0) return []
+
+  const segs: { left: number; width: number; type: 'reserved' | 'interval' | 'blocked' }[] = []
+  for (const res of reservations) {
+    const rStart = timeToMinutesAbsolute(res.start_time, shiftStart) - shiftStartMin
+    const rEnd = timeToMinutesAbsolute(res.end_time, shiftStart) - shiftStartMin
+    const rEndWithInterval = res.status === 'blocked' ? rEnd : rEnd + interval
+    const clampedStart = Math.max(0, rStart)
+    const clampedEnd = Math.min(total, rEndWithInterval)
+    if (clampedStart >= clampedEnd) continue
+    if (res.status === 'blocked') {
+      segs.push({ left: (clampedStart / total) * 100, width: ((clampedEnd - clampedStart) / total) * 100, type: 'blocked' })
+    } else {
+      // 予約本体
+      const resBodyEnd = Math.min(total, rEnd)
+      if (resBodyEnd > clampedStart) {
+        segs.push({ left: (clampedStart / total) * 100, width: ((resBodyEnd - clampedStart) / total) * 100, type: 'reserved' })
+      }
+      // インターバル部分
+      if (rEnd < total && rEndWithInterval > rEnd) {
+        const intStart = Math.max(0, rEnd)
+        const intEnd = Math.min(total, rEndWithInterval)
+        if (intEnd > intStart) {
+          segs.push({ left: (intStart / total) * 100, width: ((intEnd - intStart) / total) * 100, type: 'interval' })
+        }
+      }
+    }
+  }
+  return segs
 }
 
 function PhotoCarousel({ photos, name }: { photos: string[]; name: string }) {
@@ -151,6 +236,8 @@ export default function ReservePage() {
   const [shop, setShop] = useState<Shop | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [existingReservations, setExistingReservations] = useState<ExistingReservation[]>([])
+  const [systemIntervalMinutes, setSystemIntervalMinutes] = useState(20)
 
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)
@@ -177,6 +264,8 @@ export default function ReservePage() {
       setShop(data.shop)
       setCourses(data.courses)
       setShifts(data.shifts)
+      setExistingReservations(data.reservations || [])
+      setSystemIntervalMinutes(data.system_interval_minutes ?? 20)
       if (data.shifts.length > 0) {
         setSelectedDate(data.shifts[0].date)
       } else {
@@ -472,39 +561,132 @@ export default function ReservePage() {
             </div>
 
             {/* 開始時間選択 */}
-            {selectedCourse && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold text-slate-700">開始時間を選択</h3>
-                {(() => {
-                  const interval = selectedTherapist.reservation_interval_minutes || 30
-                  const slots = generateSlots(
-                    selectedShift.start_time,
-                    selectedShift.end_time,
-                    selectedCourse.duration,
-                    interval
-                  )
-                  return slots.length === 0 ? (
-                    <p className="text-sm text-slate-400">利用可能な時間帯がありません</p>
+            {selectedCourse && (() => {
+              const interval = selectedTherapist.reservation_interval_minutes ?? systemIntervalMinutes
+              const therapistReservations = existingReservations.filter(
+                r => r.therapist_id === selectedTherapist.id && r.date === selectedShift.date
+              )
+              const allSlots = generateSlots(
+                selectedShift.start_time,
+                selectedShift.end_time,
+                selectedCourse.duration,
+                interval
+              )
+              const slotsWithAvailability = allSlots.map(slot => ({
+                time: slot,
+                available: isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time),
+              }))
+              const availableCount = slotsWithAvailability.filter(s => s.available).length
+              const timelineSegs = getTimelineSegments(
+                selectedShift.start_time,
+                selectedShift.end_time,
+                therapistReservations,
+                interval
+              )
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-700">開始時間を選択</h3>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${availableCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                      空き {availableCount} 枠
+                    </span>
+                  </div>
+
+                  {/* ビジュアルタイムライン */}
+                  <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-1.5">
+                      <span>{formatTime(selectedShift.start_time)}</span>
+                      <span className="text-slate-300">出勤時間</span>
+                      <span>{formatTime(selectedShift.end_time)}</span>
+                    </div>
+                    {/* タイムラインバー */}
+                    <div className="relative h-5 bg-emerald-100 rounded-full overflow-hidden">
+                      {timelineSegs.map((seg, i) => (
+                        <div
+                          key={i}
+                          className={`absolute top-0 h-full ${
+                            seg.type === 'reserved' ? 'bg-slate-400' :
+                            seg.type === 'interval' ? 'bg-slate-200' :
+                            'bg-rose-300'
+                          }`}
+                          style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
+                        />
+                      ))}
+                      {/* 選択中スロットの表示 */}
+                      {selectedStartTime && (() => {
+                        const shiftStartMin = timeToMinutes(selectedShift.start_time)
+                        const shiftEndMin = timeToMinutesAbsolute(selectedShift.end_time, selectedShift.start_time)
+                        const total = shiftEndMin - shiftStartMin
+                        const sStart = timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time) - shiftStartMin
+                        return (
+                          <div
+                            className="absolute top-0 h-full bg-rose-500 opacity-80 rounded-sm"
+                            style={{
+                              left: `${(sStart / total) * 100}%`,
+                              width: `${(selectedCourse.duration / total) * 100}%`,
+                            }}
+                          />
+                        )
+                      })()}
+                    </div>
+                    {/* 凡例 */}
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-2 rounded-sm bg-emerald-300" />
+                        <span className="text-[10px] text-slate-500">空き</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-2 rounded-sm bg-slate-400" />
+                        <span className="text-[10px] text-slate-500">予約済</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-2 rounded-sm bg-slate-200" />
+                        <span className="text-[10px] text-slate-500">準備時間</span>
+                      </div>
+                      {selectedStartTime && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-2 rounded-sm bg-rose-500" />
+                          <span className="text-[10px] text-slate-500">選択中</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* スロットボタン */}
+                  {availableCount === 0 ? (
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-4 text-center">
+                      <p className="text-sm text-rose-600 font-medium">このコースの空き枠がありません</p>
+                      <p className="text-xs text-rose-400 mt-1">他のコースをお試しください</p>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                      {slots.map(slot => (
+                      {slotsWithAvailability.map(({ time, available }) => (
                         <button
-                          key={slot}
-                          onClick={() => setSelectedStartTime(slot)}
-                          className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
-                            selectedStartTime === slot
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-300'
+                          key={time}
+                          onClick={() => available && setSelectedStartTime(time)}
+                          disabled={!available}
+                          className={`py-2.5 rounded-xl text-sm font-medium transition-all relative ${
+                            selectedStartTime === time
+                              ? 'bg-rose-500 text-white shadow-md'
+                              : available
+                                ? 'bg-white border border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600 hover:shadow-sm'
+                                : 'bg-slate-50 border border-slate-100 text-slate-300 cursor-not-allowed'
                           }`}
                         >
-                          {slot}
+                          {time}
+                          {!available && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <span className="w-6 h-px bg-slate-300 rotate-45 block absolute" />
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
-                  )
-                })()}
-              </div>
-            )}
+                  )}
+                </div>
+              )
+            })()}
 
             {/* 支払い方法 */}
             <div className="space-y-2">

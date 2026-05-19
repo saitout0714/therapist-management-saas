@@ -37,7 +37,7 @@ export async function GET(
   nextWeek.setDate(today.getDate() + 6)
   const nextWeekStr = nextWeek.toISOString().split('T')[0]
 
-  const [shopRes, coursesRes, shiftsRes] = await Promise.all([
+  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes] = await Promise.all([
     supabase.from('shops').select('id, name, short_name, description').eq('id', shopId).single(),
     supabase
       .from('courses')
@@ -57,6 +57,18 @@ export async function GET(
       .lte('date', nextWeekStr)
       .order('date', { ascending: true })
       .order('start_time', { ascending: true }),
+    supabase
+      .from('reservations')
+      .select('therapist_id, date, start_time, end_time, status')
+      .eq('shop_id', shopId)
+      .gte('date', todayStr)
+      .lte('date', nextWeekStr)
+      .in('status', ['confirmed', 'blocked']),
+    supabase
+      .from('system_settings')
+      .select('reservation_interval_minutes')
+      .eq('shop_id', shopId)
+      .maybeSingle(),
   ])
 
   if (shopRes.error) {
@@ -103,5 +115,7 @@ export async function GET(
     shop: shopRes.data,
     courses: coursesRes.data || [],
     shifts: shiftsWithPhotos,
+    reservations: reservationsRes.data || [],
+    system_interval_minutes: (settingsRes.data as { reservation_interval_minutes?: number } | null)?.reservation_interval_minutes ?? 20,
   })
 }
