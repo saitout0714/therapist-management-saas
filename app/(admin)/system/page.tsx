@@ -98,7 +98,7 @@ export default function SystemPage() {
       ? await supabase.from('system_settings').update({ ...form, updated_at: new Date().toISOString() }).eq('id', settings.id)
       : await supabase.from('system_settings').insert([{ ...form, shop_id: selectedShop.id }])
 
-    if (result.error) { alert('保存に失敗しました'); setSaving(false); return }
+    if (result.error) { alert('保存に失敗しました: ' + result.error.message); setSaving(false); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
     void fetchSettings()
