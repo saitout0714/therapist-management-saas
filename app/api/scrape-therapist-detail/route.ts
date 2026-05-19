@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
     ]
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', safetySettings })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', safetySettings })
 
     const imageSection = imageUrls.length > 0
       ? `\nページ内の画像URL（プロフィール写真と思われるものを photo_url に1つ選んでください）:\n${imageUrls.join('\n')}\n`

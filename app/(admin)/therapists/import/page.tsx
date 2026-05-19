@@ -348,10 +348,18 @@ export default function ImportTherapistsPage() {
         })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'エラーが発生しました')
-        // AIがブロックされた場合はURLマッチングをスキップして続行
-        scraped = json.blocked ? [] : (json.therapists || [])
         if (json.blocked) {
-          setPhotoScrapeError('AIによるURL自動マッチングができませんでした。各セラピストのURLを手動で入力してください。')
+          // AIブロック時: urlContextsを使って名前マッチングをローカルで実行
+          const urlContexts: { url: string; context: string }[] = json.urlContexts || []
+          scraped = withoutPhotos.map(existing => {
+            const en = normalizeName(existing.name)
+            const match = urlContexts.find(({ context }) =>
+              normalizeName(context).includes(en)
+            )
+            return match ? { name: existing.name, profile_url: match.url } : { name: existing.name, profile_url: null }
+          })
+        } else {
+          scraped = json.therapists || []
         }
       } catch (e) {
         setPhotoScrapeError(e instanceof Error ? e.message : 'スクレイピングに失敗しました')
