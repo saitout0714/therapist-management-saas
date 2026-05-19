@@ -60,11 +60,18 @@ export async function POST(
     return NextResponse.json({ error: 'お客様情報の必須項目が不足しています' }, { status: 400 })
   }
 
-  // 電話番号で既存顧客を検索（ハイフンあり/なし両方対応）
+  // 電話番号で既存顧客を検索（ハイフンあり/なし/全角など全パターン対応）
   let customerId: string
   let isNewCustomer = false
-  const phoneNorm = customer.phone.replace(/[^0-9]/g, '')
-  const phoneVariants = [...new Set([customer.phone, phoneNorm])]
+  const phoneNorm = customer.phone.replace(/[^0-9]/g, '') // 数字のみ
+  // ハイフンあり形式を生成（例: 09012345678 → 090-1234-5678）
+  let phoneHyphen = phoneNorm
+  if (/^0[789]0\d{8}$/.test(phoneNorm)) {
+    phoneHyphen = `${phoneNorm.slice(0, 3)}-${phoneNorm.slice(3, 7)}-${phoneNorm.slice(7)}`
+  } else if (/^0\d{9}$/.test(phoneNorm)) {
+    phoneHyphen = `${phoneNorm.slice(0, 2)}-${phoneNorm.slice(2, 6)}-${phoneNorm.slice(6)}`
+  }
+  const phoneVariants = [...new Set([customer.phone, phoneNorm, phoneHyphen])]
 
   let existingCustomer: { id: string } | null = null
   for (const phone of phoneVariants) {
