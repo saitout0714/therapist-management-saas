@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 
@@ -249,6 +249,7 @@ export default function ReservePage() {
     name: '', furigana: '', phone: '', email: '', notes: ''
   })
   const [validationErrors, setValidationErrors] = useState<Partial<CustomerForm>>({})
+  const timelineRef = useRef<HTMLDivElement>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -566,26 +567,23 @@ export default function ReservePage() {
               const therapistReservations = existingReservations.filter(
                 r => r.therapist_id === selectedTherapist.id && r.date === selectedShift.date
               )
-              const allSlots = generateSlots(
-                selectedShift.start_time,
-                selectedShift.end_time,
-                selectedCourse.duration,
-                interval
-              )
-              // 当日は現在時刻+20分より前のスロットを受付不可にする
               const now = new Date()
               const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
               const isToday = selectedShift.date === todayStr
               const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
               const shiftStartSimpleMin = timeToMinutes(selectedShift.start_time)
-              // シフト開始60分前より前の時刻はまだシフト外→時刻フィルター不要
-              // 深夜(0-5時)は深夜跨ぎシフトとして扱う
               const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
               const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
               const minStartAbsMin = (isToday && inOrNearShift)
                 ? timeToMinutesAbsolute(currentTimeStr, selectedShift.start_time) + 20
                 : -Infinity
 
+              const shiftStartMin = timeToMinutes(selectedShift.start_time)
+              const shiftEndMin = timeToMinutesAbsolute(selectedShift.end_time, selectedShift.start_time)
+              const totalMin = shiftEndMin - shiftStartMin
+
+              // 5分刻みスロット生成
+              const allSlots = generateSlots(selectedShift.start_time, selectedShift.end_time, selectedCourse.duration, 5)
               const slotsWithAvailability = allSlots.map(slot => {
                 if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time)) {
                   return { time: slot, available: false }
@@ -596,12 +594,68 @@ export default function ReservePage() {
                 return { time: slot, available: true }
               })
               const availableCount = slotsWithAvailability.filter(s => s.available).length
-              const timelineSegs = getTimelineSegments(
-                selectedShift.start_time,
-                selectedShift.end_time,
-                therapistReservations,
-                interval
-              )
+              const timelineSegs = getTimelineSegments(selectedShift.start_time, selectedShift.end_time, therapistReservations, interval)
+
+              const handleTap = (clientX: number) => {
+                if (!timelineRef.current) return
+                const rect = timelineRef.current.getBoundingClientRect()
+                const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+                const rawMin = shiftStartMin + ratio * totalMin
+                const snapped = Math.round(rawMin / 5) * 5
+                const th = Math.floor(snapped / 60) % 24
+                const tm = snapped % 60
+                const timeStr = `${String(th).padStart(2, '0')}:${String(tm).padStart(2, '0')}`
+                const slot = slotsWithAvailability.find(s => s.time === timeStr)
+                if (slot?.available) {
+                  setSelectedStartTime(timeStr)
+                } else {
+                  const snappedAbs = timeToMinutesAbsolute(timeStr, selectedShift.start_time)
+                  const nearest = [...slotsWithAvailability]
+                    .filter(s => s.available)
+                    .sort((a, b) => {
+                      const da = Math.abs(timeToMinutesAbsolute(a.time, selectedShift.start_time) - snappedAbs)
+                      const db = Math.abs(timeToMinutesAbsolute(b.time, selectedShift.start_time) - snappedAbs)
+                      return da - db
+                    })[0]
+                  if (nearest) setSelectedStartTime(nearest.time)
+                }
+              }
+
+              const adjustTime = (delta: number) => {
+                if (!selectedStartTime) return
+                const curr = timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time)
+                const target = curr + delta
+                const ah = Math.floor(target / 60) % 24
+                const am = target % 60
+                const timeStr = `${String(ah).padStart(2, '0')}:${String(am).padStart(2, '0')}`
+                const slot = slotsWithAvailability.find(s => s.time === timeStr)
+                if (slot?.available) setSelectedStartTime(timeStr)
+              }
+
+              const selectedLeft = selectedStartTime
+                ? ((timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time) - shiftStartMin) / totalMin) * 100
+                : null
+              const selectedWidth = (selectedCourse.duration / totalMin) * 100
+
+              const pastEndPct = (isToday && inOrNearShift && minStartAbsMin > -Infinity)
+                ? Math.min(100, Math.max(0, ((minStartAbsMin - shiftStartMin) / totalMin) * 100))
+                : 0
+
+              const hourLabels = (() => {
+                const result: { label: string; leftPct: number }[] = []
+                const startHr = Math.ceil(shiftStartMin / 60)
+                const endHr = Math.floor(shiftEndMin / 60)
+                for (let hr = startHr; hr <= endHr; hr++) {
+                  const absMin = hr * 60
+                  if (absMin > shiftStartMin && absMin < shiftEndMin) {
+                    result.push({
+                      label: `${String(hr % 24).padStart(2, '0')}:00`,
+                      leftPct: ((absMin - shiftStartMin) / totalMin) * 100,
+                    })
+                  }
+                }
+                return result
+              })()
 
               return (
                 <div className="space-y-3">
@@ -612,87 +666,141 @@ export default function ReservePage() {
                     </span>
                   </div>
 
-                  {/* ビジュアルタイムライン */}
-                  <div className="bg-white rounded-2xl border border-slate-100 p-4">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-1.5">
-                      <span>{formatTime(selectedShift.start_time)}</span>
-                      <span className="text-slate-300">出勤時間</span>
-                      <span>{formatTime(selectedShift.end_time)}</span>
-                    </div>
-                    {/* タイムラインバー */}
-                    <div className="relative h-5 bg-emerald-100 rounded-full overflow-hidden">
-                      {timelineSegs.map((seg, i) => (
-                        <div
-                          key={i}
-                          className="absolute top-0 h-full bg-slate-300"
-                          style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
-                        />
-                      ))}
-                      {/* 選択中スロットの表示 */}
-                      {selectedStartTime && (() => {
-                        const shiftStartMin = timeToMinutes(selectedShift.start_time)
-                        const shiftEndMin = timeToMinutesAbsolute(selectedShift.end_time, selectedShift.start_time)
-                        const total = shiftEndMin - shiftStartMin
-                        const sStart = timeToMinutesAbsolute(selectedStartTime, selectedShift.start_time) - shiftStartMin
-                        return (
-                          <div
-                            className="absolute top-0 h-full bg-rose-500 opacity-80 rounded-sm"
-                            style={{
-                              left: `${(sStart / total) * 100}%`,
-                              width: `${(selectedCourse.duration / total) * 100}%`,
-                            }}
-                          />
-                        )
-                      })()}
-                    </div>
-                    {/* 凡例 */}
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-2 rounded-sm bg-emerald-300" />
-                        <span className="text-[10px] text-slate-500">予約可</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-2 rounded-sm bg-slate-300" />
-                        <span className="text-[10px] text-slate-500">予約不可</span>
-                      </div>
-                      {selectedStartTime && (
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-2 rounded-sm bg-rose-500" />
-                          <span className="text-[10px] text-slate-500">選択中</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* スロットボタン */}
                   {availableCount === 0 ? (
                     <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-4 text-center">
                       <p className="text-sm text-rose-600 font-medium">このコースの空き枠がありません</p>
                       <p className="text-xs text-rose-400 mt-1">他のコースをお試しください</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                      {slotsWithAvailability.map(({ time, available }) => (
-                        <button
-                          key={time}
-                          onClick={() => available && setSelectedStartTime(time)}
-                          disabled={!available}
-                          className={`py-2.5 rounded-xl text-sm font-medium transition-all relative ${
-                            selectedStartTime === time
-                              ? 'bg-rose-500 text-white shadow-md'
-                              : available
-                                ? 'bg-white border border-slate-200 text-slate-600 hover:border-rose-400 hover:text-rose-600 hover:shadow-sm'
-                                : 'bg-slate-50 border border-slate-100 text-slate-300 cursor-not-allowed'
-                          }`}
+                    <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4">
+                      <p className="text-xs text-slate-400 text-center">バーをタップ・クリックして開始時間を選択（5分刻み）</p>
+
+                      <div className="select-none">
+                        {/* 出勤時間ラベル */}
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                          <span>{formatTime(selectedShift.start_time)}</span>
+                          <span>{formatTime(selectedShift.end_time)}</span>
+                        </div>
+
+                        {/* 時刻ラベル行 */}
+                        {hourLabels.length > 0 && (
+                          <div className="relative h-3 mb-0.5 overflow-hidden">
+                            {hourLabels.map(({ label, leftPct }) => (
+                              <span
+                                key={label}
+                                className="absolute text-[9px] text-slate-300 -translate-x-1/2"
+                                style={{ left: `${leftPct}%` }}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* タイムラインバー（タップ可） */}
+                        <div
+                          ref={timelineRef}
+                          className="relative rounded-xl overflow-hidden cursor-pointer active:opacity-80"
+                          style={{ height: '48px' }}
+                          onClick={e => handleTap(e.clientX)}
+                          onTouchEnd={e => { if (e.changedTouches[0]) handleTap(e.changedTouches[0].clientX) }}
                         >
-                          {time}
-                          {!available && (
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              <span className="w-6 h-px bg-slate-300 rotate-45 block absolute" />
-                            </span>
+                          {/* 背景（予約可） */}
+                          <div className="absolute inset-0 bg-emerald-100" />
+
+                          {/* 時刻目盛り線 */}
+                          {hourLabels.map(({ label, leftPct }) => (
+                            <div
+                              key={label}
+                              className="absolute top-0 bottom-0 w-px bg-white/60"
+                              style={{ left: `${leftPct}%` }}
+                            />
+                          ))}
+
+                          {/* 予約不可ゾーン */}
+                          {timelineSegs.map((seg, i) => (
+                            <div
+                              key={i}
+                              className="absolute top-0 h-full bg-slate-300"
+                              style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
+                            />
+                          ))}
+
+                          {/* 過去・受付不可ゾーン */}
+                          {pastEndPct > 0 && (
+                            <div
+                              className="absolute top-0 left-0 h-full bg-slate-400/60"
+                              style={{ width: `${pastEndPct}%` }}
+                            />
                           )}
+
+                          {/* 選択中スロット */}
+                          {selectedLeft !== null && (
+                            <div
+                              className="absolute top-1.5 bottom-1.5 bg-rose-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
+                              style={{ left: `${selectedLeft}%`, width: `${Math.max(selectedWidth, 2)}%` }}
+                            >
+                              {selectedWidth > 8 && (
+                                <span className="text-white text-[10px] font-bold truncate px-1">{selectedStartTime}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 凡例 */}
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-2 rounded-sm bg-emerald-200" />
+                            <span className="text-[10px] text-slate-500">予約可</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-2 rounded-sm bg-slate-300" />
+                            <span className="text-[10px] text-slate-500">予約不可</span>
+                          </div>
+                          {selectedStartTime && (
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-2 rounded-sm bg-rose-500" />
+                              <span className="text-[10px] text-slate-500">選択中</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 選択時間表示 + ±5分ボタン */}
+                      <div className="flex items-center justify-center gap-4 py-1">
+                        <button
+                          onClick={() => adjustTime(-5)}
+                          disabled={!selectedStartTime}
+                          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          aria-label="-5分"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                          </svg>
                         </button>
-                      ))}
+
+                        <div className="text-center min-w-[140px]">
+                          {selectedStartTime ? (
+                            <>
+                              <p className="text-3xl font-black text-slate-800 tabular-nums leading-none">{selectedStartTime}</p>
+                              <p className="text-xs text-slate-400 mt-1.5">〜 {endTime}（{selectedCourse.duration}分）</p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-slate-400">バーをタップして選択</p>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => adjustTime(5)}
+                          disabled={!selectedStartTime}
+                          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          aria-label="+5分"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
