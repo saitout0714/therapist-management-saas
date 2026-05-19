@@ -680,22 +680,49 @@ export default function ShiftsPage() {
           ? therapist.intervalMinutes
           : shopIntervalMinutes;
         if (interval <= 0) return [];
+
+        const startMin = hhmToMinutes(reservation.start_time.slice(0, 5));
         const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
-        // インターバル開始がシフト終了以降なら非表示
-        if (therapist?.shiftEnd) {
-          let shiftEndMin = hhmToMinutes(therapist.shiftEnd);
-          const shiftStartMin = hhmToMinutes(therapist.shiftStart || '00:00');
-          if (shiftEndMin <= shiftStartMin) shiftEndMin += 24 * 60;
-          if (endMin >= shiftEndMin) return [];
+
+        let shiftStartMin: number | undefined;
+        let shiftEndAdjusted: number | undefined;
+        if (therapist?.shiftStart) {
+          shiftStartMin = hhmToMinutes(therapist.shiftStart);
+          if (therapist.shiftEnd) {
+            let shiftEndMin = hhmToMinutes(therapist.shiftEnd);
+            if (shiftEndMin <= shiftStartMin) shiftEndMin += 24 * 60;
+            shiftEndAdjusted = shiftEndMin;
+          }
         }
-        const intervalEndMin = endMin + interval;
-        return [{
-          therapistId: reservation.therapist_id,
-          startTime: reservation.end_time.slice(0, 5),
-          endTime: minutesToHHMM(intervalEndMin),
-          title: `インターバル ${interval}分`,
-          type: 'interval' as const,
-        }];
+
+        const result: { therapistId: string; startTime: string; endTime: string; title: string; type: 'interval' }[] = [];
+
+        // 事前インターバル: 予約開始の interval 分前 ～ 予約開始
+        const preStart = shiftStartMin !== undefined
+          ? Math.max(shiftStartMin, startMin - interval)
+          : startMin - interval;
+        if (preStart < startMin) {
+          result.push({
+            therapistId: reservation.therapist_id,
+            startTime: minutesToHHMM(preStart),
+            endTime: reservation.start_time.slice(0, 5),
+            title: `インターバル ${interval}分`,
+            type: 'interval' as const,
+          });
+        }
+
+        // 事後インターバル: 予約終了 ～ 予約終了 + interval（シフト終了以降なら非表示）
+        if (shiftEndAdjusted === undefined || endMin < shiftEndAdjusted) {
+          result.push({
+            therapistId: reservation.therapist_id,
+            startTime: reservation.end_time.slice(0, 5),
+            endTime: minutesToHHMM(endMin + interval),
+            title: `インターバル ${interval}分`,
+            type: 'interval' as const,
+          });
+        }
+
+        return result;
       }),
   ];
 
