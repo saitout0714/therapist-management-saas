@@ -576,15 +576,21 @@ export default function ReservePage() {
               const now = new Date()
               const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
               const isToday = selectedShift.date === todayStr
+              const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
+              const shiftStartSimpleMin = timeToMinutes(selectedShift.start_time)
+              // シフト開始60分前より前の時刻はまだシフト外→時刻フィルター不要
+              // 深夜(0-5時)は深夜跨ぎシフトとして扱う
+              const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
               const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-              const currentAbsMin = timeToMinutesAbsolute(currentTimeStr, selectedShift.start_time)
-              const minStartAbsMin = currentAbsMin + 20
+              const minStartAbsMin = (isToday && inOrNearShift)
+                ? timeToMinutesAbsolute(currentTimeStr, selectedShift.start_time) + 20
+                : -Infinity
 
               const slotsWithAvailability = allSlots.map(slot => {
                 if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, selectedShift.start_time)) {
                   return { time: slot, available: false }
                 }
-                if (isToday && timeToMinutesAbsolute(slot, selectedShift.start_time) < minStartAbsMin) {
+                if (minStartAbsMin > -Infinity && timeToMinutesAbsolute(slot, selectedShift.start_time) < minStartAbsMin) {
                   return { time: slot, available: false }
                 }
                 return { time: slot, available: true }
