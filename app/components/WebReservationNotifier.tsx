@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 
 interface NotifItem {
   id: string
+  shopName: string
   customerName: string
   therapistName: string
   date: string
@@ -33,14 +34,16 @@ function playBeep() {
     beep(880, 0, 0.15)
     beep(1100, 0.18, 0.15)
     beep(880, 0.36, 0.25)
-  } catch { /* ignore if AudioContext not available */ }
+  } catch { /* AudioContext が使えない環境では無視 */ }
 }
 
 export default function WebReservationNotifier() {
-  const { selectedShop } = useShop()
+  const { shops } = useShop()
   const [items, setItems] = useState<NotifItem[]>([])
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-  const shopIdRef = useRef<string | null>(null)
+  // stale closure 対策：最新の shops を ref で保持
+  const shopsRef = useRef(shops)
+  useEffect(() => { shopsRef.current = shops }, [shops])
 
   const dismiss = useCallback((id: string) => {
     setItems(prev => prev.filter(n => n.id !== id))
@@ -48,6 +51,7 @@ export default function WebReservationNotifier() {
 
   const dismissAll = useCallback(() => setItems([]), [])
 
+  // 通知許可リクエスト
   useEffect(() => {
     if (typeof window === 'undefined') return
     if ('Notification' in window && Notification.permission === 'default') {
@@ -55,28 +59,24 @@ export default function WebReservationNotifier() {
     }
   }, [])
 
+  // Realtime 購読（全店舗、一度だけ）
   useEffect(() => {
-    if (!selectedShop) return
-    if (shopIdRef.current === selectedShop.id) return
-    shopIdRef.current = selectedShop.id
-
-    if (channelRef.current) {
-      void supabase.removeChannel(channelRef.current)
-    }
+    if (shops.length === 0) return
+    // すでに購読中なら再購読しない
+    if (channelRef.current) return
 
     const channel = supabase
-      .channel(`web-reservations-${selectedShop.id}`)
+      .channel('web-reservations-all-shops')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'reservations',
-        },
+        { event: 'INSERT', schema: 'public', table: 'reservations' },
         async (payload) => {
           const row = payload.new as Record<string, unknown>
-          if (row.shop_id !== selectedShop.id) return
           if (row.source !== 'web') return
+
+          // 自分の店舗の予約かチェック
+          const shop = shopsRef.current.find(s => s.id === row.shop_id)
+          if (!shop) return
 
           const [custRes, therapistRes, courseRes] = await Promise.all([
             supabase.from('customers').select('name').eq('id', row.customer_id as string).single(),
@@ -88,6 +88,7 @@ export default function WebReservationNotifier() {
 
           const notif: NotifItem = {
             id: row.id as string,
+            shopName: shop.name,
             customerName: (custRes.data as { name: string } | null)?.name ?? '不明',
             therapistName: (therapistRes.data as { name: string } | null)?.name ?? '不明',
             date: row.date as string,
@@ -101,7 +102,7 @@ export default function WebReservationNotifier() {
           playBeep()
 
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('新規Web予約が入りました！', {
+            new Notification(`【${shop.name}】新規Web予約！`, {
               body: `${notif.customerName} 様 ／ ${notif.therapistName} ／ ${notif.date} ${notif.startTime}〜${notif.endTime}`,
               icon: '/favicon.ico',
               requireInteraction: true,
@@ -116,9 +117,10 @@ export default function WebReservationNotifier() {
     return () => {
       void supabase.removeChannel(channel)
       channelRef.current = null
-      shopIdRef.current = null
     }
-  }, [selectedShop])
+  // shops.length が 0→1以上 になった時だけ購読開始
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shops.length === 0])
 
   if (items.length === 0) return null
 
@@ -138,17 +140,16 @@ export default function WebReservationNotifier() {
             className="pointer-events-auto w-full max-w-lg animate-slide-down"
             style={{ animationDelay: `${i * 60}ms` }}
           >
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-red-300"
-              style={{
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 40%, #991b1b 100%)',
-              }}
+            <div
+              className="relative overflow-hidden rounded-2xl shadow-2xl border border-red-300"
+              style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 40%, #991b1b 100%)' }}
             >
-              {/* 脈動するリング */}
+              {/* 脈動リング */}
               <span className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10 animate-ping" />
               <span className="absolute -top-3 -right-3 w-12 h-12 rounded-full bg-white/15 animate-ping" style={{ animationDelay: '150ms' }} />
 
               <div className="relative px-5 py-4">
-                {/* ヘッダー行 */}
+                {/* ヘッダー */}
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center animate-bounce">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -176,12 +177,22 @@ export default function WebReservationNotifier() {
 
                 {/* 予約詳細 */}
                 <div className="bg-white/15 rounded-xl px-4 py-3 space-y-2 mb-4">
+                  {/* 店舗名 */}
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/20">
+                    <svg className="w-4 h-4 text-red-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span className="text-white font-black text-base tracking-tight">{notif.shopName}</span>
+                  </div>
+
+                  {/* 顧客名 */}
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-red-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     <span className="text-white font-bold text-base">{notif.customerName} 様</span>
                   </div>
+
                   <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
                     <div className="flex items-center gap-1.5 text-white">
                       <svg className="w-3.5 h-3.5 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,7 +208,7 @@ export default function WebReservationNotifier() {
                     </div>
                     <div className="flex items-center gap-1.5 text-white">
                       <svg className="w-3.5 h-3.5 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       <span className="font-semibold">{notif.therapistName}</span>
                     </div>
