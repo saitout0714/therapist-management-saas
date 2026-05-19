@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
     ]
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', safetySettings })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', safetySettings })
 
     // URL候補と周辺テキストをセットで渡す（数字IDのURLでも名前と対応付けられる）
     const urlSection = urlContexts.length > 0
