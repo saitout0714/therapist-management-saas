@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import TimeSelectHM from '../components/TimeSelectHM';
-import { supabase } from '../../lib/supabase';
+import TimeSelectHM from '@/app/components/TimeSelectHM';
+import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
-import TimeChart from '../components/TimeChart';
-import WeeklyDayView from '../components/WeeklyDayView';
+import TimeChart from '@/app/components/TimeChart';
+import WeeklyDayView from '@/app/components/WeeklyDayView';
 
 interface Shift {
   id: string;

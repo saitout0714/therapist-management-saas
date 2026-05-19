@@ -38,7 +38,8 @@
       "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_missing_textsize.ps1)",
       "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File fix_placeholders.ps1)",
       "PowerShell(cd 'C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas'; powershell -File shrink_controls.ps1)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\" -Name | Where-Object { $_ -notmatch \"^\\(reserve|api|components|contexts|globals|layout|favicon\\)\" })"
     ]
   }
 }

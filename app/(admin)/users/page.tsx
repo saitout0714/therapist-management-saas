@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { UserManagementTab } from '../system/components/UserManagementTab'
+import { UserManagementTab } from '@/app/(admin)/system/components/UserManagementTab'
 import { useShop } from '@/app/contexts/ShopContext'
 
 export default function UsersPage() {

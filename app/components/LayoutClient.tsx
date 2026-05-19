@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
 import { ShopProvider } from "@/app/contexts/ShopContext";
 import { AuthProvider } from "@/app/contexts/AuthContext";
 import Sidebar from "./Sidebar";
@@ -10,16 +9,10 @@ import ShopTabBar from "./ShopTabBar";
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const pathname = usePathname();
-  const isPublicRoute = pathname?.startsWith("/reserve");
 
   useEffect(() => {
     setSidebarOpen(window.innerWidth >= 768);
   }, []);
-
-  if (isPublicRoute) {
-    return <>{children}</>;
-  }
 
   return (
     <AuthProvider>
