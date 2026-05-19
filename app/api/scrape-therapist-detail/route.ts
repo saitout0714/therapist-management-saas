@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 function resolveUrl(base: string, relative: string): string {
   try { return new URL(relative, base).toString() } catch { return '' }
@@ -66,13 +66,7 @@ export async function POST(req: NextRequest) {
       .slice(0, 8000)
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-    const safetySettings = [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ]
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', safetySettings })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const imageSection = imageUrls.length > 0
       ? `\nページ内の画像URL（プロフィール写真と思われるものを photo_url に1つ選んでください）:\n${imageUrls.join('\n')}\n`
@@ -96,10 +90,6 @@ ${imageSection}
 ${pageText}`
 
     const result = await model.generateContent(prompt)
-    const candidate = result.response.candidates?.[0]
-    if (!candidate || candidate.finishReason === 'SAFETY' || candidate.finishReason === 'PROHIBITED_CONTENT') {
-      return NextResponse.json({ age: null, height: null, bust: null, bust_cup: null, waist: null, hip: null, rank: null, comment: null, photo_url: null })
-    }
     const rawText = result.response.text().trim()
 
     try {

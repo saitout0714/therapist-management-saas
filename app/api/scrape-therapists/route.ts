@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 function resolveUrl(base: string, relative: string): string {
   try { return new URL(relative, base).toString() } catch { return '' }
@@ -134,13 +134,7 @@ export async function POST(req: NextRequest) {
     const urlContexts = extractUrlContexts(html, url, candidateUrls)
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-    const safetySettings = [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ]
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', safetySettings })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     // URL候補と周辺テキストをセットで渡す（数字IDのURLでも名前と対応付けられる）
     const urlSection = urlContexts.length > 0
@@ -170,11 +164,6 @@ Webページのテキスト:
 ${pageText}`
 
     const result = await model.generateContent(prompt)
-    const candidate = result.response.candidates?.[0]
-    if (!candidate || candidate.finishReason === 'SAFETY' || candidate.finishReason === 'PROHIBITED_CONTENT') {
-      // AI blocked: return URL contexts so frontend can do local name matching
-      return NextResponse.json({ therapists: [], urlContexts, blocked: true })
-    }
     const rawText = result.response.text().trim()
 
     let extracted: unknown[] = []
