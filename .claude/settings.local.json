@@ -41,7 +41,8 @@
       "PowerShell(New-Item *)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\\\\app\" -Name | Where-Object { $_ -notmatch \"^\\(reserve|api|components|contexts|globals|layout|favicon\\)\" })",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git add *)"
     ]
   }
 }
