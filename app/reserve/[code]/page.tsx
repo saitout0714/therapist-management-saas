@@ -605,11 +605,7 @@ export default function ReservePage() {
                       {timelineSegs.map((seg, i) => (
                         <div
                           key={i}
-                          className={`absolute top-0 h-full ${
-                            seg.type === 'reserved' ? 'bg-slate-400' :
-                            seg.type === 'interval' ? 'bg-slate-200' :
-                            'bg-rose-300'
-                          }`}
+                          className="absolute top-0 h-full bg-slate-300"
                           style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
                         />
                       ))}
@@ -634,15 +630,11 @@ export default function ReservePage() {
                     <div className="flex items-center gap-3 mt-2">
                       <div className="flex items-center gap-1">
                         <div className="w-3 h-2 rounded-sm bg-emerald-300" />
-                        <span className="text-[10px] text-slate-500">空き</span>
+                        <span className="text-[10px] text-slate-500">予約可</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <div className="w-3 h-2 rounded-sm bg-slate-400" />
-                        <span className="text-[10px] text-slate-500">予約済</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-2 rounded-sm bg-slate-200" />
-                        <span className="text-[10px] text-slate-500">準備時間</span>
+                        <div className="w-3 h-2 rounded-sm bg-slate-300" />
+                        <span className="text-[10px] text-slate-500">予約不可</span>
                       </div>
                       {selectedStartTime && (
                         <div className="flex items-center gap-1">
