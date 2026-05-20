@@ -5,6 +5,50 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
+function EmbedCodeBlock({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const embedCode = `<iframe\n  src="${origin}/reserve/${code}?embed=1"\n  width="100%"\n  height="900"\n  frameborder="0"\n  style="border:none;"\n></iframe>`
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(embedCode).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-slate-600">ホームページ埋め込みコード（iframe）</p>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          {copied ? (
+            <>
+              <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              コピーしました
+            </>
+          ) : (
+            <>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              コピー
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap break-all bg-white border border-slate-100 rounded-lg p-3 leading-relaxed">{embedCode}</pre>
+      <p className="text-xs text-slate-400 mt-2">クライアントのホームページにこのコードを貼り付けると、予約フォームが埋め込まれます。</p>
+    </div>
+  )
+}
+
 export default function EditShopPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
@@ -295,12 +339,16 @@ export default function EditShopPage() {
             </label>
 
             {savedCode && (
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
-                <p className="text-xs text-indigo-600 font-medium mb-1">現在の予約URL</p>
-                <p className="text-sm font-mono text-indigo-800 break-all">
-                  {typeof window !== 'undefined' ? window.location.origin : ''}/reserve/{savedCode}
-                </p>
-              </div>
+              <>
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                  <p className="text-xs text-indigo-600 font-medium mb-1">現在の予約URL</p>
+                  <p className="text-sm font-mono text-indigo-800 break-all">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/reserve/{savedCode}
+                  </p>
+                </div>
+
+                <EmbedCodeBlock code={savedCode} />
+              </>
             )}
 
             <button

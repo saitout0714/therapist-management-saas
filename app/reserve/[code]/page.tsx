@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
 type Shop = {
@@ -232,6 +232,8 @@ function PhotoCarousel({ photos, name }: { photos: string[]; name: string }) {
 
 export default function ReservePage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const isEmbed = searchParams.get('embed') === '1'
   const code = params.code as string
 
   const [step, setStep] = useState<Step>('attendance')
@@ -428,34 +430,36 @@ export default function ReservePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-rose-50 to-white">
       {/* ヘッダー */}
-      <header className="bg-white border-b border-rose-100 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">Web予約</p>
-            <h1 className="text-base font-bold text-slate-800 leading-tight">{shop?.name || ''}</h1>
-          </div>
-          {step !== 'complete' && (
-            <div className="flex items-center gap-1.5">
-              {stepLabels.map((s, i) => (
-                <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
-                  {i > 0 && <div className="w-3 h-px bg-slate-200" />}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                    i < stepIndex ? 'bg-rose-500 text-white' :
-                    i === stepIndex ? 'bg-rose-500 text-white' :
-                    'bg-slate-100 text-slate-400'
-                  }`}>
-                    {i < stepIndex ? (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : i + 1}
-                  </div>
-                </div>
-              ))}
+      {!isEmbed && (
+        <header className="bg-white border-b border-rose-100 sticky top-0 z-10">
+          <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400">Web予約</p>
+              <h1 className="text-base font-bold text-slate-800 leading-tight">{shop?.name || ''}</h1>
             </div>
-          )}
-        </div>
-      </header>
+            {step !== 'complete' && (
+              <div className="flex items-center gap-1.5">
+                {stepLabels.map((s, i) => (
+                  <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
+                    {i > 0 && <div className="w-3 h-px bg-slate-200" />}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      i < stepIndex ? 'bg-rose-500 text-white' :
+                      i === stepIndex ? 'bg-rose-500 text-white' :
+                      'bg-slate-100 text-slate-400'
+                    }`}>
+                      {i < stepIndex ? (
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : i + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
         {error && (
