@@ -725,7 +725,10 @@ export default function ReservePage() {
                 const result: { label: string; leftPct: number }[] = []
                 const startHr = Math.ceil(shiftStartMin / 60)
                 const endHr = Math.floor(shiftEndMin / 60)
+                const totalHours = totalMin / 60
+                const step = totalHours > 12 ? 3 : totalHours > 6 ? 2 : 1
                 for (let hr = startHr; hr <= endHr; hr++) {
+                  if (hr % step !== 0) continue
                   const absMin = hr * 60
                   if (absMin > shiftStartMin && absMin < shiftEndMin) {
                     result.push({
@@ -750,8 +753,7 @@ export default function ReservePage() {
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4">
-                      <p className="text-xs text-slate-400 text-center">バーをタップ・クリックして開始時間を選択（5分刻み）</p>
-
+                      {/* タイムライン概要 */}
                       <div className="select-none">
                         {/* 出勤時間ラベル */}
                         <div className="flex justify-between text-[10px] text-slate-400 mb-1">
@@ -761,11 +763,11 @@ export default function ReservePage() {
 
                         {/* 時刻ラベル行 */}
                         {hourLabels.length > 0 && (
-                          <div className="relative h-3 mb-0.5 overflow-hidden">
+                          <div className="relative h-3 mb-0.5">
                             {hourLabels.map(({ label, leftPct }) => (
                               <span
                                 key={label}
-                                className="absolute text-[9px] text-slate-300 -translate-x-1/2"
+                                className="absolute text-[9px] text-slate-400 -translate-x-1/2"
                                 style={{ left: `${leftPct}%` }}
                               >
                                 {label}
@@ -774,18 +776,15 @@ export default function ReservePage() {
                           </div>
                         )}
 
-                        {/* タイムラインバー（タップ可） */}
+                        {/* タイムラインバー（概要表示・タップ可） */}
                         <div
                           ref={timelineRef}
                           className="relative rounded-xl overflow-hidden cursor-pointer active:opacity-80"
-                          style={{ height: '48px' }}
+                          style={{ height: '36px' }}
                           onClick={e => handleTap(e.clientX)}
                           onTouchEnd={e => { if (e.changedTouches[0]) handleTap(e.changedTouches[0].clientX) }}
                         >
-                          {/* 背景（予約可） */}
                           <div className="absolute inset-0 bg-emerald-100" />
-
-                          {/* 時刻目盛り線 */}
                           {hourLabels.map(({ label, leftPct }) => (
                             <div
                               key={label}
@@ -793,8 +792,6 @@ export default function ReservePage() {
                               style={{ left: `${leftPct}%` }}
                             />
                           ))}
-
-                          {/* 予約不可ゾーン */}
                           {timelineSegs.map((seg, i) => (
                             <div
                               key={i}
@@ -802,19 +799,15 @@ export default function ReservePage() {
                               style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
                             />
                           ))}
-
-                          {/* 過去・受付不可ゾーン */}
                           {pastEndPct > 0 && (
                             <div
                               className="absolute top-0 left-0 h-full bg-slate-400/60"
                               style={{ width: `${pastEndPct}%` }}
                             />
                           )}
-
-                          {/* 選択中スロット */}
                           {selectedLeft !== null && (
                             <div
-                              className="absolute top-1.5 bottom-1.5 bg-rose-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
+                              className="absolute top-1 bottom-1 bg-rose-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
                               style={{ left: `${selectedLeft}%`, width: `${Math.max(selectedWidth, 2)}%` }}
                             >
                               {selectedWidth > 8 && (
@@ -825,7 +818,7 @@ export default function ReservePage() {
                         </div>
 
                         {/* 凡例 */}
-                        <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-3 mt-1.5">
                           <div className="flex items-center gap-1">
                             <div className="w-3 h-2 rounded-sm bg-emerald-200" />
                             <span className="text-[10px] text-slate-500">予約可</span>
@@ -843,12 +836,42 @@ export default function ReservePage() {
                         </div>
                       </div>
 
+                      {/* 時間ボタングリッド（30分刻み） */}
+                      <div>
+                        <p className="text-xs text-slate-500 mb-2">開始時間を選択（±5分で微調整できます）</p>
+                        <div className="max-h-52 overflow-y-auto rounded-xl">
+                          <div className="grid grid-cols-4 gap-2">
+                            {slotsWithAvailability
+                              .filter(s => {
+                                const [, m] = s.time.split(':').map(Number)
+                                return m % 30 === 0
+                              })
+                              .map(slot => (
+                                <button
+                                  key={slot.time}
+                                  onClick={() => { if (slot.available) setSelectedStartTime(slot.time) }}
+                                  disabled={!slot.available}
+                                  className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                                    selectedStartTime === slot.time
+                                      ? 'bg-rose-500 text-white shadow-sm'
+                                      : slot.available
+                                      ? 'bg-emerald-50 text-slate-700 active:bg-emerald-200'
+                                      : 'bg-slate-100 text-slate-300 cursor-not-allowed line-through'
+                                  }`}
+                                >
+                                  {slot.time}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+
                       {/* 選択時間表示 + ±5分ボタン */}
                       <div className="flex items-center justify-center gap-4 py-1">
                         <button
                           onClick={() => adjustTime(-5)}
                           disabled={!selectedStartTime}
-                          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
                           aria-label="-5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -863,14 +886,14 @@ export default function ReservePage() {
                               <p className="text-xs text-slate-400 mt-1.5">〜 {endTime}（{selectedCourse.duration}分）</p>
                             </>
                           ) : (
-                            <p className="text-sm text-slate-400">バーをタップして選択</p>
+                            <p className="text-sm text-slate-400">時間を選んでください</p>
                           )}
                         </div>
 
                         <button
                           onClick={() => adjustTime(5)}
                           disabled={!selectedStartTime}
-                          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
                           aria-label="+5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
