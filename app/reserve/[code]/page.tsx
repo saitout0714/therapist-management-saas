@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
@@ -395,9 +395,9 @@ export default function ReservePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
           <p className="text-slate-500 text-sm">読み込み中...</p>
         </div>
       </div>
@@ -406,10 +406,10 @@ export default function ReservePage() {
 
   if (error && !shop) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-50 to-white flex items-center justify-center px-4">
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow p-8 max-w-sm w-full text-center">
-          <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -428,10 +428,10 @@ export default function ReservePage() {
   const stepIndex = stepLabels.findIndex(s => s.key === step)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 to-white">
+    <div className="min-h-screen bg-white">
       {/* ヘッダー */}
       {!isEmbed && (
-        <header className="bg-white border-b border-rose-100 sticky top-0 z-10">
+        <header className="bg-white border-b border-blue-100 sticky top-0 z-10">
           <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Web予約</p>
@@ -443,8 +443,8 @@ export default function ReservePage() {
                   <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
                     {i > 0 && <div className="w-3 h-px bg-slate-200" />}
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                      i < stepIndex ? 'bg-rose-500 text-white' :
-                      i === stepIndex ? 'bg-rose-500 text-white' :
+                      i < stepIndex ? 'bg-blue-500 text-white' :
+                      i === stepIndex ? 'bg-blue-500 text-white' :
                       'bg-slate-100 text-slate-400'
                     }`}>
                       {i < stepIndex ? (
@@ -463,7 +463,7 @@ export default function ReservePage() {
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
         {error && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-sm">{error}</div>
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>
         )}
 
         {/* Step 1: 出勤情報 */}
@@ -483,8 +483,8 @@ export default function ReservePage() {
                     onClick={() => setSelectedDate(date)}
                     className={`flex-shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
                       selectedDate === date
-                        ? 'bg-rose-500 text-white'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-300'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
                     {formatDate(date)}
@@ -506,7 +506,7 @@ export default function ReservePage() {
                     <button
                       key={shift.id}
                       onClick={() => handleSelectTherapist(t, shift)}
-                      className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:border-rose-300 hover:shadow-md transition-all text-left group"
+                      className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
                     >
                       <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
                         <PhotoCarousel photos={t.photos?.length ? t.photos : (t.photo_url ? [t.photo_url] : [])} name={t.name} />
@@ -514,7 +514,7 @@ export default function ReservePage() {
                       <div className="p-3">
                         <p className="font-bold text-slate-800 text-sm truncate">{t.name}</p>
                         {t.therapist_ranks && (
-                          <p className="text-xs text-rose-500 font-medium mt-0.5">{t.therapist_ranks.name}</p>
+                          <p className="text-xs text-blue-500 font-medium mt-0.5">{t.therapist_ranks.name}</p>
                         )}
                         <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -537,7 +537,7 @@ export default function ReservePage() {
                 {/* フリー（指名なし）カード */}
                 <button
                   onClick={handleSelectFree}
-                  className="bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-rose-300 hover:shadow-md transition-all text-left group"
+                  className="bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
                 >
                   <div className="aspect-[3/4] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-3">
                     <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center">
@@ -563,7 +563,7 @@ export default function ReservePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setStep('attendance'); setSelectedTherapist(null); setSelectedShift(null); setIsFreeReservation(false) }}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-rose-300"
+                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -589,7 +589,7 @@ export default function ReservePage() {
                 <div>
                   <p className="font-bold text-slate-800">{selectedTherapist.name}</p>
                   {selectedTherapist.therapist_ranks && (
-                    <p className="text-xs text-rose-500">{selectedTherapist.therapist_ranks.name}</p>
+                    <p className="text-xs text-blue-500">{selectedTherapist.therapist_ranks.name}</p>
                   )}
                   <p className="text-xs text-slate-400 mt-1">
                     出勤: {formatTime(selectedShift!.start_time)} 〜 {formatTime(selectedShift!.end_time)}
@@ -625,15 +625,15 @@ export default function ReservePage() {
                     onClick={() => { setSelectedCourse(c); setSelectedStartTime('') }}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all text-left ${
                       selectedCourse?.id === c.id
-                        ? 'border-rose-400 bg-rose-50'
-                        : 'border-slate-200 bg-white hover:border-rose-300'
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-slate-200 bg-white hover:border-blue-300'
                     }`}
                   >
                     <div>
-                      <p className={`font-medium text-sm ${selectedCourse?.id === c.id ? 'text-rose-700' : 'text-slate-700'}`}>{c.name}</p>
+                      <p className={`font-medium text-sm ${selectedCourse?.id === c.id ? 'text-blue-700' : 'text-slate-700'}`}>{c.name}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{c.duration}分</p>
                     </div>
-                    <p className={`font-bold text-sm ${selectedCourse?.id === c.id ? 'text-rose-600' : 'text-slate-600'}`}>
+                    <p className={`font-bold text-sm ${selectedCourse?.id === c.id ? 'text-blue-600' : 'text-slate-600'}`}>
                       {formatPrice(c.base_price)}
                     </p>
                   </button>
@@ -747,9 +747,9 @@ export default function ReservePage() {
                   </div>
 
                   {availableCount === 0 ? (
-                    <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-4 text-center">
-                      <p className="text-sm text-rose-600 font-medium">このコースの空き枠がありません</p>
-                      <p className="text-xs text-rose-400 mt-1">他のコースをお試しください</p>
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-4 text-center">
+                      <p className="text-sm text-red-600 font-medium">このコースの空き枠がありません</p>
+                      <p className="text-xs text-red-400 mt-1">他のコースをお試しください</p>
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4">
@@ -807,7 +807,7 @@ export default function ReservePage() {
                           )}
                           {selectedLeft !== null && (
                             <div
-                              className="absolute top-1 bottom-1 bg-rose-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
+                              className="absolute top-1 bottom-1 bg-blue-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
                               style={{ left: `${selectedLeft}%`, width: `${Math.max(selectedWidth, 2)}%` }}
                             >
                               {selectedWidth > 8 && (
@@ -829,7 +829,7 @@ export default function ReservePage() {
                           </div>
                           {selectedStartTime && (
                             <div className="flex items-center gap-1">
-                              <div className="w-3 h-2 rounded-sm bg-rose-500" />
+                              <div className="w-3 h-2 rounded-sm bg-blue-500" />
                               <span className="text-[10px] text-slate-500">選択中</span>
                             </div>
                           )}
@@ -853,7 +853,7 @@ export default function ReservePage() {
                                   disabled={!slot.available}
                                   className={`py-3 rounded-xl text-sm font-semibold transition-all ${
                                     selectedStartTime === slot.time
-                                      ? 'bg-rose-500 text-white shadow-sm'
+                                      ? 'bg-blue-500 text-white shadow-sm'
                                       : slot.available
                                       ? 'bg-emerald-50 text-slate-700 active:bg-emerald-200'
                                       : 'bg-slate-100 text-slate-300 cursor-not-allowed line-through'
@@ -871,7 +871,7 @@ export default function ReservePage() {
                         <button
                           onClick={() => adjustTime(-5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-30 transition-colors"
                           aria-label="-5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -893,7 +893,7 @@ export default function ReservePage() {
                         <button
                           onClick={() => adjustTime(5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-rose-100 hover:text-rose-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-30 transition-colors"
                           aria-label="+5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -915,8 +915,8 @@ export default function ReservePage() {
                   onClick={() => setPaymentMethod('cash')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                     paymentMethod === 'cash'
-                      ? 'border-rose-400 bg-rose-50 text-rose-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-rose-300'
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -928,8 +928,8 @@ export default function ReservePage() {
                   onClick={() => setPaymentMethod('credit')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                     paymentMethod === 'credit'
-                      ? 'border-rose-400 bg-rose-50 text-rose-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-rose-300'
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -943,7 +943,7 @@ export default function ReservePage() {
             <button
               onClick={handleDetailsNext}
               disabled={!selectedCourse || !selectedStartTime}
-              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               お客様情報の入力へ
             </button>
@@ -956,7 +956,7 @@ export default function ReservePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('details')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-rose-300"
+                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -978,7 +978,7 @@ export default function ReservePage() {
                 <div key={field.key}>
                   <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5">
                     {field.label}
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-600">必須</span>
                   </label>
                   <input
                     type={field.type}
@@ -990,12 +990,12 @@ export default function ReservePage() {
                       }
                     }}
                     placeholder={field.placeholder}
-                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-rose-400/50 ${
-                      validationErrors[field.key] ? 'border-rose-400' : 'border-slate-200'
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-blue-400/50 ${
+                      validationErrors[field.key] ? 'border-red-400' : 'border-slate-200'
                     }`}
                   />
                   {validationErrors[field.key] && (
-                    <p className="text-rose-500 text-xs mt-1">{validationErrors[field.key]}</p>
+                    <p className="text-red-500 text-xs mt-1">{validationErrors[field.key]}</p>
                   )}
                 </div>
               ))}
@@ -1006,14 +1006,14 @@ export default function ReservePage() {
                   onChange={e => setCustomer(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="ご要望やご質問があればご記入ください"
                   rows={3}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-rose-400/50 resize-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-blue-400/50 resize-none"
                 />
               </div>
             </div>
 
             <button
               onClick={handleCustomerNext}
-              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-rose-600"
+              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600"
             >
               予約内容の確認へ
             </button>
@@ -1026,7 +1026,7 @@ export default function ReservePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('customer')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-rose-300"
+                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1087,7 +1087,7 @@ export default function ReservePage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-rose-600 disabled:opacity-60"
+              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600 disabled:opacity-60"
             >
               {submitting ? '送信中...' : 'この内容で予約を申し込む'}
             </button>
@@ -1097,8 +1097,8 @@ export default function ReservePage() {
         {/* Step 5: 完了 */}
         {step === 'complete' && (
           <div className="flex flex-col items-center text-center py-16 space-y-6">
-            <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center">
-              <svg className="w-10 h-10 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg className="w-10 h-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -1127,7 +1127,7 @@ export default function ReservePage() {
                 setIsFreeReservation(false)
                 setCustomer({ name: '', furigana: '', phone: '', email: '', notes: '' })
               }}
-              className="text-sm text-rose-500 hover:underline"
+              className="text-sm text-blue-500 hover:underline"
             >
               トップへ戻る
             </button>
