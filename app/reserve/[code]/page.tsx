@@ -259,6 +259,20 @@ export default function ReservePage() {
   const [validationErrors, setValidationErrors] = useState<Partial<CustomerForm>>({})
   const [isFreeReservation, setIsFreeReservation] = useState(false)
   const timelineRef = useRef<HTMLDivElement>(null)
+  const mainRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isEmbed) return
+    const el = mainRef.current
+    if (!el) return
+    const sendHeight = () => {
+      window.parent.postMessage({ type: 'iframeResize', height: el.scrollHeight }, '*')
+    }
+    const ro = new ResizeObserver(sendHeight)
+    ro.observe(el)
+    sendHeight()
+    return () => ro.disconnect()
+  }, [isEmbed])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -428,7 +442,7 @@ export default function ReservePage() {
   const stepIndex = stepLabels.findIndex(s => s.key === step)
 
   return (
-    <div className="min-h-screen bg-white">
+    <div ref={mainRef} className="min-h-screen bg-white">
       {/* ヘッダー */}
       {!isEmbed && (
         <header className="bg-white border-b border-blue-100 sticky top-0 z-10">
