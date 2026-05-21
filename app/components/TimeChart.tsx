@@ -293,8 +293,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                   {/* 写真 — 3:4固定比率 */}
                   <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
-                    <div className="relative w-full overflow-hidden rounded" style={{ aspectRatio: '3/4' }}>
-                      {therapist.avatar ? (
+                    <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
+                      {therapist.id === 'unassigned' ? (
+                        <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      ) : therapist.avatar ? (
                         <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
@@ -309,19 +315,23 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       <p
                         className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
                         onMouseEnter={(e) => {
+                          if (therapist.id === 'unassigned') return;
                           if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
                         }}
                         onMouseLeave={() => {
+                          if (therapist.id === 'unassigned') return;
                           therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
                         }}
                       >
                         {therapist.name}
                       </p>
-                      <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                        {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                      </span>
+                      {therapist.id !== 'unassigned' && (
+                        <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                        </span>
+                      )}
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                         <span
                           className="flex-shrink-0 flex items-center text-amber-400 cursor-default"
@@ -338,7 +348,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                     {/* 出勤時間 */}
                     <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
-                      {therapist.shiftStart && therapist.shiftEnd ? (
+                      {therapist.id === 'unassigned' ? (
+                        <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                      ) : therapist.shiftStart && therapist.shiftEnd ? (
                         <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                       ) : (
                         <span className="text-slate-400">未設定</span>
@@ -371,7 +383,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
 
-                  {onShiftEditOpen && (
+                  {onShiftEditOpen && therapist.id !== 'unassigned' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -474,19 +486,19 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                   const handleCellClick = () => {
                     if (isDragging || dragDistanceRef.current > 5) return;
-                    if (!date) return;
+                    if (!date || therapist.id === 'unassigned') return;
                     router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                   };
 
                   return (
                     <div
                       key={`${therapist.id}-${idx}`}
-                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
-                      style={{ ...cellStyle, height: `${rowHeight}px` }}
+                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} ${therapist.id !== 'unassigned' ? 'hover:bg-indigo-50/50 transition-colors' : ''}`}
+                      style={{ ...cellStyle, height: `${rowHeight}px`, cursor: therapist.id === 'unassigned' ? 'default' : 'pointer' }}
                       onClick={handleCellClick}
                       onMouseDown={() => { dragDistanceRef.current = 0; }}
                       onMouseEnter={(e) => {
-                        if (isDragging || dragDistanceRef.current > 5) return;
+                        if (isDragging || dragDistanceRef.current > 5 || therapist.id === 'unassigned') return;
                         const rect = e.currentTarget.getBoundingClientRect();
                         setHoverData({
                           x: rect.left + rect.width / 2,

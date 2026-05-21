@@ -650,7 +650,7 @@ export default function ShiftsPage() {
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
       .map((reservation) => ({
-        therapistId: reservation.therapist_id,
+        therapistId: reservation.therapist_id || 'unassigned',
         startTime: reservation.start_time.slice(0, 5),
         endTime: reservation.end_time.slice(0, 5),
         title: `${reservation.customers?.name || 'unknown'}`,
@@ -671,7 +671,7 @@ export default function ShiftsPage() {
     ...reservations
       .filter((r: any) => r.status === 'blocked')
       .map((reservation) => ({
-        therapistId: reservation.therapist_id,
+        therapistId: reservation.therapist_id || 'unassigned',
         startTime: reservation.start_time.slice(0, 5),
         endTime: reservation.end_time.slice(0, 5),
         title: '予約不可',
@@ -679,7 +679,7 @@ export default function ShiftsPage() {
         reservationId: reservation.id,
       })),
     ...reservations
-      .filter((r: any) => r.status === 'confirmed')
+      .filter((r: any) => r.status === 'confirmed' && r.therapist_id) // Skip intervals for unassigned bookings
       .flatMap((reservation) => {
         const therapist = therapists.find(t => t.id === reservation.therapist_id);
         const interval = therapist?.intervalMinutes != null
@@ -750,22 +750,33 @@ export default function ShiftsPage() {
       );
     };
 
+    // Check if there are any unassigned reservations for the current day
+    const hasUnassigned = reservations.some(r => r.therapist_id === null && r.status !== 'blocked');
+    const unassignedTherapist: Therapist | null = hasUnassigned
+      ? {
+          id: 'unassigned',
+          name: 'フリー（未割当）',
+          intervalMinutes: shopIntervalMinutes,
+          notes: '未割当のフリー予約があります',
+        }
+      : null;
+
+    let sortedOthers = [...withShift];
+
     if (sortMode === 'shift') {
-      return [...withShift].sort((a, b) => {
+      sortedOthers.sort((a, b) => {
         if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1;
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
-    }
-    if (sortMode === 'room') {
-      return [...withShift].sort((a, b) => {
+    } else if (sortMode === 'room') {
+      sortedOthers.sort((a, b) => {
         if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1;
         const aOrder = a.roomId ? (roomOrderMap.get(a.roomId) ?? 9999) : 9999;
         const bOrder = b.roomId ? (roomOrderMap.get(b.roomId) ?? 9999) : 9999;
         if (aOrder !== bOrder) return aOrder - bOrder;
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
-    }
-    if (sortMode === 'reservation') {
+    } else if (sortMode === 'reservation') {
       const now = new Date();
       let currentMins = now.getHours() * 60 + now.getMinutes();
       if (now.getHours() < 6) currentMins += 24 * 60;
@@ -803,7 +814,7 @@ export default function ShiftsPage() {
         const cur = earliestMap.get(r.therapist_id) ?? 9999;
         if (mins < cur) earliestMap.set(r.therapist_id, mins);
       });
-      return [...withShift].sort((a, b) => {
+      sortedOthers.sort((a, b) => {
         if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1;
         const aFinished = isEffectivelyFinished(a);
         const bFinished = isEffectivelyFinished(b);
@@ -814,7 +825,7 @@ export default function ShiftsPage() {
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
     }
-    return withShift;
+    return unassignedTherapist ? [unassignedTherapist, ...sortedOthers] : sortedOthers;
   }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
 
   // 週間表示用：全セラピストをシンプルな形式にマップ

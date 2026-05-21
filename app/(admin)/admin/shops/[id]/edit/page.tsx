@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -60,7 +60,6 @@ export default function EditShopPage() {
     short_name: '',
     description: '',
     is_active: true,
-    sms_address_mode: 'unified' as 'unified' | 'split_by_membership',
   })
   const [reservationCode, setReservationCode] = useState('')
   const [savedCode, setSavedCode] = useState('')
@@ -86,7 +85,6 @@ export default function EditShopPage() {
         short_name: shopRes.data.short_name || '',
         description: shopRes.data.description || '',
         is_active: shopRes.data.is_active,
-        sms_address_mode: shopRes.data.sms_address_mode || 'unified',
       })
 
       if (!codeRes.error && codeRes.data) {
@@ -145,7 +143,6 @@ export default function EditShopPage() {
         short_name: form.short_name.trim() || null,
         description: form.description || null,
         is_active: form.is_active,
-        sms_address_mode: form.sms_address_mode,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -245,39 +242,7 @@ export default function EditShopPage() {
               </label>
             </div>
 
-            <div className="pt-1">
-              <p className="text-sm font-medium text-slate-700 mb-2">SMS住所送信モード</p>
-              <div className="space-y-2">
-                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="unified"
-                    checked={form.sms_address_mode === 'unified'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'unified' })}
-                    className="mt-0.5 accent-indigo-600"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">一律送信</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規・会員問わず同じ住所（ルームに設定した住所）を送信します。</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="split_by_membership"
-                    checked={form.sms_address_mode === 'split_by_membership'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'split_by_membership' })}
-                    className="mt-0.5 accent-indigo-600"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">新規／会員で切替</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規のお客様にはルームに設定した「近隣住所」を、会員には実住所を送信します。</p>
-                  </div>
-                </label>
-              </div>
-            </div>
+
 
             <div className="flex gap-3 pt-4 border-t border-slate-100 justify-end">
               <Link

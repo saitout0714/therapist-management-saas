@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -98,12 +100,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           >
             <span className="truncate">店舗集計</span>
           </Link>
-          <Link
-            href="/admin"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">店舗管理</span>
-          </Link>
+          {user?.role === "admin" && (
+            <Link
+              href="/admin"
+              className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
+            >
+              <span className="truncate">店舗管理</span>
+            </Link>
+          )}
           <Link
             href="/users"
             className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { CourseManagementTab } from './components/CourseManagementTab'
@@ -26,6 +26,12 @@ type SystemSettings = {
   extension_unit_minutes: number
   extension_unit_price: number
   extension_unit_back: number
+  smtp_host: string | null
+  smtp_port: number | null
+  smtp_secure: boolean | null
+  smtp_user: string | null
+  smtp_pass: string | null
+  smtp_from: string | null
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
@@ -37,7 +43,26 @@ export default function SystemPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    default_nomination_fee: number
+    default_confirmed_nomination_fee: number
+    default_princess_reservation_fee: number
+    reservation_interval_minutes: number
+    nomination_back_amount: number
+    confirmed_nomination_back_amount: number
+    princess_back_amount: number
+    credit_card_fee_rate: number
+    extension_unit_minutes: number
+    extension_unit_price: number
+    extension_unit_back: number
+    smtp_host: string
+    smtp_port: number | ''
+    smtp_secure: boolean
+    smtp_user: string
+    smtp_pass: string
+    smtp_from: string
+    sms_address_mode: 'unified' | 'split_by_membership'
+  }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
     default_princess_reservation_fee: 0,
@@ -49,20 +74,28 @@ export default function SystemPage() {
     extension_unit_minutes: 30,
     extension_unit_price: 0,
     extension_unit_back: 0,
+    smtp_host: '',
+    smtp_port: '',
+    smtp_secure: false,
+    smtp_user: '',
+    smtp_pass: '',
+    smtp_from: '',
+    sms_address_mode: 'unified',
   })
 
   async function fetchSettings() {
     if (!selectedShop) { setLoading(false); setSettings(null); return }
     setLoading(true)
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*')
-      .eq('shop_id', selectedShop.id)
-      .limit(1)
+    const [settingsRes, shopRes] = await Promise.all([
+      supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
+      supabase.from('shops').select('sms_address_mode').eq('id', selectedShop.id).single()
+    ])
 
-    if (error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
+    if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
 
-    const row = (data?.[0] as SystemSettings | undefined) || null
+    const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
+    const smsMode = shopRes.data?.sms_address_mode || 'unified'
+
     setSettings(row)
     setForm({
       default_nomination_fee: row?.default_nomination_fee ?? 0,
@@ -76,6 +109,13 @@ export default function SystemPage() {
       extension_unit_minutes: row?.extension_unit_minutes ?? 30,
       extension_unit_price: row?.extension_unit_price ?? 0,
       extension_unit_back: row?.extension_unit_back ?? 0,
+      smtp_host: row?.smtp_host ?? '',
+      smtp_port: row?.smtp_port ?? '',
+      smtp_secure: row?.smtp_secure ?? false,
+      smtp_user: row?.smtp_user ?? '',
+      smtp_pass: row?.smtp_pass ?? '',
+      smtp_from: row?.smtp_from ?? '',
+      sms_address_mode: smsMode,
     })
     setLoading(false)
   }
@@ -85,11 +125,26 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const result = settings?.id
-      ? await supabase.from('system_settings').update({ ...form, updated_at: new Date().toISOString() }).eq('id', settings.id)
-      : await supabase.from('system_settings').insert([{ ...form, shop_id: selectedShop.id }])
+    const { sms_address_mode, ...systemSettingsPayload } = form
+    const payload = {
+      ...systemSettingsPayload,
+      smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
+      smtp_host: form.smtp_host || null,
+      smtp_user: form.smtp_user || null,
+      smtp_pass: form.smtp_pass || null,
+      smtp_from: form.smtp_from || null,
+    }
 
-    if (result.error) { alert('保存に失敗しました'); setSaving(false); return }
+    const [result, shopResult] = await Promise.all([
+      settings?.id
+        ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
+        : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
+      supabase.from('shops').update({ sms_address_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+    ])
+
+    if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
+    if (shopResult.error) { alert('店舗情報の更新に失敗しました'); setSaving(false); return }
+
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
     void fetchSettings()
@@ -251,6 +306,125 @@ export default function SystemPage() {
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
                 </div>
                 <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
+              </div>
+            </div>
+
+            {/* SMS住所送信モード */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">SMS住所送信モード</h3>
+              <p className="text-xs text-slate-400 mb-4">Web予約確定時に自動送信されるSMSでの、住所情報の送信方法を設定します。</p>
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
+                  <input
+                    type="radio"
+                    name="sms_address_mode"
+                    value="unified"
+                    checked={form.sms_address_mode === 'unified'}
+                    onChange={() => setForm({ ...form, sms_address_mode: 'unified' })}
+                    className="mt-1 accent-indigo-600 w-4 h-4"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">一律送信</p>
+                    <p className="text-xs text-slate-500 mt-0.5">新規・会員問わず同じ住所（ルームに設定した住所）を送信します。</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
+                  <input
+                    type="radio"
+                    name="sms_address_mode"
+                    value="split_by_membership"
+                    checked={form.sms_address_mode === 'split_by_membership'}
+                    onChange={() => setForm({ ...form, sms_address_mode: 'split_by_membership' })}
+                    className="mt-1 accent-indigo-600 w-4 h-4"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">新規／会員で切替</p>
+                    <p className="text-xs text-slate-500 mt-0.5">新規のお客様にはルームに設定した「近隣住所」を、会員には実住所を送信します。</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* メール送信設定 (SMTP) */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">メール送信設定 (SMTP)</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Web予約が完了した際にお客様へ自動送信される確認メールのSMTP設定です。<br />
+                未設定（空欄）の場合は、システム共通の環境変数に設定されたSMTPサーバーから送信されます。
+              </p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPホスト名</label>
+                    <input
+                      type="text"
+                      placeholder="smtp.example.com"
+                      value={form.smtp_host}
+                      onChange={(e) => setForm({ ...form, smtp_host: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">ポート番号</label>
+                    <input
+                      type="number"
+                      placeholder="587"
+                      value={form.smtp_port}
+                      onChange={(e) => setForm({ ...form, smtp_port: e.target.value === '' ? '' : Number(e.target.value) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    id="smtp_secure"
+                    checked={form.smtp_secure}
+                    onChange={(e) => setForm({ ...form, smtp_secure: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="smtp_secure" className="text-xs font-semibold text-slate-600 select-none cursor-pointer">
+                    SSL/TLSを使用する (通常465番ポートの場合にチェック)
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPユーザー名</label>
+                    <input
+                      type="text"
+                      placeholder="user@example.com"
+                      value={form.smtp_user}
+                      onChange={(e) => setForm({ ...form, smtp_user: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPパスワード</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••••••"
+                      value={form.smtp_pass}
+                      onChange={(e) => setForm({ ...form, smtp_pass: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">差出人表記 (FROM)</label>
+                  <input
+                    type="text"
+                    placeholder='"新宿店" <shinjuku@example.com>'
+                    value={form.smtp_from}
+                    onChange={(e) => setForm({ ...form, smtp_from: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    送信元の名前とメールアドレスを指定します。例: `&quot;新宿店&quot; &lt;shinjuku@example.com&gt;`
+                  </p>
+                </div>
               </div>
             </div>
 

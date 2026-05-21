@@ -1,11 +1,175 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
+import nodemailer from 'nodemailer'
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   return createClient(url, key)
+}
+
+type SmtpSettings = {
+  smtp_host?: string | null
+  smtp_port?: number | null
+  smtp_secure?: boolean | null
+  smtp_user?: string | null
+  smtp_pass?: string | null
+  smtp_from?: string | null
+}
+
+function getMailTransporter(smtpSettings?: SmtpSettings | null) {
+  const host = smtpSettings?.smtp_host || process.env.SMTP_HOST || 'smtp.example.com'
+  
+  let port = parseInt(process.env.SMTP_PORT || '587', 10)
+  if (smtpSettings?.smtp_port !== undefined && smtpSettings?.smtp_port !== null) {
+    port = smtpSettings.smtp_port
+  }
+
+  let secure = process.env.SMTP_SECURE === 'true'
+  if (smtpSettings?.smtp_secure !== undefined && smtpSettings?.smtp_secure !== null) {
+    secure = smtpSettings.smtp_secure
+  }
+
+  const user = smtpSettings?.smtp_user || process.env.SMTP_USER || 'test@example.com'
+  const pass = smtpSettings?.smtp_pass || process.env.SMTP_PASS || 'password'
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass,
+    },
+  })
+}
+
+async function sendConfirmationEmail({
+  email,
+  customerName,
+  date,
+  startTime,
+  endTime,
+  courseName,
+  courseDuration,
+  therapistName,
+  totalPrice,
+  basePrice,
+  nominationFee,
+  paymentMethod,
+  room,
+  isNewCustomer,
+  shopAddressMode,
+  smtpSettings,
+}: {
+  email: string
+  customerName: string
+  date: string
+  startTime: string
+  endTime: string
+  courseName: string
+  courseDuration: number
+  therapistName: string
+  totalPrice: number
+  basePrice: number
+  nominationFee: number
+  paymentMethod: string
+  room: any | null
+  isNewCustomer: boolean
+  shopAddressMode: string
+  smtpSettings?: SmtpSettings | null
+}) {
+  try {
+    const transporter = getMailTransporter(smtpSettings)
+    const from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"予約完了通知" <noreply@example.com>'
+
+    // ルーム・住所・案内文の出し分けロジック
+    let address = 'ご来店時にご案内いたします'
+    let mapUrl = ''
+    let template = ''
+    let additionalNote = ''
+    const commonNote = room?.sms_note_common || ''
+
+    if (room) {
+      if (isNewCustomer) {
+        // 新規顧客向け
+        address = (shopAddressMode === 'split_by_membership' && room.address_nearby) 
+          ? room.address_nearby 
+          : (room.address || address)
+        mapUrl = (shopAddressMode === 'split_by_membership' && room.google_map_url_nearby)
+          ? room.google_map_url_nearby
+          : (room.google_map_url || '')
+        template = room.template_new_customer || room.template_member || ''
+        additionalNote = room.sms_note_new_customer || ''
+      } else {
+        // 会員顧客向け
+        address = room.address || address
+        mapUrl = room.google_map_url || ''
+        template = room.template_member || room.template_new_customer || ''
+        additionalNote = room.sms_note_member || ''
+      }
+    }
+
+    const paymentLabel = paymentMethod === 'credit' ? 'クレジットカード決済' : '現地決済（現金）'
+
+    let bodyText = `【ご予約完了】ご予約ありがとうございます。
+
+※本メールはシステム自動送信によるご予約確認メールです。
+
+この度はご予約いただき誠にありがとうございます。
+ご予約内容が確定いたしましたので、詳細をご案内いたします。
+
+■ ご予約内容
+・日時：${date} ${startTime.slice(0, 5)} ～ ${endTime.slice(0, 5)}
+・コース：${courseName} (${courseDuration}分)
+・担当セラピスト：${therapistName}
+
+■ お支払い金額
+・合計金額：¥${totalPrice.toLocaleString()} (税込)
+  (内訳: 基本料金 ¥${basePrice.toLocaleString()} / 指名料 ¥${nominationFee.toLocaleString()})
+・お支払い方法：${paymentLabel}
+
+■ ルームの場所・ご案内
+`
+
+    if (commonNote) {
+      bodyText += `${commonNote}\n\n`
+    }
+
+    bodyText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
+    if (room) {
+      bodyText += `・住所：${address}\n`
+      if (mapUrl) {
+        bodyText += `・地図：${mapUrl}\n`
+      }
+    }
+
+    if (template) {
+      bodyText += `\n${template}\n`
+    }
+
+    if (additionalNote) {
+      bodyText += `\n${additionalNote}\n`
+    }
+
+    bodyText += `
+------------------------
+※ご予約の変更・キャンセルは、お早めに店舗までご連絡ください。
+皆様のご来店を心よりお待ちしております。`
+
+    const mailOptions = {
+      from,
+      to: email,
+      subject: `【ご予約完了】ご予約ありがとうございます`,
+      text: bodyText,
+    }
+
+    await transporter.sendMail(mailOptions)
+    console.log(`[Email Sent] Confirmation successfully sent to ${email}`)
+  } catch (error) {
+    console.error('[Email Error] Failed to send confirmation email:', error)
+  }
 }
 
 interface ReserveBody {
@@ -147,13 +311,17 @@ export async function POST(
 
   // 1. セラピスト設定の取得
   let therapist = null
+  let therapistName = 'フリー（指名なし）'
   if (therapist_id) {
     const { data: ther } = await supabase
       .from('therapists')
-      .select('rank_id, back_calc_type')
+      .select('name, rank_id, back_calc_type')
       .eq('id', therapist_id)
       .maybeSingle()
     therapist = ther
+    if (ther?.name) {
+      therapistName = ther.name
+    }
   }
 
   // 2. 指名区分のIDと設定行の取得
@@ -289,6 +457,79 @@ export async function POST(
 
   if (reservationError || !reservation) {
     return NextResponse.json({ error: '予約の登録に失敗しました: ' + reservationError?.message }, { status: 500 })
+  }
+
+  // 予約作成成功後、メール配信用データの追加フェッチと送信処理
+  try {
+    // 1. 店舗の送信モードと個別SMTP設定を並行取得
+    const [shopRes, settingsRes] = await Promise.all([
+      supabase.from('shops').select('sms_address_mode').eq('id', shopId).maybeSingle(),
+      supabase
+        .from('system_settings')
+        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from')
+        .eq('shop_id', shopId)
+        .maybeSingle()
+    ])
+
+    const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
+    const smtpSettings = settingsRes.data
+
+    // 2. ルーム情報を取得
+    let roomInfo = null
+    if (therapist_id) {
+      const { data: shiftRow } = await supabase
+        .from('shifts')
+        .select(`
+          room_id,
+          rooms (
+            id,
+            name,
+            address,
+            google_map_url,
+            address_nearby,
+            google_map_url_nearby,
+            template_new_customer,
+            template_member,
+            sms_note_common,
+            sms_note_new_customer,
+            sms_note_member
+          )
+        `)
+        .eq('shop_id', shopId)
+        .eq('therapist_id', therapist_id)
+        .eq('date', date)
+        .maybeSingle()
+
+      if (shiftRow?.rooms) {
+        roomInfo = Array.isArray(shiftRow.rooms) ? shiftRow.rooms[0] : shiftRow.rooms
+      }
+    }
+
+    // 3. メール送信を実行 (非同期でバックグラウンド実行)
+    if (customer.email) {
+      sendConfirmationEmail({
+        email: customer.email,
+        customerName: customer.name,
+        date,
+        startTime: start_time,
+        endTime: end_time,
+        courseName: course?.name || '選択コース',
+        courseDuration: course?.duration || 0,
+        therapistName,
+        totalPrice: basePrice + nominationFee,
+        basePrice,
+        nominationFee,
+        paymentMethod: payment_method,
+        room: roomInfo,
+        isNewCustomer,
+        shopAddressMode,
+        smtpSettings,
+      }).catch((err) => {
+        console.error('[Email Background Error] sendConfirmationEmail failed:', err)
+      })
+    }
+  } catch (emailFetchErr) {
+    console.error('[Email Info Fetch Error] Failed to fetch context for email dispatch:', emailFetchErr)
   }
 
   return NextResponse.json({

@@ -156,6 +156,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const therapistMap = useMemo(() => {
     const map = new Map<string, Therapist>()
     therapists.forEach(t => map.set(t.id, t))
+    map.set('unassigned', {
+      id: 'unassigned',
+      name: 'フリー（未割当）',
+      avatar: undefined,
+    })
     return map
   }, [therapists])
 
@@ -181,17 +186,23 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     map.forEach((list, dateStr) => {
       // 休み（blocked）のセラピストIDセット（日付ごと）
       const blockedIds = new Set(
-        reservations.filter(r => r.date === dateStr && r.status === 'blocked').map(r => r.therapist_id)
+        reservations.filter(r => r.date === dateStr && r.status === 'blocked' && r.therapist_id).map(r => r.therapist_id)
       )
       const isOff = (s: Shift) => blockedIds.has(s.therapist_id)
 
+      const hasUnassigned = reservations.some(
+        r => r.date === dateStr && r.therapist_id === null && r.status !== 'blocked'
+      )
+
+      let others = [...list]
+
       if (sortMode === 'shift') {
-        list.sort((a, b) => {
+        others.sort((a, b) => {
           if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
           return toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5))
         })
       } else if (sortMode === 'room') {
-        list.sort((a, b) => {
+        others.sort((a, b) => {
           if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
           const aOrder = a.room_id ? (roomOrderMap.get(a.room_id) ?? 9999) : 9999
           const bOrder = b.room_id ? (roomOrderMap.get(b.room_id) ?? 9999) : 9999
@@ -201,7 +212,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       } else if (sortMode === 'reservation') {
         const earliestMap = new Map<string, number>()
         reservations
-          .filter(r => r.date === dateStr && r.status === 'confirmed')
+          .filter(r => r.date === dateStr && r.status === 'confirmed' && r.therapist_id)
           .forEach(r => {
             const mins = toMinutes(r.start_time.slice(0, 5))
             const cur = earliestMap.get(r.therapist_id) ?? 9999
@@ -229,7 +240,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           return nextAvailableMins + requiredMins > shiftEndMins
         }
 
-        list.sort((a, b) => {
+        others.sort((a, b) => {
           if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1
           const aFinished = isEffectivelyFinished(a)
           const bFinished = isEffectivelyFinished(b)
@@ -240,6 +251,23 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           return toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5))
         })
       }
+
+      if (hasUnassigned) {
+        map.set(dateStr, [
+          {
+            id: 'unassigned-shift-' + dateStr,
+            therapist_id: 'unassigned',
+            room_id: null,
+            date: dateStr,
+            start_time: '10:00:00',
+            end_time: '22:00:00',
+            notes: '未割当のフリー予約があります',
+          },
+          ...others,
+        ])
+      } else {
+        map.set(dateStr, others)
+      }
     })
 
     return map
@@ -248,7 +276,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const reservationsByDateTherapist = useMemo(() => {
     const map = new Map<string, Reservation[]>()
     reservations.forEach(r => {
-      const key = `${r.date}_${r.therapist_id}`
+      const key = `${r.date}_${r.therapist_id || 'unassigned'}`
       const list = map.get(key) || []
       list.push(r)
       map.set(key, list)
@@ -323,42 +351,50 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
                           <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                          {/* ＋予約・編集ボタン — 右上固定 */}
-                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                            {onShiftEditOpen && (
+                           {/* ＋予約・編集ボタン — 右上固定 */}
+                          {therapist.id !== 'unassigned' && (
+                            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                              {onShiftEditOpen && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onShiftEditOpen(therapist.id, dateStr)
+                                  }}
+                                  title="シフトを編集"
+                                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  onShiftEditOpen(therapist.id, dateStr)
+                                  const t = new Date()
+                                  t.setHours(t.getHours() + 1, 0, 0, 0)
+                                  const time = `${String(t.getHours()).padStart(2, '0')}:00`
+                                  const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
+                                  if (shift.room_id) params.set('room_id', shift.room_id)
+                                  router.push(`/reservations/new?${params.toString()}`)
                                 }}
-                                title="シフトを編集"
-                                className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded"
+                                className="text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                ＋予約
                               </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const t = new Date()
-                                t.setHours(t.getHours() + 1, 0, 0, 0)
-                                const time = `${String(t.getHours()).padStart(2, '0')}:00`
-                                const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
-                                if (shift.room_id) params.set('room_id', shift.room_id)
-                                router.push(`/reservations/new?${params.toString()}`)
-                              }}
-                              className="text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
-                            >
-                              ＋予約
-                            </button>
-                          </div>
+                            </div>
+                          )}
 
                           {/* セラピスト情報 */}
                           <div className="flex items-stretch">
                             {/* 写真 */}
                             <div className="w-14 flex-shrink-0 bg-white p-1" style={{ minHeight: '72px' }}>
-                              <div className="relative w-full h-full overflow-hidden rounded">
-                                {therapist.avatar ? (
+                              <div className="relative w-full h-full overflow-hidden rounded bg-slate-50 flex items-center justify-center border border-slate-200">
+                                {therapist.id === 'unassigned' ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                  </div>
+                                ) : therapist.avatar ? (
                                   <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
                                 ) : (
                                   <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
@@ -372,16 +408,24 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                   {therapist.name}
                                 </p>
                               </div>
-                              {shiftNote && (
+                              {shiftNote && therapist.id !== 'unassigned' && (
                                 <p className="text-[10px] font-medium text-amber-600 leading-none whitespace-nowrap truncate">
                                   {shiftNote}
                                 </p>
                               )}
-                              <p className="text-[10px] font-medium whitespace-nowrap leading-none">
-                                <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
-                                  {shift.start_time.slice(0, 5)} - {endDisplay}
-                                </span>
-                              </p>
+                              {therapist.id === 'unassigned' ? (
+                                <p className="text-[10px] font-medium whitespace-nowrap leading-none mt-0.5">
+                                  <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">
+                                    未割当あり
+                                  </span>
+                                </p>
+                              ) : (
+                                <p className="text-[10px] font-medium whitespace-nowrap leading-none">
+                                  <span className="text-emerald-700 bg-emerald-50 px-1.5 rounded border border-emerald-100">
+                                    {shift.start_time.slice(0, 5)} - {endDisplay}
+                                  </span>
+                                </p>
+                              )}
                               <div className="flex items-center gap-1 flex-wrap">
                                 {roomName && (
                                   <p className="text-[9px] text-slate-500 whitespace-nowrap leading-none flex items-center gap-0.5 font-medium">
