@@ -1,3 +1,54 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans), "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), "Fira Code", monospace;
+
+  /* Custom Color Palette (Premium Indigo & Slate) */
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+  --color-accent-500: #8b5cf6; /* Violet */
+  --color-accent-600: #7c3aed;
+  
+  /* Adjusted Slates for better contrast and softer feel */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+}
+
+:root {
+  --background: #f4f7f9; /* Very soft cool gray instead of plain white/gray */
+  --foreground: #0f172a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b; /* Zinc 950 */
+    --foreground: #f8fafc;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  /* Apply the modern font stack */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* スクロールバー非表示用ユーティリティ */
 .scrollbar-hide {
   -ms-overflow-style: none; /* IE and Edge */
@@ -6,39 +57,16 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
-@import "tailwindcss";
 
-:root {
-  --background: #f8fafc; /* bg-slate-50 */
-  --foreground: #0f172a; /* text-slate-900 */
+/* 共通コンポーネント用クラス（再利用性向上） */
+.glass-panel {
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-sm;
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-
-  /* slate カラーを2段階濃くしてコントラスト改善 */
-  --color-slate-50: #e9eef4;
-  --color-slate-100: #d5dce6;
-  --color-slate-200: #b8c3d2;
-  --color-slate-300: #8d9bb0;
-  --color-slate-400: #6b7d96;
-  --color-slate-500: #4a5768;
+.glass-panel-dark {
+  @apply bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 shadow-sm;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.premium-card {
+  @apply bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-[0_8px_30px_-4px_rgba(6,81,237,0.15)] hover:-translate-y-1 transition-all duration-300;
 }
 
 /* iOS Safari: フォーム要素のテキストが見えない問題の修正 */
