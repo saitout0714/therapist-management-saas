@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -140,9 +141,121 @@ export async function POST(
   // コース情報取得
   const { data: course } = await supabase
     .from('courses')
-    .select('base_price, name')
+    .select('base_price, name, back_amount, duration')
     .eq('id', course_id)
     .single()
+
+  // 1. セラピスト設定の取得
+  let therapist = null
+  if (therapist_id) {
+    const { data: ther } = await supabase
+      .from('therapists')
+      .select('rank_id, back_calc_type')
+      .eq('id', therapist_id)
+      .maybeSingle()
+    therapist = ther
+  }
+
+  // 2. 指名区分のIDと設定行の取得
+  let designationTypeRow = null
+  let designationTypeId: string | null = null
+  if (designationType) {
+    const { data: dtRow } = await supabase
+      .from('designation_types')
+      .select('id, slug, is_store_paid_back, default_fee')
+      .eq('shop_id', shopId)
+      .eq('slug', designationType)
+      .maybeSingle()
+    if (dtRow) {
+      designationTypeRow = dtRow
+      designationTypeId = dtRow.id
+    }
+  }
+
+  // 3. 顧客料金と指名料の解決
+  const resolvedPrice = await resolveCustomerPrice(
+    shopId,
+    course_id,
+    therapist?.rank_id || null,
+    designationType,
+    course?.base_price || 0,
+    supabase
+  )
+
+  let basePrice = resolvedPrice.customerPrice
+  let nominationFee = 0
+
+  if (designationType !== 'free' && !designationTypeRow?.is_store_paid_back) {
+    if (resolvedPrice.customerPrice > (course?.base_price || 0)) {
+      // コース料金自体が matrix やデフォルト設定によって高くなっている場合、
+      // 指名料はすでにその customerPrice に内包されているため、追加の nominationFee は 0 とする
+      nominationFee = 0
+    } else {
+      // フォールバック: system_settings や therapist_pricing から取得
+      const { data: systemSettings } = await supabase
+        .from('system_settings')
+        .select('default_nomination_fee, default_confirmed_nomination_fee, default_princess_reservation_fee')
+        .eq('shop_id', shopId)
+        .maybeSingle()
+
+      let therapistPricing = null
+      if (therapist_id) {
+        const { data: pricing } = await supabase
+          .from('therapist_pricing')
+          .select('nomination_fee, confirmed_nomination_fee, princess_reservation_fee')
+          .eq('therapist_id', therapist_id)
+          .maybeSingle()
+        therapistPricing = pricing
+      }
+
+      const defaultNominationFee = systemSettings?.default_nomination_fee || 0
+      const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
+      const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
+      
+      const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
+        therapistFee !== null && therapistFee !== undefined && therapistFee > 0 ? therapistFee : defaultFee
+
+      if (designationType === 'first_nomination' || designationType === 'nomination') {
+        nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
+      } else if (designationType === 'confirmed') {
+        nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
+      } else if (designationType === 'princess') {
+        nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+      }
+    }
+  }
+
+  // 4. セラピストバック額の算出
+  let therapistBackAmount = 0
+  let shopRevenue = 0
+  let businessDate = date
+  if (therapist_id) {
+    try {
+      const backInput = {
+        shopId,
+        therapistId: therapist_id,
+        therapistRankId: therapist?.rank_id || null,
+        therapistBackCalcType: therapist?.back_calc_type || null,
+        courseId: course_id,
+        coursePrice: course?.base_price || 0,
+        courseBackAmount: course?.back_amount || 0,
+        courseDuration: course?.duration || 0,
+        designationType,
+        nominationFee,
+        options: [],
+        discounts: [],
+        date,
+        startTime: start_time,
+        supabaseClient: supabase
+      }
+      const backResult = await calculateBack(backInput)
+      therapistBackAmount = backResult.netBack
+      shopRevenue = backResult.shopRevenue
+      businessDate = backResult.businessDate
+    } catch (err) {
+      console.error('バック金額の自動計算に失敗:', err)
+    }
+  }
 
   // 予約作成
   const { data: reservation, error: reservationError } = await supabase
@@ -158,9 +271,17 @@ export async function POST(
       status: 'confirmed',
       payment_method,
       source: 'web',
-      total_price: course?.base_price || 0,
+      is_handled: false,
+      base_price: basePrice,
+      nomination_fee: nominationFee,
+      total_price: basePrice + nominationFee,
       discount_amount: 0,
       designation_type: designationType,
+      designation_type_id: designationTypeId,
+      therapist_back_amount: therapistBackAmount,
+      shop_revenue: shopRevenue,
+      back_calculated_at: new Date().toISOString(),
+      business_date: businessDate,
       notes: customer.notes || null,
     })
     .select('id')

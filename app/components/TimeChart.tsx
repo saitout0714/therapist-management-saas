@@ -42,6 +42,8 @@ interface Schedule {
   isNewCustomer?: boolean;
   isHime?: boolean;
   isPending?: boolean;
+  isHandled?: boolean;
+  source?: string;
 }
 
 interface TimeChartProps {
@@ -525,6 +527,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const isReservation = schedule.type === 'reservation';
                 const isInterval = schedule.type === 'interval';
                 const isBlocked = schedule.type === 'blocked';
+                const isUnhandledWeb = isReservation && schedule.source === 'web' && !schedule.isHandled;
 
                 // 予約不可ブロック（えんじ色）
                 if (isBlocked) {
@@ -646,9 +649,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
-                    ? schedule.isHime
-                      ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
-                      : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20'
+                    ? isUnhandledWeb
+                      ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 border border-orange-400 shadow-md shadow-orange-500/30 animate-pulse-subtle'
+                      : schedule.isHime
+                        ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
+                        : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20';
 
                 return (
@@ -681,6 +686,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {isReservation && (
                           <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                             {schedule.isNewCustomer ? '新規' : '会員'}
+                          </span>
+                        )}
+                        {isUnhandledWeb && (
+                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-yellow-400 text-slate-900 border border-yellow-300 shadow-sm animate-pulse whitespace-nowrap">
+                            未対応
                           </span>
                         )}
                       </div>
@@ -742,6 +752,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
+        }
+        @keyframes pulseSubtle {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.95; transform: scale(0.985); }
+        }
+        .animate-pulse-subtle {
+          animation: pulseSubtle 2.5s infinite ease-in-out;
         }
       `}} />
 

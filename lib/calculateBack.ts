@@ -102,8 +102,9 @@ export type BackCalculationInput = {
   extensionCount?: number
   // 姫予約ボーナス
   himeBonus?: number
-  // courses.back_amount（コース管理で設定したコース単位の固定バック額）
+  // courses.back_amount（コース管理で設定したコース単位 of 固定バック額）
   courseBackAmount?: number
+  supabaseClient?: any
 }
 
 export type BackCalculationResult = {
@@ -144,6 +145,13 @@ function applyRounding(value: number, method: 'floor' | 'ceil' | 'round'): numbe
 // ============================================================
 
 /**
+ * database client helper
+ */
+function getDbClient(customClient?: any) {
+  return customClient || supabase
+}
+
+/**
  * course_back_amounts テーブルから顧客料金（customer_price）を解決する。
  * 指名種別×ランク×コースの組み合わせで検索し、
  * 見つからなければコースのbase_priceをフォールバックとして返す。
@@ -153,11 +161,14 @@ export async function resolveCustomerPrice(
   courseId: string,
   rankId: string | null,
   designationSlug: string,
-  fallbackBasePrice: number
+  fallbackBasePrice: number,
+  customClient?: any
 ): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; source: 'matrix' | 'default' | 'fallback' }> {
+  const client = getDbClient(customClient)
+
   // 1. ランク指定ありで検索（マトリクス表）
   if (rankId) {
-    const { data } = await supabase
+    const { data } = await client
       .from('course_back_amounts')
       .select('back_amount, customer_price, course_price_override')
       .eq('shop_id', shopId)
@@ -177,7 +188,7 @@ export async function resolveCustomerPrice(
   }
 
   // 2. 指名種別マスタのデフォルトを確認
-  const { data: dtData } = await supabase
+  const { data: dtData } = await client
     .from('designation_types')
     .select('default_fee, default_back_amount')
     .eq('shop_id', shopId)
@@ -228,20 +239,22 @@ function resolveTherapistOptionRate(
 // ============================================================
 
 export async function calculateBack(input: BackCalculationInput): Promise<BackCalculationResult> {
+  const client = getDbClient(input.supabaseClient)
+
   // Step 0: 営業日の決定
-  const shopRule = await fetchShopBackRule(input.shopId)
+  const shopRule = await fetchShopBackRule(input.shopId, client)
   if (!shopRule) throw new Error('店舗のバック設定の取得に失敗しました。システム管理者にお問い合わせください。')
 
   // Step 0c: セラピスト個別オプションバック設定とオプションカテゴリを一括取得
   const optionIds = input.options.filter(o => o.option_id).map(o => o.option_id as string)
   const [therapistOptBacksRes, optCategoriesRes] = await Promise.all([
-    supabase.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
+    client.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
     optionIds.length > 0
-      ? supabase.from('options').select('id, back_category').in('id', optionIds)
+      ? client.from('options').select('id, back_category').in('id', optionIds)
       : Promise.resolve({ data: [] as { id: string; back_category: string }[] }),
   ])
   const therapistOptBacks = (therapistOptBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]
-  const optCategoryMap = new Map((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
+  const optCategoryMap = new Map<string, string>((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
 
   const businessDate = resolveBusinessDate(
     input.date,
@@ -255,7 +268,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     input.courseId,
     input.therapistRankId,
     input.designationType,
-    input.coursePrice
+    input.coursePrice,
+    client
   )
   const effectiveCoursePrice = resolved_price.customerPrice
 
@@ -282,7 +296,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     input.therapistRankId,
     input.therapistBackCalcType,
     input.courseId,
-    shopRule
+    shopRule,
+    client
   )
 
   let courseBack = 0
@@ -301,11 +316,11 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
     // Calculate extension if needed
     if (input.extensionCount && input.extensionCount > 0) {
-      const { data: sysData } = await supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
+      const { data: sysData } = await client.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
       let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
       let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
       if (input.therapistRankId) {
-        const { data: rankData } = await supabase.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+        const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
         if (rankData && rankData.length > 0) {
           extUnitPrice = rankData[0].extension_unit_price
           extUnitBack = rankData[0].extension_unit_back
@@ -325,7 +340,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       : applyRounding((courseOnlyPrice + extensionPrice + totalOptionsPrice - totalDiscount) * resolved.courseRate / 100, shopRule.rounding_method)
     const totalBack = courseHalfBack + halfSplitNominationBack
 
-    const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
+    const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
 
     const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee)
     return {
@@ -369,7 +384,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       input.shopId,
       input.courseId,
       input.therapistRankId,
-      input.designationType
+      input.designationType,
+      client
     )
     if (fixedAmount) {
       courseBack = fixedAmount.back_amount
@@ -389,7 +405,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       input.extensionCourseId,
       input.therapistRankId,
       'free', // 延長はfreeで統一
-      input.extensionCoursePrice || 0
+      input.extensionCoursePrice || 0,
+      client
     )
     
     if (resolved.calcType === 'percentage') {
@@ -401,11 +418,11 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 2c: 延長回数の計算
   if (input.extensionCount && input.extensionCount > 0) {
-    const { data: sysData } = await supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
+    const { data: sysData } = await client.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).limit(1)
     let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
     let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
     if (input.therapistRankId) {
-      const { data: rankData } = await supabase.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+      const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
       if (rankData && rankData.length > 0) {
         extUnitPrice = rankData[0].extension_unit_price
         extUnitBack = rankData[0].extension_unit_back
@@ -435,7 +452,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
 
     // option_back_rules（オプション個別設定）にフォールバック
-    const optRule = await fetchOptionBackRule(input.shopId, opt.option_id)
+    const optRule = await fetchOptionBackRule(input.shopId, opt.option_id, client)
 
     if (optRule) {
       switch (optRule.calc_type) {
@@ -516,7 +533,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const totalBack = courseBack + extensionBack + optionBack + nominationBack - therapistDiscountBurden
 
   // Step 6: 予約単位の控除・手当処理
-  const deductionResult = await calculateDeductions(input.shopId, input.courseDuration)
+  const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
@@ -585,9 +602,12 @@ async function resolveBackRates(
   therapistCalcType: string | null,
   courseId: string,
   shopRule: ShopBackRule,
+  client?: any,
 ): Promise<ResolvedRates> {
+  const db = getDbClient(client)
+
   if (therapistCalcType === 'half_split') {
-    const override = await fetchTherapistOverride(therapistId, courseId)
+    const override = await fetchTherapistOverride(therapistId, courseId, db)
     return {
       calcType: 'half_split',
       courseRate: override?.course_back_rate ?? 50,
@@ -597,7 +617,7 @@ async function resolveBackRates(
   }
 
   // 1a. セラピスト個別オーバーライド
-  const override = await fetchTherapistOverride(therapistId, courseId)
+  const override = await fetchTherapistOverride(therapistId, courseId, db)
   if (override && override.course_back_rate !== null) {
     return {
       calcType: 'percentage',
@@ -609,7 +629,7 @@ async function resolveBackRates(
 
   // 1b. ランク別オーバーライド
   if (rankId) {
-    const rankRule = await fetchRankBackRule(shopId, rankId)
+    const rankRule = await fetchRankBackRule(shopId, rankId, db)
     if (rankRule && rankRule.course_back_rate !== null) {
       return {
         calcType: shopRule.course_calc_type,
@@ -633,8 +653,9 @@ async function resolveBackRates(
 // Helper: Calculate deductions for a reservation
 // ============================================================
 
-async function calculateDeductions(shopId: string, courseDuration: number) {
-  const { data } = await supabase
+async function calculateDeductions(shopId: string, courseDuration: number, client?: any) {
+  const db = getDbClient(client)
+  const { data } = await db
     .from('deduction_rules')
     .select('*')
     .eq('shop_id', shopId)
@@ -662,9 +683,10 @@ async function calculateDeductions(shopId: string, courseDuration: number) {
 /**
  * シフトベースの手当を計算する（交通費など）
  */
-export async function calculateShiftAllowances(shopId: string, therapistId: string, date: string): Promise<number> {
+export async function calculateShiftAllowances(shopId: string, therapistId: string, date: string, client?: any): Promise<number> {
+  const db = getDbClient(client)
   // この日にこのセラピストはシフト入りしているか？
-  const { data: shifts } = await supabase
+  const { data: shifts } = await db
     .from('shifts')
     .select('id')
     .eq('shop_id', shopId)
@@ -675,7 +697,7 @@ export async function calculateShiftAllowances(shopId: string, therapistId: stri
   if (!shifts || shifts.length === 0) return 0
 
   // per_shift の手当を合算
-  const { data: rules } = await supabase
+  const { data: rules } = await db
     .from('deduction_rules')
     .select('*')
     .eq('shop_id', shopId)
@@ -700,8 +722,9 @@ export async function calculateShiftAllowances(shopId: string, therapistId: stri
 // Data fetchers
 // ============================================================
 
-async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
-  const { data } = await supabase
+async function fetchShopBackRule(shopId: string, client?: any): Promise<ShopBackRule | null> {
+  const db = getDbClient(client)
+  const { data } = await db
     .from('shop_back_rules')
     .select('*')
     .eq('shop_id', shopId)
@@ -737,7 +760,7 @@ async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
     rounding_method: 'floor' as const,
     business_day_cutoff: '06:00',
   }
-  const { data: inserted } = await supabase
+  const { data: inserted } = await db
     .from('shop_back_rules')
     .insert([defaults])
     .select()
@@ -745,8 +768,9 @@ async function fetchShopBackRule(shopId: string): Promise<ShopBackRule | null> {
   return (inserted?.[0] as ShopBackRule) ?? (defaults as ShopBackRule)
 }
 
-async function fetchTherapistOverride(therapistId: string, courseId: string): Promise<TherapistBackOverride | null> {
-  const { data: specific } = await supabase
+async function fetchTherapistOverride(therapistId: string, courseId: string, client?: any): Promise<TherapistBackOverride | null> {
+  const db = getDbClient(client)
+  const { data: specific } = await db
     .from('therapist_back_overrides')
     .select('*')
     .eq('therapist_id', therapistId)
@@ -755,7 +779,7 @@ async function fetchTherapistOverride(therapistId: string, courseId: string): Pr
 
   if (specific && specific.length > 0) return specific[0] as TherapistBackOverride
 
-  const { data: general } = await supabase
+  const { data: general } = await db
     .from('therapist_back_overrides')
     .select('*')
     .eq('therapist_id', therapistId)
@@ -765,8 +789,9 @@ async function fetchTherapistOverride(therapistId: string, courseId: string): Pr
   return general?.[0] as TherapistBackOverride | null ?? null
 }
 
-async function fetchRankBackRule(shopId: string, rankId: string): Promise<RankBackRule | null> {
-  const { data } = await supabase
+async function fetchRankBackRule(shopId: string, rankId: string, client?: any): Promise<RankBackRule | null> {
+  const db = getDbClient(client)
+  const { data } = await db
     .from('rank_back_rules')
     .select('*')
     .eq('shop_id', shopId)
@@ -776,10 +801,11 @@ async function fetchRankBackRule(shopId: string, rankId: string): Promise<RankBa
 }
 
 async function fetchCourseBackAmount(
-  shopId: string, courseId: string, rankId: string | null, designationType: string
+  shopId: string, courseId: string, rankId: string | null, designationType: string, client?: any
 ): Promise<CourseBackAmount | null> {
+  const db = getDbClient(client)
   if (rankId) {
-    const { data } = await supabase
+    const { data } = await db
       .from('course_back_amounts')
       .select('back_amount, customer_price')
       .eq('shop_id', shopId)
@@ -793,8 +819,9 @@ async function fetchCourseBackAmount(
   return null
 }
 
-async function fetchOptionBackRule(shopId: string, optionId: string): Promise<OptionBackRule | null> {
-  const { data } = await supabase
+async function fetchOptionBackRule(shopId: string, optionId: string, client?: any): Promise<OptionBackRule | null> {
+  const db = getDbClient(client)
+  const { data } = await db
     .from('option_back_rules')
     .select('*')
     .eq('shop_id', shopId)

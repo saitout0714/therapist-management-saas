@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -18,6 +18,8 @@ type Reservation = {
   therapist: { name: string } | null
   course: { name: string } | null
   created_by: { name: string } | null
+  is_handled?: boolean
+  source?: string
 }
 
 type SearchFilters = {
@@ -111,7 +113,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,start_time,end_time,total_price,status,designation_type,created_at,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -342,42 +344,70 @@ export default function ReservationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  reservations.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                        {r.start_time.slice(0, 5)} - {r.end_time.slice(0, 5)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{r.course?.name || '-'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${designationStyle(r.designation_type)}`}>
-                          {designationLabel(r.designation_type)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">¥{r.total_price.toLocaleString()}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
-                          {statusLabel(r.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
-                        {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-3">
-                          <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
-                            詳細 / 編集
-                          </Link>
-                          <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors" onClick={() => void handleDelete(r.id)}>
-                            削除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  reservations.map((r) => {
+                    const isUnhandledWeb = r.source === 'web' && !r.is_handled;
+                    return (
+                      <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : 'hover:bg-slate-50/80'}`}>
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                          {r.start_time.slice(0, 5)} - {r.end_time.slice(0, 5)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{r.course?.name || '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${designationStyle(r.designation_type)}`}>
+                            {designationLabel(r.designation_type)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-800">¥{r.total_price.toLocaleString()}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
+                              {statusLabel(r.status)}
+                            </span>
+                            {isUnhandledWeb && (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white border border-amber-400 shadow-sm animate-pulse">
+                                未対応
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                          {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-3">
+                            {isUnhandledWeb && (
+                              <button
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('reservations')
+                                    .update({ is_handled: true })
+                                    .eq('id', r.id);
+                                  if (error) {
+                                    alert('更新に失敗しました: ' + error.message);
+                                  } else {
+                                    void fetchReservations(page, applied);
+                                  }
+                                }}
+                                className="text-amber-700 hover:text-amber-800 font-bold text-xs bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg border border-amber-300 transition-colors shadow-sm cursor-pointer"
+                              >
+                                対応済にする
+                              </button>
+                            )}
+                            <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                              詳細 / 編集
+                            </Link>
+                            <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
+                              削除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

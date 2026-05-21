@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
@@ -34,6 +34,8 @@ interface Reservation {
   notes?: string | null;
   customers: { name: string; created_at: string } | null;
   courses: { name: string; duration: number } | null;
+  is_handled?: boolean;
+  source?: string;
 }
 
 interface Room {
@@ -615,6 +617,8 @@ export default function ShiftsPage() {
           designation_type,
           is_hime,
           notes,
+          is_handled,
+          source,
           customers(name, created_at),
           courses(name, duration)
         `)
@@ -661,6 +665,8 @@ export default function ShiftsPage() {
         isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
         isPending: reservation.status === 'pending',
+        isHandled: reservation.is_handled,
+        source: reservation.source,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')

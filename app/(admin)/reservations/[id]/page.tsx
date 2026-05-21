@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -48,6 +48,8 @@ type Reservation = {
   therapists: { name: string } | null
   reservation_options: CustomOption[]
   reservation_discounts: ReservationDiscount[]
+  is_handled?: boolean
+  source?: string
 }
 
 type RoomInfo = {
@@ -83,6 +85,8 @@ export default function ReservationPreviewPage() {
         .from('reservations')
         .select(`
           *,
+          is_handled,
+          source,
           customers(name, phone, email),
           courses(name, duration, base_price),
           therapists!reservations_therapist_id_fkey(name),
@@ -377,6 +381,39 @@ export default function ReservationPreviewPage() {
   return (
     <div className="bg-slate-50 p-4 md:p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* 未対応警告バナー */}
+        {reservation.source === 'web' && !reservation.is_handled && (
+          <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-md border border-orange-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-base">未対応のWeb予約です</h3>
+                <p className="text-sm opacity-90">お客様からの新規Web予約が入りました。セラピストへの連絡を確認してください。</p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                const { error } = await supabase
+                  .from('reservations')
+                  .update({ is_handled: true })
+                  .eq('id', reservationId);
+                if (error) {
+                  alert('対応済みの更新に失敗しました: ' + error.message);
+                } else {
+                  void fetchReservationAndRoom();
+                }
+              }}
+              className="px-5 py-2.5 bg-white text-orange-600 font-bold text-sm rounded-xl shadow hover:bg-orange-50 active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+            >
+              対応済みにする (セラピスト連絡完了)
+            </button>
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
