@@ -35,7 +35,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               </div>
               <ShopSwitcher />
             </header>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto pb-20 md:pb-0">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto pb-24">
               {children}
             </main>
             <ShopTabBar />

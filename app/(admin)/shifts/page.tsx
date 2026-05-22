@@ -828,8 +828,21 @@ export default function ShiftsPage() {
     return unassignedTherapist ? [unassignedTherapist, ...sortedOthers] : sortedOthers;
   }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
 
-  // 週間表示用：全セラピストをシンプルな形式にマップ
-  const therapistsForWeekly = therapists.map(t => ({ id: t.id, name: t.name, avatar: t.avatar, reservation_interval_minutes: t.intervalMinutes ?? null }));
+  // 週間表示用：全セラピストを詳細な形式にマップ
+  const therapistsForWeekly = therapists.map(t => ({
+    id: t.id,
+    name: t.name,
+    avatar: t.avatar,
+    reservation_interval_minutes: t.intervalMinutes ?? null,
+    age: t.age,
+    height: t.height,
+    bust: t.bust,
+    bustCup: t.bustCup,
+    waist: t.waist,
+    hip: t.hip,
+    staffMemo: t.staffMemo,
+    unresolvedMemos: t.unresolvedMemos,
+  }));
 
   return (
     <div className="bg-gray-100 p-2 md:p-4">

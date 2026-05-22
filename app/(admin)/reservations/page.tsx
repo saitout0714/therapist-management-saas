@@ -166,7 +166,17 @@ export default function ReservationsPage() {
     void fetchReservations(newPage, applied)
   }
 
-  const designationLabel = (v: string) => designationTypes[v] || v
+  const designationLabel = (v: string) => {
+    if (designationTypes[v]) return designationTypes[v]
+    switch (v) {
+      case 'free': return 'フリー'
+      case 'nomination': return '指名'
+      case 'first_nomination': return '初回指名'
+      case 'confirmed': return '本指名'
+      case 'princess': return '姫予約'
+      default: return v
+    }
+  }
   const statusLabel = (v: string) => ({ pending: '保留中', confirmed: '確定', cancelled: 'キャンセル', completed: '完了' }[v] || v)
 
   useEffect(() => {
