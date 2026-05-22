@@ -96,17 +96,17 @@ export default function ShopTabBar() {
   }
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-full px-4 max-w-full sm:max-w-lg transition-transform duration-300">
-      <div className="glass-panel rounded-full p-1.5 flex relative shadow-xl border border-white/50 backdrop-blur-2xl">
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 w-fit max-w-[calc(100%-2rem)] transition-transform duration-300">
+      <div className="bg-white/95 text-slate-800 border border-slate-200 rounded-full p-1 flex relative shadow-[0_12px_32px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         {/* 左スクロールボタン */}
         {showLeftFade && (
-          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20">
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20">
             <button
               onClick={() => scrollBy('left')}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-sm text-slate-500 hover:text-primary-600 transition-colors"
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/95 border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
           </div>
@@ -114,13 +114,13 @@ export default function ShopTabBar() {
         
         {/* 右スクロールボタン */}
         {showRightFade && (
-          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20">
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20">
             <button
               onClick={() => scrollBy('right')}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-sm text-slate-500 hover:text-primary-600 transition-colors"
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/95 border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
@@ -128,7 +128,7 @@ export default function ShopTabBar() {
 
         <div
           ref={scrollRef}
-          className={`h-9 flex items-center gap-1.5 px-2 overflow-x-auto rounded-full w-full ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+          className={`h-7 flex items-center gap-1 px-1 overflow-x-auto rounded-full w-full ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -144,16 +144,16 @@ export default function ShopTabBar() {
                 onClick={() => handleShopSelect(shop)}
                 title={shop.name}
                 className={`
-                  relative flex-shrink-0 flex items-center gap-1.5 px-4 h-full rounded-full text-sm
-                  transition-all duration-300 focus:outline-none whitespace-nowrap
+                  relative flex-shrink-0 flex items-center gap-1.5 px-3 h-full rounded-full text-xs
+                  transition-all duration-200 focus:outline-none whitespace-nowrap
                   ${isActive
-                    ? 'bg-primary-600 text-white font-semibold shadow-md shadow-primary-500/20 scale-105'
-                    : 'bg-transparent text-slate-600 font-medium hover:bg-white/50 hover:text-primary-600'
+                    ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20 scale-102'
+                    : 'bg-transparent text-slate-600 font-semibold hover:bg-slate-50 hover:text-indigo-600'
                   }
                 `}
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300 ${isActive ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'bg-slate-300'}`}
+                  className={`w-1 h-1 rounded-full flex-shrink-0 transition-all duration-300 ${isActive ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.9)]' : 'bg-slate-300'}`}
                 />
                 {shop.short_name || shop.name}
               </button>
