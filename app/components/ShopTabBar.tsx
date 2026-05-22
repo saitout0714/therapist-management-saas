@@ -19,7 +19,6 @@ export default function ShopTabBar() {
 
   const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
 
-  // アクティブタブが見えるようにスクロール
   useEffect(() => {
     if (activeTabRef.current && scrollRef.current) {
       const container = scrollRef.current
@@ -97,72 +96,70 @@ export default function ShopTabBar() {
   }
 
   return (
-    <div
-      className="flex-shrink-0 relative bg-white border-t-2 border-slate-200"
-      style={{ height: '44px', boxShadow: '0 -4px 24px rgba(0,0,0,0.07)' }}
-    >
-      {/* 左スクロールボタン */}
-      {showLeftFade && (
-        <>
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-14 z-10 bg-gradient-to-r from-white to-transparent" />
-          <button
-            onClick={() => scrollBy('left')}
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        </>
-      )}
-      {/* 右スクロールボタン */}
-      {showRightFade && (
-        <>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-14 z-10 bg-gradient-to-l from-white to-transparent" />
-          <button
-            onClick={() => scrollBy('right')}
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </>
-      )}
-
-      <div
-        ref={scrollRef}
-        className={`h-full flex items-center gap-1.5 px-3 overflow-x-auto ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        {shops.map((shop) => {
-          const isActive = shop.id === selectedShop?.id
-          return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-full px-4 max-w-full sm:max-w-lg transition-transform duration-300">
+      <div className="glass-panel rounded-full p-1.5 flex relative shadow-xl border border-white/50 backdrop-blur-2xl">
+        {/* 左スクロールボタン */}
+        {showLeftFade && (
+          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20">
             <button
-              key={shop.id}
-              ref={isActive ? activeTabRef : undefined}
-              onClick={() => handleShopSelect(shop)}
-              title={shop.name}
-              className={`
-                relative flex-shrink-0 flex items-center gap-1.5 px-3 h-7 rounded-md text-xs
-                transition-all duration-150 focus:outline-none whitespace-nowrap
-                ${isActive
-                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-200'
-                  : 'bg-slate-100 text-slate-500 font-medium hover:bg-indigo-50 hover:text-indigo-600'
-                }
-              `}
+              onClick={() => scrollBy('left')}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-sm text-slate-500 hover:text-primary-600 transition-colors"
             >
-              <span
-                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-150 ${isActive ? 'bg-white/70' : 'bg-slate-400'}`}
-              />
-              {shop.short_name || shop.name}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-          )
-        })}
+          </div>
+        )}
+        
+        {/* 右スクロールボタン */}
+        {showRightFade && (
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20">
+            <button
+              onClick={() => scrollBy('right')}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-sm text-slate-500 hover:text-primary-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div
+          ref={scrollRef}
+          className={`h-9 flex items-center gap-1.5 px-2 overflow-x-auto rounded-full w-full ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          {shops.map((shop) => {
+            const isActive = shop.id === selectedShop?.id
+            return (
+              <button
+                key={shop.id}
+                ref={isActive ? activeTabRef : undefined}
+                onClick={() => handleShopSelect(shop)}
+                title={shop.name}
+                className={`
+                  relative flex-shrink-0 flex items-center gap-1.5 px-4 h-full rounded-full text-sm
+                  transition-all duration-300 focus:outline-none whitespace-nowrap
+                  ${isActive
+                    ? 'bg-primary-600 text-white font-semibold shadow-md shadow-primary-500/20 scale-105'
+                    : 'bg-transparent text-slate-600 font-medium hover:bg-white/50 hover:text-primary-600'
+                  }
+                `}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300 ${isActive ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'bg-slate-300'}`}
+                />
+                {shop.short_name || shop.name}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -18,10 +18,10 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   return (
     <AuthProvider>
       <ShopProvider>
-        <div className="flex h-screen">
+        <div className="flex h-screen bg-transparent">
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6">
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <header className="glass-panel sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 border-b-0 border-slate-200/50">
               <div className="flex items-center">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -35,7 +35,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               </div>
               <ShopSwitcher />
             </header>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto pb-20 md:pb-0">
               {children}
             </main>
             <ShopTabBar />

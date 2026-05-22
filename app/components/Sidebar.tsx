@@ -20,113 +20,65 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [pathname]);
 
+  const navItems = [
+    { href: "/", label: "ダッシュボード" },
+    { href: "/shifts", label: "スケジュール" },
+    { href: "/reservations", label: "予約管理" },
+    { href: "/payroll", label: "報酬・バック計算" },
+    { href: "/shifts/register", label: "シフト登録" },
+    { href: "/therapists", label: "セラピスト" },
+    { href: "/memos", label: "給与引継ぎメモ" },
+    { href: "/customers", label: "顧客管理" },
+    { href: "/rooms", label: "ルーム一覧" },
+    { href: "/system", label: "システム管理" },
+    { href: "/aggregation", label: "店舗集計" },
+    ...(user?.role === "admin" ? [{ href: "/admin", label: "店舗管理" }] : []),
+    { href: "/users", label: "アカウント管理" },
+    { href: "/settings", label: "設定" },
+  ];
+
   return (
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-slate-200/50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out flex flex-col ${
           isOpen
-            ? "translate-x-0 md:translate-x-0 md:static md:inset-auto md:w-48"
+            ? "translate-x-0 md:translate-x-0 md:static md:inset-auto md:w-56"
             : "-translate-x-full md:translate-x-0 md:static md:inset-auto md:w-0 md:overflow-hidden md:border-r-0 md:shadow-none"
         }`}
       >
-        <div className="flex items-center justify-center h-16 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
-          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 tracking-tight whitespace-nowrap">管理システム</h1>
+        <div className="flex items-center justify-center h-16 border-b border-slate-100/50 shrink-0">
+          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-500 tracking-tight whitespace-nowrap">
+            管理システム
+          </h1>
         </div>
-        <nav className="mt-4 px-3 space-y-1">
-          <Link
-            href="/"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">ダッシュボード</span>
-          </Link>
-          <Link
-            href="/shifts"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">スケジュール</span>
-          </Link>
-          <Link
-            href="/reservations"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">予約管理</span>
-          </Link>
-          <Link
-            href="/payroll"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">報酬・バック計算</span>
-          </Link>
-          <Link
-            href="/shifts/register"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">シフト登録</span>
-          </Link>
-          <Link
-            href="/therapists"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">セラピスト</span>
-          </Link>
-          <Link
-            href="/memos"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">給与引継ぎメモ</span>
-          </Link>
-          <Link
-            href="/customers"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">顧客管理</span>
-          </Link>
-          <Link
-            href="/rooms"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">ルーム一覧</span>
-          </Link>
-          <Link
-            href="/system"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">システム管理</span>
-          </Link>
-          <Link
-            href="/aggregation"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">店舗集計</span>
-          </Link>
-          {user?.role === "admin" && (
-            <Link
-              href="/admin"
-              className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-            >
-              <span className="truncate">店舗管理</span>
-            </Link>
-          )}
-          <Link
-            href="/users"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">アカウント管理</span>
-          </Link>
-          <Link
-            href="/settings"
-            className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 rounded-xl hover:bg-slate-100 hover:text-indigo-600 transition-all duration-200 group"
-          >
-            <span className="truncate">設定</span>
-          </Link>
-        </nav>
+        
+        <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
+          <nav className="px-3 space-y-1.5">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center px-4 py-2.5 text-sm rounded-xl transition-all duration-200 group ${
+                    isActive
+                      ? "bg-primary-50 text-primary-700 font-semibold shadow-sm"
+                      : "text-slate-600 font-medium hover:bg-slate-50 hover:text-primary-600"
+                  }`}
+                >
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black opacity-50 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm md:hidden transition-opacity"
           onClick={onClose}
         ></div>
       )}
