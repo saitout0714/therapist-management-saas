@@ -397,6 +397,24 @@ export default function ReservationsPage() {
                                 対応済にする
                               </button>
                             )}
+                            {r.source === 'web' && r.is_handled && (
+                              <button
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('reservations')
+                                    .update({ is_handled: false })
+                                    .eq('id', r.id);
+                                  if (error) {
+                                    alert('更新に失敗しました: ' + error.message);
+                                  } else {
+                                    void fetchReservations(page, applied);
+                                  }
+                                }}
+                                className="text-slate-600 hover:text-slate-800 font-bold text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-300 transition-colors shadow-sm cursor-pointer"
+                              >
+                                未対応に戻す
+                              </button>
+                            )}
                             <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
                               詳細 / 編集
                             </Link>

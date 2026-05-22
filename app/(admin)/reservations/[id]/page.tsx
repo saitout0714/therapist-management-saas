@@ -414,6 +414,39 @@ export default function ReservationPreviewPage() {
             </button>
           </div>
         )}
+
+        {/* 対応済みWeb予約のバナー（未対応に戻すボタン付き） */}
+        {reservation.source === 'web' && reservation.is_handled && (
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-md border border-emerald-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-base">対応済みのWeb予約です</h3>
+                <p className="text-sm opacity-90">セラピストへの連絡および予約の対応が完了しています。</p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                const { error } = await supabase
+                  .from('reservations')
+                  .update({ is_handled: false })
+                  .eq('id', reservationId);
+                if (error) {
+                  alert('未対応への更新に失敗しました: ' + error.message);
+                } else {
+                  void fetchReservationAndRoom();
+                }
+              }}
+              className="px-5 py-2.5 bg-white text-emerald-600 font-bold text-sm rounded-xl shadow hover:bg-emerald-50 active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+            >
+              未対応に戻す
+            </button>
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
