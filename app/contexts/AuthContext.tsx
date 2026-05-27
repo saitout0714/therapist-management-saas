@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
-import bcrypt from 'bcryptjs'
 
 type User = {
   id: string
@@ -68,31 +67,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginId: string, password: string) => {
     try {
-      // ユーザーを取得
-      const { data: userData, error: userError } = await supabase
+      // login_id がメールアドレス形式でない場合は、擬似メールアドレスにする
+      const email = loginId.includes('@') ? loginId : `${loginId}@yoyakl.tokyo`
+
+      // 1. Supabase Auth で安全にサーバーサイド認証を実行
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        console.error('Supabase Auth エラー:', authError)
+        throw new Error('ログインIDまたはパスワードが正しくありません')
+      }
+
+      const authUser = authData.user
+      if (!authUser) {
+        throw new Error('ユーザー情報の取得に失敗しました')
+      }
+
+      // 2. 認証に成功したユーザーの付随情報（役割や店舗）を public.users から取得
+      const { data: dbUserData, error: dbUserError } = await supabase
         .from('users')
         .select('*')
-        .eq('login_id', loginId)
+        .eq('id', authUser.id)
         .limit(1)
 
-      if (userError) {
-        // ネットワーク障害やSupabase設定不備は認証失敗と区別して表示する
-        throw new Error('認証サーバーに接続できません。SupabaseのURL/キー設定とネットワークをご確認ください')
+      if (dbUserError || !dbUserData || dbUserData.length === 0) {
+        throw new Error('データベースのユーザー情報の取得に失敗しました。管理者にお問い合わせください')
       }
 
-      if (!userData || userData.length === 0) {
-        throw new Error('ログインIDまたはパスワードが正しくありません')
-      }
+      const dbUser = dbUserData[0]
 
-      const dbUser = userData[0]
-
-      // パスワード検証（実装例：bcrypt使用、またはSupabase Authを使用することを推奨）
-      const passwordMatch = await bcrypt.compare(password, dbUser.password_hash)
-      if (!passwordMatch) {
-        throw new Error('ログインIDまたはパスワードが正しくありません')
-      }
-
-      // 店舗情報を取得（owner の場合）
+      // 3. 店舗情報を取得（owner の場合）
       let shops: { id: string; name: string }[] = []
       if (dbUser.role === 'owner') {
         const { data: shopsData, error: shopsError } = await supabase
@@ -134,10 +141,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      // 1. Supabase Auth セッションをログアウト
+      await supabase.auth.signOut()
+
+      // 2. ローカル状態とクッキーをクリア
       setUser(null)
       localStorage.removeItem('auth_user')
-
-      // クッキーも削除
       document.cookie = 'auth_user=; path=/; max-age=0'
     } catch (error) {
       console.error('ログアウト失敗:', error)

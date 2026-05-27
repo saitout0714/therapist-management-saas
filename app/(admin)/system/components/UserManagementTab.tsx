@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
-import bcrypt from 'bcryptjs'
 
 type UserRow = {
   id: string
@@ -29,28 +28,11 @@ export function UserManagementTab() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase
-        .from('shop_owners')
-        .select(`
-          users (
-            id,
-            login_id,
-            name,
-            role,
-            created_at
-          )
-        `)
-        .eq('shop_id', selectedShop.id)
-
-      if (error) throw error
-
-      const rows = (data as any[])
-        .map(d => d.users)
-        .filter(u => u !== null)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-      setUsers(rows)
-    } catch (err) {
+      const res = await fetch(`/api/admin/users?shopId=${selectedShop.id}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setUsers(data.users || [])
+    } catch (err: any) {
       console.error('Failed to fetch users:', err)
     } finally {
       setLoading(false)
@@ -76,36 +58,20 @@ export function UserManagementTab() {
     try {
       setLoading(true)
 
-      // 1. パスワードハッシュ化
-      const salt = await bcrypt.genSalt(10)
-      const passwordHash = await bcrypt.hash(form.password, salt)
-
-      // 2. ユーザーテーブルに作成
-      const { data: newUser, error: userError } = await supabase
-        .from('users')
-        .insert([{
-          login_id: form.loginId.trim(),
-          password_hash: passwordHash,
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          loginId: form.loginId.trim(),
+          password: form.password,
+          name: form.name.trim(),
           role: form.role,
-          name: form.name.trim()
-        }])
-        .select()
-        .single()
+          shopId: selectedShop.id,
+        }),
+      })
 
-      if (userError) {
-        if (userError.code === '23505') throw new Error('このログインIDは既に登録されています')
-        throw userError
-      }
-
-      // 3. shop_owners に紐付け (スタッフもこのテーブルで管理)
-      const { error: ownerError } = await supabase
-        .from('shop_owners')
-        .insert([{
-          shop_id: selectedShop.id,
-          user_id: newUser.id
-        }])
-
-      if (ownerError) throw ownerError
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
 
       alert('スタッフを登録しました')
       setForm({ loginId: '', password: '', name: '', role: 'staff' })
@@ -124,23 +90,19 @@ export function UserManagementTab() {
 
     try {
       setLoading(true)
-      const updates: any = {
-        name: form.name.trim(),
-        role: form.role,
-      }
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingUser.id,
+          name: form.name.trim(),
+          role: form.role,
+          password: form.password || undefined,
+        }),
+      })
 
-      // パスワードが入力されている場合のみ更新
-      if (form.password) {
-        const salt = await bcrypt.genSalt(10)
-        updates.password_hash = await bcrypt.hash(form.password, salt)
-      }
-
-      const { error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', editingUser.id)
-
-      if (error) throw error
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
 
       alert('アカウント情報を更新しました')
       setEditingUser(null)
@@ -169,9 +131,11 @@ export function UserManagementTab() {
 
     try {
       setLoading(true)
-      // 削除（カスケード設定があれば shop_owners も消えるが、念のため users を消す）
-      const { error } = await supabase.from('users').delete().eq('id', userId)
-      if (error) throw error
+      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
 
       alert('削除しました')
       fetchUsers()
@@ -241,8 +205,14 @@ export function UserManagementTab() {
               <input
                 type="text"
                 value={form.loginId}
-                disabled // ログインIDは変更不可とするか、慎重に扱う
-                className="w-full bg-slate-100 border border-indigo-100 px-4 py-2.5 rounded-xl text-sm outline-none text-slate-500"
+                onChange={e => setForm({ ...form, loginId: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                disabled={editingUser !== null}
+                className={`w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all ${
+                  editingUser
+                    ? 'bg-slate-100 border-indigo-100 text-slate-500'
+                    : 'bg-white border-indigo-200 focus:ring-2 focus:ring-indigo-500'
+                }`}
+                required
               />
             </div>
             <div className="md:col-span-2">
