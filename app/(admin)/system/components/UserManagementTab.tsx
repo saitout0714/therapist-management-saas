@@ -178,7 +178,7 @@ export function UserManagementTab() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">マンション名（お名前など）</label>
+              <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wider">お名前（氏名）</label>
               <input
                 type="text"
                 value={form.name}
