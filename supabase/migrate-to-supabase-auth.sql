@@ -25,7 +25,15 @@ BEGIN
       raw_app_meta_data,
       raw_user_meta_data,
       created_at,
-      updated_at
+      updated_at,
+      confirmation_token,
+      email_change,
+      email_change_token_new,
+      recovery_token,
+      email_change_token_current,
+      phone_change,
+      phone_change_token,
+      reauthentication_token
     ) VALUES (
       '00000000-0000-0000-0000-000000000000',
       r.id,
@@ -41,7 +49,15 @@ BEGIN
       '{"provider":"email","providers":["email"]}',
       '{}',
       NOW(),
-      NOW()
+      NOW(),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
     );
 
     -- auth.identities への登録（パスワード認証を有効化するために必要）
