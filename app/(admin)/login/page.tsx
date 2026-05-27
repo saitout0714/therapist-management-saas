@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -104,15 +104,6 @@ export default function LoginPage() {
               {loading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
-
-          {/* テスト用情報 */}
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <p className="text-xs text-gray-600 mb-3 font-semibold">テストアカウント:</p>
-            <div className="space-y-2 text-xs text-gray-600">
-              <p>ID: admin</p>
-              <p>パス: admin123</p>
-            </div>
-          </div>
         </div>
 
         {/* フッターのリンク */}
