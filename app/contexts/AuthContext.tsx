@@ -7,7 +7,7 @@ type User = {
   id: string
   loginId: string
   name?: string | null
-  role: 'admin' | 'owner' | 'staff'
+  role: 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner'
   shops?: Array<{
     id: string
     name: string
@@ -51,6 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               document.cookie = 'auth_user=; path=/; max-age=0'
               setUser(null)
             } else {
+              // 古い権限名のキャッシュを自動で新しい権限に移行
+              let roleChanged = false
+              if (userData.role === 'admin') { userData.role = 'system_admin'; roleChanged = true; }
+              if (userData.role === 'owner') { userData.role = 'simple_client_owner'; roleChanged = true; }
+              if (userData.role === 'staff') { userData.role = 'agency_staff'; roleChanged = true; }
+              
+              if (roleChanged) {
+                localStorage.setItem('auth_user', JSON.stringify(userData))
+                document.cookie = `auth_user=${JSON.stringify(userData)}; path=/; max-age=86400`
+              }
               setUser(userData)
             }
           }
@@ -99,9 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const dbUser = dbUserData[0]
 
-      // 3. 店舗情報を取得（owner の場合）
+      // 3. 店舗情報を取得（system_admin と agency_staff 以外の場合）
       let shops: { id: string; name: string }[] = []
-      if (dbUser.role === 'owner') {
+      if (dbUser.role !== 'system_admin' && dbUser.role !== 'agency_staff') {
         const { data: shopsData, error: shopsError } = await supabase
           .from('shop_owners')
           .select('shops(*)')

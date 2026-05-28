@@ -20,7 +20,7 @@ export function UserManagementTab() {
     loginId: '',
     password: '',
     name: '',
-    role: 'staff' as 'owner' | 'staff' | 'admin',
+    role: 'agency_staff' as 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner',
   })
 
   async function fetchUsers() {
@@ -74,7 +74,7 @@ export function UserManagementTab() {
       if (data.error) throw new Error(data.error)
 
       alert('スタッフを登録しました')
-      setForm({ loginId: '', password: '', name: '', role: 'staff' })
+      setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
       setShowAddForm(false)
       fetchUsers()
     } catch (err: any) {
@@ -106,7 +106,7 @@ export function UserManagementTab() {
 
       alert('アカウント情報を更新しました')
       setEditingUser(null)
-      setForm({ loginId: '', password: '', name: '', role: 'staff' })
+      setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
       fetchUsers()
     } catch (err: any) {
       alert('更新に失敗しました: ' + err.message)
@@ -158,7 +158,7 @@ export function UserManagementTab() {
             onClick={() => {
               setEditingUser(null)
               setShowAddForm(!showAddForm)
-              setForm({ loginId: '', password: '', name: '', role: 'staff' })
+              setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
             }}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm ${showAddForm ? 'bg-slate-100 text-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
@@ -195,9 +195,10 @@ export function UserManagementTab() {
                 onChange={e => setForm({ ...form, role: e.target.value as any })}
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               >
-                <option value="staff">スタッフ（一般）</option>
-                <option value="owner">共同オーナー（全権限）</option>
-                {editingUser?.role === 'admin' && <option value="admin">システム管理者</option>}
+                {editingUser?.role === 'system_admin' && <option value="system_admin">システム管理者</option>}
+                <option value="agency_staff">受付代行スタッフ</option>
+                <option value="agency_client_owner">代行プラン</option>
+                <option value="simple_client_owner">web予約プラン</option>
               </select>
             </div>
             <div className="md:col-span-2">
@@ -273,10 +274,14 @@ export function UserManagementTab() {
                   </td>
                   <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${u.role === 'owner' ? 'bg-indigo-100 text-indigo-600' :
-                        u.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                        u.role === 'agency_client_owner' || u.role === 'simple_client_owner' ? 'bg-indigo-100 text-indigo-600' :
+                        u.role === 'system_admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
                       }`}>
-                      {u.role === 'owner' ? 'オーナー' : u.role === 'admin' ? '管理者' : 'スタッフ'}
+                      {u.role === 'system_admin' ? '管理者' : 
+                       u.role === 'agency_client_owner' ? '代行プラン' : 
+                       u.role === 'simple_client_owner' ? 'web予約プラン' : 
+                       '代行スタッフ'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-400 font-medium">
