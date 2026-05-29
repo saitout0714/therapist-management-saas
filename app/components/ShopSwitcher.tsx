@@ -43,9 +43,9 @@ export default function ShopSwitcher() {
           title="アカウントメニュー"
         >
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-inner ${isUserMenuOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200'} transition-colors`}>
-            {user.loginId?.charAt(0).toUpperCase()}
+            {(user.name || user.loginId || '').charAt(0).toUpperCase()}
           </div>
-          <span className="text-sm font-bold truncate max-w-[120px] hidden md:block ml-2">{user.loginId}</span>
+          <span className="text-sm font-bold truncate max-w-[120px] hidden md:block ml-2">{user.name || user.loginId}</span>
           <svg
             className={`ml-1 mr-1 h-4 w-4 hidden md:block transition-transform duration-200 ${isUserMenuOpen ? '-rotate-180 text-indigo-600' : 'text-slate-400'}`}
             xmlns="http://www.w3.org/2000/svg"
@@ -59,15 +59,15 @@ export default function ShopSwitcher() {
             />
           </svg>
         </button>
-
+ 
         {isUserMenuOpen && (
           <div className="absolute right-0 mt-2.5 w-60 rounded-2xl shadow-xl bg-white/95 backdrop-blur-md border border-slate-100 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden flex flex-col">
             <div className="px-4 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center text-lg font-bold shadow-inner shrink-0">
-                {user.loginId?.charAt(0).toUpperCase()}
+                {(user.name || user.loginId || '').charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 text-sm truncate">{user.loginId}</p>
+                <p className="font-bold text-slate-800 text-sm truncate">{user.name || user.loginId}</p>
                 <p className="text-xs font-medium text-indigo-600 mt-0.5">
                   {user.role === 'system_admin' ? 'システム管理者' : 
                    user.role === 'agency_client_owner' ? '代行プラン' : 
