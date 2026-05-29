@@ -404,6 +404,7 @@ export default function EditShopPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
                     placeholder={hasOwner ? '変更する場合のみ入力' : '8文字以上推奨'}
                     required={!hasOwner && (ownerForm.name !== '' || ownerForm.login_id !== '')}
+                    autoComplete="new-password"
                   />
                 </div>
               </div>

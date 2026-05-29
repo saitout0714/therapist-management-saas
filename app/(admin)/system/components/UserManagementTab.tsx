@@ -226,6 +226,7 @@ export function UserManagementTab() {
                 placeholder={editingUser ? "変更する場合のみ入力してください" : "8文字以上推奨"}
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300"
                 required={!editingUser}
+                autoComplete="new-password"
               />
               <p className="text-[10px] text-indigo-400 mt-1 font-medium">※ パスワードは暗号化して保存されます。</p>
             </div>

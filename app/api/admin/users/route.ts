@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -7,10 +9,49 @@ const serviceSupabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// SUPABASE_SERVICE_ROLE_KEY の検証ユーティリティ
+function validateServiceRoleKey(): { isValid: boolean; reason?: string } {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) {
+    return {
+      isValid: false,
+      reason: '環境変数 SUPABASE_SERVICE_ROLE_KEY が設定されていません。Vercelのプロジェクト設定（Environment Variables）でキーを追加し、プロジェクトを「再デプロイ（Redeploy）」してください。'
+    }
+  }
+  try {
+    const parts = key.split('.')
+    if (parts.length !== 3) {
+      return {
+        isValid: false,
+        reason: 'SUPABASE_SERVICE_ROLE_KEY の形式が正しくありません。JWT（3セクション）の形式である必要があります。正しい Service Role キーを設定してください。'
+      }
+    }
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'))
+    if (payload.role !== 'service_role') {
+      return {
+        isValid: false,
+        reason: `設定されている環境変数のロールが "${payload.role}" です。本機能には "service_role"（管理者）キーが必要です。Vercel設定を確認してください。`
+      }
+    }
+    return { isValid: true }
+  } catch (err: any) {
+    return {
+      isValid: false,
+      reason: 'SUPABASE_SERVICE_ROLE_KEY の解析に失敗しました。コピーミスなどでキーが破損していないか確認してください。'
+    }
+  }
+}
+
 /**
  * GET: 現在のショップに属するユーザー一覧の取得
  */
 export async function GET(req: Request) {
+  // キーの健全性チェック
+  const validation = validateServiceRoleKey()
+  if (!validation.isValid) {
+    return NextResponse.json({ error: validation.reason }, { status: 500 })
+  }
+
   try {
     // 全ユーザーを所属店舗情報も含めて取得する
     const { data, error } = await serviceSupabase
@@ -62,6 +103,12 @@ export async function GET(req: Request) {
  * (Supabase Auth のアカウントを作成し、自動トリガーで public.users に同期、さらに店舗に紐付けます)
  */
 export async function POST(req: Request) {
+  // キーの健全性チェック
+  const validation = validateServiceRoleKey()
+  if (!validation.isValid) {
+    return NextResponse.json({ error: validation.reason }, { status: 500 })
+  }
+
   try {
     const { loginId, password, name, role, shopId } = await req.json()
 
@@ -128,6 +175,12 @@ export async function POST(req: Request) {
  * PUT: 既存スタッフ・オーナーの更新
  */
 export async function PUT(req: Request) {
+  // キーの健全性チェック
+  const validation = validateServiceRoleKey()
+  if (!validation.isValid) {
+    return NextResponse.json({ error: validation.reason }, { status: 500 })
+  }
+
   try {
     const { userId, name, role, password } = await req.json()
 
@@ -144,10 +197,17 @@ export async function PUT(req: Request) {
     }
 
     // 2. メタデータの更新（Authテーブル側）
-    const { error: authUpdateError } = await serviceSupabase.auth.admin.updateUserById(userId, {
-      user_metadata: { name: name.trim(), role },
-    })
-    if (authUpdateError) throw authUpdateError
+    // (Auth側にユーザーが存在しない等の不整合があっても、メインのDB更新処理を妨げないように安全に処理します)
+    try {
+      const { error: authUpdateError } = await serviceSupabase.auth.admin.updateUserById(userId, {
+        user_metadata: { name: name.trim(), role },
+      })
+      if (authUpdateError) {
+        console.warn('Authメタデータの更新に失敗 (処理は継続します):', authUpdateError.message)
+      }
+    } catch (authErr: any) {
+      console.warn('Authメタデータ更新中に例外が発生 (処理は継続します):', authErr.message)
+    }
 
     // 3. データベース側の情報を直接更新 (トリガーは新規挿入時のみのため、更新は直接実行)
     const { error: dbUpdateError } = await serviceSupabase
@@ -172,6 +232,12 @@ export async function PUT(req: Request) {
  * DELETE: ユーザーの削除
  */
 export async function DELETE(req: Request) {
+  // キーの健全性チェック
+  const validation = validateServiceRoleKey()
+  if (!validation.isValid) {
+    return NextResponse.json({ error: validation.reason }, { status: 500 })
+  }
+
   try {
     const url = new URL(req.url)
     const userId = url.searchParams.get('userId')
