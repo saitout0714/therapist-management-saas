@@ -195,8 +195,8 @@ export function UserManagementTab() {
                 onChange={e => setForm({ ...form, role: e.target.value as any })}
                 className="w-full bg-white border border-indigo-200 px-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               >
-                {editingUser?.role === 'system_admin' && <option value="system_admin">システム管理者</option>}
-                <option value="agency_staff">受付代行スタッフ</option>
+                <option value="system_admin">システム管理者</option>
+                <option value="agency_staff">受付スタッフ</option>
                 <option value="agency_client_owner">代行プラン</option>
                 <option value="simple_client_owner">web予約プラン</option>
               </select>
@@ -253,69 +253,85 @@ export function UserManagementTab() {
         </form>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-              <th className="px-6 py-4">利用者 / スタッフ</th>
-              <th className="px-6 py-4">ログインID</th>
-              <th className="px-6 py-4">権限</th>
-              <th className="px-6 py-4">登録日</th>
-              <th className="px-6 py-4 text-center">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {users.length > 0 ? (
-              users.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-700">{u.name || '名前未設定'}</div>
-                    <div className="text-[10px] text-slate-400 uppercase font-mono">{u.id.slice(0, 8)}</div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                        u.role === 'agency_client_owner' || u.role === 'simple_client_owner' ? 'bg-indigo-100 text-indigo-600' :
-                        u.role === 'system_admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                      {u.role === 'system_admin' ? '管理者' : 
-                       u.role === 'agency_client_owner' ? '代行プラン' : 
-                       u.role === 'simple_client_owner' ? 'web予約プラン' : 
-                       '代行スタッフ'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-medium">
-                    {new Date(u.created_at).toLocaleDateString('ja-JP')}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => startEditing(u)}
-                        className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
-                        title="情報を編集"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636l-3.536 3.536m0 0l-1.414 1.414M15.828 4.172a4 4 0 015.656 5.656L10 17.657l-4-4L15.828 4.172z" /></svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="p-2 text-slate-300 hover:text-rose-600 transition-colors"
-                        title="アカウントを削除"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
-                  登録されている利用者がいません。
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="space-y-6">
+        {[
+          { role: 'system_admin', label: '管理者', badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200/60' },
+          { role: 'agency_staff', label: '受付スタッフ', badgeClass: 'bg-slate-100 text-slate-700 border border-slate-200/60' },
+          { role: 'agency_client_owner', label: '代行プラン', badgeClass: 'bg-indigo-100 text-indigo-700 border border-indigo-200/60' },
+          { role: 'simple_client_owner', label: 'web予約プラン', badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' },
+        ].map(group => {
+          const groupUsers = users.filter(u => u.role === group.role)
+          
+          return (
+            <div key={group.role} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* グループヘッダー */}
+              <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${group.badgeClass}`}>
+                    {group.label}
+                  </span>
+                  <span className="text-xs text-slate-400 font-bold font-mono">
+                    {groupUsers.length} 名
+                  </span>
+                </div>
+              </div>
+
+              {/* グループ内ユーザーテーブル */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/10 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-50">
+                      <th className="px-6 py-3.5">利用者 / スタッフ</th>
+                      <th className="px-6 py-3.5">ログインID</th>
+                      <th className="px-6 py-3.5">登録日</th>
+                      <th className="px-6 py-3.5 text-center">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {groupUsers.length > 0 ? (
+                      groupUsers.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-700">{u.name || '名前未設定'}</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-mono">{u.id.slice(0, 8)}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
+                          <td className="px-6 py-4 text-xs text-slate-400 font-medium">
+                            {new Date(u.created_at).toLocaleDateString('ja-JP')}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => startEditing(u)}
+                                className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
+                                title="情報を編集"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636l-3.536 3.536m0 0l-1.414 1.414M15.828 4.172a4 4 0 015.656 5.656L10 17.657l-4-4L15.828 4.172z" /></svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="p-2 text-slate-300 hover:text-rose-600 transition-colors"
+                                title="アカウントを削除"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400 italic">
+                          この権限のユーザーは登録されていません。
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -53,10 +53,10 @@ export default function LoginPage() {
           {/* ロゴ・タイトル */}
           <div className="text-center mb-5">
             <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold">管</span>
+              <span className="text-2xl font-bold">ヨ</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">管理システム</h1>
-            <p className="text-gray-600 mt-2">セラピスト管理・予約管理システム</p>
+            <h1 className="text-2xl font-bold text-gray-900">ヨヤクル</h1>
+            <p className="text-gray-600 mt-2">セラピスト・予約管理システム</p>
           </div>
 
           {/* エラーメッセージ */}

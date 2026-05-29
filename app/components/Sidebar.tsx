@@ -49,7 +49,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex items-center justify-center h-16 border-b border-slate-100/50 shrink-0">
           <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-500 tracking-tight whitespace-nowrap">
-            管理システム
+            ヨヤクル
           </h1>
         </div>
         

@@ -31,7 +31,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
-                <h1 className="ml-3 text-lg font-bold text-slate-800 tracking-tight md:hidden">管理システム</h1>
+                <h1 className="ml-3 text-lg font-bold text-slate-800 tracking-tight md:hidden">ヨヤクル</h1>
               </div>
               <ShopSwitcher />
             </header>
