@@ -37,9 +37,9 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="h-full bg-gradient-to-br from-slate-50 to-primary-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
           <p className="text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -47,21 +47,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="h-full bg-gradient-to-br from-slate-50 to-primary-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
           {/* ロゴ・タイトル */}
-          <div className="text-center mb-5">
-            <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+          <div className="text-center mb-6">
+            <div className="bg-accent-500 text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-md shadow-accent-500/20 active:scale-95 transition-transform duration-200">
               <span className="text-2xl font-bold">ヨ</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">ヨヤクル</h1>
-            <p className="text-gray-600 mt-2">セラピスト・予約管理システム</p>
+            <h1 className="text-2xl font-bold text-slate-800">ヨヤクル</h1>
+            <p className="text-slate-500 text-xs mt-1">セラピスト・予約管理システム</p>
           </div>
 
           {/* エラーメッセージ */}
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <div className="mb-4 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-sm">
               {error}
             </div>
           )}
@@ -69,28 +69,28 @@ export default function LoginPage() {
           {/* ログインフォーム */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-bold text-slate-600 mb-1">
                 ログインID
               </label>
               <input
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-300"
                 placeholder="IDを入力してください"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-bold text-slate-600 mb-1">
                 パスワード
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-300"
                 placeholder="••••••••"
                 required
               />
@@ -99,7 +99,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              className="w-full bg-primary-600 hover:bg-primary-700 active:scale-[0.99] disabled:bg-slate-300 disabled:scale-100 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-primary-900/10 cursor-pointer"
             >
               {loading ? 'ログイン中...' : 'ログイン'}
             </button>
@@ -107,8 +107,8 @@ export default function LoginPage() {
         </div>
 
         {/* フッターのリンク */}
-        <div className="text-center mt-6 text-sm text-gray-600">
-          <p>何かお困りですか？ <a href="#" className="text-blue-600 hover:underline">サポートに連絡</a></p>
+        <div className="text-center mt-6 text-xs text-slate-500">
+          <p>何かお困りですか？ <a href="#" className="text-primary-600 font-bold hover:underline">サポートに連絡</a></p>
         </div>
       </div>
     </div>

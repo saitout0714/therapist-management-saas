@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -105,7 +105,7 @@ export default function RegisterRoom() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
           >
             {loading ? '登録中...' : 'ルームを登録'}
           </button>

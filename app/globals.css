@@ -6,15 +6,39 @@
   --font-sans: var(--font-geist-sans), "Inter", "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono), "Fira Code", monospace;
 
-  /* Custom Color Palette (Premium Indigo & Slate) */
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-accent-500: #8b5cf6; /* Violet */
-  --color-accent-600: #7c3aed;
+  /* Custom Color Palette (Premium Corporate Navy & Vibrant Orange) */
+  --color-primary-50: #f0f4f9;
+  --color-primary-100: #dbeafe;
+  --color-primary-500: #1d4076;
+  --color-primary-600: #0f2d59; /* Modern deep corporate navy from logo 2 */
+  --color-primary-700: #0a1f3d;
+  --color-accent-500: #f97316; /* Vibrant Orange from logo 2 */
+  --color-accent-600: #ea580c; /* Rich accent orange */
   
+  /* Override default Tailwind Indigo color family with our Premium Corporate Navy Blue */
+  --color-indigo-50: #f0f4f9;
+  --color-indigo-100: #dbeafe;
+  --color-indigo-200: #bfdbfe;
+  --color-indigo-300: #93c5fd;
+  --color-indigo-400: #60a5fa;
+  --color-indigo-500: #1d4076;
+  --color-indigo-600: #0f2d59; /* Deep corporate navy */
+  --color-indigo-700: #0a1f3d;
+  --color-indigo-800: #07152b;
+  --color-indigo-900: #040c1a;
+
+  /* Override default Tailwind Blue color family with our Premium Corporate Navy Blue */
+  --color-blue-50: #f0f4f9;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #1d4076;
+  --color-blue-600: #0f2d59; /* Deep corporate navy */
+  --color-blue-700: #0a1f3d;
+  --color-blue-800: #07152b;
+  --color-blue-900: #040c1a;
+
   /* Adjusted Slates for better contrast and softer feel */
   --color-slate-50: #f8fafc;
   --color-slate-100: #f1f5f9;
