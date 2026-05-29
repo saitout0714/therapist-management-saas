@@ -8,6 +8,7 @@ type UserRow = {
   name: string | null
   role: string
   created_at: string
+  shops?: string[]
 }
 
 export function UserManagementTab() {
@@ -24,16 +25,16 @@ export function UserManagementTab() {
   })
 
   async function fetchUsers() {
-    if (!selectedShop) return
     setLoading(true)
 
     try {
-      const res = await fetch(`/api/admin/users?shopId=${selectedShop.id}`)
+      const res = await fetch('/api/admin/users')
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setUsers(data.users || [])
     } catch (err: any) {
       console.error('Failed to fetch users:', err)
+      alert('スタッフ一覧の取得に失敗しました: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -41,7 +42,7 @@ export function UserManagementTab() {
 
   useEffect(() => {
     fetchUsers()
-  }, [selectedShop])
+  }, [])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -197,8 +198,6 @@ export function UserManagementTab() {
               >
                 <option value="system_admin">システム管理者</option>
                 <option value="agency_staff">受付スタッフ</option>
-                <option value="agency_client_owner">代行プラン</option>
-                <option value="simple_client_owner">web予約プラン</option>
               </select>
             </div>
             <div className="md:col-span-2">
@@ -257,8 +256,6 @@ export function UserManagementTab() {
         {[
           { role: 'system_admin', label: '管理者', badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200/60' },
           { role: 'agency_staff', label: '受付スタッフ', badgeClass: 'bg-slate-100 text-slate-700 border border-slate-200/60' },
-          { role: 'agency_client_owner', label: '代行プラン', badgeClass: 'bg-indigo-100 text-indigo-700 border border-indigo-200/60' },
-          { role: 'simple_client_owner', label: 'web予約プラン', badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' },
         ].map(group => {
           const groupUsers = users.filter(u => u.role === group.role)
           
@@ -283,6 +280,7 @@ export function UserManagementTab() {
                     <tr className="bg-slate-50/10 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-50">
                       <th className="px-6 py-3.5">利用者 / スタッフ</th>
                       <th className="px-6 py-3.5">ログインID</th>
+                      <th className="px-6 py-3.5">所属店舗</th>
                       <th className="px-6 py-3.5">登録日</th>
                       <th className="px-6 py-3.5 text-center">操作</th>
                     </tr>
@@ -296,6 +294,15 @@ export function UserManagementTab() {
                             <div className="text-[10px] text-slate-400 uppercase font-mono">{u.id.slice(0, 8)}</div>
                           </td>
                           <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
+                          <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                            {u.role === 'system_admin' ? (
+                              <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">全店舗管理権限</span>
+                            ) : u.shops && u.shops.length > 0 ? (
+                              <span className="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/50">{u.shops.join(', ')}</span>
+                            ) : (
+                              <span className="text-slate-400 italic">店舗未割当</span>
+                            )}
+                          </td>
                           <td className="px-6 py-4 text-xs text-slate-400 font-medium">
                             {new Date(u.created_at).toLocaleDateString('ja-JP')}
                           </td>
@@ -321,7 +328,7 @@ export function UserManagementTab() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400 italic">
+                        <td colSpan={5} className="px-6 py-8 text-center text-xs text-slate-400 italic">
                           この権限のユーザーは登録されていません。
                         </td>
                       </tr>

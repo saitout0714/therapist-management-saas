@@ -12,32 +12,42 @@ const serviceSupabase = createClient(
  */
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const shopId = url.searchParams.get('shopId')
-
-    if (!shopId) {
-      return NextResponse.json({ error: 'shopId が必要です' }, { status: 400 })
-    }
-
-    // shop_owners からこの店舗に所属するユーザー情報を結合して取得
+    // 全ユーザーを所属店舗情報も含めて取得する
     const { data, error } = await serviceSupabase
-      .from('shop_owners')
+      .from('users')
       .select(`
-        users (
-          id,
-          login_id,
-          name,
-          role,
-          created_at
+        id,
+        login_id,
+        name,
+        role,
+        created_at,
+        shop_owners (
+          shop_id,
+          shops (
+            name
+          )
         )
       `)
-      .eq('shop_id', shopId)
 
     if (error) throw error
 
     const users = (data as any[])
-      .map(d => d.users)
-      .filter(u => u !== null)
+      .map(u => {
+        const shopNames = u.shop_owners
+          ? u.shop_owners
+              .map((so: any) => so.shops?.name)
+              .filter(Boolean)
+          : []
+
+        return {
+          id: u.id,
+          login_id: u.login_id,
+          name: u.name,
+          role: u.role,
+          created_at: u.created_at,
+          shops: shopNames
+        }
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     return NextResponse.json({ users })

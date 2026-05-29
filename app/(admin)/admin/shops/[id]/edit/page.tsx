@@ -67,11 +67,33 @@ export default function EditShopPage() {
   const [codeSaving, setCodeSaving] = useState(false)
   const [codeError, setCodeError] = useState('')
 
+  // クライアントオーナーアカウント状態
+  const [hasOwner, setHasOwner] = useState(false)
+  const [ownerUserId, setOwnerUserId] = useState('')
+  const [ownerForm, setOwnerForm] = useState({
+    name: '',
+    login_id: '',
+    password: '',
+    role: 'agency_client_owner' as 'agency_client_owner' | 'simple_client_owner',
+  })
+
   useEffect(() => {
     const fetchShop = async () => {
-      const [shopRes, codeRes] = await Promise.all([
+      const [shopRes, codeRes, ownerRes] = await Promise.all([
         supabase.from('shops').select('*').eq('id', id).single(),
         supabase.from('shop_reservation_codes').select('code, is_active').eq('shop_id', id).single(),
+        supabase
+          .from('shop_owners')
+          .select(`
+            user_id,
+            users (
+              id,
+              login_id,
+              name,
+              role
+            )
+          `)
+          .eq('shop_id', id)
       ])
 
       if (shopRes.error || !shopRes.data) {
@@ -91,6 +113,29 @@ export default function EditShopPage() {
         setReservationCode(codeRes.data.code)
         setSavedCode(codeRes.data.code)
         setCodeActive(codeRes.data.is_active)
+      }
+
+      // クライアントオーナーアカウントの取得とマッピング
+      if (ownerRes.data && ownerRes.data.length > 0) {
+        // プランオーナーのロールに一致するものを探す
+        const ownerRelation = ownerRes.data.find((item: any) => {
+          const user = Array.isArray(item.users) ? item.users[0] : item.users
+          return user && (user.role === 'agency_client_owner' || user.role === 'simple_client_owner')
+        })
+
+        if (ownerRelation) {
+          const user = Array.isArray(ownerRelation.users) ? ownerRelation.users[0] : ownerRelation.users
+          if (user) {
+            setHasOwner(true)
+            setOwnerUserId(user.id)
+            setOwnerForm({
+              name: user.name || '',
+              login_id: user.login_id || '',
+              password: '', // パスワードは非表示
+              role: user.role as any,
+            })
+          }
+        }
       }
 
       setLoading(false)
@@ -136,6 +181,7 @@ export default function EditShopPage() {
     setSaving(true)
     setError('')
 
+    // 1. 店舗の更新
     const { error: updateError } = await supabase
       .from('shops')
       .update({
@@ -147,11 +193,54 @@ export default function EditShopPage() {
       })
       .eq('id', id)
 
-    setSaving(false)
     if (updateError) {
+      setSaving(false)
       setError('保存に失敗しました: ' + updateError.message)
       return
     }
+
+    // 2. クライアントオーナーアカウントの更新または新規作成
+    if (ownerForm.name) {
+      try {
+        if (hasOwner) {
+          // A. 既存オーナーの更新 (PUT API)
+          const res = await fetch('/api/admin/users', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: ownerUserId,
+              name: ownerForm.name.trim(),
+              role: ownerForm.role,
+              password: ownerForm.password || undefined, // 入力があった場合のみ送信
+            }),
+          })
+          const data = await res.json()
+          if (data.error) throw new Error(data.error)
+        } else if (ownerForm.login_id && ownerForm.password) {
+          // B. オーナーの新規作成 (POST API)
+          const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              loginId: ownerForm.login_id.trim().toLowerCase(),
+              password: ownerForm.password,
+              name: ownerForm.name.trim(),
+              role: ownerForm.role,
+              shopId: id,
+            }),
+          })
+          const data = await res.json()
+          if (data.error) throw new Error(data.error)
+        }
+        alert('店舗情報およびオーナーアカウントを更新しました！')
+      } catch (err: any) {
+        alert(`店舗情報は更新されましたが、オーナーアカウントの保存に失敗しました: ${err.message}`)
+      }
+    } else {
+      alert('店舗情報を更新しました。')
+    }
+
+    setSaving(false)
     router.push('/admin')
   }
 
@@ -177,7 +266,7 @@ export default function EditShopPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">店舗情報の編集</h1>
-            <p className="text-sm text-slate-500 mt-0.5">変更内容を入力して更新してください。</p>
+            <p className="text-sm text-slate-500 mt-0.5">店舗情報とクライアント用アカウントを更新します。</p>
           </div>
         </div>
 
@@ -185,66 +274,143 @@ export default function EditShopPage() {
           {error && (
             <div className="mb-5 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{error}</div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">店舗名</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 新宿本店"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  略称
-                  <span className="ml-1.5 text-xs text-slate-400 font-normal">タブに表示される短い名前（任意）</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.short_name}
-                  onChange={(e) => setForm({ ...form, short_name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 新宿"
-                  maxLength={10}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">説明</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
-                rows={3}
-                placeholder="店舗の詳細情報やメモ（任意）"
-              />
-            </div>
-
-            <div className="pt-1">
-              <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                <div className="relative flex items-center">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* 店舗基本設定 */}
+            <div className="space-y-4">
+              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">🏢 店舗基本情報</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">店舗名</label>
                   <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                    className="peer sr-only"
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    placeholder="例: 新宿本店"
+                    required
                   />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
                 </div>
-                <span className="text-sm font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
-                  {form.is_active ? '営業中（有効）' : '休業中（無効）'}
-                </span>
-              </label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    略称
+                    <span className="ml-1.5 text-[10px] text-slate-400 font-normal">タブに表示される短い名前（任意）</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.short_name}
+                    onChange={(e) => setForm({ ...form, short_name: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    placeholder="例: 新宿"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">説明</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 text-sm"
+                  rows={2}
+                  placeholder="店舗の詳細情報やメモ（任意）"
+                />
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.is_active}
+                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                      className="peer sr-only"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
+                    {form.is_active ? '営業中（有効）' : '休業中（無効）'}
+                  </span>
+                </label>
+              </div>
             </div>
 
+            {/* クライアントオーナー設定 */}
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
+                🔑 クライアントオーナーアカウント設定
+              </h2>
+              <p className="text-xs text-slate-500">
+                {hasOwner 
+                  ? 'この店舗を所有するクライアントのアカウント情報を編集します。' 
+                  : 'この店舗を所有するクライアント用のアカウントを新規作成します。'
+                }
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">オーナーお名前（氏名）</label>
+                  <input
+                    type="text"
+                    value={ownerForm.name}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, name: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    placeholder="例: 田中 太郎"
+                    required={ownerForm.login_id !== '' || ownerForm.password !== ''}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">契約プラン（権限）</label>
+                  <select
+                    value={ownerForm.role}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, role: e.target.value as any })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                  >
+                    <option value="agency_client_owner">代行プラン (全機能)</option>
+                    <option value="simple_client_owner">web予約プラン (一部機能)</option>
+                  </select>
+                </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    ログインID
+                    {hasOwner && <span className="ml-2 text-[10px] text-slate-400 font-normal">※ 変更できません</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={ownerForm.login_id}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, login_id: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                    disabled={hasOwner}
+                    className={`w-full px-4 py-2.5 rounded-xl font-mono text-sm outline-none border transition-all ${
+                      hasOwner 
+                        ? 'bg-slate-100 border-slate-150 text-slate-500 cursor-not-allowed' 
+                        : 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500/50'
+                    }`}
+                    placeholder="例: tanaka"
+                    required={ownerForm.name !== '' || ownerForm.password !== ''}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                    {hasOwner ? '新パスワード (変更する場合のみ入力)' : '初期パスワード'}
+                  </label>
+                  <input
+                    type="password"
+                    value={ownerForm.password}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, password: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
+                    placeholder={hasOwner ? '変更する場合のみ入力' : '8文字以上推奨'}
+                    required={!hasOwner && (ownerForm.name !== '' || ownerForm.login_id !== '')}
+                  />
+                </div>
+              </div>
+            </div>
 
-            <div className="flex gap-3 pt-4 border-t border-slate-100 justify-end">
+            {/* 送信ボタン */}
+            <div className="flex gap-3 pt-6 border-t border-slate-100 justify-end">
               <Link
                 href="/admin"
                 className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
