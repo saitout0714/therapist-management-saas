@@ -51,7 +51,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Link href="/" className="flex items-center justify-center w-full">
             <img 
               src="/logo.png" 
-              alt="ヨヤクル" 
+              alt="YOYAKL" 
               className="h-14 w-auto object-contain max-w-full" 
             />
           </Link>

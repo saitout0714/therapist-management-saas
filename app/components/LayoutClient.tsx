@@ -33,7 +33,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 </button>
                 <img 
                   src="/logo.png" 
-                  alt="ヨヤクル" 
+                  alt="YOYAKL" 
                   className="ml-3 h-12 w-auto object-contain md:hidden" 
                 />
               </div>

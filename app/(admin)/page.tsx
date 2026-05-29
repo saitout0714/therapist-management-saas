@@ -15,7 +15,7 @@ export default function Home() {
           <svg className="w-72 h-72" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13.5h-13L12 6.5z" /></svg>
         </div>
         <div className="relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 drop-shadow-sm">ようこそ、ヨヤクルへ</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 drop-shadow-sm">ようこそ、YOYAKLへ</h2>
           <p className="text-primary-50/90 max-w-xl mb-8 text-sm md:text-base leading-relaxed">
             本日の予約状況や、セラピストのシフト空き状況を素早く確認できます。
             下記のクイックアクセスから日常業務を開始してください。

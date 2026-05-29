@@ -20,8 +20,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "ヨヤクル",
-  description: "ヨヤクル - セラピストシフト・予約管理システム (yoyakl.tokyo)",
+  title: "YOYAKL",
+  description: "YOYAKL - セラピストシフト・予約管理システム (yoyakl.tokyo)",
 };
 
 export default function RootLayout({

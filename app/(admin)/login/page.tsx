@@ -54,10 +54,10 @@ export default function LoginPage() {
           <div className="text-center mb-6">
             <img 
               src="/logo.png" 
-              alt="ヨヤクル" 
+              alt="YOYAKL" 
               className="h-16 object-contain mx-auto mb-4 active:scale-95 transition-transform duration-200"
             />
-            <h1 className="text-2xl font-bold text-slate-800">ヨヤクル</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-wider">YOYAKL</h1>
             <p className="text-slate-500 text-xs mt-1">セラピスト・予約管理システム</p>
           </div>
 
