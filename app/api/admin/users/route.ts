@@ -101,17 +101,20 @@ export async function POST(req: Request) {
     }
 
     // 3. shop_owners (店舗オーナー/スタッフの関連付けテーブル) に登録
-    const { error: ownerError } = await serviceSupabase
-      .from('shop_owners')
-      .insert([{
-        shop_id: shopId,
-        user_id: newUser.id
-      }])
+    // システム管理者 (system_admin) および 受付スタッフ (agency_staff) は全店舗共通で紐付け不要のため登録をスキップします
+    if (role !== 'system_admin' && role !== 'agency_staff') {
+      const { error: ownerError } = await serviceSupabase
+        .from('shop_owners')
+        .insert([{
+          shop_id: shopId,
+          user_id: newUser.id
+        }])
 
-    if (ownerError) {
-      // 登録に失敗した場合は作成した認証ユーザーをロールバック（削除）
-      await serviceSupabase.auth.admin.deleteUser(newUser.id)
-      throw ownerError
+      if (ownerError) {
+        // 登録に失敗した場合は作成した認証ユーザーをロールバック（削除）
+        await serviceSupabase.auth.admin.deleteUser(newUser.id)
+        throw ownerError
+      }
     }
 
     return NextResponse.json({ success: true, user: { id: newUser.id, loginId, name, role } })

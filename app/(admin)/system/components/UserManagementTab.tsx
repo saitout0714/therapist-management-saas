@@ -296,9 +296,11 @@ export function UserManagementTab() {
                           <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
                           <td className="px-6 py-4 text-xs font-semibold text-slate-600">
                             {u.role === 'system_admin' ? (
-                              <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">全店舗管理権限</span>
+                              <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">全店舗共通（システム管理者）</span>
+                            ) : u.role === 'agency_staff' ? (
+                              <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/50">全店舗共通（受付担当）</span>
                             ) : u.shops && u.shops.length > 0 ? (
-                              <span className="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/50">{u.shops.join(', ')}</span>
+                              <span className="text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/50">{u.shops.join(', ')}</span>
                             ) : (
                               <span className="text-slate-400 italic">店舗未割当</span>
                             )}
