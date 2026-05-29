@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -364,7 +364,7 @@ export default function CustomersPage() {
                   <th className="px-6 py-4 whitespace-nowrap">メールアドレス</th>
                   <th className="px-6 py-4 whitespace-nowrap text-center">来店履歴</th>
                   <th className="px-6 py-4 whitespace-nowrap">ステータス</th>
-                  <th className="px-4 py-4 w-12"></th>
+                  <th className="px-4 py-4 w-20 text-center">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -452,11 +452,11 @@ export default function CustomersPage() {
                             {status}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-right">
+                        <td className="px-4 py-4 text-center">
                           {!mergeMode && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer) }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="削除"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

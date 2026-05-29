@@ -47,10 +47,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             : "-translate-x-full md:translate-x-0 md:static md:inset-auto md:w-0 md:overflow-hidden md:border-r-0 md:shadow-none"
         }`}
       >
-        <div className="flex items-center justify-center h-16 border-b border-slate-100/50 shrink-0">
-          <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-500 tracking-tight whitespace-nowrap">
-            ヨヤクル
-          </h1>
+        <div className="flex items-center justify-center h-20 border-b border-slate-100/50 shrink-0 px-4">
+          <Link href="/" className="flex items-center justify-center w-full">
+            <img 
+              src="/logo.png" 
+              alt="ヨヤクル" 
+              className="h-14 w-auto object-contain max-w-full" 
+            />
+          </Link>
         </div>
         
         <div className="flex-1 overflow-y-auto scrollbar-hide py-4">

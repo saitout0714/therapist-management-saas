@@ -52,9 +52,11 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
           {/* ロゴ・タイトル */}
           <div className="text-center mb-6">
-            <div className="bg-accent-500 text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-md shadow-accent-500/20 active:scale-95 transition-transform duration-200">
-              <span className="text-2xl font-bold">ヨ</span>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="ヨヤクル" 
+              className="h-16 object-contain mx-auto mb-4 active:scale-95 transition-transform duration-200"
+            />
             <h1 className="text-2xl font-bold text-slate-800">ヨヤクル</h1>
             <p className="text-slate-500 text-xs mt-1">セラピスト・予約管理システム</p>
           </div>

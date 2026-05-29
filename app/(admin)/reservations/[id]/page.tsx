@@ -250,7 +250,7 @@ export default function ReservationPreviewPage() {
     }
 
     // ルームテンプレート（新規・会員で切替）
-    const roomTemplate = isNewCustomer
+    const roomTemplate = activeIsNewCustomer
       ? (roomInfo?.template_new_customer || roomInfo?.template_member)
       : (roomInfo?.template_member || roomInfo?.template_new_customer)
 
@@ -266,31 +266,34 @@ export default function ReservationPreviewPage() {
 
     let text = `【${reservation.date} ご予約詳細】\n\n`
 
-    // 日時
-    text += `■ 日時\n${reservation.start_time.slice(0, 5)} ～ ${reservation.end_time.slice(0, 5)}\n\n`
+    // 時間
+    text += `■ 時間\n${reservation.start_time.slice(0, 5)}-${reservation.end_time.slice(0, 5)}\n\n`
 
     // ルーム
     text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
 
     // お客様（新規/会員 + 氏名）
-    const customerPrefix = isNewCustomer ? '新規' : '会員'
+    const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様\n\n`
 
-    // コース（コース名＋料金のみ）
+    // コース（時間 ￥料金）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} ￥${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.duration || 0}分 ￥${reservation.base_price.toLocaleString()}\n\n`
 
-    // 指名料（コースに加算）
+    // 指名（指名タイプ ￥指名料）
+    text += `■ 指名\n`
+    text += `${designationLabel(reservation.designation_type)}`
     if (reservation.nomination_fee > 0) {
-      text += `${designationLabel(reservation.designation_type)} ￥${reservation.nomination_fee.toLocaleString()}\n`
+      text += ` ￥${reservation.nomination_fee.toLocaleString()}`
     }
+    text += `\n\n`
 
     // オプション（通常＋手入力）
     const allOptions = reservation.reservation_options?.filter(ro =>
       (ro.option_id && ro.options) || (!ro.option_id && ro.custom_name)
     ) ?? []
     if (allOptions.length > 0) {
-      text += `\n■ オプション\n`
+      text += `■ オプション\n`
       allOptions.forEach(ro => {
         if (ro.option_id && ro.options) {
           text += `${ro.options.name} ￥${ro.options.price.toLocaleString()}\n`
@@ -303,7 +306,7 @@ export default function ReservationPreviewPage() {
     // 割引
     if (reservation.discount_amount > 0) {
       const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
-      text += `\n■ 割引\n`
+      text += `■ 割引\n`
       if (discounts.length > 0) {
         discounts.forEach(d => {
           const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
@@ -312,6 +315,7 @@ export default function ReservationPreviewPage() {
       } else {
         text += `割引 -￥${reservation.discount_amount.toLocaleString()}\n`
       }
+      text += `\n`
     }
 
     text += `------------------------\n`
@@ -325,6 +329,12 @@ export default function ReservationPreviewPage() {
   }
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [customerTypeOverride, setCustomerTypeOverride] = useState<'auto' | 'new' | 'member'>('auto')
+
+  const activeIsNewCustomer = 
+    customerTypeOverride === 'new' ? true :
+    customerTypeOverride === 'member' ? false :
+    isNewCustomer
 
   const handleCopy = async (text: string, key: string) => {
     try {
@@ -487,6 +497,46 @@ export default function ReservationPreviewPage() {
               </svg>
               予約内容を編集する
             </Link>
+          </div>
+        </div>
+
+        {/* 送信テンプレート切り替えタブ */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-800">案内テンプレートの選択</span>
+            <span className="text-xs text-slate-500 mt-0.5">コピーまたはSMS送信するご案内の種類を選択・変更できます。</span>
+          </div>
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1 select-none w-full sm:w-auto">
+            <button
+              onClick={() => setCustomerTypeOverride('auto')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'auto'
+                  ? 'bg-white text-primary-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              自動判定 ({isNewCustomer ? '新規' : '会員'})
+            </button>
+            <button
+              onClick={() => setCustomerTypeOverride('new')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'new'
+                  ? 'bg-accent-500 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              新規用ご案内
+            </button>
+            <button
+              onClick={() => setCustomerTypeOverride('member')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'member'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              会員用ご案内
+            </button>
           </div>
         </div>
 

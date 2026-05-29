@@ -21,7 +21,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         <div className="flex h-screen bg-transparent">
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           <div className="flex-1 flex flex-col overflow-hidden relative">
-            <header className="glass-panel sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 border-b-0 border-slate-200/50">
+            <header className="glass-panel sticky top-0 z-40 h-20 flex items-center justify-between px-4 sm:px-6 border-b-0 border-slate-200/50">
               <div className="flex items-center">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -31,7 +31,11 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
-                <h1 className="ml-3 text-lg font-bold text-slate-800 tracking-tight md:hidden">ヨヤクル</h1>
+                <img 
+                  src="/logo.png" 
+                  alt="ヨヤクル" 
+                  className="ml-3 h-12 w-auto object-contain md:hidden" 
+                />
               </div>
               <ShopSwitcher />
             </header>
