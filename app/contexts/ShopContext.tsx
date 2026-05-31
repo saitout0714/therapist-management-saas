@@ -8,6 +8,7 @@ type Shop = {
   name: string
   short_name: string | null
   description: string | null
+  special_rules: string | null
   is_active: boolean
   created_at: string
   order: number | null

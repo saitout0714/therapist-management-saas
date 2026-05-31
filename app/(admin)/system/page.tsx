@@ -62,6 +62,7 @@ export default function SystemPage() {
     smtp_pass: string
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
+    special_rules: string
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -81,6 +82,7 @@ export default function SystemPage() {
     smtp_pass: '',
     smtp_from: '',
     sms_address_mode: 'unified',
+    special_rules: '',
   })
 
   async function fetchSettings() {
@@ -88,7 +90,7 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, special_rules').eq('id', selectedShop.id).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
@@ -116,6 +118,7 @@ export default function SystemPage() {
       smtp_pass: row?.smtp_pass ?? '',
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
+      special_rules: shopRes.data?.special_rules ?? '',
     })
     setLoading(false)
   }
@@ -125,7 +128,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, ...systemSettingsPayload } = form
+    const { sms_address_mode, special_rules, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -139,7 +142,7 @@ export default function SystemPage() {
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ sms_address_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ sms_address_mode, special_rules, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
@@ -213,6 +216,19 @@ export default function SystemPage() {
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
               <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>
+            </div>
+
+            {/* 特殊ルール・注意事項 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">特殊ルール・注意事項</h3>
+              <p className="text-xs text-slate-400 mb-2">スケジュール画面の「店舗ルール」ツールチップに表示される内容です。</p>
+              <textarea
+                value={form.special_rules}
+                onChange={(e) => setForm({ ...form, special_rules: e.target.value })}
+                rows={3}
+                placeholder="例：受付時に身分証提示必須。2回目以降の利用で500円オフ。"
+                className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
+              />
             </div>
 
             {/* 予約インターバル */}

@@ -132,6 +132,13 @@ export default function ShiftsPage() {
   const [roomOrderMap, setRoomOrderMap] = useState<Map<string, number>>(new Map());
   const [minCourseDuration, setMinCourseDuration] = useState<number>(0);
 
+  const [shopCourses, setShopCourses] = useState<{name: string, duration: number, price: number}[]>([]);
+  const [shopDiscounts, setShopDiscounts] = useState<{name: string, value: number}[]>([]);
+  const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
+  const [shopOptions, setShopOptions] = useState<{name: string, price: number, duration: number, type: string}[]>([]);
+
+
+
   // AI一括登録モーダル状態
   const [aiModal, setAiModal] = useState<{
     text: string;
@@ -487,13 +494,39 @@ export default function ShiftsPage() {
     if (!selectedShop) return;
     supabase
       .from('courses')
-      .select('duration')
+      .select('name, duration, base_price')
       .eq('shop_id', selectedShop.id)
       .eq('is_active', true)
+      .order('display_order', { ascending: true })
       .then(({ data }) => {
+        setShopCourses((data as any[])?.map(d => ({ name: d.name, duration: d.duration, price: d.base_price })) || []);
         const durations = (data || []).map((c: any) => c.duration).filter((d: number) => d > 0);
         setMinCourseDuration(durations.length > 0 ? Math.min(...durations) : 0);
       });
+
+    supabase
+      .from('discount_policies')
+      .select('name, discount_value')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setShopDiscounts((data as any[])?.map(d => ({ name: d.name, value: d.discount_value })) || []));
+
+    supabase
+      .from('designation_types')
+      .select('display_name, default_fee')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }) => setShopDesignations((data as any[])?.map(d => ({ name: d.display_name, fee: d.default_fee })) || []));
+
+    supabase
+      .from('options')
+      .select('name, price, duration_minutes_added, option_type')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }) => setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []));
   }, [selectedShop]);
 
   const fetchTherapists = async () => {
@@ -908,11 +941,125 @@ export default function ShiftsPage() {
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
-        <div className="mb-2 md:mb-3">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
-          <p className="text-xs md:text-sm text-slate-500">
-            {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
-          </p>
+        <div className="mb-2 md:mb-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              スケジュール
+              {/* 店舗ルールツールチップ */}
+              <div className="relative group cursor-pointer ml-3">
+                <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
+                  <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-slate-700">店舗ルール</span>
+                  <span className="text-slate-300 px-0.5">/</span>
+                  <span className="text-blue-600">料金システム</span>
+                </span>
+                {/* ツールチップの内容 */}
+                <div className="absolute left-0 top-full mt-2 w-80 p-4 bg-white border border-slate-200 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-sm max-h-[80vh] overflow-y-auto">
+                  <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{selectedShop?.name} 店舗ルール</h3>
+                  
+                  {/* 特殊ルール・注意事項 */}
+                  {selectedShop?.special_rules && (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                        <span className="text-amber-500">💡</span> 特殊ルール・注意事項
+                      </h4>
+                      <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 shadow-sm">
+                        {selectedShop.special_rules}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* コース料金 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-blue-500">🕒</span> 料金システム（コース）
+                    </h4>
+                    {shopCourses.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopCourses.map((c, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{c.name} ({c.duration}分)</span>
+                            <span className="font-bold text-slate-800">¥{c.price.toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">コースが設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* 指名料金 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-indigo-500">👑</span> 指名料金
+                    </h4>
+                    {shopDesignations.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopDesignations.map((d, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{d.name}</span>
+                            <span className="font-bold text-slate-800">
+                              {d.fee > 0 ? `¥${d.fee.toLocaleString()}` : '無料'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">指名料金が設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* 割引 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-rose-500">🏷️</span> 割引ルール
+                    </h4>
+                    {shopDiscounts.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopDiscounts.map((d, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{d.name}</span>
+                            <span className="font-bold text-rose-600">-¥{d.value.toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">割引が設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* オプション */}
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-emerald-500">✨</span> オプション
+                    </h4>
+                    {shopOptions.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopOptions.map((o, i) => (
+                          <li key={i} className="flex flex-col border-b border-slate-50 pb-1 last:border-0">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-700">{o.name}</span>
+                              <span className="font-bold text-slate-800">¥{o.price.toLocaleString()}</span>
+                            </div>
+                            {o.duration > 0 && (
+                              <div className="text-[10px] text-slate-400 text-right mt-0.5">追加時間: +{o.duration}分</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">オプションが設定されていません</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </h1>
+            <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+              {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
+            </p>
+          </div>
         </div>
 
         {/* フィルターと表示切り替え */}
