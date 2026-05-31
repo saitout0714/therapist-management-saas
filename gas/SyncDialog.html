@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: sans-serif; padding: 15px; background: #f4f7f6; font-size: 14px;}
+    .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 12px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+    select, input[type="date"] {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+    }
+    button {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+    button:hover { background: #059669; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    #status { margin-top: 10px; padding: 8px; display: none; font-size: 11px; border-radius: 4px; font-weight: bold;}
+    .loading { background: #fff8e1; color: #b05e00; }
+    .success { background: #e6f4ea; color: #137333; }
+    .error { background: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="form-group">
+      <label>🏢 店舗を選択</label>
+      <select id="shopKey">
+        <option value="shop_a">クリスタル</option>
+        <option value="shop_b">裏妻</option>
+        <option value="shop_c">クイーンテラス</option>
+        <option value="shop_d">レジェンド</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>📅 開始日</label>
+      <input type="date" id="dateFrom">
+    </div>
+
+    <div class="form-group">
+      <label>📅 終了日</label>
+      <input type="date" id="dateTo">
+    </div>
+
+    <button id="btnSync" onclick="startSync()">YOYAKLからシフトを同期</button>
+  </div>
+  
+  <div id="status"></div>
+
+  <script>
+    // デフォルト日付を本日に設定
+    window.onload = function() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('dateFrom').value = today;
+      document.getElementById('dateTo').value = today;
+    };
+
+    function setStatus(msg, type) {
+      const status = document.getElementById('status');
+      status.textContent = msg;
+      status.className = type;
+      status.style.display = 'block';
+    }
+
+    function toggleButtons(disabled) {
+      document.getElementById('btnSync').disabled = disabled;
+    }
+
+    function startSync() {
+      const shopKey = document.getElementById('shopKey').value;
+      const dateFrom = document.getElementById('dateFrom').value;
+      const dateTo = document.getElementById('dateTo').value;
+
+      if (!dateFrom || !dateTo) {
+        return alert('開始日と終了日を選択してください');
+      }
+
+      setStatus('🔄 YOYAKLから出勤データを取得中...', 'loading');
+      toggleButtons(true);
+
+      google.script.run
+        .withSuccessHandler(res => {
+          setStatus(res, 'success');
+          toggleButtons(false);
+        })
+        .withFailureHandler(err => {
+          setStatus('エラー: ' + err.message, 'error');
+          toggleButtons(false);
+        })
+        .syncShiftsFromYoyakl(shopKey, dateFrom, dateTo);
+    }
+  </script>
+</body>
+</html>
