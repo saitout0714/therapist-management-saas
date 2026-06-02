@@ -23,6 +23,7 @@ export default function EditCustomerPage() {
     phone2: '',
     status: '予約可',
     ng_reason: '',
+    memo: '',
   })
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function EditCustomerPage() {
           phone2: customer.phone2 || '',
           status: customer.status || '予約可',
           ng_reason: customer.ng_reason || '',
+          memo: customer.memo || '',
         })
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー'
@@ -84,6 +86,7 @@ export default function EditCustomerPage() {
           phone2: form.phone2 || null,
           status: form.status,
           ng_reason: form.ng_reason || null,
+          memo: form.memo || null,
         })
         .eq('id', customerId)
 
@@ -200,6 +203,19 @@ export default function EditCustomerPage() {
                       onChange={handleChange}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
                       placeholder="customer@example.com"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                      顧客メモ・特記事項 <span className="ml-2 text-xs text-slate-400 font-normal">任意（次回予約登録時に表示されます）</span>
+                    </label>
+                    <textarea
+                      name="memo"
+                      value={form.memo}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none"
+                      placeholder="お釣りの渡し間違い注意、粗相のため次回割引など"
                     />
                   </div>
                 </div>

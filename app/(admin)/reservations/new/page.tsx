@@ -15,6 +15,7 @@ type Customer = {
   phone: string | null
   status?: string
   ng_reason?: string | null
+  memo?: string | null
 }
 
 type Course = {
@@ -291,7 +292,7 @@ export default function NewReservationPage() {
       const normalized = q.replace(/-/g, '')
       const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason')
+        .select('id, name, email, phone, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
@@ -316,7 +317,7 @@ export default function NewReservationPage() {
     if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone, status, ng_reason').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
@@ -1031,6 +1032,19 @@ export default function NewReservationPage() {
                         <div>
                           <span className="font-bold">このお客様は「{selectedCustomerObj.status}」です。</span>
                           {selectedCustomerObj.ng_reason && <span className="ml-1">{selectedCustomerObj.ng_reason}</span>}
+                        </div>
+                      </div>
+                    )}
+                    {selectedCustomerObj.memo && (
+                      <div className="px-3.5 py-3 rounded-xl text-xs flex flex-col gap-1.5 bg-amber-50 border border-amber-200 text-amber-900 shadow-sm">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <svg className="w-4.5 h-4.5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          お客様に関する特記事項（顧客メモ）
+                        </div>
+                        <div className="font-medium whitespace-pre-wrap leading-relaxed">
+                          {selectedCustomerObj.memo}
                         </div>
                       </div>
                     )}
