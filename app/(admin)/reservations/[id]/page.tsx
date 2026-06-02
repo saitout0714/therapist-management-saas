@@ -225,6 +225,10 @@ export default function ReservationPreviewPage() {
 
     // 指名
     text += `\n■ 指名\n`
+    const isNominated = reservation.designation_type !== 'free'
+    if (isNominated && reservation.therapists?.name) {
+      text += `${reservation.therapists.name} `
+    }
     text += `${designationLabel(reservation.designation_type)}`
     if (displayNominationFee > 0) {
       text += ` ￥${displayNominationFee.toLocaleString()}`
