@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ShopProvider } from "@/app/contexts/ShopContext";
 import { AuthProvider } from "@/app/contexts/AuthContext";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import ShopSwitcher from "./ShopSwitcher";
 import ShopTabBar from "./ShopTabBar";
@@ -10,15 +11,29 @@ import WebReservationNotifier from "./WebReservationNotifier";
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setSidebarOpen(window.innerWidth >= 768);
   }, []);
 
+  if (pathname === "/login") {
+    return (
+      <AuthProvider>
+        <ShopProvider>
+          <div className="h-screen w-screen bg-slate-50 overflow-hidden">
+            {children}
+          </div>
+        </ShopProvider>
+      </AuthProvider>
+    );
+  }
+
   return (
     <AuthProvider>
       <ShopProvider>
         <div className="flex h-screen bg-transparent">
+
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           <div className="flex-1 flex flex-col overflow-hidden relative">
             <header className="glass-panel sticky top-0 z-40 h-20 flex items-center justify-between px-4 sm:px-6 border-b-0 border-slate-200/50">
