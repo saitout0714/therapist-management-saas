@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef, RefObject } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -432,7 +432,8 @@ export default function NewReservationPage() {
       const originalBase = selectedCourse?.base_price || 0
       if (basePrice > originalBase) {
         // course_back_amounts で解決した結果に指名料が含まれている
-        nominationFee = 0 // 既にbasePriceに含有
+        nominationFee = basePrice - originalBase
+        basePrice = originalBase // 基本料金を本来の金額にリセット
       } else {
         // system_settings / therapist_pricing のフォールバック
         const defaultNominationFee = systemSettings?.default_nomination_fee || 0

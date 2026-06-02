@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -401,7 +401,8 @@ export default function EditReservationPage() {
     } else if (formData.designation_type !== 'free') {
       const originalBase = selectedCourse?.base_price || 0
       if (basePrice > originalBase) {
-        nominationFee = 0 // 既にbasePriceに含有
+        nominationFee = basePrice - originalBase
+        basePrice = originalBase // 基本料金を本来の金額にリセット
       } else {
         const defaultNominationFee = systemSettings?.default_nomination_fee || 0
         const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0

@@ -34,8 +34,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/aggregation", label: "店舗集計" },
     ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
     ...(user?.role === "system_admin" ? [{ href: "/users", label: "アカウント管理" }] : []),
-    { href: "/settings", label: "設定" },
   ];
+
 
   return (
     <>

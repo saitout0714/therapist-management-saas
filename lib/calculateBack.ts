@@ -282,12 +282,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // 指名料部分を分離してバック計算を独立させる。
   const implicitNominationFee = (
     !matrixBackUsed &&
-    input.nominationFee === 0 &&
     resolved_price.source === 'default' &&
     effectiveCoursePrice > input.coursePrice
   ) ? effectiveCoursePrice - input.coursePrice : 0
-  const courseOnlyPrice = effectiveCoursePrice - implicitNominationFee
-  const nominationFeeForBack = input.nominationFee + implicitNominationFee
+  const courseOnlyPrice = effectiveCoursePrice - (input.nominationFee > 0 ? input.nominationFee : implicitNominationFee)
+  const nominationFeeForBack = input.nominationFee + (input.nominationFee > 0 ? 0 : implicitNominationFee)
+
 
   // Step 1: 適用バック率の解決（オーバーライドチェーン）
   const resolved = await resolveBackRates(

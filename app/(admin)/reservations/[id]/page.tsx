@@ -196,6 +196,15 @@ export default function ReservationPreviewPage() {
   const generateCustomerLineText = () => {
     if (!reservation) return ''
 
+    // 指名料がコース料金に含まれて保存されている場合の表示分離
+    const originalCoursePrice = reservation.courses?.base_price || 0
+    let displayBasePrice = reservation.base_price
+    let displayNominationFee = reservation.nomination_fee
+    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
+      displayNominationFee = reservation.base_price - originalCoursePrice
+      displayBasePrice = originalCoursePrice
+    }
+
     let text = `【ご予約内容のご確認】\n\n`
 
     // 日時（日付と時間を別行）
@@ -203,7 +212,7 @@ export default function ReservationPreviewPage() {
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} ￥${reservation.base_price.toLocaleString()}\n`
+    text += `${reservation.courses?.name || ''} ￥${displayBasePrice.toLocaleString()}\n`
     reservation.reservation_options?.forEach(ro => {
       if (ro.option_id && ro.options) {
         // 通常オプション
@@ -214,19 +223,23 @@ export default function ReservationPreviewPage() {
       }
     })
 
-    // 指名（指名料がある場合のみ）
-    if (reservation.nomination_fee > 0) {
-      text += `\n■ 指名\n${designationLabel(reservation.designation_type)} ￥${reservation.nomination_fee.toLocaleString()}\n`
+    // 指名
+    text += `\n■ 指名\n`
+    text += `${designationLabel(reservation.designation_type)}`
+    if (displayNominationFee > 0) {
+      text += ` ￥${displayNominationFee.toLocaleString()}`
     }
+    text += `\n`
+
 
     // お支払い予定金額
     text += `\n■ お支払い予定金額\n`
-    text += `基本料金：￥${reservation.base_price.toLocaleString()}\n`
+    text += `基本料金：￥${displayBasePrice.toLocaleString()}\n`
     if (reservation.options_price > 0) {
       text += `オプション：￥${reservation.options_price.toLocaleString()}\n`
     }
-    if (reservation.nomination_fee > 0) {
-      text += `指名料：￥${reservation.nomination_fee.toLocaleString()}\n`
+    if (displayNominationFee > 0) {
+      text += `指名料：￥${displayNominationFee.toLocaleString()}\n`
     }
     if (reservation.discount_amount > 0) {
       const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
@@ -264,6 +277,15 @@ export default function ReservationPreviewPage() {
   const generateTherapistLineText = () => {
     if (!reservation) return ''
 
+    // 指名料がコース料金に含まれて保存されている場合の表示分離
+    const originalCoursePrice = reservation.courses?.base_price || 0
+    let displayBasePrice = reservation.base_price
+    let displayNominationFee = reservation.nomination_fee
+    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
+      displayNominationFee = reservation.base_price - originalCoursePrice
+      displayBasePrice = originalCoursePrice
+    }
+
     let text = `【${reservation.date} ご予約詳細】\n\n`
 
     // 時間
@@ -278,13 +300,13 @@ export default function ReservationPreviewPage() {
 
     // コース（時間 ￥料金）
     text += `■ コース\n`
-    text += `${reservation.courses?.duration || 0}分 ￥${reservation.base_price.toLocaleString()}\n\n`
+    text += `${reservation.courses?.duration || 0}分 ￥${displayBasePrice.toLocaleString()}\n\n`
 
     // 指名（指名タイプ ￥指名料）
     text += `■ 指名\n`
     text += `${designationLabel(reservation.designation_type)}`
-    if (reservation.nomination_fee > 0) {
-      text += ` ￥${reservation.nomination_fee.toLocaleString()}`
+    if (displayNominationFee > 0) {
+      text += ` ￥${displayNominationFee.toLocaleString()}`
     }
     text += `\n\n`
 

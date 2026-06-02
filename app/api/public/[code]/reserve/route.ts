@@ -354,10 +354,12 @@ export async function POST(
   let nominationFee = 0
 
   if (designationType !== 'free' && !designationTypeRow?.is_store_paid_back) {
-    if (resolvedPrice.customerPrice > (course?.base_price || 0)) {
+    const originalBase = course?.base_price || 0
+    if (resolvedPrice.customerPrice > originalBase) {
       // コース料金自体が matrix やデフォルト設定によって高くなっている場合、
-      // 指名料はすでにその customerPrice に内包されているため、追加の nominationFee は 0 とする
-      nominationFee = 0
+      // 指名料はすでにその customerPrice に内包されているため、差し引いて分離する
+      nominationFee = resolvedPrice.customerPrice - originalBase
+      basePrice = originalBase
     } else {
       // フォールバック: system_settings や therapist_pricing から取得
       const { data: systemSettings } = await supabase
