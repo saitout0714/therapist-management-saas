@@ -14,6 +14,7 @@ type Customer = {
   created_at: string
   status: string
   ng_reason: string | null
+  memo: string | null
 }
 
 type Reservation = {
@@ -78,7 +79,7 @@ export default function CustomersPage() {
     try {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .order('created_at', { ascending: false })
         .limit(100)
@@ -100,7 +101,7 @@ export default function CustomersPage() {
       const normalized = query.replace(/-/g, '')
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
         .order('name')
@@ -359,7 +360,7 @@ export default function CustomersPage() {
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
                   {mergeMode && <th className="px-4 py-4 w-10"></th>}
-                  <th className="px-6 py-4 whitespace-nowrap">指名</th>
+                  <th className="px-6 py-4 whitespace-nowrap">氏名</th>
                   <th className="px-6 py-4 whitespace-nowrap">電話番号</th>
                   <th className="px-6 py-4 whitespace-nowrap">メールアドレス</th>
                   <th className="px-6 py-4 whitespace-nowrap text-center">来店履歴</th>
@@ -393,15 +394,34 @@ export default function CustomersPage() {
                   customers.map((customer) => {
                     const status = customer.status || '予約可'
                     const isSelected = selectedIds.has(customer.id)
+
+                    // 注意事項・警告ステータスがある場合の背景・ボーダー・スタイル設定
+                    let rowBorderClass = 'border-l-4 border-l-transparent'
+                    let rowBgClass = ''
+                    if (status === '出禁') {
+                      rowBorderClass = 'border-l-4 border-l-rose-500'
+                      rowBgClass = 'bg-rose-50/20 hover:bg-rose-50/30'
+                    } else if (status === '要注意') {
+                      rowBorderClass = 'border-l-4 border-l-amber-500'
+                      rowBgClass = 'bg-amber-50/20 hover:bg-amber-50/30'
+                    } else if (customer.memo) {
+                      rowBorderClass = 'border-l-4 border-l-orange-400'
+                      rowBgClass = 'bg-orange-50/10 hover:bg-orange-50/20'
+                    }
+
+                    if (isSelected) {
+                      rowBgClass = 'bg-amber-100/70 hover:bg-amber-100/80'
+                    }
+
                     return (
                       <tr
                         key={customer.id}
-                        className={`hover:bg-slate-50/50 transition-colors group ${isSelected ? 'bg-amber-50/60' : ''}`}
+                        className={`hover:bg-slate-50/50 transition-colors group ${rowBgClass}`}
                         onClick={mergeMode ? () => toggleSelect(customer.id) : undefined}
                         style={mergeMode ? { cursor: 'pointer' } : undefined}
                       >
-                        {mergeMode && (
-                          <td className="px-4 py-4">
+                        {mergeMode ? (
+                          <td className={`px-4 py-4 ${rowBorderClass}`}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -410,21 +430,68 @@ export default function CustomersPage() {
                               className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                             />
                           </td>
-                        )}
-                        <td className="px-6 py-4">
+                        ) : null}
+                        <td className={`px-6 py-4 ${!mergeMode ? rowBorderClass : ''}`}>
                           {mergeMode ? (
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${isSelected ? 'bg-amber-100 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${isSelected ? 'bg-amber-100 text-amber-600' : 'bg-indigo-50 text-indigo-600'} flex-shrink-0`}>
                                 {customer.name.charAt(0)}
                               </div>
-                              <span className="font-bold text-slate-800">{customer.name}</span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800">{customer.name}</span>
+                                {(customer.ng_reason || customer.memo) && (
+                                  <div className="mt-1 flex flex-col gap-1 text-xs max-w-xs md:max-w-sm">
+                                    {customer.ng_reason && (
+                                      <span className="text-rose-600 font-semibold truncate flex items-center gap-1" title={`要注意理由: ${customer.ng_reason}`}>
+                                        <span className="flex-shrink-0 text-rose-500">⚠️</span>
+                                        <span className="truncate">{customer.ng_reason}</span>
+                                      </span>
+                                    )}
+                                    {customer.memo && (
+                                      <span className="text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60 truncate flex items-center gap-1" title={`注意事項: ${customer.memo}`}>
+                                        <span className="flex-shrink-0 text-amber-500">📝</span>
+                                        <span className="truncate">{customer.memo}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : (
-                            <Link href={`/customers/${customer.id}`} className="flex items-center gap-3 group/link">
-                              <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg group-hover/link:bg-indigo-100 transition-colors">
+                            <Link href={`/customers/${customer.id}`} className="flex items-start gap-3 group/link">
+                              <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg group-hover/link:bg-indigo-100 transition-colors flex-shrink-0 mt-0.5">
                                 {customer.name.charAt(0)}
                               </div>
-                              <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors">{customer.name}</span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors flex items-center gap-1.5 flex-wrap">
+                                  {customer.name}
+                                  {customer.status === '出禁' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">出禁</span>
+                                  )}
+                                  {customer.status === '要注意' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">要注意</span>
+                                  )}
+                                  {customer.memo && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800">注意事項あり</span>
+                                  )}
+                                </span>
+                                {(customer.ng_reason || customer.memo) && (
+                                  <div className="mt-1 flex flex-col gap-1 text-xs max-w-xs md:max-w-sm">
+                                    {customer.ng_reason && (
+                                      <span className="text-rose-600 font-semibold truncate flex items-center gap-1" title={`要注意理由: ${customer.ng_reason}`}>
+                                        <span className="flex-shrink-0 text-rose-500">⚠️</span>
+                                        <span className="truncate">{customer.ng_reason}</span>
+                                      </span>
+                                    )}
+                                    {customer.memo && (
+                                      <span className="text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60 truncate flex items-center gap-1" title={`注意事項: ${customer.memo}`}>
+                                        <span className="flex-shrink-0 text-amber-500">📝</span>
+                                        <span className="truncate">{customer.memo}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </Link>
                           )}
                         </td>

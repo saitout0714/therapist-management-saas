@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -14,6 +14,7 @@ type Customer = {
   created_at: string
   status: string
   ng_reason: string | null
+  memo: string | null
   shop_id: string
 }
 
@@ -204,7 +205,7 @@ export default function CustomerDetailPage() {
 
         {/* ステータス警告バナー */}
         {(customer.status === '要注意' || customer.status === '出禁') && (
-          <div className={`mb-6 p-4 rounded-2xl flex items-start gap-3 ${customer.status === '出禁' ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+          <div className={`mb-4 p-4 rounded-2xl flex items-start gap-3 ${customer.status === '出禁' ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'}`}>
             <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${customer.status === '出禁' ? 'text-red-500' : 'text-yellow-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -213,8 +214,21 @@ export default function CustomerDetailPage() {
                 このお客様は「{customer.status}」です
               </p>
               {customer.ng_reason && (
-                <p className={`text-sm mt-1 ${customer.status === '出禁' ? 'text-red-600' : 'text-yellow-600'}`}>{customer.ng_reason}</p>
+                <p className={`text-sm mt-1 whitespace-pre-wrap ${customer.status === '出禁' ? 'text-red-600' : 'text-yellow-600'}`}>{customer.ng_reason}</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 顧客個別メモ（注意事項）バナー */}
+        {customer.memo && (
+          <div className="mb-4 p-4 rounded-2xl bg-orange-50 border border-orange-200 flex items-start gap-3 shadow-sm">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <div>
+              <p className="font-bold text-sm text-orange-700">注意事項・申し送り事項（顧客メモ）</p>
+              <p className="text-sm mt-1 text-orange-800 whitespace-pre-wrap font-medium">{customer.memo}</p>
             </div>
           </div>
         )}
@@ -227,11 +241,16 @@ export default function CustomerDetailPage() {
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
             <div>
               <p className="text-sm text-slate-500 font-medium mb-1">お名前</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-lg font-bold text-slate-800">{customer.name}</p>
                 <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${customerStatusStyles[customer.status] || 'bg-slate-100 text-slate-600'}`}>
                   {customer.status || '予約可'}
                 </span>
+                {customer.memo && (
+                  <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">
+                    注意事項あり
+                  </span>
+                )}
               </div>
             </div>
             <div>
@@ -250,6 +269,12 @@ export default function CustomerDetailPage() {
               <div>
                 <p className="text-sm text-slate-500 font-medium mb-1">電話番号②</p>
                 <p className="text-slate-800 font-medium">{customer.phone2}</p>
+              </div>
+            )}
+            {customer.memo && (
+              <div className="col-span-1 md:col-span-2 pt-2 border-t border-slate-100">
+                <p className="text-sm text-slate-500 font-medium mb-1">注意事項・顧客メモ</p>
+                <p className="text-slate-800 font-medium whitespace-pre-wrap bg-slate-50 p-3 rounded-xl border border-slate-100">{customer.memo}</p>
               </div>
             )}
           </div>
