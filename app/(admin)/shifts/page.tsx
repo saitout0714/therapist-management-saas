@@ -823,40 +823,77 @@ export default function ShiftsPage() {
         return endMins;
       };
 
-      const isEffectivelyFinished = (t: Therapist): boolean => {
-        if (!t.shiftEnd) return false;
+      const getNextAvailableMins = (t: Therapist): { mins: number; finished: boolean } => {
+        if (!t.shiftStart || !t.shiftEnd) return { mins: 9999, finished: true };
+        const shiftStartMins = hhmToMinutes(t.shiftStart);
         const shiftEndMins = getShiftEndMins(t);
-        if (currentMins >= shiftEndMins) return true;
+
+        if (currentMins >= shiftEndMins) {
+          return { mins: 9999, finished: true };
+        }
+
         const interval = t.intervalMinutes ?? shopIntervalMinutes;
-        const therapistReservations = reservations.filter(
-          (r: any) => r.therapist_id === t.id && r.status === 'confirmed'
+        let slots: [number, number][] = [[Math.max(currentMins, shiftStartMins), shiftEndMins]];
+
+        const therapistRes = reservations.filter(
+          (r: any) => r.therapist_id === t.id && (r.status === 'confirmed' || r.status === 'blocked')
         );
-        const lastEndMins = therapistReservations.length > 0
-          ? Math.max(...therapistReservations.map((r: any) => hhmToMinutes(r.end_time.slice(0, 5))))
-          : null;
-        // 次に予約を受け付けられる開始時刻
-        const nextAvailableMins = lastEndMins !== null
-          ? Math.max(currentMins, lastEndMins + interval)
-          : currentMins;
-        // 最短コースが入らなければ受付終了
+
+        therapistRes.forEach((r: any) => {
+          const resStart = hhmToMinutes(r.start_time.slice(0, 5));
+          let resEnd = hhmToMinutes(r.end_time.slice(0, 5));
+          if (resEnd <= resStart) resEnd += 24 * 60;
+
+          let blockStart = resStart;
+          let blockEnd = resEnd;
+
+          if (r.status === 'confirmed') {
+            blockStart = Math.max(shiftStartMins, resStart - interval);
+            blockEnd = resEnd + interval;
+          }
+
+          const nextSlots: [number, number][] = [];
+          slots.forEach(([sStart, sEnd]) => {
+            if (blockStart >= sEnd || blockEnd <= sStart) {
+              nextSlots.push([sStart, sEnd]);
+            } else {
+              if (sStart < blockStart) {
+                nextSlots.push([sStart, blockStart]);
+              }
+              if (blockEnd < sEnd) {
+                nextSlots.push([blockEnd, sEnd]);
+              }
+            }
+          });
+          slots = nextSlots;
+        });
+
         const requiredMins = minCourseDuration > 0 ? minCourseDuration : 1;
-        return nextAvailableMins + requiredMins > shiftEndMins;
+        const validSlot = slots.find(([sStart, sEnd]) => sEnd - sStart >= requiredMins);
+
+        if (validSlot) {
+          return { mins: validSlot[0], finished: false };
+        } else {
+          return { mins: 9999, finished: true };
+        }
       };
 
-      const earliestMap = new Map<string, number>();
-      reservations.filter((r: any) => r.status === 'confirmed').forEach(r => {
-        const mins = hhmToMinutes(r.start_time.slice(0, 5));
-        const cur = earliestMap.get(r.therapist_id) ?? 9999;
-        if (mins < cur) earliestMap.set(r.therapist_id, mins);
+      const availabilityMap = new Map<string, { mins: number; finished: boolean }>();
+      sortedOthers.forEach(t => {
+        availabilityMap.set(t.id, getNextAvailableMins(t));
       });
+
       sortedOthers.sort((a, b) => {
         if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1;
-        const aFinished = isEffectivelyFinished(a);
-        const bFinished = isEffectivelyFinished(b);
-        if (aFinished !== bFinished) return aFinished ? 1 : -1;
-        const aMin = earliestMap.get(a.id) ?? 9999;
-        const bMin = earliestMap.get(b.id) ?? 9999;
-        if (aMin !== bMin) return aMin - bMin;
+        const aAvail = availabilityMap.get(a.id)!;
+        const bAvail = availabilityMap.get(b.id)!;
+
+        if (aAvail.finished !== bAvail.finished) {
+          return aAvail.finished ? 1 : -1;
+        }
+        if (aAvail.mins !== bAvail.mins) {
+          return aAvail.mins - bAvail.mins;
+        }
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
     }
