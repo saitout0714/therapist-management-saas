@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 type Shop = {
   id: string
@@ -28,10 +29,22 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const [shops, setShops] = useState<Shop[]>([])
   const [selectedShop, setSelectedShopState] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   // 店舗一覧を取得
   const fetchShops = async () => {
+    if (!user) {
+      setShops([])
+      setSelectedShopState(null)
+      setLoading(false)
+      return
+    }
+
     try {
+      setLoading(true)
+      // 認証セッションの復旧・確立を明示的に待つ
+      await supabase.auth.getSession()
+
       const { data, error } = await supabase
         .from('shops')
         .select('*')
@@ -47,6 +60,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       if (shopToSelect) {
         setSelectedShopState(shopToSelect)
         localStorage.setItem('selectedShopId', shopToSelect.id)
+      } else {
+        setSelectedShopState(null)
       }
     } catch (error) {
       console.error('店舗の取得に失敗:', error)
@@ -67,7 +82,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchShops()
-  }, [])
+  }, [user])
 
   return (
     <ShopContext.Provider
