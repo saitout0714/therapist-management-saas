@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 既にログイン済みの場合はダッシュボードへリダイレクト
+  // 既にログイン済みの場合はホームへリダイレクト
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       router.replace('/')

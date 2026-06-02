@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }, [pathname]);
 
   const navItems = [
-    { href: "/", label: "ダッシュボード" },
+    { href: "/", label: "ホーム" },
     { href: "/shifts", label: "スケジュール" },
     { href: "/reservations", label: "予約管理" },
     { href: "/payroll", label: "報酬・バック計算" },

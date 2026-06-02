@@ -215,7 +215,7 @@ export default function ShopTabBar() {
     if (!shop || shop.id === selectedShop?.id || dragRef.current.moved) return
     if (isEditingPage) {
       const ok = window.confirm(
-        `編集中のページを離れて「${shop.name}」のダッシュボードへ移動しますか？\n\n保存されていない変更は失われます。`
+        `編集中のページを離れて「${shop.name}」のホームへ移動しますか？\n\n保存されていない変更は失われます。`
       )
       if (!ok) return
     }

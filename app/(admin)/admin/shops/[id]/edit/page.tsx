@@ -166,7 +166,7 @@ export default function EditShopPage() {
       if (msg.includes('unique') || msg.includes('duplicate')) {
         setCodeError('このコードは既に使用されています')
       } else if (msg.includes('does not exist') || msg.includes('relation')) {
-        setCodeError('テーブルが存在しません。Supabaseダッシュボードで add-web-reservation.sql を実行してください。')
+        setCodeError('テーブルが存在しません。Supabaseホームで add-web-reservation.sql を実行してください。')
       } else {
         setCodeError('保存に失敗しました: ' + msg)
       }
