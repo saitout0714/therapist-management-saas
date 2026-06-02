@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -28,6 +28,7 @@ interface ReservationWithDetails {
   end_time: string
   extension_count: number
   credit_fee_amount: number
+  total_price: number | null
   course: { duration: number } | null
   reservation_options: { option_id: string; price: number }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
@@ -80,6 +81,7 @@ export default function AggregationPage() {
           .gte('date', startStr)
           .lte('date', endStr)
           .neq('status', 'cancelled')
+          .neq('status', 'blocked')
           .order('date', { ascending: true }),
         supabase
           .from('therapists')
@@ -115,7 +117,19 @@ export default function AggregationPage() {
 
         for (const res of dayRes) {
           const therapist = therapists?.find(t => t.id === res.therapist_id)
-          if (!therapist) continue
+          const fee = res.credit_fee_amount || 0
+          dayCreditFee += fee
+
+          if (!therapist) {
+            const totalOptionsPrice = res.reservation_options?.reduce((sum, o) => sum + o.price, 0) || 0
+            const totalDiscount = res.reservation_discounts?.reduce((sum, d) => sum + d.applied_amount, 0) || res.discount_amount || 0
+            const basePrice = res.base_price || 0
+            const nominationFee = res.nomination_fee || 0
+            const calculatedTotalPrice = Math.max(0, basePrice + totalOptionsPrice + nominationFee - totalDiscount)
+
+            daySales += res.total_price ?? calculatedTotalPrice
+            continue
+          }
 
           const input: BackCalculationInput = {
             shopId: selectedShop.id,
@@ -136,10 +150,8 @@ export default function AggregationPage() {
           }
 
           const calc = await calculateBack(input)
-          const fee = res.credit_fee_amount || 0
-          daySales += calc.totalPrice + fee
+          daySales += calc.totalPrice
           dayBack += calc.netBack
-          dayCreditFee += fee
         }
 
         results.push({
