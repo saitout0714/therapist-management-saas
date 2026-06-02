@@ -78,7 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (loginId: string, password: string) => {
     try {
       // login_id がメールアドレス形式でない場合は、擬似メールアドレスにする
-      const email = loginId.includes('@') ? loginId : `${loginId}@yoyakl.tokyo`
+      const normalizedLoginId = loginId.trim().toLowerCase()
+      const email = normalizedLoginId.includes('@') ? normalizedLoginId : `${normalizedLoginId}@yoyakl.tokyo`
+
 
       // 1. Supabase Auth で安全にサーバーサイド認証を実行
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
