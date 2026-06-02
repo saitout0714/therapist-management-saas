@@ -1,14 +1,16 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function EditCustomerPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const customerId = params.id as string
+  const redirectUrl = searchParams.get('redirect')
 
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
@@ -87,7 +89,11 @@ export default function EditCustomerPage() {
 
       if (updateError) throw updateError
 
-      router.push('/customers')
+      if (redirectUrl) {
+        router.push(redirectUrl)
+      } else {
+        router.push('/customers')
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       console.error('顧客の更新に失敗:', err)
@@ -108,7 +114,7 @@ export default function EditCustomerPage() {
     <div className="bg-gray-100 p-4 md:p-4">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-4">
-          <Link href="/customers" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">
+          <Link href={redirectUrl || "/customers"} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -241,7 +247,7 @@ export default function EditCustomerPage() {
 
               <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end mt-8">
                 <Link
-                  href="/customers"
+                  href={redirectUrl || "/customers"}
                   className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   キャンセル

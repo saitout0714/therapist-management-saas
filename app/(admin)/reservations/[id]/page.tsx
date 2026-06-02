@@ -457,6 +457,32 @@ export default function ReservationPreviewPage() {
             </button>
           </div>
         )}
+
+        {/* 電話番号未登録の警告バナー */}
+        {!reservation.customers?.phone && (
+          <div className="bg-rose-50 rounded-2xl p-4 text-rose-800 shadow-sm border border-rose-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0 text-rose-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm">お客様の電話番号が登録されていません</h3>
+                <p className="text-xs opacity-90 mt-0.5">このお客様は電話番号が登録されていないため、SMSでのご案内を送信できません。</p>
+              </div>
+            </div>
+            <Link
+              href={`/customers/${reservation.customer_id}/edit?redirect=/reservations/${reservationId}`}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow active:scale-95 transition-all flex-shrink-0 flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              電話番号を登録する
+            </Link>
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -628,11 +654,31 @@ export default function ReservationPreviewPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-slate-500 font-medium">お客様</div>
-                  <div className="col-span-2 text-slate-800 font-bold">
-                    {reservation.customers?.name || '未設定'} 様
-                    {reservation.customers?.phone && <span className="block text-slate-500 font-normal text-xs mt-1">{reservation.customers.phone}</span>}
+                <div className="grid grid-cols-3 gap-2 items-start">
+                  <div className="text-slate-500 font-medium pt-0.5">お客様</div>
+                  <div className="col-span-2">
+                    <div className="text-slate-800 font-bold flex items-center gap-2">
+                      <span>{reservation.customers?.name || '未設定'} 様</span>
+                      <Link
+                        href={`/customers/${reservation.customer_id}/edit?redirect=/reservations/${reservationId}`}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium hover:underline flex items-center gap-0.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        情報変更
+                      </Link>
+                    </div>
+                    {reservation.customers?.phone ? (
+                      <span className="block text-slate-500 font-normal text-xs mt-1">{reservation.customers.phone}</span>
+                    ) : (
+                      <span className="block text-rose-500 font-bold text-xs mt-1.5 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        電話番号が登録されていません (SMS送信不可)
+                      </span>
+                    )}
                   </div>
                 </div>
 
