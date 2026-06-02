@@ -29,7 +29,7 @@ interface ReservationWithDetails {
   extension_count: number
   credit_fee_amount: number
   total_price: number | null
-  course: { duration: number } | null
+  course: { name: string; duration: number; base_price: number; back_amount: number } | null
   reservation_options: { option_id: string; price: number }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
 }
@@ -73,7 +73,7 @@ export default function AggregationPage() {
           .from('reservations')
           .select(`
             *, credit_fee_amount,
-            course:courses(duration),
+            course:courses(name, duration, base_price, back_amount),
             reservation_options(option_id, price),
             reservation_discounts(applied_amount, burden_type)
           `)
@@ -137,7 +137,8 @@ export default function AggregationPage() {
             therapistRankId: therapist.rank_id,
             therapistBackCalcType: therapist.back_calc_type,
             courseId: res.course_id,
-            coursePrice: res.base_price || 0,
+            coursePrice: res.course?.base_price ?? res.base_price ?? 0,
+            courseBackAmount: res.course?.back_amount || 0,
             courseDuration: res.course?.duration || 0,
             designationType: res.designation_type as any || 'free',
             nominationFee: res.nomination_fee || 0,
