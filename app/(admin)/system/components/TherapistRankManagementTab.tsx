@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 
@@ -96,20 +96,20 @@ export function TherapistRankManagementTab() {
                 </form>
             )}
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead className="bg-slate-50">
                         <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                            <th className="p-4 w-16">順序</th>
-                            <th className="p-4">ランク名</th>
-                            <th className="p-4 w-32 text-right">操作</th>
+                            <th className="p-4 w-16 whitespace-nowrap">順序</th>
+                            <th className="p-4 whitespace-nowrap">ランク名</th>
+                            <th className="p-4 w-32 text-right whitespace-nowrap">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {ranks.map((r) => (
                             <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-4 text-sm text-slate-600 font-medium">{r.display_order}</td>
-                                <td className="p-4 text-sm font-bold text-slate-800">{r.name}</td>
+                                <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">{r.display_order}</td>
+                                <td className="p-4 text-sm font-bold text-slate-800 whitespace-nowrap">{r.name}</td>
                                 <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
                                     <button className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors" onClick={() => { setEditingRank(r); setFormData({ name: r.name, display_order: r.display_order }); setShowForm(true) }}>編集</button>
                                     <button className="font-medium text-rose-600 hover:text-rose-800 transition-colors" onClick={() => void handleDelete(r.id)}>削除</button>

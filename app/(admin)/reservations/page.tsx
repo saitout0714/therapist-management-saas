@@ -50,6 +50,7 @@ export default function ReservationsPage() {
 
   const [draft, setDraft] = useState<SearchFilters>(EMPTY_FILTERS)
   const [applied, setApplied] = useState<SearchFilters>(EMPTY_FILTERS)
+  const [showFilters, setShowFilters] = useState(false)
 
   async function fetchDesignationTypes() {
     if (!selectedShop) return
@@ -206,7 +207,7 @@ export default function ReservationsPage() {
   const hasActiveFilters = Object.values(applied).some(v => v !== '')
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="mx-auto">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -222,85 +223,107 @@ export default function ReservationsPage() {
         </div>
 
         {/* 検索フィルター */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
-          <h2 className="text-sm font-semibold text-slate-600 mb-4">絞り込み検索</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">予約日（開始）</label>
-              <input
-                type="date"
-                value={draft.dateFrom}
-                onChange={e => setDraft(d => ({ ...d, dateFrom: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">絞り込み検索</span>
+              {hasActiveFilters && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  絞り込み中
+                </span>
+              )}
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">予約日（終了）</label>
-              <input
-                type="date"
-                value={draft.dateTo}
-                onChange={e => setDraft(d => ({ ...d, dateTo: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">ステータス</label>
-              <select
-                value={draft.status}
-                onChange={e => setDraft(d => ({ ...d, status: e.target.value }))}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              >
-                <option value="">すべて</option>
-                <option value="pending">保留中</option>
-                <option value="confirmed">確定</option>
-                <option value="completed">完了</option>
-                <option value="cancelled">キャンセル</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">お客様名</label>
-              <input
-                type="text"
-                placeholder="部分一致"
-                value={draft.customerName}
-                onChange={e => setDraft(d => ({ ...d, customerName: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">セラピスト名</label>
-              <input
-                type="text"
-                placeholder="部分一致"
-                value={draft.therapistName}
-                onChange={e => setDraft(d => ({ ...d, therapistName: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4">
-            <button
-              onClick={handleSearch}
-              className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            <svg
+              className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              検索
-            </button>
-            {hasActiveFilters && (
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                リセット
-              </button>
-            )}
-            {hasActiveFilters && (
-              <span className="text-xs text-indigo-600 font-medium ml-1">絞り込み中</span>
-            )}
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showFilters && (
+            <div className="p-6 pt-0 border-t border-slate-50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">予約日（開始）</label>
+                  <input
+                    type="date"
+                    value={draft.dateFrom}
+                    onChange={e => setDraft(d => ({ ...d, dateFrom: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">予約日（終了）</label>
+                  <input
+                    type="date"
+                    value={draft.dateTo}
+                    onChange={e => setDraft(d => ({ ...d, dateTo: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">ステータス</label>
+                  <select
+                    value={draft.status}
+                    onChange={e => setDraft(d => ({ ...d, status: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  >
+                    <option value="">すべて</option>
+                    <option value="pending">保留中</option>
+                    <option value="confirmed">確定</option>
+                    <option value="completed">完了</option>
+                    <option value="cancelled">キャンセル</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">お客様名</label>
+                  <input
+                    type="text"
+                    placeholder="部分一致"
+                    value={draft.customerName}
+                    onChange={e => setDraft(d => ({ ...d, customerName: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">セラピスト名</label>
+                  <input
+                    type="text"
+                    placeholder="部分一致"
+                    value={draft.therapistName}
+                    onChange={e => setDraft(d => ({ ...d, therapistName: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={handleSearch}
+                  className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  検索
+                </button>
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    リセット
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -320,7 +343,8 @@ export default function ReservationsPage() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* PC用テーブル表示 */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[1200px] text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
@@ -355,10 +379,10 @@ export default function ReservationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  reservations.map((r) => {
+                  reservations.map((r, idx) => {
                     const isUnhandledWeb = r.source === 'web' && !r.is_handled;
                     return (
-                      <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : 'hover:bg-slate-50/80'}`}>
+                      <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
                         <td className="px-6 py-4 text-sm whitespace-nowrap">
                           <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
                             詳細
@@ -442,6 +466,135 @@ export default function ReservationsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* スマホ用カード表示 */}
+          <div className="block md:hidden">
+            {loading ? (
+              <div className="p-6 text-center">
+                <div className="flex justify-center items-center text-indigo-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                  <span className="ml-2.5 font-medium text-xs">読み込み中...</span>
+                </div>
+              </div>
+            ) : reservations.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 text-xs">
+                {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {reservations.map((r, idx) => {
+                  const isUnhandledWeb = r.source === 'web' && !r.is_handled;
+                  return (
+                    <div
+                      key={r.id}
+                      className={`p-2.5 transition-colors ${
+                        isUnhandledWeb
+                          ? 'bg-amber-50/70 border-l-4 border-l-amber-500 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.15)]'
+                          : idx % 2 === 0
+                            ? 'bg-white hover:bg-slate-50/80'
+                            : 'bg-slate-100 hover:bg-slate-200/80'
+                      }`}
+                    >
+                      {/* 1行目: 詳細 ＆ 日時 ＆ アクション */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/reservations/${r.id}`}
+                            className="text-xs font-bold text-sky-500 hover:text-sky-600 shrink-0"
+                          >
+                            詳細
+                          </Link>
+                          <span className="text-xs font-bold text-slate-800">
+                            {r.date} {r.start_time.slice(0, 5)}
+                          </span>
+                          {r.created_at && (
+                            <span className="text-[10px] font-normal text-slate-400">
+                              (登録: {new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isUnhandledWeb && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white border border-amber-400 shadow-sm animate-pulse">
+                              未対応
+                            </span>
+                          )}
+                          {isUnhandledWeb && (
+                            <button
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('reservations')
+                                  .update({ is_handled: true })
+                                  .eq('id', r.id);
+                                if (error) {
+                                  alert('更新に失敗しました: ' + error.message);
+                                } else {
+                                  void fetchReservations(page, applied);
+                                }
+                              }}
+                              className="text-amber-700 hover:text-amber-800 font-bold text-[9px] bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded border border-amber-300 transition-colors shadow-sm cursor-pointer"
+                            >
+                              対応済
+                            </button>
+                          )}
+                          {r.source === 'web' && r.is_handled && (
+                            <button
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('reservations')
+                                  .update({ is_handled: false })
+                                  .eq('id', r.id);
+                                if (error) {
+                                  alert('更新に失敗しました: ' + error.message);
+                                } else {
+                                  void fetchReservations(page, applied);
+                                }
+                              }}
+                              className="text-slate-600 hover:text-slate-800 font-bold text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-colors shadow-sm cursor-pointer"
+                            >
+                              未対応に戻す
+                            </button>
+                          )}
+                          <button
+                            onClick={() => void handleDelete(r.id)}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2行目: 均等幅グリッド（5カラム）によるデータ表示 */}
+                      <div className="grid grid-cols-5 gap-1 items-center text-xs text-slate-700">
+                        {/* お客様名 */}
+                        <span className="font-bold text-slate-900 truncate text-left whitespace-nowrap">{r.customer?.name || 'なし'}</span>
+
+                        {/* セラピスト名 */}
+                        <span className="font-semibold text-indigo-700 truncate text-center whitespace-nowrap">{r.therapist?.name || 'フリー'}</span>
+
+                        {/* コース名 */}
+                        <span className="text-slate-600 truncate text-center whitespace-nowrap">{r.course?.name || '-'}</span>
+
+                        {/* 指名区分 */}
+                        <div className="flex justify-center">
+                          <span className={`inline-flex justify-center px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 whitespace-nowrap ${designationStyle(r.designation_type)}`}>
+                            {designationLabel(r.designation_type)}
+                          </span>
+                        </div>
+
+                        {/* 状態バッジ */}
+                        <div className="flex justify-center">
+                          <span className={`inline-flex justify-center px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 whitespace-nowrap ${statusStyle(r.status)}`}>
+                            {statusLabel(r.status)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* ページネーション */}

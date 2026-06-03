@@ -276,40 +276,40 @@ export function UserManagementTab() {
 
               {/* グループ内ユーザーテーブル */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[650px]">
                   <thead>
                     <tr className="bg-slate-50/10 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-50">
-                      <th className="px-6 py-3.5">利用者 / スタッフ</th>
-                      <th className="px-6 py-3.5">ログインID</th>
-                      <th className="px-6 py-3.5">所属店舗</th>
-                      <th className="px-6 py-3.5">登録日</th>
-                      <th className="px-6 py-3.5 text-center">操作</th>
+                      <th className="px-6 py-3.5 whitespace-nowrap">利用者 / スタッフ</th>
+                      <th className="px-6 py-3.5 whitespace-nowrap">ログインID</th>
+                      <th className="px-6 py-3.5 whitespace-nowrap">所属店舗</th>
+                      <th className="px-6 py-3.5 whitespace-nowrap">登録日</th>
+                      <th className="px-6 py-3.5 text-center whitespace-nowrap">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {groupUsers.length > 0 ? (
                       groupUsers.map(u => (
                         <tr key={u.id} className="hover:bg-slate-50/30 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-700">{u.name || '名前未設定'}</div>
-                            <div className="text-[10px] text-slate-400 uppercase font-mono">{u.id.slice(0, 8)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-700 whitespace-nowrap">{u.name || '名前未設定'}</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-mono whitespace-nowrap">{u.id.slice(0, 8)}</div>
                           </td>
-                          <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.login_id}</td>
-                          <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                          <td className="px-6 py-4 text-sm font-mono text-slate-600 whitespace-nowrap">{u.login_id}</td>
+                          <td className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
                             {u.role === 'system_admin' ? (
-                              <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50">全店舗共通（システム管理者）</span>
+                              <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50 whitespace-nowrap">全店舗共通（システム管理者）</span>
                             ) : u.role === 'agency_staff' ? (
-                              <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/50">全店舗共通（受付担当）</span>
+                              <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/50 whitespace-nowrap">全店舗共通（受付担当）</span>
                             ) : u.shops && u.shops.length > 0 ? (
-                              <span className="text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/50">{u.shops.join(', ')}</span>
+                              <span className="text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/50 whitespace-nowrap">{u.shops.join(', ')}</span>
                             ) : (
-                              <span className="text-slate-400 italic">店舗未割当</span>
+                              <span className="text-slate-400 italic whitespace-nowrap">店舗未割当</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-xs text-slate-400 font-medium">
+                          <td className="px-6 py-4 text-xs text-slate-400 font-medium whitespace-nowrap">
                             {new Date(u.created_at).toLocaleDateString('ja-JP')}
                           </td>
-                          <td className="px-6 py-4 text-center">
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => startEditing(u)}

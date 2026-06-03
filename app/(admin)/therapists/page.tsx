@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from "react";
@@ -169,6 +169,7 @@ export default function TherapistsPage() {
     const isActive = therapist.is_active !== false;
     const rankName = therapist.therapist_ranks?.name;
     const photoUrl = photosMap.get(therapist.id);
+    const [imageError, setImageError] = useState(false);
 
     const sizeLabel = (() => {
       const parts: string[] = [];
@@ -203,8 +204,15 @@ export default function TherapistsPage() {
 
         {/* アバター */}
         <div className={`w-9 h-12 flex-shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-lg mt-0.5 ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
-          {photoUrl ? (
-            <Image src={photoUrl} alt={therapist.name} fill className="object-cover" unoptimized />
+          {photoUrl && !imageError ? (
+            <Image 
+              src={photoUrl} 
+              alt={therapist.name} 
+              fill 
+              className="object-cover" 
+              unoptimized 
+              onError={() => setImageError(true)} 
+            />
           ) : (
             therapist.name.charAt(0)
           )}
@@ -213,19 +221,19 @@ export default function TherapistsPage() {
         {/* 情報エリア */}
         <div className="flex-1 min-w-0 ml-3">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`font-bold text-base ${isActive ? "text-slate-800" : "text-slate-400"}`}>
+            <p className={`font-bold text-base whitespace-nowrap ${isActive ? "text-slate-800" : "text-slate-400"}`}>
               {therapist.name}
             </p>
             {!isActive && (
-              <span className="text-xs text-rose-400 font-medium">退店</span>
+              <span className="text-xs text-rose-400 font-medium whitespace-nowrap">退店</span>
             )}
             {rankName && (
-              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
                 {rankName}
               </span>
             )}
             {(unresolvedMemoCounts.get(therapist.id) ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
@@ -236,41 +244,36 @@ export default function TherapistsPage() {
 
           {/* 身体情報 */}
           {(therapist.age || therapist.height || sizeLabel) && (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-              {therapist.age && (
-                <span className="text-xs text-slate-500">{therapist.age}歳</span>
-              )}
-              {therapist.height && (
-                <span className="text-xs text-slate-500">{therapist.height}cm</span>
-              )}
-              {sizeLabel && (
-                <span className="text-xs text-slate-500">{sizeLabel}</span>
-              )}
+            <div className="flex items-center gap-x-3 mt-1 text-xs text-slate-500 whitespace-nowrap overflow-x-auto scrollbar-hide">
+              {typeof therapist.age === "number" && therapist.age > 0 ? (
+                <span>{therapist.age}歳</span>
+              ) : null}
+              {typeof therapist.height === "number" && therapist.height > 0 ? (
+                <span>{therapist.height}cm</span>
+              ) : null}
+              {sizeLabel ? (
+                <span>{sizeLabel}</span>
+              ) : null}
             </div>
           )}
 
-          {/* メモ */}
-          {therapist.comment && (
-            <p className="mt-1 text-xs text-slate-400 line-clamp-1 max-w-lg">
-              {therapist.comment}
-            </p>
-          )}
+
         </div>
 
         {/* アクションボタン */}
-        <div className="flex-shrink-0 ml-3 flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+        <div className="flex-shrink-0 ml-2 md:ml-3 flex items-center gap-1.5 md:gap-2 opacity-80 group-hover:opacity-100 transition-opacity whitespace-nowrap">
           <Link
             href={`/therapists/${therapist.id}/edit`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 hover:text-indigo-700 transition-colors whitespace-nowrap"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span>編集</span>
+            <span className="hidden sm:inline">編集</span>
           </Link>
           <button
             onClick={() => handleDeleteClick(therapist)}
-            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
             title="削除"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,7 +286,7 @@ export default function TherapistsPage() {
   };
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <div>

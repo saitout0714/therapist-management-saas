@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -82,7 +82,7 @@ export default function RoomsList() {
   useEffect(() => { fetchRooms() }, [selectedShop])
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -115,7 +115,8 @@ export default function RoomsList() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* PC用テーブル表示 */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
@@ -147,13 +148,13 @@ export default function RoomsList() {
                           </svg>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-medium text-slate-800">{room.name}</span>
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                         {room.display_name || <span className="text-slate-400 italic">未設定</span>}
                       </td>
-                      <td className="px-6 py-4 text-slate-600 hidden md:table-cell">
+                      <td className="px-6 py-4 text-slate-600 hidden md:table-cell whitespace-nowrap">
                         <div className="flex gap-2 text-xs">
                           {room.template_member
                             ? <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">会員あり</span>
@@ -179,7 +180,7 @@ export default function RoomsList() {
                           <span className="text-slate-300 hidden md:inline">|</span>
                           <button
                             onClick={() => handleDelete(room.id)}
-                            className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors"
+                            className="text-rose-500 hover:text-rose-700 font-medium text-sm transition-colors cursor-pointer"
                           >
                             削除
                           </button>
@@ -189,6 +190,56 @@ export default function RoomsList() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* スマホ用リスト表示 */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {rooms.map((room, idx) => {
+                const finalBgClass = idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'
+                return (
+                  <div
+                    key={room.id}
+                    className={`p-3.5 transition-colors ${finalBgClass}`}
+                  >
+                    {/* 1行目: ルーム名 ＆ 操作 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-slate-800 text-sm whitespace-nowrap truncate">{room.name}</span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <Link
+                          href={`/rooms/${room.id}/edit`}
+                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors whitespace-nowrap"
+                        >
+                          編集
+                        </Link>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          onClick={() => handleDelete(room.id)}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-700 transition-colors whitespace-nowrap cursor-pointer"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2行目: マンション名 ＆ テンプレ設定 */}
+                    <div className="flex items-center justify-between text-xs text-slate-600 gap-2">
+                      <span className="truncate whitespace-nowrap">
+                        {room.display_name || <span className="text-slate-400 italic">マンション未設定</span>}
+                      </span>
+                      <div className="flex gap-1.5 text-[10px] shrink-0 font-bold">
+                        {room.template_member
+                          ? <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 whitespace-nowrap">会員あり</span>
+                          : <span className="px-1.5 py-0.5 bg-slate-50 text-slate-400 rounded border border-slate-100 whitespace-nowrap">会員なし</span>
+                        }
+                        {room.template_new_customer
+                          ? <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 whitespace-nowrap">新規あり</span>
+                          : <span className="px-1.5 py-0.5 bg-slate-50 text-slate-400 rounded border border-slate-100 whitespace-nowrap">新規なし</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

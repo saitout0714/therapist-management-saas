@@ -250,9 +250,9 @@ export default function AggregationPage() {
           {data.map((day) => (
             <tr key={day.date} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-3 py-1.5 border-b border-slate-50">
-                <div className="flex items-center gap-1.5 line-clamp-1">
+                <div className="flex items-center gap-1.5 line-clamp-1 whitespace-nowrap">
                   <span className="font-bold text-slate-700 font-mono text-xs">{day.date.slice(5).replace('-', '/')}</span>
-                  <span className={`text-[9px] font-bold px-1 rounded ${
+                  <span className={`text-[9px] font-bold px-1 rounded whitespace-nowrap ${
                     new Date(day.date).getDay() === 0 ? 'text-rose-500 bg-rose-50' : 
                     new Date(day.date).getDay() === 6 ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400'
                   }`}>
@@ -260,10 +260,10 @@ export default function AggregationPage() {
                   </span>
                 </div>
               </td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono text-[11px] text-slate-600">¥{day.totalSales.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-indigo-600">¥{day.totalBack.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-emerald-600">¥{day.shopProfit.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 hidden sm:table-cell">
+              <td className="px-3 py-1.5 border-b border-slate-50 font-mono text-[11px] text-slate-600 whitespace-nowrap">¥{day.totalSales.toLocaleString()}</td>
+              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-indigo-600 whitespace-nowrap">¥{day.totalBack.toLocaleString()}</td>
+              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-emerald-600 whitespace-nowrap">¥{day.shopProfit.toLocaleString()}</td>
+              <td className="px-3 py-1.5 border-b border-slate-50 hidden sm:table-cell whitespace-nowrap">
                 <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold">
                   {day.reservationCount}
                 </span>
@@ -505,16 +505,16 @@ export default function AggregationPage() {
 
                           {/* セラピストの予約一覧テーブル */}
                           <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
+                            <table className="w-full text-left border-collapse text-xs min-w-[650px]">
                               <thead className="bg-slate-50/50">
                                 <tr className="text-slate-400 font-bold border-b border-slate-100 text-[10px] uppercase tracking-wider">
-                                  <th className="px-4 py-2 min-w-[70px]">時間</th>
-                                  <th className="px-4 py-2 min-w-[80px]">顧客</th>
-                                  <th className="px-4 py-2 min-w-[160px]">コース・オプション</th>
-                                  <th className="px-4 py-2 text-right">売上</th>
-                                  <th className="px-4 py-2 text-right text-indigo-600">報酬</th>
-                                  <th className="px-4 py-2 text-right text-emerald-600">利益</th>
-                                  <th className="px-4 py-2 text-center w-20">操作</th>
+                                  <th className="px-4 py-2 min-w-[70px] whitespace-nowrap">時間</th>
+                                  <th className="px-4 py-2 min-w-[80px] whitespace-nowrap">顧客</th>
+                                  <th className="px-4 py-2 min-w-[160px] whitespace-nowrap">コース・オプション</th>
+                                  <th className="px-4 py-2 text-right whitespace-nowrap">売上</th>
+                                  <th className="px-4 py-2 text-right text-indigo-600 whitespace-nowrap">報酬</th>
+                                  <th className="px-4 py-2 text-right text-emerald-600 whitespace-nowrap">利益</th>
+                                  <th className="px-4 py-2 text-center w-20 whitespace-nowrap">操作</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -526,33 +526,33 @@ export default function AggregationPage() {
 
                                   return (
                                     <tr key={res.id} className="hover:bg-slate-50/40 transition-colors">
-                                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-600">
+                                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-600 whitespace-nowrap">
                                         {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
                                       </td>
-                                      <td className="px-4 py-2.5 text-slate-500 font-medium truncate max-w-[120px]">
+                                      <td className="px-4 py-2.5 text-slate-500 font-medium truncate max-w-[120px] whitespace-nowrap">
                                         {res.customer?.name || 'ゲスト'}
                                       </td>
                                       <td className="px-4 py-2.5">
-                                        <div className="font-semibold text-slate-700">
+                                        <div className="font-semibold text-slate-700 whitespace-nowrap">
                                           {res.course?.name || 'カスタムコース'}
                                           {res.course?.duration && ` (${res.course.duration}分)`}
                                         </div>
                                         {optionNames && (
-                                          <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]" title={optionNames}>
+                                          <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px] whitespace-nowrap" title={optionNames}>
                                             + {optionNames}
                                           </div>
                                         )}
                                       </td>
-                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-700">
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-700 whitespace-nowrap">
                                         ¥{res.calculatedTotalPrice.toLocaleString()}
                                       </td>
-                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-indigo-600">
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-indigo-600 whitespace-nowrap">
                                         ¥{res.calculatedNetBack.toLocaleString()}
                                       </td>
-                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-600">
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-600 whitespace-nowrap">
                                         ¥{res.calculatedShopProfit.toLocaleString()}
                                       </td>
-                                      <td className="px-4 py-2.5 text-center">
+                                      <td className="px-4 py-2.5 text-center whitespace-nowrap">
                                         <Link
                                           href={`/reservations/${res.id}`}
                                           target="_blank"
