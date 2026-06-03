@@ -6,7 +6,6 @@ import { AuthProvider } from "@/app/contexts/AuthContext";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import ShopSwitcher from "./ShopSwitcher";
-import ShopTabBar from "./ShopTabBar";
 import WebReservationNotifier from "./WebReservationNotifier";
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
@@ -57,7 +56,6 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
             <main className="flex-1 overflow-x-hidden overflow-y-auto pb-24">
               {children}
             </main>
-            <ShopTabBar />
             <WebReservationNotifier />
           </div>
         </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -366,7 +366,7 @@ export default function EditTherapistPage() {
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-4 mb-4">
           <Link href="/therapists" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -379,18 +379,17 @@ export default function EditTherapistPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 md:p-5">
-            {error && (
-              <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex items-start">
-                <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {error}
-              </div>
-            )}
+        {error && (
+          <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex items-start">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-            <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="order-2 lg:order-1 lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
               {/* 写真 */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -757,26 +756,13 @@ export default function EditTherapistPage() {
                   解決優先順位：カテゴリ×指名種別 → カテゴリ×全種別共通 → 店舗デフォルト
                 </p>
               </div>
+          </div>
 
-              <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">
-                <Link
-                  href="/therapists"
-                  className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  キャンセル
-                </Link>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-8 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
-                >
-                  {loading ? '更新中...' : '更新する'}
-                </button>
-              </div>
-            </form>
-
+          {/* 右側サイドバー (スマホでは order-1 で一番上、デスクトップでは order-2 で右側に sticky 固定) */}
+          <div className="order-1 lg:order-2 lg:col-span-1 lg:sticky lg:top-4 space-y-6 w-full">
+            
             {/* 引き継ぎメモセクション */}
-            <div className="mt-8 border border-amber-200 rounded-2xl overflow-hidden">
+            <div className="border border-amber-200 rounded-2xl overflow-hidden bg-white shadow-sm">
               <div className="bg-amber-50 px-5 py-4 flex items-center justify-between border-b border-amber-200">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
@@ -788,6 +774,7 @@ export default function EditTherapistPage() {
                   )}
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowResolved(v => !v)}
                   className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
                 >
@@ -849,6 +836,7 @@ export default function EditTherapistPage() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {!memo.is_resolved && (
                           <button
+                            type="button"
                             onClick={() => handleResolveMemo(memo.id)}
                             className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-2 py-1 rounded-lg transition-colors"
                           >
@@ -856,6 +844,7 @@ export default function EditTherapistPage() {
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => handleDeleteMemo(memo.id)}
                           className="text-[10px] font-bold text-slate-300 hover:text-red-500 border border-slate-200 hover:border-red-300 px-2 py-1 rounded-lg transition-colors"
                         >
@@ -869,8 +858,26 @@ export default function EditTherapistPage() {
                 )}
               </div>
             </div>
+
+            {/* 更新・キャンセルボタン */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex gap-3 justify-end w-full">
+              <Link
+                href="/therapists"
+                className="flex-1 text-center py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                キャンセル
+              </Link>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
+              >
+                {loading ? '更新中...' : '更新する'}
+              </button>
+            </div>
+
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

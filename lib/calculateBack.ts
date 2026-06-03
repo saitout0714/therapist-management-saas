@@ -342,7 +342,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
 
-    const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee)
+    const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack
     return {
       courseBack: courseHalfBack,
       extensionBack: extensionBack,
@@ -538,7 +538,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
   // マトリクスの customer_price（合計）を使用した場合は nomination_fee を加算しない（二重計上防止）
-  const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee) - totalDiscount
+  const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack - totalDiscount
 
   const himeBonus = input.himeBonus ?? 0
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances + himeBonus
