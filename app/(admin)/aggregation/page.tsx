@@ -30,8 +30,16 @@ interface ReservationWithDetails {
   credit_fee_amount: number
   total_price: number | null
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
-  reservation_options: { option_id: string; price: number }[]
+  reservation_options: { option_id: string | null; price: number; custom_name?: string | null; option?: { name: string } | null }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
+  customer?: { name: string } | null
+}
+
+interface CalculatedReservation extends ReservationWithDetails {
+  therapistName: string
+  calculatedTotalPrice: number
+  calculatedNetBack: number
+  calculatedShopProfit: number
 }
 
 export default function AggregationPage() {
@@ -48,8 +56,18 @@ export default function AggregationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([])
+  const [calculatedReservations, setCalculatedReservations] = useState<CalculatedReservation[]>([])
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [periodStr, setPeriodStr] = useState('')
   const [staffOnly, setStaffOnly] = useState(false)
+
+  // 時間文字列を営業日の時系列順ソート用の数値に変換（朝6:00以降を翌日5:59まで並べる）
+  const timeToSortValue = (timeStr: string): number => {
+    if (!timeStr) return 9999
+    const [h, m] = timeStr.split(':').map(Number)
+    const adjustedH = h < 6 ? h + 24 : h
+    return adjustedH * 60 + (m || 0)
+  }
 
   const handleCalculate = async () => {
     if (!selectedShop || !selectedMonth) return
@@ -74,8 +92,9 @@ export default function AggregationPage() {
           .select(`
             *, credit_fee_amount,
             course:courses(name, duration, base_price, back_amount),
-            reservation_options(option_id, price),
-            reservation_discounts(applied_amount, burden_type)
+            reservation_options(option_id, price, custom_name, option:options(name)),
+            reservation_discounts(applied_amount, burden_type),
+            customer:customers(name)
           `)
           .eq('shop_id', selectedShop.id)
           .gte('date', startStr)
@@ -105,6 +124,7 @@ export default function AggregationPage() {
       })
 
       const results: DailySummary[] = []
+      const calculatedResList: CalculatedReservation[] = []
       const current = new Date(start)
       while (current <= end) {
         const dStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`
@@ -120,39 +140,56 @@ export default function AggregationPage() {
           const fee = res.credit_fee_amount || 0
           dayCreditFee += fee
 
+          let calculatedTotalPrice = 0
+          let calculatedNetBack = 0
+
           if (!therapist) {
-            const totalOptionsPrice = res.reservation_options?.reduce((sum, o) => sum + o.price, 0) || 0
+            const totalOptionsPrice = res.reservation_options?.reduce((sum, o) => sum + (o.price || 0), 0) || 0
             const totalDiscount = res.reservation_discounts?.reduce((sum, d) => sum + d.applied_amount, 0) || res.discount_amount || 0
             const basePrice = res.base_price || 0
             const nominationFee = res.nomination_fee || 0
-            const calculatedTotalPrice = Math.max(0, basePrice + totalOptionsPrice + nominationFee - totalDiscount)
+            calculatedTotalPrice = res.total_price ?? Math.max(0, basePrice + totalOptionsPrice + nominationFee - totalDiscount)
+            calculatedNetBack = 0
+          } else {
+            const input: BackCalculationInput = {
+              shopId: selectedShop.id,
+              therapistId: therapist.id,
+              therapistRankId: therapist.rank_id,
+              therapistBackCalcType: therapist.back_calc_type,
+              courseId: res.course_id,
+              coursePrice: res.course?.base_price ?? res.base_price ?? 0,
+              courseBackAmount: res.course?.back_amount || 0,
+              courseDuration: res.course?.duration || 0,
+              designationType: res.designation_type as any || 'free',
+              nominationFee: res.nomination_fee || 0,
+              options: (res.reservation_options || []).map(o => ({
+                option_id: o.option_id,
+                price: o.price,
+                custom_name: o.custom_name,
+                option: o.option,
+              })),
+              discounts: res.reservation_discounts || [],
+              discountAmount: res.discount_amount || 0,
+              date: res.date,
+              startTime: res.start_time,
+              extensionCount: res.extension_count || 0,
+            }
 
-            daySales += res.total_price ?? calculatedTotalPrice
-            continue
+            const calc = await calculateBack(input)
+            calculatedTotalPrice = calc.totalPrice
+            calculatedNetBack = calc.netBack
           }
 
-          const input: BackCalculationInput = {
-            shopId: selectedShop.id,
-            therapistId: therapist.id,
-            therapistRankId: therapist.rank_id,
-            therapistBackCalcType: therapist.back_calc_type,
-            courseId: res.course_id,
-            coursePrice: res.course?.base_price ?? res.base_price ?? 0,
-            courseBackAmount: res.course?.back_amount || 0,
-            courseDuration: res.course?.duration || 0,
-            designationType: res.designation_type as any || 'free',
-            nominationFee: res.nomination_fee || 0,
-            options: res.reservation_options || [],
-            discounts: res.reservation_discounts || [],
-            discountAmount: res.discount_amount || 0,
-            date: res.date,
-            startTime: res.start_time,
-            extensionCount: res.extension_count || 0,
-          }
+          daySales += calculatedTotalPrice
+          dayBack += calculatedNetBack
 
-          const calc = await calculateBack(input)
-          daySales += calc.totalPrice
-          dayBack += calc.netBack
+          calculatedResList.push({
+            ...res,
+            therapistName: therapist ? therapist.name : '（未割当）',
+            calculatedTotalPrice,
+            calculatedNetBack,
+            calculatedShopProfit: calculatedTotalPrice - calculatedNetBack,
+          })
         }
 
         results.push({
@@ -168,6 +205,7 @@ export default function AggregationPage() {
       }
 
       setDailySummaries(results)
+      setCalculatedReservations(calculatedResList)
     } catch (err: any) {
       console.error(err)
       setError('集計に失敗しました: ' + err.message)
@@ -231,12 +269,14 @@ export default function AggregationPage() {
                 </span>
               </td>
               <td className="px-1 py-1 text-center border-b border-slate-50">
-                <Link 
-                  href={`/shifts?date=${day.date}`}
-                  className="text-slate-300 hover:text-indigo-600 transition-colors"
+                <button 
+                  type="button"
+                  onClick={() => setSelectedDate(day.date)}
+                  className="text-slate-300 hover:text-indigo-600 transition-colors p-1"
+                  title="詳細明細を表示（日報）"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </Link>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </button>
               </td>
             </tr>
           ))}
@@ -344,6 +384,212 @@ export default function AggregationPage() {
           </div>
         )}
       </div>
+
+      {/* 日別詳細モーダル（日報） */}
+      {selectedDate && (() => {
+        const dayReservations = calculatedReservations.filter(r => r.date === selectedDate)
+        const summary = dailySummaries.find(d => d.date === selectedDate) || {
+          totalSales: 0,
+          totalBack: 0,
+          shopProfit: 0,
+          reservationCount: 0,
+          totalCreditFee: 0
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+              onClick={() => setSelectedDate(null)}
+            />
+            
+            {/* Modal Body */}
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative z-10 flex flex-col max-h-[85vh] overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    店舗日報詳細 - {selectedDate.replace(/-/g, '/')}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">当日の予約明細一覧と個別収支です。</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Day Summary Cards */}
+              <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">売上合計</span>
+                  <span className="text-base font-bold text-slate-800 font-mono">¥{summary.totalSales.toLocaleString()}</span>
+                  {summary.totalCreditFee > 0 && (
+                    <span className="text-[9px] text-amber-500 font-medium block">手数料 ¥{summary.totalCreditFee.toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">報酬合計</span>
+                  <span className="text-base font-bold text-indigo-600 font-mono">¥{summary.totalBack.toLocaleString()}</span>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 shadow-sm">
+                  <span className="text-[10px] text-emerald-600 font-bold block mb-0.5">店舗利益 (店落ち)</span>
+                  <span className="text-base font-bold text-emerald-700 font-mono">¥{summary.shopProfit.toLocaleString()}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">総予約数</span>
+                  <span className="text-base font-bold text-slate-600 font-mono">{summary.reservationCount} 件</span>
+                </div>
+              </div>
+
+              {/* Modal Content Scroll Area */}
+              <div className="flex-1 overflow-y-auto p-6 min-h-[300px] space-y-6">
+                {dayReservations.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-sm font-medium">
+                    この日の予約データはありません
+                  </div>
+                ) : (() => {
+                  // セラピストごとにグループ分け
+                  const reservationsByTherapist: Record<string, CalculatedReservation[]> = {}
+                  dayReservations.forEach(r => {
+                    const name = r.therapistName
+                    if (!reservationsByTherapist[name]) {
+                      reservationsByTherapist[name] = []
+                    }
+                    reservationsByTherapist[name].push(r)
+                  })
+
+                  // 各セラピストの予約を時間順（start_time）にソート
+                  Object.keys(reservationsByTherapist).forEach(name => {
+                    reservationsByTherapist[name].sort((a, b) => timeToSortValue(a.start_time) - timeToSortValue(b.start_time))
+                  })
+
+                  // セラピストごとの出勤時間（最初の予約の開始時間）の早い順でソートしてレンダリング
+                  return Object.entries(reservationsByTherapist)
+                    .sort(([, listA], [, listB]) => {
+                      const timeA = listA[0]?.start_time || '23:59:59'
+                      const timeB = listB[0]?.start_time || '23:59:59'
+                      return timeToSortValue(timeA) - timeToSortValue(timeB)
+                    })
+                    .map(([therapistName, list]) => {
+                      const tSales = list.reduce((sum, r) => sum + r.calculatedTotalPrice, 0)
+                      const tBack = list.reduce((sum, r) => sum + r.calculatedNetBack, 0)
+                      const tProfit = tSales - tBack
+
+                      return (
+                        <div key={therapistName} className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                          {/* セラピストセクションヘッダー */}
+                          <div className="bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                              <span className="font-bold text-slate-800 text-sm">{therapistName}</span>
+                              <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                                {list.length}件
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs font-mono font-bold">
+                              <span className="text-slate-500">売上: <span className="text-slate-700">¥{tSales.toLocaleString()}</span></span>
+                              <span className="text-indigo-600">報酬: <span>¥{tBack.toLocaleString()}</span></span>
+                              <span className="text-emerald-600">利益: <span>¥{tProfit.toLocaleString()}</span></span>
+                            </div>
+                          </div>
+
+                          {/* セラピストの予約一覧テーブル */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead className="bg-slate-50/50">
+                                <tr className="text-slate-400 font-bold border-b border-slate-100 text-[10px] uppercase tracking-wider">
+                                  <th className="px-4 py-2 min-w-[70px]">時間</th>
+                                  <th className="px-4 py-2 min-w-[80px]">顧客</th>
+                                  <th className="px-4 py-2 min-w-[160px]">コース・オプション</th>
+                                  <th className="px-4 py-2 text-right">売上</th>
+                                  <th className="px-4 py-2 text-right text-indigo-600">報酬</th>
+                                  <th className="px-4 py-2 text-right text-emerald-600">利益</th>
+                                  <th className="px-4 py-2 text-center w-20">操作</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {list.map((res) => {
+                                  const optionNames = res.reservation_options
+                                    ?.map(o => o.custom_name || o.option?.name || 'オプション')
+                                    .filter(Boolean)
+                                    .join(', ')
+
+                                  return (
+                                    <tr key={res.id} className="hover:bg-slate-50/40 transition-colors">
+                                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-600">
+                                        {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-slate-500 font-medium truncate max-w-[120px]">
+                                        {res.customer?.name || 'ゲスト'}
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <div className="font-semibold text-slate-700">
+                                          {res.course?.name || 'カスタムコース'}
+                                          {res.course?.duration && ` (${res.course.duration}分)`}
+                                        </div>
+                                        {optionNames && (
+                                          <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]" title={optionNames}>
+                                            + {optionNames}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-700">
+                                        ¥{res.calculatedTotalPrice.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-indigo-600">
+                                        ¥{res.calculatedNetBack.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-600">
+                                        ¥{res.calculatedShopProfit.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-center">
+                                        <Link
+                                          href={`/reservations/${res.id}`}
+                                          target="_blank"
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition-colors font-bold text-[10px]"
+                                        >
+                                          詳細
+                                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                        </Link>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )
+                    })
+                })()}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200/80 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(null)}
+                  className="px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors text-xs"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

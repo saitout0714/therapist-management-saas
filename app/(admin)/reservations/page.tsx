@@ -324,6 +324,7 @@ export default function ReservationsPage() {
             <table className="w-full min-w-[1200px] text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">詳細</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">時間</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">お客様</th>
@@ -340,7 +341,7 @@ export default function ReservationsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td className="px-6 py-12 text-center" colSpan={11}>
+                    <td className="px-6 py-12 text-center" colSpan={12}>
                       <div className="flex justify-center items-center text-indigo-600">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
                         <span className="ml-3 font-medium text-sm">読み込み中...</span>
@@ -349,7 +350,7 @@ export default function ReservationsPage() {
                   </tr>
                 ) : reservations.length === 0 ? (
                   <tr>
-                    <td className="px-6 py-12 text-center text-slate-500" colSpan={11}>
+                    <td className="px-6 py-12 text-center text-slate-500" colSpan={12}>
                       {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
                     </td>
                   </tr>
@@ -358,6 +359,11 @@ export default function ReservationsPage() {
                     const isUnhandledWeb = r.source === 'web' && !r.is_handled;
                     return (
                       <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : 'hover:bg-slate-50/80'}`}>
+                        <td className="px-6 py-4 text-sm whitespace-nowrap">
+                          <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                            詳細
+                          </Link>
+                        </td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
                           {r.start_time.slice(0, 5)} - {r.end_time.slice(0, 5)}
@@ -425,9 +431,6 @@ export default function ReservationsPage() {
                                 未対応に戻す
                               </button>
                             )}
-                            <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
-                              詳細 / 編集
-                            </Link>
                             <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
                               削除
                             </button>
