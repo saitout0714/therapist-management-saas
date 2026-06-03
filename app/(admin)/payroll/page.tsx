@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -79,6 +79,7 @@ export default function PayrollPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [isLineExportOpen, setIsLineExportOpen] = useState(false)
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([])
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set())
 
@@ -480,7 +481,7 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="max-w-5xl mx-auto space-y-6">
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
@@ -497,22 +498,22 @@ export default function PayrollPage() {
         )}
 
         {/* コントロールパネル */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 items-end">
-          <div className="flex-1 w-full relative">
-            <label className="block text-sm font-medium text-slate-700 mb-2">対象日</label>
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm grid grid-cols-2 md:flex md:flex-row gap-4 md:gap-6 items-end">
+          <div className="col-span-1 md:flex-1 w-full relative">
+            <label className="block text-xs md:text-sm font-medium text-slate-700 mb-1.5 md:mb-2">対象日</label>
             <input
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3 py-2.5 md:px-4 md:py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium text-sm md:text-base"
             />
           </div>
-          <div className="flex-1 w-full relative">
-            <label className="block text-sm font-medium text-slate-700 mb-2">セラピスト</label>
+          <div className="col-span-1 md:flex-1 w-full relative">
+            <label className="block text-xs md:text-sm font-medium text-slate-700 mb-1.5 md:mb-2">セラピスト</label>
             <select
               value={selectedTherapistId}
               onChange={(e) => setSelectedTherapistId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3 py-2.5 md:px-4 md:py-3 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all font-medium text-sm md:text-base"
             >
               <option value="">選択してください</option>
               {therapists.map(t => (
@@ -520,11 +521,11 @@ export default function PayrollPage() {
               ))}
             </select>
           </div>
-          <div className="flex gap-2 w-full md:w-auto">
+          <div className="col-span-2 md:flex-none flex gap-2 w-full md:w-auto">
             <button
               onClick={() => handleCalculate(true)}
               disabled={loading || !selectedTherapistId || !targetDate}
-              className="flex-1 md:flex-none px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full md:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base whitespace-nowrap"
             >
               {loading ? '読込中...' : '精算を表示'}
             </button>
@@ -535,9 +536,9 @@ export default function PayrollPage() {
         {hasSearched && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {/* 左: 明細リスト */}
-            <div className="col-span-1 lg:col-span-2 space-y-4">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            {/* 左: 明細リスト (スマホ時は下部に表示) */}
+            <div className="col-span-1 lg:col-span-2 space-y-4 order-last lg:order-first">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 px-1 md:px-0">
                 <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -545,7 +546,7 @@ export default function PayrollPage() {
               </h2>
 
               {calculatedRows.length === 0 ? (
-                <div className="bg-white border text-center border-slate-200 rounded-2xl p-10 text-slate-500">
+                <div className="bg-white border text-center border-slate-200 rounded-2xl p-10 text-slate-500 shadow-sm">
                   指定された日に予約はありませんでした。
                 </div>
               ) : (
@@ -554,45 +555,47 @@ export default function PayrollPage() {
                     const res = row.reservation
                     const r = row.result
                     return (
-                      <div key={res.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+                      <div key={res.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 md:p-5 shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4 mb-3.5 pb-3.5 border-b border-slate-100">
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100">
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                              <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] md:text-xs font-bold border border-indigo-100">
                                 予約 {idx + 1}
                               </span>
                               {row.fromCache && (
-                                <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-xs font-medium border border-emerald-100">
+                                <span className="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] md:text-xs font-medium border border-emerald-100">
                                   計算済み
                                 </span>
                               )}
-                              <span className="font-bold text-slate-800 text-lg">
+                              <span className="font-bold text-slate-800 text-base md:text-lg">
                                 {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
                               </span>
                             </div>
-                            <div className="text-sm font-medium text-slate-600">
-                              {res.customer?.name || 'フリー客'} 様 / {res.course?.name} ({res.course?.duration}分)
+                            <div className="text-xs md:text-sm font-medium text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span>{res.customer?.name || 'フリー客'} 様</span>
+                              <span className="text-slate-300">/</span>
+                              <span className="truncate max-w-[150px] sm:max-w-none">{res.course?.name} ({res.course?.duration}分)</span>
                               {res.extension_count > 0 && (
-                                <span className="ml-2 text-orange-600 font-bold bg-orange-50 px-1.5 py-0.5 rounded text-xs border border-orange-100">
+                                <span className="text-orange-600 font-bold bg-orange-50 px-1 py-0.5 rounded text-[10px] border border-orange-100 whitespace-nowrap">
                                   延長 +{res.extension_count * extensionUnitMinutes}分
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="inline-block bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold mb-1">
+                          <div className="text-left sm:text-right flex flex-row sm:flex-col flex-wrap sm:items-end items-center gap-2 sm:gap-1">
+                            <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold">
                               {designationLabel(res.designation_type)}
                             </span>
-                            <div className="text-sm font-bold text-slate-800 mb-1">
+                            <div className="text-xs md:text-sm font-bold text-slate-800">
                               売上: ¥{r.totalPrice.toLocaleString()}
                             </div>
                             {r.totalDiscount > 0 && (
-                              <div className="text-xs text-rose-500 font-medium bg-rose-50 px-2 py-0.5 rounded inline-block">
+                              <div className="text-[10px] text-rose-500 font-medium bg-rose-50 px-1.5 py-0.5 rounded inline-block">
                                 割引適用: -¥{r.totalDiscount.toLocaleString()}
                               </div>
                             )}
                             {calcTherapistBurden(res.reservation_discounts) > 0 && (
-                              <div className="text-xs text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded inline-block mt-1">
+                              <div className="text-[10px] text-orange-600 font-medium bg-orange-50 px-1.5 py-0.5 rounded inline-block">
                                 割引負担: -¥{calcTherapistBurden(res.reservation_discounts).toLocaleString()}
                               </div>
                             )}
@@ -600,12 +603,12 @@ export default function PayrollPage() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="text-sm text-slate-500">
+                          <div className="text-[10px] md:text-xs text-slate-400">
                             {r.calcMethod}
                           </div>
-                          <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 text-indigo-900">
-                            <div className="text-xs text-indigo-500 font-medium">バック合計</div>
-                            <div className="font-bold text-lg leading-tight">¥{r.netBack.toLocaleString()}</div>
+                          <div className="bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 text-indigo-900 text-right">
+                            <div className="text-[10px] text-indigo-500 font-medium leading-none mb-0.5">バック合計</div>
+                            <div className="font-bold text-base md:text-lg leading-tight">¥{r.netBack.toLocaleString()}</div>
                           </div>
                         </div>
 
@@ -613,20 +616,20 @@ export default function PayrollPage() {
                           const optionsCash = res.options_payment_method === 'cash' ? (res.options_price || 0) : 0
                           const cashBalance = optionsCash - r.netBack
                           return (
-                            <div className="mt-3 pt-3 border-t border-slate-100">
-                              <div className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">現金精算（クレジット着金前）</div>
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                <div className="text-slate-600">
+                            <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                              <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">現金精算（クレジット着金前）</div>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                                <div>
                                   お客様現金: <span className="font-bold text-slate-800">¥{optionsCash.toLocaleString()}</span>
                                 </div>
-                                <div className="text-slate-400">－</div>
-                                <div className="text-slate-600">
+                                <div className="text-slate-300">|</div>
+                                <div>
                                   バック支払: <span className="font-bold text-slate-800">¥{r.netBack.toLocaleString()}</span>
                                 </div>
-                                <div className="text-slate-400">=</div>
-                                <div>
-                                  <span className="text-slate-600">現金残: </span>
-                                  <span className={`font-extrabold text-base ${cashBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                <div className="text-slate-300">|</div>
+                                <div className="flex items-center gap-1">
+                                  <span>現金残:</span>
+                                  <span className={`font-extrabold ${cashBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                     {cashBalance < 0 ? `▼ -¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}
                                   </span>
                                 </div>
@@ -641,61 +644,62 @@ export default function PayrollPage() {
               )}
             </div>
 
-            {/* 右: LINE用エクスポートとサマリー */}
-            <div className="col-span-1 space-y-6">
-              <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-md">
-                <h3 className="text-indigo-100 text-sm font-bold uppercase tracking-wider mb-2">本日報酬合計</h3>
-                <div className="text-4xl font-extrabold mb-4 font-mono tracking-tighter">
+            {/* 右: LINE用エクスポートとサマリー (スマホ時は上部に表示) */}
+            <div className="col-span-1 space-y-4 md:space-y-6 order-first lg:order-last">
+              <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 md:p-6 text-white shadow-md">
+                <h3 className="text-indigo-100 text-xs md:text-sm font-bold uppercase tracking-wider mb-1">本日報酬合計</h3>
+                <div className="text-3xl md:text-4xl font-extrabold mb-3 font-mono tracking-tighter">
                   ¥{netPay.toLocaleString()}
                 </div>
                 {totalHimeBonus > 0 && (
-                  <div className="text-sm text-pink-200 mb-2">
+                  <div className="text-xs md:text-sm text-pink-200 mb-3 bg-white/10 px-2.5 py-1 rounded-lg inline-block">
                     ♥ 姫予約ボーナス含む: +¥{totalHimeBonus.toLocaleString()}
                   </div>
                 )}
-                <div className="flex justify-between items-center text-sm text-indigo-100 pt-4 border-t border-white/20">
-                  <span>総売上</span>
-                  <span className="font-bold">¥{totalSales.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-indigo-100 pt-2 mb-2">
-                  <span>店落ち</span>
-                  <span className="font-bold border-b border-white/30 truncate">¥{(totalSales - netPay).toLocaleString()}</span>
-                </div>
-                {totalExtensionMinutes > 0 && (
-                  <div className="flex justify-between items-center text-sm text-indigo-100 pt-3 border-t border-white/20">
-                    <span>延長合計時間</span>
-                    <span className="font-bold text-orange-200 text-lg">{totalExtensionMinutes} <span className="text-xs font-normal">分</span></span>
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-x-4 gap-y-3 pt-4 border-t border-white/20">
+                  <div className="flex justify-between items-center text-xs md:text-sm text-indigo-100">
+                    <span>総売上</span>
+                    <span className="font-bold">¥{totalSales.toLocaleString()}</span>
                   </div>
-                )}
-                {hasCreditReservation && (
-                  <div className="mt-3 pt-3 border-t border-white/20">
-                    <div className="text-xs text-indigo-200 mb-1 font-bold uppercase tracking-wider">現金残（クレジット着金前）</div>
-                    <div className={`text-xl font-extrabold ${(totalCashReceived - netPay) < 0 ? 'text-red-300' : 'text-white'}`}>
-                      {(totalCashReceived - netPay) < 0
-                        ? `▼ -¥${Math.abs(totalCashReceived - netPay).toLocaleString()}`
-                        : `¥${(totalCashReceived - netPay).toLocaleString()}`}
+                  <div className="flex justify-between items-center text-xs md:text-sm text-indigo-100">
+                    <span>店落ち</span>
+                    <span className="font-bold truncate">¥{(totalSales - netPay).toLocaleString()}</span>
+                  </div>
+                  {totalExtensionMinutes > 0 && (
+                    <div className="flex justify-between items-center text-xs md:text-sm text-indigo-100 lg:pt-2 lg:border-t lg:border-white/10">
+                      <span>延長時間</span>
+                      <span className="font-bold text-orange-200">{totalExtensionMinutes}分</span>
                     </div>
-                    {(totalCashReceived - netPay) < 0 && (
-                      <div className="text-[10px] text-red-200 mt-0.5">クレジット着金後に不足分を補填</div>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {hasCreditReservation && (
+                    <div className="col-span-2 lg:col-span-1 lg:pt-2 lg:border-t lg:border-white/10">
+                      <div className="flex justify-between items-center text-xs md:text-sm text-indigo-100">
+                        <span>現金残</span>
+                        <span className={`font-bold ${(totalCashReceived - netPay) < 0 ? 'text-red-300' : 'text-white'}`}>
+                          {(totalCashReceived - netPay) < 0
+                            ? `-¥${Math.abs(totalCashReceived - netPay).toLocaleString()}`
+                            : `¥${(totalCashReceived - netPay).toLocaleString()}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 控除・手当を選択 */}
               {deductionRules.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-5">
                   <h3 className="font-bold text-slate-700 mb-3 text-sm">控除・手当を選択</h3>
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
                     {deductionRules.map(rule => {
                       const multiplier = rule.calc_timing === 'per_reservation' ? calculatedRows.length : 1
                       const total = rule.amount * multiplier
                       const isDeduction = rule.category === 'deduction' || rule.category === 'penalty'
                       return (
-                        <label key={rule.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                        <label key={rule.id} className="flex items-center gap-2 cursor-pointer p-2 rounded-xl hover:bg-slate-50 border border-slate-100 lg:border-0">
                           <input
                             type="checkbox"
-                            className="rounded w-4 h-4 accent-indigo-600"
+                            className="rounded w-4 h-4 accent-indigo-600 flex-shrink-0"
                             checked={selectedRuleIds.has(rule.id)}
                             onChange={(e) => {
                               const next = new Set(selectedRuleIds)
@@ -705,16 +709,16 @@ export default function PayrollPage() {
                             }}
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-700">{rule.name}</div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs font-semibold text-slate-700 truncate">{rule.name}</div>
+                            <div className="text-[10px] text-slate-400 truncate">
                               {rule.calc_timing === 'per_reservation'
-                                ? `${calculatedRows.length}件 × ¥${rule.amount.toLocaleString()}`
+                                ? `${calculatedRows.length}件×¥${rule.amount.toLocaleString()}`
                                 : rule.calc_timing === 'per_shift' ? '出勤ごと'
                                 : rule.calc_timing === 'monthly' ? '月次'
                                 : '手動'}
                             </div>
                           </div>
-                          <div className={`text-sm font-bold ${isDeduction ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          <div className={`text-xs font-bold flex-shrink-0 ${isDeduction ? 'text-rose-600' : 'text-emerald-600'}`}>
                             {isDeduction ? '-' : '+'}¥{total.toLocaleString()}
                           </div>
                         </label>
@@ -724,37 +728,59 @@ export default function PayrollPage() {
                 </div>
               )}
 
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                  <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-[#06C755]" viewBox="0 0 24 24" fill="currentColor">
+              <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 ${
+                isLineExportOpen ? 'h-[320px] lg:h-[500px]' : 'h-[64px] lg:h-[500px]'
+              }`}>
+                <div 
+                  onClick={() => setIsLineExportOpen(!isLineExportOpen)}
+                  className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center cursor-pointer lg:cursor-default select-none"
+                >
+                  <h3 className="font-bold text-slate-700 flex items-center gap-2 text-xs md:text-sm">
+                    <svg className="w-4 h-4 text-[#06C755] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M22.5 10c0-4.81-4.71-8.7-10.5-8.7S1.5 5.19 1.5 10c0 4.3 3.55 7.95 8.44 8.6.35.08.83.24.96.55.12.3-.04.75-.12 1.15-.05.22-.32 1.52-.39 1.83-.07.31-.38.9.79.41 1.17-.5 6.32-3.71 8.7-6.43 1.76-2 2.62-4.14 2.62-6.11z" />
                     </svg>
-                    LINE送信用テキスト
+                    <span>LINE送信用テキスト</span>
+                    <span className="lg:hidden text-[10px] text-slate-400 font-normal">
+                      ({isLineExportOpen ? 'タップで閉じる' : 'タップで表示'})
+                    </span>
                   </h3>
-                  <button
-                    onClick={handleCopy}
-                    className={`text-xs font-bold border px-3 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1.5 ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-indigo-600 hover:text-indigo-800 border-indigo-200'}`}
-                  >
-                    {copied ? (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                        コピーしました
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        テキストをコピー
-                      </>
-                    )}
-                  </button>
+                  
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={handleCopy}
+                      className={`text-xs font-bold border px-2.5 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1 ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-indigo-600 hover:text-indigo-800 border-indigo-200'}`}
+                    >
+                      {copied ? (
+                        <>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                          <span>コピー完了</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span>コピー</span>
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setIsLineExportOpen(!isLineExportOpen)}
+                      className="lg:hidden p-1 text-slate-400 hover:text-slate-600 transition-transform duration-200"
+                      style={{ transform: isLineExportOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className="p-4 flex-1 bg-slate-50/50">
+                <div className={`p-4 flex-1 bg-slate-50/50 transition-all duration-300 ${
+                  isLineExportOpen ? 'opacity-100 visible' : 'opacity-0 invisible lg:opacity-100 lg:visible'
+                }`}>
                   <textarea
                     readOnly
-                    className="w-full h-full bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-700 font-mono focus:outline-none resize-none leading-relaxed"
+                    className="w-full h-full min-h-[180px] lg:min-h-0 bg-white border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-700 font-mono focus:outline-none resize-none leading-relaxed"
                     value={generateLineText()}
                   />
                 </div>
