@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type CustomOption = {
   option_id: string | null
@@ -208,7 +209,7 @@ export default function ReservationPreviewPage() {
     let text = `【ご予約内容のご確認】\n\n`
 
     // 日時（日付と時間を別行）
-    text += `■ 日時\n${reservation.date}\n${reservation.start_time.slice(0, 5)} ～ ${reservation.end_time.slice(0, 5)}\n\n`
+    text += `■ 日時\n${reservation.date}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
@@ -293,7 +294,7 @@ export default function ReservationPreviewPage() {
     let text = `【${reservation.date} ご予約詳細】\n\n`
 
     // 時間
-    text += `■ 時間\n${reservation.start_time.slice(0, 5)}-${reservation.end_time.slice(0, 5)}\n\n`
+    text += `■ 時間\n${toDisplayTime(reservation.start_time)}-${toDisplayTime(reservation.end_time)}\n\n`
 
     // ルーム
     text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
@@ -676,7 +677,7 @@ export default function ReservationPreviewPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-slate-500 font-medium">日時</div>
                   <div className="col-span-2 text-slate-800 font-bold">
-                    {reservation.date} <br/> {reservation.start_time.slice(0, 5)} - {reservation.end_time.slice(0, 5)}
+                    {reservation.date} <br/> {toDisplayTime(reservation.start_time)} - {toDisplayTime(reservation.end_time)}
                   </div>
                 </div>
                 

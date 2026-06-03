@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         // 時刻フォーマットを HH:MM:00 に整形
         const formatTime = (t: string) => {
           const parts = t.split(':')
-          const h = String(parseInt(parts[0], 10) % 24).padStart(2, '0')
+          const h = String(parseInt(parts[0], 10)).padStart(2, '0')
           const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0')
           return `${h}:${m}:00`
         }

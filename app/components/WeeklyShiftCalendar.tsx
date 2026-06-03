@@ -202,7 +202,11 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
 
     setSaving(false)
     if (result.error) {
-      setError('保存に失敗しました: ' + result.error.message)
+      let msg = result.error.message
+      if (msg.includes('duplicate key value violates unique constraint') || msg.includes('shifts_therapist_id_date_start_time_end_time_key')) {
+        msg = 'このセラピストは、指定された日に同じ時間帯で既にシフトが登録されています。'
+      }
+      setError('保存に失敗しました: ' + msg)
       return
     }
 

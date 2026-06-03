@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
@@ -81,7 +81,7 @@ function formatPrice(p: number) {
 function addMinutes(time: string, mins: number) {
   const [h, m] = time.split(':').map(Number)
   const total = h * 60 + m + mins
-  const nh = Math.floor(total / 60) % 24
+  const nh = Math.floor(total / 60)
   const nm = total % 60
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
 }
@@ -108,7 +108,7 @@ function generateSlots(shiftStart: string, shiftEnd: string, durationMin: number
   let current = base
   const end = timeToMinutesAbsolute(shiftEnd, shiftStart)
   while (current + durationMin <= end) {
-    const h = Math.floor(current / 60) % 24
+    const h = Math.floor(current / 60)
     const m = current % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
     current += intervalMin
@@ -696,7 +696,7 @@ export default function ReservePage() {
                 const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
                 const rawMin = shiftStartMin + ratio * totalMin
                 const snapped = Math.round(rawMin / 5) * 5
-                const th = Math.floor(snapped / 60) % 24
+                const th = Math.floor(snapped / 60)
                 const tm = snapped % 60
                 const timeStr = `${String(th).padStart(2, '0')}:${String(tm).padStart(2, '0')}`
                 const slot = slotsWithAvailability.find(s => s.time === timeStr)
@@ -719,7 +719,7 @@ export default function ReservePage() {
                 if (!selectedStartTime) return
                 const curr = timeToMinutesAbsolute(selectedStartTime, currentShift.start_time)
                 const target = curr + delta
-                const ah = Math.floor(target / 60) % 24
+                const ah = Math.floor(target / 60)
                 const am = target % 60
                 const timeStr = `${String(ah).padStart(2, '0')}:${String(am).padStart(2, '0')}`
                 const slot = slotsWithAvailability.find(s => s.time === timeStr)
@@ -746,7 +746,7 @@ export default function ReservePage() {
                   const absMin = hr * 60
                   if (absMin > shiftStartMin && absMin < shiftEndMin) {
                     result.push({
-                      label: `${String(hr % 24).padStart(2, '0')}:00`,
+                      label: `${String(hr).padStart(2, '0')}:00`,
                       leftPct: ((absMin - shiftStartMin) / totalMin) * 100,
                     })
                   }

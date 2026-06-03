@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import TimeChart from '@/app/components/TimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
+import { toDisplayTime } from '@/lib/timeUtils';
 
 interface Shift {
   id: string;
@@ -151,6 +152,10 @@ export default function ShiftsPage() {
   // メモ追加フォーム
   const [memoForm, setMemoForm] = useState<{ content: string; amount: string } | null>(null);
 
+  // 編集用の状態
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [editMemoForm, setEditMemoForm] = useState<{ content: string; amount: string }>({ content: '', amount: '' });
+
   const handleAddMemo = async (therapistId: string) => {
     if (!memoForm || !selectedShop || !memoForm.content.trim()) return;
     const { data, error } = await supabase.from('therapist_memos').insert([{
@@ -160,11 +165,42 @@ export default function ShiftsPage() {
       content: memoForm.content.trim(),
       amount: parseInt(memoForm.amount || '0', 10) || 0,
     }]).select('id, date, content, amount').single();
-    if (error) { alert('メモの追加に失敗しました'); return; }
+    if (error) { alert('メモの追加に失敗しました: ' + error.message); return; }
     setMemoForm(null);
     setShiftEditModal(m => m ? {
       ...m,
       unresolvedMemos: [{ id: data.id, date: data.date, content: data.content, amount: data.amount }, ...(m.unresolvedMemos || [])],
+    } : null);
+    setRefreshCounter(c => c + 1);
+  };
+
+  const handleEditMemoStart = (memo: TherapistMemo) => {
+    setEditingMemoId(memo.id);
+    setEditMemoForm({
+      content: memo.content ?? '',
+      amount: memo.amount != null ? String(memo.amount) : ''
+    });
+  };
+
+  const handleUpdateMemo = async (id: string) => {
+    if (!editMemoForm.content.trim()) return;
+    const { error } = await supabase
+      .from('therapist_memos')
+      .update({
+        content: editMemoForm.content.trim(),
+        amount: parseInt(editMemoForm.amount || '0', 10) || 0
+      })
+      .eq('id', id);
+
+    if (error) {
+      alert('メモの更新に失敗しました: ' + error.message);
+      return;
+    }
+
+    setEditingMemoId(null);
+    setShiftEditModal(m => m ? {
+      ...m,
+      unresolvedMemos: (m.unresolvedMemos || []).map(memo => memo.id === id ? { ...memo, content: editMemoForm.content.trim(), amount: parseInt(editMemoForm.amount || '0', 10) || 0 } : memo),
     } : null);
     setRefreshCounter(c => c + 1);
   };
@@ -224,16 +260,16 @@ export default function ShiftsPage() {
 
     const shift = shiftRes.data?.[0];
     const allBlocked = allBlockedRes.data || [];
-    const shiftStartStr = shift ? shift.start_time.slice(0, 5) : null;
-    const shiftEndStr = shift ? shift.end_time.slice(0, 5) : null;
+    const shiftStartStr = shift ? toDisplayTime(shift.start_time) : null;
+    const shiftEndStr = shift ? toDisplayTime(shift.end_time) : null;
 
     let isOff = false;
     let offMemo = '';
     const blockedSlots: { startTime: string; endTime: string }[] = [];
 
     for (const bl of allBlocked) {
-      const blStart = bl.start_time.slice(0, 5);
-      const blEnd = bl.end_time.slice(0, 5);
+      const blStart = toDisplayTime(bl.start_time);
+      const blEnd = toDisplayTime(bl.end_time);
       if (shiftStartStr && shiftEndStr && blStart === shiftStartStr && blEnd === shiftEndStr) {
         isOff = true;
         offMemo = bl.notes ?? '';
@@ -242,8 +278,8 @@ export default function ShiftsPage() {
       }
     }
 
-    const defaultStart = shift ? shift.start_time.slice(0, 5) : '10:00';
-    const defaultEnd = shift ? shift.end_time.slice(0, 5) : '18:00';
+    const defaultStart = shift ? toDisplayTime(shift.start_time) : '10:00';
+    const defaultEnd = shift ? toDisplayTime(shift.end_time) : '18:00';
 
     const unresolvedMemos: TherapistMemo[] = (memosRes.data || []).map((m: any) => ({
       id: m.id, date: m.date, content: m.content, amount: m.amount,
@@ -288,7 +324,7 @@ export default function ShiftsPage() {
 
     const toDbTime = (t: string) => {
       const [h, min] = t.split(':').map(Number);
-      return `${String(h % 24).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
     };
 
     const shiftPayload: any = {
@@ -686,8 +722,8 @@ export default function ShiftsPage() {
       .filter((r: any) => r.status !== 'blocked')
       .map((reservation) => ({
         therapistId: reservation.therapist_id || 'unassigned',
-        startTime: reservation.start_time.slice(0, 5),
-        endTime: reservation.end_time.slice(0, 5),
+        startTime: toDisplayTime(reservation.start_time),
+        endTime: toDisplayTime(reservation.end_time),
         title: `${reservation.customers?.name || 'unknown'}`,
         type: 'reservation' as const,
         reservationId: reservation.id,
@@ -707,8 +743,8 @@ export default function ShiftsPage() {
       .filter((r: any) => r.status === 'blocked')
       .map((reservation) => ({
         therapistId: reservation.therapist_id || 'unassigned',
-        startTime: reservation.start_time.slice(0, 5),
-        endTime: reservation.end_time.slice(0, 5),
+        startTime: toDisplayTime(reservation.start_time),
+        endTime: toDisplayTime(reservation.end_time),
         title: '予約不可',
         type: 'blocked' as const,
         reservationId: reservation.id,
@@ -722,8 +758,8 @@ export default function ShiftsPage() {
           : shopIntervalMinutes;
         if (interval <= 0) return [];
 
-        const startMin = hhmToMinutes(reservation.start_time.slice(0, 5));
-        const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
+        const startMin = hhmToMinutes(toDisplayTime(reservation.start_time));
+        const endMin = hhmToMinutes(toDisplayTime(reservation.end_time));
 
         let shiftStartMin: number | undefined;
         let shiftEndAdjusted: number | undefined;
@@ -746,7 +782,7 @@ export default function ShiftsPage() {
           result.push({
             therapistId: reservation.therapist_id,
             startTime: minutesToHHMM(preStart),
-            endTime: reservation.start_time.slice(0, 5),
+            endTime: toDisplayTime(reservation.start_time),
             title: `インターバル ${interval}分`,
             type: 'interval' as const,
           });
@@ -756,7 +792,7 @@ export default function ShiftsPage() {
         if (shiftEndAdjusted === undefined || endMin < shiftEndAdjusted) {
           result.push({
             therapistId: reservation.therapist_id,
-            startTime: reservation.end_time.slice(0, 5),
+            startTime: toDisplayTime(reservation.end_time),
             endTime: minutesToHHMM(endMin + interval),
             title: `インターバル ${interval}分`,
             type: 'interval' as const,
@@ -780,8 +816,8 @@ export default function ShiftsPage() {
       return reservations.some(r =>
         r.status === 'blocked' &&
         r.therapist_id === t.id &&
-        r.start_time.slice(0, 5) === t.shiftStart &&
-        r.end_time.slice(0, 5) === t.shiftEnd
+        toDisplayTime(r.start_time) === t.shiftStart &&
+        toDisplayTime(r.end_time) === t.shiftEnd
       );
     };
 
@@ -840,8 +876,8 @@ export default function ShiftsPage() {
         );
 
         therapistRes.forEach((r: any) => {
-          const resStart = hhmToMinutes(r.start_time.slice(0, 5));
-          let resEnd = hhmToMinutes(r.end_time.slice(0, 5));
+          const resStart = hhmToMinutes(toDisplayTime(r.start_time));
+          let resEnd = hhmToMinutes(toDisplayTime(r.end_time));
           if (resEnd <= resStart) resEnd += 24 * 60;
 
           let blockStart = resStart;
@@ -1413,27 +1449,82 @@ export default function ShiftsPage() {
                 <p className="text-xs text-slate-400 text-center py-2">未解決のメモはありません</p>
               )}
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {shiftEditModal.unresolvedMemos.map(memo => (
-                  <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
-                        {memo.amount !== 0 && (
-                          <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                            {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
-                          </span>
-                        )}
+                {shiftEditModal.unresolvedMemos.map(memo => {
+                  const isEditing = editingMemoId === memo.id;
+                  if (isEditing) {
+                    return (
+                      <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                        <textarea
+                          value={editMemoForm.content}
+                          onChange={e => setEditMemoForm(f => ({ ...f, content: e.target.value }))}
+                          rows={1}
+                          className="w-full px-2 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                          placeholder="内容"
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editMemoForm.amount}
+                              onChange={e => setEditMemoForm(f => ({ ...f, amount: e.target.value }))}
+                              className="w-20 px-1.5 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none"
+                              placeholder="金額"
+                            />
+                            <span className="text-[10px] text-slate-500">円</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingMemoId(null)}
+                              className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 rounded transition-all"
+                            >
+                              キャンセル
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateMemo(memo.id)}
+                              disabled={!editMemoForm.content.trim()}
+                              className="px-2.5 py-1 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded transition-all"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
+                    );
+                  }
+
+                  return (
+                    <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
+                          {memo.amount !== 0 && (
+                            <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                              {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleEditMemoStart(memo)}
+                          className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 border border-slate-200 hover:border-indigo-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
+                          className="text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          解決済み
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
-                      className="flex-shrink-0 text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
-                    >
-                      解決済み
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

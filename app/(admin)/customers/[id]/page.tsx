@@ -130,9 +130,8 @@ export default function CustomerDetailPage() {
       setNgPairs(prev => [...prev, data as unknown as NgPair])
       setNgAddTherapistId('')
       setNgAddReason('')
-    } catch (err: any) {
-      console.error('NGセラピストの追加エラー:', err)
-      alert('NGセラピストの追加に失敗しました: ' + (err?.message || '不明なエラー'))
+    } catch {
+      alert('NGセラピストの追加に失敗しました')
     } finally {
       setNgAdding(false)
     }
@@ -144,9 +143,8 @@ export default function CustomerDetailPage() {
       const { error } = await supabase.from('customer_therapist_ng').delete().eq('id', pairId)
       if (error) throw error
       setNgPairs(prev => prev.filter(p => p.id !== pairId))
-    } catch (err: any) {
-      console.error('NGセラピストの削除エラー:', err)
-      alert('NGの解除に失敗しました: ' + (err?.message || '不明なエラー'))
+    } catch {
+      alert('NGの解除に失敗しました')
     } finally {
       setNgRemoving(null)
     }

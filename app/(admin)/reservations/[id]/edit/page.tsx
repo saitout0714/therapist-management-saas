@@ -525,6 +525,28 @@ export default function EditReservationPage() {
       return
     }
 
+    // NGセラピストチェック
+    if (formData.customer_id && formData.therapist_id) {
+      try {
+        const { data: ngData, error: ngError } = await supabase
+          .from('customer_therapist_ng')
+          .select('id')
+          .eq('customer_id', formData.customer_id)
+          .eq('therapist_id', formData.therapist_id)
+          .limit(1)
+
+        if (ngError) throw ngError
+        if (ngData && ngData.length > 0) {
+          alert('このセラピストはこのお客様に対してNG登録されています。予約を登録できません。')
+          return
+        }
+      } catch (err: any) {
+        console.error('NGチェックエラー:', err)
+        alert('NGチェック中にエラーが発生しました')
+        return
+      }
+    }
+
     try {
       // 新規顧客の場合は先に登録
       if (!formData.customer_id && newCustomer.name) {
@@ -541,9 +563,7 @@ export default function EditReservationPage() {
         setFormData(prev => ({ ...prev, customer_id: createdCustomer.id }))
         formData.customer_id = createdCustomer.id
       }
-      const startDate = new Date(`${formData.date}T${formData.start_time}`)
-      const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
-      const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+
 
       const selectedDesignationType = designationTypes.find(d => d.slug === formData.designation_type)
 

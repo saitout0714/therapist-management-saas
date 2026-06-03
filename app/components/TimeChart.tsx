@@ -54,14 +54,32 @@ interface TimeChartProps {
   onShiftEditOpen?: (therapistId: string) => void;
 }
 
+import { toDisplayTime } from '@/lib/timeUtils';
+
 const TimeChart: React.FC<TimeChartProps> = ({
-  therapists,
-  schedules = [],
+  therapists: rawTherapists,
+  schedules: rawSchedules = [],
   date,
   onBlockedClick,
   onShiftEditOpen,
 }) => {
   const router = useRouter();
+
+  const therapists = useMemo(() => {
+    return rawTherapists.map(t => ({
+      ...t,
+      shiftStart: t.shiftStart ? toDisplayTime(t.shiftStart) : undefined,
+      shiftEnd: t.shiftEnd ? toDisplayTime(t.shiftEnd) : undefined,
+    }));
+  }, [rawTherapists]);
+
+  const schedules = useMemo(() => {
+    return rawSchedules.map(s => ({
+      ...s,
+      startTime: toDisplayTime(s.startTime),
+      endTime: toDisplayTime(s.endTime),
+    }));
+  }, [rawSchedules]);
 
   // スクロール同期用のref
   const headerTimelineRef = useRef<HTMLDivElement>(null);
@@ -155,7 +173,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
         slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
       }
     }
-    for (let hour = 0; hour <= 5; hour++) {
+    for (let hour = 24; hour <= 29; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
       }
@@ -168,7 +186,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
     for (let hour = 10; hour < 24; hour++) {
       labels.push(`${String(hour).padStart(2, '0')}時`);
     }
-    for (let hour = 0; hour <= 5; hour++) {
+    for (let hour = 24; hour <= 29; hour++) {
       labels.push(`${String(hour).padStart(2, '0')}時`);
     }
     return labels;
@@ -216,11 +234,12 @@ const TimeChart: React.FC<TimeChartProps> = ({
         const h = now.getHours();
         const m = now.getMinutes();
 
+        let adjustedHour = h;
+        if (h < 10) adjustedHour += 24;
+
         let idx = 0;
-        if (h >= 10 && h <= 23) {
-          idx = (h - 10) * 12 + Math.floor(m / 5);
-        } else if (h >= 0 && h <= 5) {
-          idx = 14 * 12 + h * 12 + Math.floor(m / 5);
+        if (adjustedHour >= 10 && adjustedHour <= 29) {
+          idx = (adjustedHour - 10) * 12 + Math.floor(m / 5);
         } else {
           return; // 6〜9時は表示範囲外
         }
@@ -242,13 +261,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const nowMin = now.getMinutes();
   let showSeek = false;
   let seekIndex = 0;
-  if ((nowHour >= 10 && nowHour <= 23) || (nowHour >= 0 && nowHour <= 5)) {
+
+  let adjustedNowHour = nowHour;
+  if (nowHour < 10) adjustedNowHour += 24;
+
+  if (adjustedNowHour >= 10 && adjustedNowHour <= 29) {
     showSeek = true;
-    if (nowHour >= 10) {
-      seekIndex = (nowHour - 10) * 12 + Math.floor(nowMin / 5);
-    } else {
-      seekIndex = (14 * 12) + nowHour * 12 + Math.floor(nowMin / 5);
-    }
+    seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
 
   // Row height & Cell width adjustments for compact view
@@ -310,7 +329,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                   {/* テキスト情報 */}
                   <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
-                    {/* 名前 + インターバル */}
+                    {/* 名前 */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       <p
                         className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
@@ -327,21 +346,18 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       >
                         {therapist.name}
                       </p>
-                      {therapist.id !== 'unassigned' && (
-                        <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                        </span>
-                      )}
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                         <span
-                          className="flex-shrink-0 flex items-center text-amber-400 cursor-default"
+                          className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[120px]"
+                          title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                           onMouseEnter={e => {
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
                           }}
                           onMouseLeave={() => setMemoPopup(null)}
                         >
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                          <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                          <span>引継: {therapist.unresolvedMemos![0].content}</span>
                         </span>
                       )}
                     </div>
@@ -357,23 +373,30 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       )}
                     </p>
 
-                    {/* ルーム */}
-                    {therapist.room && (
-                      <span
-                        className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                        onMouseEnter={(e) => {
-                          if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setRoomMemoPopup({ roomName: therapist.room ?? '', memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
-                        }}
-                        onMouseLeave={() => {
-                          roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                        }}
-                      >
-                        <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                        {therapist.room}
-                      </span>
-                    )}
+                    {/* ルーム + インターバル */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {therapist.room && (
+                        <span
+                          className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
+                          onMouseEnter={(e) => {
+                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setRoomMemoPopup({ roomName: therapist.room ?? '', memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
+                          }}
+                          onMouseLeave={() => {
+                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                          }}
+                        >
+                          <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          {therapist.room}
+                        </span>
+                      )}
+                      {therapist.id !== 'unassigned' && (
+                        <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                        </span>
+                      )}
+                    </div>
 
                     {/* notes */}
                     {therapist.notes && (

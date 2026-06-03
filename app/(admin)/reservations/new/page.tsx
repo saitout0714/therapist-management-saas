@@ -694,6 +694,31 @@ export default function NewReservationPage() {
       return
     }
 
+    // NGセラピストチェック
+    if (!isBlocked && formData.customer_id && formData.therapist_id) {
+      try {
+        setLoading(true)
+        const { data: ngData, error: ngError } = await supabase
+          .from('customer_therapist_ng')
+          .select('id')
+          .eq('customer_id', formData.customer_id)
+          .eq('therapist_id', formData.therapist_id)
+          .limit(1)
+
+        if (ngError) throw ngError
+        if (ngData && ngData.length > 0) {
+          alert('このセラピストはこのお客様に対してNG登録されています。予約を登録できません。')
+          setLoading(false)
+          return
+        }
+      } catch (err: any) {
+        console.error('NGチェックエラー:', err)
+        alert('NGチェック中にエラーが発生しました')
+        setLoading(false)
+        return
+      }
+    }
+
     // 予約不可ブロック
     if (isBlocked) {
       try {

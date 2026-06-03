@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type TherapistItem = {
   id: string
@@ -82,6 +83,12 @@ export default function PayrollPage() {
   const [isLineExportOpen, setIsLineExportOpen] = useState(false)
   const [deductionRules, setDeductionRules] = useState<DeductionRule[]>([])
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set())
+
+  // 引き継ぎメモ用の状態
+  interface TherapistMemo { id: string; date: string; content: string; amount: number; is_resolved: boolean; }
+  const [unresolvedMemos, setUnresolvedMemos] = useState<TherapistMemo[]>([])
+  const [selectedMemoIds, setSelectedMemoIds] = useState<Set<string>>(new Set())
+  const [memoResolving, setMemoResolving] = useState(false)
 
   useEffect(() => {
     async function fetchDeductionRules() {
@@ -266,6 +273,23 @@ export default function PayrollPage() {
         }
       }
 
+      // 未解決メモを取得
+      const { data: memoData, error: memoError } = await supabase
+        .from('therapist_memos')
+        .select('id, date, content, amount, is_resolved')
+        .eq('shop_id', selectedShop.id)
+        .eq('therapist_id', selectedTherapistId)
+        .eq('is_resolved', false)
+        .order('date', { ascending: true })
+
+      if (!memoError && memoData) {
+        setUnresolvedMemos(memoData as TherapistMemo[])
+        setSelectedMemoIds(new Set(memoData.map(m => m.id)))
+      } else {
+        setUnresolvedMemos([])
+        setSelectedMemoIds(new Set())
+      }
+
       setCalculatedRows(rows)
       setHasSearched(true)
     } catch (err: any) {
@@ -315,17 +339,25 @@ export default function PayrollPage() {
       }
     }
 
+    // 選択された引き継ぎメモ調整を合算（amount 正＝手当(加算)、負＝控除(減算)）
+    let memoAdjust = 0
+    unresolvedMemos.forEach(m => {
+      if (selectedMemoIds.has(m.id)) {
+        memoAdjust += m.amount
+      }
+    })
+
     return {
       totalSales: sales,
       totalBack: back,
-      totalDeductions: manualDed,
-      totalAllowances: manualAll,
+      totalDeductions: manualDed + (memoAdjust < 0 ? Math.abs(memoAdjust) : 0),
+      totalAllowances: manualAll + (memoAdjust > 0 ? memoAdjust : 0),
       totalHimeBonus: hime,
-      netPay: Math.max(0, baseNetTotal - manualDed + manualAll),
+      netPay: Math.max(0, baseNetTotal - manualDed + manualAll + memoAdjust),
       totalCashReceived: cashReceived,
       hasCreditReservation: hasCredit,
     }
-  }, [calculatedRows, deductionRules, selectedRuleIds])
+  }, [calculatedRows, deductionRules, selectedRuleIds, unresolvedMemos, selectedMemoIds])
 
   const totalExtensionMinutes = useMemo(() => {
     const count = calculatedRows.reduce((sum, row) => sum + (row.reservation.extension_count || 0), 0)
@@ -364,7 +396,7 @@ export default function PayrollPage() {
       calculatedRows.forEach((row, index) => {
         const res = row.reservation
         const r = row.result
-        text += `\n■ ${index + 1}予約目 (${res.start_time.slice(0, 5)}〜${res.end_time.slice(0, 5)})\n`
+        text += `\n■ ${index + 1}予約目 (${toDisplayTime(res.start_time)}〜${toDisplayTime(res.end_time)})\n`
         text += `・${res.customer?.name || 'お客様'} 様\n`
 
         // コースバック
@@ -457,6 +489,16 @@ export default function PayrollPage() {
       }
     }
 
+    // 選択された引き継ぎメモ調整
+    const selectedMemos = unresolvedMemos.filter(m => selectedMemoIds.has(m.id))
+    if (selectedMemos.length > 0) {
+      text += `\n【引継ぎメモ調整】\n`
+      for (const memo of selectedMemos) {
+        const sign = memo.amount >= 0 ? '+' : ''
+        text += `・${memo.content} (${memo.date}): ${sign}¥${memo.amount.toLocaleString()}\n`
+      }
+    }
+
     text += `\n------------------------\n`
     text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
     text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
@@ -467,6 +509,26 @@ export default function PayrollPage() {
     text += `------------------------\n`
     text += `\nご確認よろしくお願いいたします！`
     return text
+  }
+
+  const handleResolveSelectedMemos = async () => {
+    const ids = Array.from(selectedMemoIds)
+    if (ids.length === 0) return
+    if (!confirm('選択された引き継ぎメモを「精算済み」に変更しますか？')) return
+
+    setMemoResolving(true)
+    const { error } = await supabase
+      .from('therapist_memos')
+      .update({ is_resolved: true })
+      .in('id', ids)
+
+    setMemoResolving(false)
+    if (error) {
+      alert('引き継ぎメモの更新に失敗しました: ' + error.message)
+    } else {
+      alert('選択された引き継ぎメモを精算済みに更新しました。')
+      void handleCalculate(true)
+    }
   }
 
   const handleCopy = () => {
@@ -568,7 +630,7 @@ export default function PayrollPage() {
                                 </span>
                               )}
                               <span className="font-bold text-slate-800 text-base md:text-lg">
-                                {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
+                                {toDisplayTime(res.start_time)}〜{toDisplayTime(res.end_time)}
                               </span>
                             </div>
                             <div className="text-xs md:text-sm font-medium text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -720,6 +782,51 @@ export default function PayrollPage() {
                           </div>
                           <div className={`text-xs font-bold flex-shrink-0 ${isDeduction ? 'text-rose-600' : 'text-emerald-600'}`}>
                             {isDeduction ? '-' : '+'}¥{total.toLocaleString()}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 引き継ぎメモ調整 */}
+              {unresolvedMemos.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-slate-700 text-sm">引継ぎメモ調整</h3>
+                    <button
+                      onClick={handleResolveSelectedMemos}
+                      disabled={memoResolving || selectedMemoIds.size === 0}
+                      className="px-2.5 py-1.5 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm"
+                    >
+                      {memoResolving ? '処理中...' : '精算済みにする'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+                    {unresolvedMemos.map(memo => {
+                      const isDeduction = memo.amount < 0
+                      return (
+                        <label key={memo.id} className="flex items-center gap-2 cursor-pointer p-2 rounded-xl hover:bg-slate-50 border border-slate-100 lg:border-0">
+                          <input
+                            type="checkbox"
+                            className="rounded w-4 h-4 accent-indigo-600 flex-shrink-0"
+                            checked={selectedMemoIds.has(memo.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedMemoIds)
+                              if (e.target.checked) next.add(memo.id)
+                              else next.delete(memo.id)
+                              setSelectedMemoIds(next)
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-slate-700 truncate">{memo.content}</div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {memo.date}
+                            </div>
+                          </div>
+                          <div className={`text-xs font-bold flex-shrink-0 ${isDeduction ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {memo.amount >= 0 ? '+' : ''}¥{memo.amount.toLocaleString()}
                           </div>
                         </label>
                       )

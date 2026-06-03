@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { calculateBack, BackCalculationInput } from '@/lib/calculateBack'
 import Link from 'next/link'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 interface DailySummary {
   date: string;
@@ -527,7 +528,7 @@ export default function AggregationPage() {
                                   return (
                                     <tr key={res.id} className="hover:bg-slate-50/40 transition-colors">
                                       <td className="px-4 py-2.5 font-mono font-semibold text-slate-600 whitespace-nowrap">
-                                        {res.start_time.slice(0, 5)}〜{res.end_time.slice(0, 5)}
+                                        {toDisplayTime(res.start_time)}〜{toDisplayTime(res.end_time)}
                                       </td>
                                       <td className="px-4 py-2.5 text-slate-500 font-medium truncate max-w-[120px] whitespace-nowrap">
                                         {res.customer?.name || 'ゲスト'}

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type Reservation = {
   id: string
@@ -390,7 +391,7 @@ export default function ReservationsPage() {
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                          {r.start_time.slice(0, 5)} - {r.end_time.slice(0, 5)}
+                          {toDisplayTime(r.start_time)} - {toDisplayTime(r.end_time)}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
@@ -506,7 +507,7 @@ export default function ReservationsPage() {
                             詳細
                           </Link>
                           <span className="text-xs font-bold text-slate-800">
-                            {r.date} {r.start_time.slice(0, 5)}
+                            {r.date} {toDisplayTime(r.start_time)}
                           </span>
                           {r.created_at && (
                             <span className="text-[10px] font-normal text-slate-400">

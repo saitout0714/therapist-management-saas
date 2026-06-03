@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Image from 'next/image'
 import { useShop } from '@/app/contexts/ShopContext'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 interface Therapist {
   id: string
@@ -79,15 +80,7 @@ const toMinutes = (t: string): number => {
   return h * 60 + m
 }
 
-const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
-  const base = dbTime.slice(0, 5)
-  const ref = refDbTime.slice(0, 5)
-  if (toMinutes(base) <= toMinutes(ref)) {
-    const [h, m] = base.split(':').map(Number)
-    return `${String(h + 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  }
-  return base
-}
+
 
 const DESIGNATION_LABEL: Record<string, string> = {
   free: 'フリー',
@@ -353,7 +346,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                       const therapist = therapistMap.get(shift.therapist_id)
                       if (!therapist) return null
                       const roomName = shift.room_id ? roomMap.get(shift.room_id) : null
-                      const endDisplay = dbTimeToDisplay(shift.end_time, shift.start_time)
+                      const endDisplay = toDisplayTime(shift.end_time)
                       const allDayReservations = reservationsByDateTherapist.get(`${dateStr}_${shift.therapist_id}`) || []
                       const dayReservations = allDayReservations.filter(r => r.status === 'confirmed')
                       const blockedNote = allDayReservations.find(r => r.status === 'blocked')?.notes
@@ -420,7 +413,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                             </div>
                             {/* テキスト情報 */}
                             <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
-                              {/* 名前 + インターバル */}
+                              {/* 名前 */}
                               <div className="flex items-center gap-1.5 min-w-0 pr-14">
                                 <p
                                   className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
@@ -437,21 +430,18 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 >
                                   {therapist.name}
                                 </p>
-                                {therapist.id !== 'unassigned' && (
-                                  <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
-                                  </span>
-                                )}
                                 {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                                   <span
-                                    className="flex-shrink-0 flex items-center text-amber-400 cursor-default"
+                                    className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse cursor-default truncate max-w-[120px]"
+                                    title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                                     onMouseEnter={e => {
                                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                       setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top })
                                     }}
                                     onMouseLeave={() => setMemoPopup(null)}
                                   >
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <span>引継: {therapist.unresolvedMemos![0].content}</span>
                                   </span>
                                 )}
                               </div>
@@ -461,34 +451,41 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 {therapist.id === 'unassigned' ? (
                                   <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
                                 ) : (
-                                  <span className="text-emerald-600">{shift.start_time.slice(0, 5)}〜{endDisplay}</span>
+                                  <span className="text-emerald-600">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
                                 )}
                               </p>
 
-                              {/* ルーム */}
-                              {roomName && (
-                                <span
-                                  className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                                  onMouseEnter={(e) => {
-                                    if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
-                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    const activeRoom = rooms.find(r => r.id === shift.room_id)
-                                    setRoomMemoPopup({
-                                      roomName: roomName,
-                                      memo: activeRoom?.memo ?? '',
-                                      mapUrl: activeRoom?.google_map_url ?? null,
-                                      x: rect.left,
-                                      y: rect.bottom + 4
-                                    })
-                                  }}
-                                  onMouseLeave={() => {
-                                    roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
-                                  }}
-                                >
-                                  <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                  {roomName}
-                                </span>
-                              )}
+                              {/* ルーム + インターバル */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {roomName && (
+                                  <span
+                                    className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
+                                    onMouseEnter={(e) => {
+                                      if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
+                                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                      const activeRoom = rooms.find(r => r.id === shift.room_id)
+                                      setRoomMemoPopup({
+                                        roomName: roomName,
+                                        memo: activeRoom?.memo ?? '',
+                                        mapUrl: activeRoom?.google_map_url ?? null,
+                                        x: rect.left,
+                                        y: rect.bottom + 4
+                                      })
+                                    }}
+                                    onMouseLeave={() => {
+                                      roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
+                                    }}
+                                  >
+                                    <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    {roomName}
+                                  </span>
+                                )}
+                                {therapist.id !== 'unassigned' && (
+                                  <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
+                                  </span>
+                                )}
+                              </div>
 
                               {/* notes */}
                               {shiftNote && therapist.id !== 'unassigned' && (
@@ -513,7 +510,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
                                       {/* Row 1: 時間 */}
                                       <div className="text-[10px] font-medium text-white leading-none">
-                                        <span className="whitespace-nowrap">{res.start_time.slice(0, 5)}-{res.end_time.slice(0, 5)}</span>
+                                        <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
                                       </div>
                                       {/* Row 2: 顧客名 + 新規/会員バッジ */}
                                       <div className="flex items-center justify-start gap-1 min-w-0">

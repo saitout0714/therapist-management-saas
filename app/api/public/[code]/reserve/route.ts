@@ -279,6 +279,25 @@ export async function POST(
     isNewCustomer = true
   }
 
+  // NGセラピストチェック
+  if (!isNewCustomer && therapist_id) {
+    const { data: ngData, error: ngError } = await supabase
+      .from('customer_therapist_ng')
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('therapist_id', therapist_id)
+      .maybeSingle()
+
+    if (ngError) {
+      console.error('NGチェックエラー:', ngError)
+    } else if (ngData) {
+      return NextResponse.json(
+        { error: 'ご指定のセラピストでのご予約は承ることができません。別のセラピストを選択するか、指名なしでご予約ください。' },
+        { status: 400 }
+      )
+    }
+  }
+
   // 指名区分の自動判定
   // therapist_id なし（フリー選択）→ free
   // therapist_id あり + 既存顧客 + 同セラピスト履歴あり → confirmed（本指名）
