@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Image from 'next/image'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
 import { toDisplayTime } from '@/lib/timeUtils'
 
 interface Therapist {
@@ -104,6 +105,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 }) => {
   const router = useRouter()
   const { selectedShop } = useShop()
+  const { loading: authLoading, user } = useAuth()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
@@ -126,7 +128,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   }, [weekStartDate])
 
   const fetchWeekData = async () => {
-    if (!selectedShop) return
+    if (!selectedShop || authLoading || !user) return
     const startDate = formatDate(weekDates[0])
     const endDate = formatDate(weekDates[6])
 
@@ -152,7 +154,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 
   useEffect(() => {
     void fetchWeekData()
-  }, [selectedShop, weekDates])
+  }, [selectedShop, weekDates, authLoading, user])
 
   useEffect(() => {
     const fetchRooms = async () => {

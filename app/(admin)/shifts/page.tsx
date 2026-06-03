@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import TimeChart from '@/app/components/TimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
 import { toDisplayTime } from '@/lib/timeUtils';
@@ -117,6 +118,7 @@ const getBusinessDate = () => {
 
 export default function ShiftsPage() {
   const { selectedShop } = useShop();
+  const { loading: authLoading, user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -432,14 +434,15 @@ export default function ShiftsPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchTherapists();
     fetchShifts();
     fetchReservations();
-  }, [filterDate, selectedShop, refreshCounter]);
+  }, [filterDate, selectedShop, refreshCounter, authLoading, user]);
 
   // 予約のリアルタイム更新（Supabase Realtime）
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     const channel = supabase
       .channel(`shifts-reservations-realtime-${selectedShop.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
@@ -450,10 +453,10 @@ export default function ShiftsPage() {
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [selectedShop, filterDate]);
+  }, [selectedShop, filterDate, authLoading, user]);
 
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     supabase
       .from('rooms')
       .select('id, name, order')
@@ -465,10 +468,10 @@ export default function ShiftsPage() {
         setRoomOrderMap(map);
         setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name })));
       });
-  }, [selectedShop, refreshCounter]);
+  }, [selectedShop, refreshCounter, authLoading, user]);
 
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     supabase
       .from('courses')
       .select('name, duration, base_price')
@@ -504,7 +507,7 @@ export default function ShiftsPage() {
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []));
-  }, [selectedShop]);
+  }, [selectedShop, authLoading, user]);
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;

@@ -35,44 +35,134 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // ローカルストレージからユーザー情報を復元
+  // ユーザー情報の同期処理
+  const syncUserWithSession = async (sessionUser: any) => {
+    try {
+      const { data: dbUserData, error: dbUserError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', sessionUser.id)
+        .limit(1)
+
+      if (dbUserData && dbUserData.length > 0) {
+        const dbUser = dbUserData[0]
+        let shops: { id: string; name: string }[] = []
+        
+        if (dbUser.role !== 'system_admin' && dbUser.role !== 'agency_staff') {
+          const { data: shopsData, error: shopsError } = await supabase
+            .from('shop_owners')
+            .select('shops(*)')
+            .eq('user_id', dbUser.id)
+
+          if (!shopsError && shopsData) {
+            shops = (shopsData as unknown as ShopOwnerRow[])
+              .filter((so) => so.shops !== null)
+              .map((so) => ({
+                id: so.shops!.id,
+                name: so.shops!.name,
+              }))
+          }
+        }
+
+        const userObj: User = {
+          id: dbUser.id,
+          loginId: dbUser.login_id,
+          name: dbUser.name,
+          role: dbUser.role,
+          shops: shops.length > 0 ? shops : undefined,
+        }
+
+        setUser(userObj)
+        localStorage.setItem('auth_user', JSON.stringify(userObj))
+        document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=86400; SameSite=Lax`
+      } else {
+        clearUserSession()
+      }
+    } catch (err) {
+      console.error('ユーザー情報同期失敗:', err)
+    }
+  }
+
+  // ユーザー情報のクリア
+  const clearUserSession = () => {
+    setUser(null)
+    localStorage.removeItem('auth_user')
+    document.cookie = 'auth_user=; path=/; max-age=0; SameSite=Lax'
+  }
+
+  // 初期ロード時と認証監視
   useEffect(() => {
-    const restoreSession = async () => {
+    const initializeAuth = async () => {
+      // 1. ローカルキャッシュから一時復元（ちらつきとリダイレクト防止）
       try {
         const storedUser = localStorage.getItem('auth_user')
         if (storedUser) {
           const userData = JSON.parse(storedUser)
-          // 互換性チェック（email形式からloginId形式への移行対応）
           if (userData && (userData.loginId || userData.email)) {
-            // 古い形式の場合はloginIdにマッピングするか、あるいはクリアする
-            // ここでは安全のため、loginIdがない場合は再ログインを促す（クリアする）
             if (!userData.loginId && userData.email) {
-              localStorage.removeItem('auth_user')
-              document.cookie = 'auth_user=; path=/; max-age=0'
-              setUser(null)
+              clearUserSession()
             } else {
-              // 古い権限名のキャッシュを自動で新しい権限に移行
               let roleChanged = false
               if (userData.role === 'admin') { userData.role = 'system_admin'; roleChanged = true; }
               if (userData.role === 'owner') { userData.role = 'simple_client_owner'; roleChanged = true; }
               if (userData.role === 'staff') { userData.role = 'agency_staff'; roleChanged = true; }
               
+              const finalUser = roleChanged ? { ...userData, role: userData.role } : userData;
               if (roleChanged) {
-                localStorage.setItem('auth_user', JSON.stringify(userData))
-                document.cookie = `auth_user=${JSON.stringify(userData)}; path=/; max-age=86400`
+                localStorage.setItem('auth_user', JSON.stringify(finalUser))
+                document.cookie = `auth_user=${JSON.stringify(finalUser)}; path=/; max-age=86400; SameSite=Lax`
               }
-              setUser(userData)
+              setUser(finalUser)
             }
           }
         }
-      } catch (error) {
-        console.error('セッション復元失敗:', error)
+      } catch (err) {
+        console.error('ローカルキャッシュ復旧失敗:', err)
+      } finally {
+        setLoading(false)
+      }
+
+      // 2. Supabase の現在のセッション状態を確認し同期する
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          await syncUserWithSession(session.user)
+        } else {
+          // キャッシュもセッションも両方無い場合のみクリアする（自爆を防ぐ）
+          const storedUser = localStorage.getItem('auth_user')
+          if (!storedUser) {
+            clearUserSession()
+          }
+        }
+      } catch (err) {
+        console.error('セッション取得失敗:', err)
+        const storedUser = localStorage.getItem('auth_user')
+        if (!storedUser) {
+          clearUserSession()
+        }
       } finally {
         setLoading(false)
       }
     }
 
-    restoreSession()
+    void initializeAuth()
+
+    // 3. 認証イベントの監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change event:', event, session?.user?.id)
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user) {
+          void syncUserWithSession(session.user)
+        }
+      } else if (event === 'SIGNED_OUT') {
+        clearUserSession()
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (loginId: string, password: string) => {
