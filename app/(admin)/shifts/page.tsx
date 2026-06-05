@@ -34,6 +34,7 @@ interface Reservation {
   designation_type: string;
   is_hime: boolean | null;
   notes?: string | null;
+  payment_method: string | null;
   customers: { name: string; created_at: string } | null;
   courses: { name: string; duration: number } | null;
   is_handled?: boolean;
@@ -108,6 +109,7 @@ interface Schedule {
   isNewCustomer?: boolean;
   isHime?: boolean;
   isPending?: boolean;
+  paymentMethod?: string | null;
 }
 
 type ViewMode = 'day' | 'week';
@@ -699,6 +701,7 @@ export default function ShiftsPage() {
           notes,
           is_handled,
           source,
+          payment_method,
           customers(name, created_at),
           courses(name, duration)
         `)
@@ -747,6 +750,7 @@ export default function ShiftsPage() {
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,
         source: reservation.source,
+        paymentMethod: reservation.payment_method,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
@@ -1193,18 +1197,16 @@ export default function ShiftsPage() {
           </div>
         </div>
 
-        {/* ローディング（日表示のみ） */}
-        {viewMode === 'day' && loading && (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-600">読み込み中...</p>
-          </div>
-        )}
-
         {/* タイムチャートビュー */}
-        {viewMode === 'day' && !loading && (() => {
+        {viewMode === 'day' && (() => {
           const chartHeight = 56 + sortedTherapistsWithShift.length * 76 + 10;
           return (
-            <div className="bg-white rounded-lg shadow-lg overflow-visible">
+            <div className="bg-white rounded-lg shadow-lg overflow-visible relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+                  <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
+                </div>
+              )}
               <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart

@@ -44,6 +44,7 @@ interface Schedule {
   isPending?: boolean;
   isHandled?: boolean;
   source?: string;
+  paymentMethod?: string | null;
 }
 
 interface TimeChartProps {
@@ -664,6 +665,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           <span className="font-bold text-[13px] leading-none truncate">
                             {schedule.customerName || schedule.title}
                           </span>
+                          {schedule.paymentMethod === 'credit' && (
+                            <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-500 text-white shadow-sm whitespace-nowrap">
+                              💳 クレジット
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] font-medium flex items-center gap-1 leading-none flex-wrap">
                           {schedule.courseDuration && (
@@ -721,6 +727,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {isReservation && (
                           <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                             {schedule.isNewCustomer ? '新規' : '会員'}
+                          </span>
+                        )}
+                        {isReservation && schedule.paymentMethod === 'credit' && (
+                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
+                            💳 クレジット
                           </span>
                         )}
                         {isUnhandledWeb && (

@@ -32,6 +32,7 @@ type SystemSettings = {
   smtp_user: string | null
   smtp_pass: string | null
   smtp_from: string | null
+  credit_payment_url: string | null
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
@@ -63,6 +64,7 @@ export default function SystemPage() {
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
     special_rules: string
+    credit_payment_url: string
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -83,6 +85,7 @@ export default function SystemPage() {
     smtp_from: '',
     sms_address_mode: 'unified',
     special_rules: '',
+    credit_payment_url: '',
   })
 
   async function fetchSettings() {
@@ -119,6 +122,7 @@ export default function SystemPage() {
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
       special_rules: shopRes.data?.special_rules ?? '',
+      credit_payment_url: row?.credit_payment_url ?? '',
     })
     setLoading(false)
   }
@@ -136,6 +140,7 @@ export default function SystemPage() {
       smtp_user: form.smtp_user || null,
       smtp_pass: form.smtp_pass || null,
       smtp_from: form.smtp_from || null,
+      credit_payment_url: form.credit_payment_url || null,
     }
 
     const [result, shopResult] = await Promise.all([
@@ -304,24 +309,38 @@ export default function SystemPage() {
               <p className="mt-2 text-xs text-slate-400">ランク別の料金・バックは「ランク別 料金バック」タブで設定できます。</p>
             </div>
 
-            {/* クレジット決済手数料 */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
-              <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜12%の範囲で設定できます。</p>
-              <div className="flex items-center gap-3 max-w-xs">
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={12}
-                    step={0.5}
-                    value={form.credit_card_fee_rate}
-                    onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(12, Math.max(0, Number(e.target.value))) })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+            {/* クレジット決済設定 */}
+            <div className="border-b border-slate-100 pb-6 space-y-5">
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
+                <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜12%の範囲で設定できます。</p>
+                <div className="flex items-center gap-3 max-w-xs">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={12}
+                      step={0.5}
+                      value={form.credit_card_fee_rate}
+                      onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(12, Math.max(0, Number(e.target.value))) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+                  </div>
+                  <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
                 </div>
-                <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済リンク URL</h3>
+                <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。電話番号「tel=」の直後にはお客様の電話番号が自動挿入されます。</p>
+                <input
+                  type="text"
+                  placeholder="https://pay2.star-pay.jp/site/com/shop.php?tel=&payc=A4233&guide="
+                  value={form.credit_payment_url}
+                  onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
               </div>
             </div>
 

@@ -73,6 +73,7 @@ export default function ReservationPreviewPage() {
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
   const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [creditPaymentUrl, setCreditPaymentUrl] = useState<string | null>(null)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -134,7 +135,7 @@ export default function ReservationPreviewPage() {
         setDesignationMap(map)
       }
 
-      // 3. Fetch Room from Shift
+      // 4. Fetch Room from Shift
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
         .select('rooms(name, display_name, template_member, template_new_customer)')
@@ -154,6 +155,14 @@ export default function ReservationPreviewPage() {
           template_new_customer: room?.template_new_customer || null,
         })
       }
+
+      // 5. Fetch credit_payment_url from system_settings
+      const { data: settingsData } = await supabase
+        .from('system_settings')
+        .select('credit_payment_url')
+        .eq('shop_id', selectedShop.id)
+        .maybeSingle()
+      setCreditPaymentUrl(settingsData?.credit_payment_url || null)
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -259,11 +268,43 @@ export default function ReservationPreviewPage() {
     }
     text += `------------------------\n`
     text += `合計：￥${reservation.total_price.toLocaleString()}\n`
-    if (reservation.credit_fee_amount > 0) {
-      text += `クレジット手数料：￥${reservation.credit_fee_amount.toLocaleString()}\n`
-      text += `💳 クレジット請求額：￥${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}\n`
+
+    if (reservation.payment_method === 'credit') {
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0)
+      if (reservation.credit_fee_amount > 0) {
+        text += `クレジット手数料：￥${reservation.credit_fee_amount.toLocaleString()}\n`
+      }
+      text += `クレジット決済額：￥${creditTotal.toLocaleString()}\n`
       if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
         text += `（うちオプション￥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
+      }
+      text += `\n`
+      text += `下記のサイトから\n`
+      text += `必要事項ご入力いただき\n`
+      text += `決済手数料10%込みの金額\n`
+      text += `¥${creditTotal.toLocaleString()}\n`
+      text += `でご決済を\n`
+      text += `ご入室前までにお願い致します😊\n\n`
+      const customerPhone = reservation.customers?.phone || ''
+      let finalLink = ''
+      if (creditPaymentUrl) {
+        if (creditPaymentUrl.includes('tel=')) {
+          finalLink = creditPaymentUrl.replace('tel=', `tel=${customerPhone}`)
+        } else {
+          const separator = creditPaymentUrl.includes('?') ? '&' : '?'
+          finalLink = `${creditPaymentUrl}${separator}tel=${customerPhone}`
+        }
+      } else {
+        finalLink = `https://pay2.star-pay.jp/site/com/shop.php?tel=${customerPhone}&payc=A4233&guide=`
+      }
+      text += `${finalLink}\n`
+    } else {
+      if (reservation.credit_fee_amount > 0) {
+        text += `クレジット手数料：￥${reservation.credit_fee_amount.toLocaleString()}\n`
+        text += `💳 クレジット請求額：￥${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}\n`
+        if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+          text += `（うちオプション￥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
+        }
       }
     }
 
@@ -346,7 +387,13 @@ export default function ReservationPreviewPage() {
     }
 
     text += `------------------------\n`
-    text += `合計：￥${reservation.total_price.toLocaleString()}`
+    if (reservation.payment_method === 'credit') {
+      text += `■ お支払い：クレジット\n`
+      text += `------------------------\n`
+      text += `合計：￥${reservation.total_price.toLocaleString()}`
+    } else {
+      text += `合計：￥${reservation.total_price.toLocaleString()}`
+    }
 
     if (reservation.notes) {
       text += `\n\n■ 備考\n${reservation.notes}`

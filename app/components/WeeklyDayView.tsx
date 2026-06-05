@@ -52,6 +52,7 @@ interface Reservation {
   total_price: number
   discount_amount: number
   notes?: string | null
+  payment_method: string | null
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
 }
@@ -195,7 +196,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -583,6 +584,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                         <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                                           {isNewCustomer ? '新規' : '会員'}
                                         </span>
+                                        {res.payment_method === 'credit' && (
+                                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
+                                            💳 クレジット
+                                          </span>
+                                        )}
                                       </div>
                                       {/* Row 3: コース時間・指名種別・金額 */}
                                       <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
