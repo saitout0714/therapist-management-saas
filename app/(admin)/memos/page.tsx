@@ -118,7 +118,7 @@ const MemoCard = ({
                 <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100 flex-shrink-0">精算済み</span>
                 {memo.resolved_date && (
                   <span className="text-[10px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded px-1.5 py-0.5 whitespace-nowrap">
-                    {memo.resolved_date.replace(/-/g, '/')}分で精算
+                    {memo.resolved_date.replace(/-/g, '/')}の給与で精算
                   </span>
                 )}
                 {memo.resolved_at && (
