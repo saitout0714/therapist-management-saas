@@ -5,7 +5,7 @@ export default function Home() {
     <div className="p-4 md:p-8 mx-auto max-w-7xl animate-fade-in">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
-          ホーム
+          ホnpm
         </h1>
       </div>
 

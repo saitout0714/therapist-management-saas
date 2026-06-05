@@ -43,7 +43,15 @@ export default function EditTherapistPage() {
   const [optionBackMatrix, setOptionBackMatrix] = useState<Record<string, string>>({});
 
   // 引き継ぎメモ
-  interface TherapistMemo { id: string; date: string; content: string; amount: number; is_resolved: boolean; }
+  interface TherapistMemo {
+    id: string;
+    date: string;
+    content: string;
+    amount: number;
+    is_resolved: boolean;
+    resolved_at?: string | null;
+    resolved_date?: string | null;
+  }
   const [memos, setMemos] = useState<TherapistMemo[]>([]);
   const [memoForm, setMemoForm] = useState({ content: '', amount: '' });
   const [memoLoading, setMemoLoading] = useState(false);
@@ -56,7 +64,7 @@ export default function EditTherapistPage() {
   const fetchMemos = async () => {
     const { data } = await supabase
       .from('therapist_memos')
-      .select('id, date, content, amount, is_resolved')
+      .select('id, date, content, amount, is_resolved, resolved_at, resolved_date')
       .eq('therapist_id', therapistId)
       .order('date', { ascending: false });
     setMemos((data || []) as TherapistMemo[]);
@@ -111,12 +119,20 @@ export default function EditTherapistPage() {
   };
 
   const handleResolveMemo = async (id: string) => {
-    await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', id);
+    await supabase.from('therapist_memos').update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_date: null
+    }).eq('id', id);
     await fetchMemos();
   };
 
   const handleUnresolveMemo = async (id: string) => {
-    await supabase.from('therapist_memos').update({ is_resolved: false }).eq('id', id);
+    await supabase.from('therapist_memos').update({
+      is_resolved: false,
+      resolved_at: null,
+      resolved_date: null
+    }).eq('id', id);
     await fetchMemos();
   };
 
@@ -921,7 +937,19 @@ export default function EditTherapistPage() {
                               </span>
                             )}
                             {memo.is_resolved && (
-                              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">解決済み</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex-shrink-0">精算済み</span>
+                                {memo.resolved_date && (
+                                  <span className="text-[9px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 whitespace-nowrap">
+                                    {memo.resolved_date.replace(/-/g, '/')}分
+                                  </span>
+                                )}
+                                {memo.resolved_at && (
+                                  <span className="text-[9px] text-slate-400 whitespace-nowrap">
+                                    ({new Date(memo.resolved_at).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                           <p className="text-sm text-slate-700 leading-snug">{memo.content}</p>

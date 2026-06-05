@@ -11,6 +11,8 @@ interface Memo {
   content: string;
   amount: number;
   is_resolved: boolean;
+  resolved_at?: string | null;
+  resolved_date?: string | null;
   therapists: { name: string } | null;
 }
 
@@ -112,7 +114,19 @@ const MemoCard = ({
             <span className={`font-bold text-sm ${memo.is_resolved ? 'text-slate-500' : 'text-slate-800'}`}>{therapistName}</span>
             <span className="text-xs text-slate-400">{memo.date}</span>
             {memo.is_resolved && (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100">精算済み</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100 flex-shrink-0">精算済み</span>
+                {memo.resolved_date && (
+                  <span className="text-[10px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded px-1.5 py-0.5 whitespace-nowrap">
+                    {memo.resolved_date.replace(/-/g, '/')}分で精算
+                  </span>
+                )}
+                {memo.resolved_at && (
+                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                    (処理日: {new Date(memo.resolved_at).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <p className={`text-sm leading-relaxed ${memo.is_resolved ? 'text-slate-400' : 'text-slate-600'}`}>{memo.content}</p>
@@ -204,7 +218,7 @@ export default function MemosPage() {
     setLoading(true);
     const { data } = await supabase
       .from('therapist_memos')
-      .select('id, therapist_id, date, content, amount, is_resolved, therapists(name)')
+      .select('id, therapist_id, date, content, amount, is_resolved, resolved_at, resolved_date, therapists(name)')
       .eq('shop_id', selectedShop.id)
       .order('is_resolved', { ascending: true })
       .order('date', { ascending: false });
@@ -216,14 +230,22 @@ export default function MemosPage() {
 
   const handleResolve = async (id: string) => {
     setResolvingId(id);
-    await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', id);
+    await supabase.from('therapist_memos').update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_date: null
+    }).eq('id', id);
     await fetchMemos();
     setResolvingId(null);
   };
 
   const handleUnresolve = async (id: string) => {
     setResolvingId(id);
-    await supabase.from('therapist_memos').update({ is_resolved: false }).eq('id', id);
+    await supabase.from('therapist_memos').update({
+      is_resolved: false,
+      resolved_at: null,
+      resolved_date: null
+    }).eq('id', id);
     await fetchMemos();
     setResolvingId(null);
   };

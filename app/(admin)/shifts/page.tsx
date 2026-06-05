@@ -65,6 +65,8 @@ interface TherapistMemo {
   date: string;
   content: string;
   amount: number;
+  resolved_at?: string | null;
+  resolved_date?: string | null;
 }
 
 interface Therapist {
@@ -208,7 +210,11 @@ export default function ShiftsPage() {
   };
 
   const handleResolveMemo = async (memoId: string, therapistId: string) => {
-    const { error } = await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', memoId);
+    const { error } = await supabase.from('therapist_memos').update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_date: filterDate
+    }).eq('id', memoId);
     if (error) { alert('解決済みの更新に失敗しました'); return; }
     setShiftEditModal(m => m ? {
       ...m,
@@ -255,7 +261,7 @@ export default function ShiftsPage() {
         .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).limit(1),
       supabase.from('reservations').select('id, start_time, end_time, notes')
         .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).eq('status', 'blocked'),
-      supabase.from('therapist_memos').select('id, date, content, amount')
+      supabase.from('therapist_memos').select('id, date, content, amount, resolved_at, resolved_date')
         .eq('therapist_id', therapistId).eq('shop_id', selectedShop.id).eq('is_resolved', false)
         .order('date', { ascending: false }),
     ]);
@@ -602,7 +608,7 @@ export default function ShiftsPage() {
       // 未解決メモをセラピストごとにマージ
       const { data: memosData } = await supabase
         .from('therapist_memos')
-        .select('id, therapist_id, date, content, amount')
+        .select('id, therapist_id, date, content, amount, resolved_at, resolved_date')
         .eq('shop_id', selectedShop.id)
         .eq('is_resolved', false)
         .order('date', { ascending: false });

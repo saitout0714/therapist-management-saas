@@ -85,7 +85,15 @@ export default function PayrollPage() {
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set())
 
   // 引き継ぎメモ用の状態
-  interface TherapistMemo { id: string; date: string; content: string; amount: number; is_resolved: boolean; }
+  interface TherapistMemo {
+    id: string;
+    date: string;
+    content: string;
+    amount: number;
+    is_resolved: boolean;
+    resolved_at?: string | null;
+    resolved_date?: string | null;
+  }
   const [unresolvedMemos, setUnresolvedMemos] = useState<TherapistMemo[]>([])
   const [selectedMemoIds, setSelectedMemoIds] = useState<Set<string>>(new Set())
   const [memoResolving, setMemoResolving] = useState(false)
@@ -276,7 +284,7 @@ export default function PayrollPage() {
       // 未解決メモを取得
       const { data: memoData, error: memoError } = await supabase
         .from('therapist_memos')
-        .select('id, date, content, amount, is_resolved')
+        .select('id, date, content, amount, is_resolved, resolved_at, resolved_date')
         .eq('shop_id', selectedShop.id)
         .eq('therapist_id', selectedTherapistId)
         .eq('is_resolved', false)
@@ -519,7 +527,11 @@ export default function PayrollPage() {
     setMemoResolving(true)
     const { error } = await supabase
       .from('therapist_memos')
-      .update({ is_resolved: true })
+      .update({
+        is_resolved: true,
+        resolved_at: new Date().toISOString(),
+        resolved_date: targetDate
+      })
       .in('id', ids)
 
     setMemoResolving(false)
