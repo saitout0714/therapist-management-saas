@@ -78,7 +78,8 @@ function formatDate(date: Date): string {
 
 const toMinutes = (t: string): number => {
   const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
+  const adjustedH = h < 6 ? h + 24 : h
+  return adjustedH * 60 + m
 }
 
 
@@ -115,6 +116,59 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null)
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ドラッグスクロール用のState/Ref/Handler
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragDistanceRef = useRef(0)
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // 左クリックのみ反応
+    if (e.button !== 0) return
+    if (!scrollContainerRef.current) return
+
+    const startScrollLeft = scrollContainerRef.current.scrollLeft
+    const startClientX = e.clientX
+    dragDistanceRef.current = 0
+
+    const handleDragMove = (moveEvent: MouseEvent) => {
+      if (!scrollContainerRef.current) return
+
+      const distance = Math.abs(moveEvent.clientX - startClientX)
+      dragDistanceRef.current = distance
+
+      if (distance > 5) {
+        setIsDragging(true)
+        moveEvent.preventDefault()
+        document.body.style.userSelect = 'none'
+      }
+
+      const deltaX = moveEvent.clientX - startClientX
+      scrollContainerRef.current.scrollLeft = startScrollLeft - deltaX
+    }
+
+    const handleDragEnd = () => {
+      window.removeEventListener('mousemove', handleDragMove)
+      window.removeEventListener('mouseup', handleDragEnd)
+      window.removeEventListener('blur', handleDragEnd)
+      document.body.style.userSelect = ''
+      setTimeout(() => {
+        setIsDragging(false)
+      }, 50)
+    }
+
+    window.addEventListener('mousemove', handleDragMove)
+    window.addEventListener('mouseup', handleDragEnd)
+    window.addEventListener('blur', handleDragEnd)
+  }
+
+  const handleContainerClickCapture = (e: React.MouseEvent) => {
+    // ドラッグ移動が大きかった場合はクリックイベントを遮断する
+    if (dragDistanceRef.current > 5) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+  }
 
 
   const weekDates = useMemo(() => {
@@ -304,8 +358,13 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   return (
     <div className="flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       {/* 週間グリッド — bg-slate-50 は TimeChart の timeline エリアと同じ */}
-      <div className="overflow-x-auto">
-        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[980px]">
+      <div
+        className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        onClickCapture={handleContainerClickCapture}
+      >
+        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[1190px]">
           {weekDates.map((date) => {
             const dateStr = formatDate(date)
             const dayShifts = shiftsByDate.get(dateStr) || []
@@ -363,38 +422,6 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
                           <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                           {/* ＋予約・編集ボタン — 右上固定 */}
-                          {therapist.id !== 'unassigned' && (
-                            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                              {onShiftEditOpen && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onShiftEditOpen(therapist.id, dateStr)
-                                  }}
-                                  title="シフトを編集"
-                                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                              )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const t = new Date()
-                                  t.setHours(t.getHours() + 1, 0, 0, 0)
-                                  const time = `${String(t.getHours()).padStart(2, '0')}:00`
-                                  const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
-                                  if (shift.room_id) params.set('room_id', shift.room_id)
-                                  router.push(`/reservations/new?${params.toString()}`)
-                                }}
-                                className="text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
-                              >
-                                ＋予約
-                              </button>
-                            </div>
-                          )}
-
                           {/* セラピスト情報 */}
                           <div className="flex items-stretch">
                             {/* 写真 — 3:4固定比率 */}
@@ -416,11 +443,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                             {/* テキスト情報 */}
                             <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
                               {/* 名前 */}
-                              <div className="flex items-center gap-1.5 min-w-0 pr-14">
+                              <div className="min-w-0">
                                 <p
                                   className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
                                   onMouseEnter={(e) => {
-                                    if (therapist.id === 'unassigned') return
+                                    if (therapist.id === 'unassigned' ? true : false) return
                                     if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
                                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                     setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 })
@@ -432,9 +459,12 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 >
                                   {therapist.name}
                                 </p>
-                                {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                              </div>
+                              {/* 引き継ぎメモ */}
+                              {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                                <div className="flex min-w-0">
                                   <span
-                                    className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse cursor-default truncate max-w-[120px]"
+                                    className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse cursor-default truncate max-w-full"
                                     title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                                     onMouseEnter={e => {
                                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -443,10 +473,10 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     onMouseLeave={() => setMemoPopup(null)}
                                   >
                                     <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                                    <span>引継: {therapist.unresolvedMemos![0].content}</span>
+                                    <span className="truncate">引継: {therapist.unresolvedMemos![0].content}</span>
                                   </span>
-                                )}
-                              </div>
+                                </div>
+                              )}
 
                               {/* 出勤時間 */}
                               <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
@@ -496,6 +526,37 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 </p>
                               )}
                             </div>
+                            {/* アクションボタン（予約・編集）の縦スタック — 右端上下中央 */}
+                            {therapist.id !== 'unassigned' && (
+                              <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 mr-1.5 self-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const t = new Date()
+                                    t.setHours(t.getHours() + 1, 0, 0, 0)
+                                    const time = `${String(t.getHours()).padStart(2, '0')}:00`
+                                    const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
+                                    if (shift.room_id) params.set('room_id', shift.room_id)
+                                    router.push(`/reservations/new?${params.toString()}`)
+                                  }}
+                                  className="flex-shrink-0 text-[9px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-1.5 py-0.5 rounded transition-all"
+                                >
+                                  予約
+                                </button>
+                                {onShiftEditOpen && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onShiftEditOpen(therapist.id, dateStr)
+                                    }}
+                                    title="シフトを編集"
+                                    className="flex items-center justify-center w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* 予約リスト — TimeChart の予約ブロックと完全同一スタイル */}

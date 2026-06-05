@@ -88,18 +88,22 @@ export default function ShopSwitcher() {
           </button>
 
           {isShopMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-2xl shadow-xl bg-white border border-slate-100 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5">
+            <div className={`absolute right-0 mt-2 rounded-2xl shadow-xl bg-white border border-slate-100 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 ${
+              shops.length > 5 ? 'w-[400px]' : 'w-56'
+            }`}>
               <div className="px-4 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 店舗の切り替え
               </div>
-              <div className="max-h-60 overflow-y-auto py-1">
+              <div className={`max-h-[400px] overflow-y-auto py-1 ${
+                shops.length > 5 ? 'grid grid-cols-2 gap-1 px-2' : ''
+              }`}>
                 {shops.map((shop) => {
                   const isActive = shop.id === selectedShop.id
                   return (
                     <button
                       key={shop.id}
                       onClick={() => handleShopSelect(shop)}
-                      className={`w-full text-left px-4 py-2 text-sm font-semibold transition-colors flex items-center justify-between ${
+                      className={`w-full text-left px-3 py-2 text-sm font-semibold transition-colors flex items-center justify-between rounded-xl ${
                         isActive
                           ? 'bg-indigo-50 text-indigo-700'
                           : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
@@ -107,7 +111,7 @@ export default function ShopSwitcher() {
                     >
                       <span className="truncate">{shop.name}</span>
                       {isActive && (
-                        <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
