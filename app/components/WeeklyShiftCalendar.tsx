@@ -253,13 +253,13 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
       <div className="overflow-auto flex-1">
         <table className="w-full text-sm border-collapse min-w-[900px]">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">セラピスト</th>
+            <tr className="bg-slate-50">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 left-0 bg-slate-50 z-20 border-b border-slate-100">セラピスト</th>
               {weekDates.map((d) => {
                 const dateText = formatDate(d)
                 const isToday = dateText === formatDate(new Date())
                 return (
-                  <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
+                  <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] sticky top-0 bg-slate-50 z-10 border-b border-slate-100 ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
                     <div className={isToday ? 'font-bold' : ''}>{d.getMonth()+1}/{d.getDate()}</div>
                     <div className={`text-[10px] mt-1 ${isToday ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>{dayLabels[d.getDay()]}</div>
                   </th>
