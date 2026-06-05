@@ -619,15 +619,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         width: `${widthPixels - 4}px`,
                         height: `${height}px`,
                         borderRadius: '10px',
-                        background: 'repeating-linear-gradient(45deg, rgba(234,88,12,0.28), rgba(234,88,12,0.28) 5px, rgba(251,146,60,0.12) 5px, rgba(251,146,60,0.12) 10px)',
-                        border: '1.5px dashed rgba(234,88,12,0.7)',
+                        background: 'repeating-linear-gradient(45deg, rgba(107, 114, 128, 0.15), rgba(107, 114, 128, 0.15) 5px, rgba(156, 163, 175, 0.05) 5px, rgba(156, 163, 175, 0.05) 10px)',
+                        border: '1.5px dashed rgba(75, 85, 99, 0.7)',
                       }}
                       title={schedule.title}
                     >
                       <span style={{
                         fontSize: '9px',
                         fontWeight: 700,
-                        color: 'rgba(154,52,18,0.9)',
+                        color: 'rgba(75, 85, 99, 0.9)',
                         whiteSpace: 'nowrap',
                         letterSpacing: '0.02em',
                         padding: '0 4px',
@@ -694,7 +694,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 border border-orange-400 shadow-md shadow-orange-500/30 animate-pulse-subtle'
                       : schedule.isHime
                         ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
-                        : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-400/50 shadow-md shadow-indigo-500/20'
+                        : 'bg-[#0f2d59] border border-[#0f2d59]/40 shadow-md shadow-[#0f2d59]/20'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20';
 
                 return (

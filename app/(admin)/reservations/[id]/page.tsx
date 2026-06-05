@@ -279,12 +279,9 @@ export default function ReservationPreviewPage() {
         text += `（うちオプション￥${reservation.options_price.toLocaleString()}は現金でセラピストへ）\n`
       }
       text += `\n`
-      text += `下記のサイトから\n`
-      text += `必要事項ご入力いただき\n`
-      text += `決済手数料10%込みの金額\n`
+      text += `下記のサイトから決済手数料10%込みの金額`
       text += `¥${creditTotal.toLocaleString()}\n`
-      text += `でご決済を\n`
-      text += `ご入室前までにお願い致します😊\n\n`
+      text += `でご決済をご入室前までにお願い致します\n\n`
       const customerPhone = reservation.customers?.phone || ''
       let finalLink = ''
       if (creditPaymentUrl) {
