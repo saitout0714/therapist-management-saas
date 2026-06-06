@@ -56,18 +56,27 @@ export async function POST(req: NextRequest) {
         }
       })
 
-    if (rows.length === 0) {
+    // JavaScript側でキー（セラピスト_日付_開始時刻_終了時刻）の重複を排除
+    const uniqueRowsMap = new Map()
+    for (const row of rows) {
+      const key = `${row.therapist_id}_${row.date}_${row.start_time}_${row.end_time}`
+      uniqueRowsMap.set(key, row)
+    }
+    const uniqueRows = Array.from(uniqueRowsMap.values())
+
+    if (uniqueRows.length === 0) {
       return NextResponse.json({ error: '有効なシフトデータがありませんでした' }, { status: 400 })
     }
 
     const { data, error: insertError } = await supabase
       .from('shifts')
-      .insert(rows)
+      .upsert(uniqueRows, { onConflict: 'therapist_id,date,start_time,end_time' })
       .select('id')
 
     if (insertError) {
       throw new Error(`シフトの挿入に失敗しました: ${insertError.message}`)
     }
+
 
     return NextResponse.json({ success: true, count: data.length })
   } catch (e) {
