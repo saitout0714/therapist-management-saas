@@ -62,6 +62,7 @@ async function sendConfirmationEmail({
   isNewCustomer,
   shopAddressMode,
   smtpSettings,
+  shopName,
 }: {
   email: string
   customerName: string
@@ -79,10 +80,25 @@ async function sendConfirmationEmail({
   isNewCustomer: boolean
   shopAddressMode: string
   smtpSettings?: SmtpSettings | null
+  shopName: string
 }) {
   try {
     const transporter = getMailTransporter(smtpSettings)
-    const from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"予約完了通知" <noreply@example.com>'
+    
+    // 送信元（From）の生成
+    // 優先順位: 1. 店舗の個別 From 設定, 2. 環境変数の SMTP_FROM, 3. デフォルト noreply
+    let from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"予約完了通知" <noreply@example.com>'
+    
+    // 共通サーバーを使う（店舗個別 From がない、または環境変数の SMTP_FROM を使う）場合に、店舗名を動的に差し込む
+    if (!smtpSettings?.smtp_from && shopName) {
+      const emailMatch = from.match(/<([^>]+)>/)
+      const emailAddress = emailMatch ? emailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+      from = `"${shopName} 予約確認" <${emailAddress}>`
+    }
+
+    // 返信不可アドレスの抽出（Reply-To用）
+    const fromEmailMatch = from.match(/<([^>]+)>/)
+    const replyToAddress = fromEmailMatch ? fromEmailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
 
     // ルーム・住所・案内文の出し分けロジック
     let address = 'ご来店時にご案内いたします'
@@ -115,7 +131,9 @@ async function sendConfirmationEmail({
 
     let bodyText = `【ご予約完了】ご予約ありがとうございます。
 
-※本メールはシステム自動送信によるご予約確認メールです。
+※※ 重要 ※※
+本メールは送信専用アドレスから自動送信されています。
+このメールに直接返信することはできません。お問い合わせ等がある場合は、お手数ですが店舗までお電話または公式LINEなどより直接ご連絡いただきますようお願いいたします。
 
 この度はご予約いただき誠にありがとうございます。
 ご予約内容が確定いたしましたので、詳細をご案内いたします。
@@ -155,12 +173,14 @@ async function sendConfirmationEmail({
 
     bodyText += `
 ------------------------
+※このメールは送信専用のため、直接ご返信いただくことはできません。
 ※ご予約の変更・キャンセルは、お早めに店舗までご連絡ください。
 皆様のご来店を心よりお待ちしております。`
 
     const mailOptions = {
       from,
       to: email,
+      replyTo: replyToAddress,
       subject: `【ご予約完了】ご予約ありがとうございます`,
       text: bodyText,
     }
@@ -484,7 +504,7 @@ export async function POST(
   try {
     // 1. 店舗の送信モードと個別SMTP設定を並行取得
     const [shopRes, settingsRes] = await Promise.all([
-      supabase.from('shops').select('sms_address_mode').eq('id', shopId).maybeSingle(),
+      supabase.from('shops').select('name, sms_address_mode').eq('id', shopId).maybeSingle(),
       supabase
         .from('system_settings')
         .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from')
@@ -493,6 +513,7 @@ export async function POST(
     ])
 
     const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
+    const shopName = shopRes.data?.name || ''
     const smtpSettings = settingsRes.data
 
     // 2. ルーム情報を取得
@@ -545,6 +566,7 @@ export async function POST(
         isNewCustomer,
         shopAddressMode,
         smtpSettings,
+        shopName,
       }).catch((err) => {
         console.error('[Email Background Error] sendConfirmationEmail failed:', err)
       })

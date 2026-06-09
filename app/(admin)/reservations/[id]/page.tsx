@@ -395,7 +395,8 @@ export default function ReservationPreviewPage() {
     }
 
     if (reservation.notes) {
-      text += `\n\n■ 備考\n${reservation.notes}`
+      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
+      text += `\n\n■ ${label}\n${reservation.notes}`
     }
 
     return text
@@ -633,6 +634,18 @@ export default function ReservationPreviewPage() {
             </button>
           </div>
         </div>
+
+        {/* Web予約のその他ご希望表示 */}
+        {reservation.source === 'web' && reservation.notes && (
+          <div className="bg-amber-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-amber-800 shadow-sm border border-amber-200">
+            <h3 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 mb-1.5 text-amber-900">
+              <span className="text-amber-500">💬</span> Web予約時のその他ご希望
+            </h3>
+            <p className="text-xs sm:text-sm opacity-90 whitespace-pre-wrap leading-relaxed bg-white/60 p-2.5 rounded-lg border border-amber-200/40">
+              {reservation.notes}
+            </p>
+          </div>
+        )}
 
         {/* 送信テンプレート切り替えタブ */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
@@ -891,7 +904,9 @@ export default function ReservationPreviewPage() {
 
             {reservation.notes && (
               <div className="mt-4 pt-3 sm:mt-8 sm:pt-6 border-t border-slate-100">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2">備考</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2">
+                  {reservation.source === 'web' ? 'その他ご希望' : '備考'}
+                </h3>
                 <p className="text-xs sm:text-sm text-slate-600 bg-slate-50 p-2.5 sm:p-4 rounded-lg sm:rounded-xl whitespace-pre-wrap">
                   {reservation.notes}
                 </p>

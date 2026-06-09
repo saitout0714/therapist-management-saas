@@ -580,10 +580,10 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     : 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-[#c35175]/30 shadow-md shadow-rose-900/10'
                                   : isWeb
                                     ? isNotificationUnsent
-                                      ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                      ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
                                       : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/40 shadow-md shadow-teal-700/20'
                                     : isNotificationUnsent
-                                      ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                      ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
                                       : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
                                 
                                 return (
