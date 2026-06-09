@@ -45,6 +45,8 @@ interface Schedule {
   isHandled?: boolean;
   source?: string;
   paymentMethod?: string | null;
+  customerNotified?: boolean;
+  therapistNotified?: boolean;
 }
 
 interface TimeChartProps {
@@ -687,14 +689,19 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 }
 
                 // 予約ブロック
+                const isNotificationUnsent = isReservation && !schedule.isPending && (!schedule.customerNotified || !schedule.therapistNotified);
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
                     ? isUnhandledWeb
                       ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 border border-orange-400 shadow-md shadow-orange-500/30 animate-pulse-subtle'
                       : schedule.isHime
-                        ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
-                        : 'bg-[#0f2d59] border border-[#0f2d59]/40 shadow-md shadow-[#0f2d59]/20'
+                        ? isNotificationUnsent
+                          ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
+                          : 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
+                        : isNotificationUnsent
+                          ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
+                          : 'bg-[#0f2d59] border border-[#0f2d59]/40 shadow-md shadow-[#0f2d59]/20'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20';
 
                 return (
@@ -714,9 +721,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   >
                     {/* Inner content wrapper to handle overflow nicely */}
                     <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5">
-                      {/* Row 1: Time */}
-                      <div className="text-[10px] font-medium text-white leading-none">
+                      {/* Row 1: Time & Notification status */}
+                      <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                        {isReservation && !schedule.isPending && !schedule.customerNotified && (
+                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="お客様未送信">客未</span>
+                        )}
+                        {isReservation && !schedule.isPending && !schedule.therapistNotified && (
+                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="セラピスト未送信">セラ未</span>
+                        )}
                       </div>
 
                       {/* Row 2: Name and New/Member */}

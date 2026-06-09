@@ -799,7 +799,7 @@ export default function NewReservationPage() {
           total_price: calculatedPrice.totalPrice,
           discount_amount: calculatedPrice.discountAmount,
           designation_type: formData.designation_type,
-          designation_type_id: selectedDesignationType?.id || null,
+          designation_type_id: (selectedDesignationType?.id && !selectedDesignationType.id.startsWith('default-')) ? selectedDesignationType.id : null,
           notes: formData.notes,
           status: 'confirmed',
           created_by_id: user?.id,
@@ -938,7 +938,9 @@ export default function NewReservationPage() {
       router.push('/shifts')
     } catch (error: any) {
       console.error('予約の登録に失敗:', error)
-      setSaveError(`予約の登録に失敗しました: ${error.message || '不明なエラー'}`)
+      const details = error?.details ? ` (${error.details})` : ''
+      const message = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error))
+      setSaveError(`予約の登録に失敗しました: ${message}${details}`)
     }
   }
 

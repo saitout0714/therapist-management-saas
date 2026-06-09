@@ -51,6 +51,8 @@ type Reservation = {
   reservation_discounts: ReservationDiscount[]
   is_handled?: boolean
   source?: string
+  customer_notified?: boolean
+  therapist_notified?: boolean
 }
 
 type RoomInfo = {
@@ -407,11 +409,34 @@ export default function ReservationPreviewPage() {
     customerTypeOverride === 'member' ? false :
     isNewCustomer
 
+  const updateNotifiedStatus = async (type: 'customer' | 'therapist', value: boolean) => {
+    if (!reservation) return
+    const field = type === 'customer' ? 'customer_notified' : 'therapist_notified'
+    
+    const { error } = await supabase
+      .from('reservations')
+      .update({ [field]: value })
+      .eq('id', reservation.id)
+      
+    if (error) {
+      console.error('Failed to update notification status:', error.message)
+    } else {
+      setReservation(prev => prev ? { ...prev, [field]: value } : null)
+    }
+  }
+
   const handleCopy = async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopiedKey(key)
       setTimeout(() => setCopiedKey(null), 2000)
+
+      // 自動的に「送信済」にマークする
+      if (key === 'customer') {
+        void updateNotifiedStatus('customer', true)
+      } else if (key === 'therapist') {
+        void updateNotifiedStatus('therapist', true)
+      }
     } catch (err) {
       console.error('コピーに失敗しました', err)
     }
@@ -424,6 +449,10 @@ export default function ReservationPreviewPage() {
       return
     }
     const text = generateCustomerLineText()
+    
+    // 自動的に「送信済」にマークする
+    void updateNotifiedStatus('customer', true)
+
     // iOS は &body=、Android は ?body= → ?& で両対応
     const smsUrl = `sms:${phone}?&body=${encodeURIComponent(text)}`
     window.location.href = smsUrl
@@ -594,6 +623,73 @@ export default function ReservationPreviewPage() {
               </svg>
               予約内容を編集する
             </Link>
+          </div>
+        </div>
+
+        {/* 連絡送信状況パネル */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={`p-4 rounded-2xl border shadow-sm flex items-center justify-between transition-all bg-white ${
+            reservation.customer_notified 
+              ? 'border-emerald-200' 
+              : 'border-rose-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                reservation.customer_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-800">お客様へのご案内</h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {reservation.customer_notified ? '送信済みとしてマークされています' : '未送信（案内を送ってください）'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => void updateNotifiedStatus('customer', !reservation.customer_notified)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                reservation.customer_notified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              {reservation.customer_notified ? '未送信に戻す' : '送信済にする'}
+            </button>
+          </div>
+
+          <div className={`p-4 rounded-2xl border shadow-sm flex items-center justify-between transition-all bg-white ${
+            reservation.therapist_notified 
+              ? 'border-emerald-200' 
+              : 'border-rose-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                reservation.therapist_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-800">セラピストへの詳細</h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {reservation.therapist_notified ? '送信済みとしてマークされています' : '未送信（詳細を送ってください）'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => void updateNotifiedStatus('therapist', !reservation.therapist_notified)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                reservation.therapist_notified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              {reservation.therapist_notified ? '未送信に戻す' : '送信済にする'}
+            </button>
           </div>
         </div>
 

@@ -21,6 +21,8 @@ type Reservation = {
   created_by: { name: string } | null
   is_handled?: boolean
   source?: string
+  customer_notified?: boolean
+  therapist_notified?: boolean
 }
 
 type SearchFilters = {
@@ -115,7 +117,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -137,6 +139,22 @@ export default function ReservationsPage() {
       setTotalCount(count ?? 0)
     }
     setLoading(false)
+  }
+
+  const toggleNotificationStatus = async (id: string, type: 'customer' | 'therapist', currentVal: boolean) => {
+    const field = type === 'customer' ? 'customer_notified' : 'therapist_notified'
+    const newVal = !currentVal
+    
+    const { error } = await supabase
+      .from('reservations')
+      .update({ [field]: newVal })
+      .eq('id', id)
+      
+    if (error) {
+      alert('更新に失敗しました: ' + error.message)
+    } else {
+      setReservations(prev => prev.map(r => r.id === id ? { ...r, [field]: newVal } : r))
+    }
   }
 
   const handleSearch = () => {
@@ -358,6 +376,8 @@ export default function ReservationsPage() {
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">指名</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料金</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状態</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">お客様連絡</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">セラピスト連絡</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">登録日</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">担当者</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">操作</th>
@@ -366,7 +386,7 @@ export default function ReservationsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td className="px-6 py-12 text-center" colSpan={12}>
+                    <td className="px-6 py-12 text-center" colSpan={14}>
                       <div className="flex justify-center items-center text-indigo-600">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
                         <span className="ml-3 font-medium text-sm">読み込み中...</span>
@@ -375,7 +395,7 @@ export default function ReservationsPage() {
                   </tr>
                 ) : reservations.length === 0 ? (
                   <tr>
-                    <td className="px-6 py-12 text-center text-slate-500" colSpan={12}>
+                    <td className="px-6 py-12 text-center text-slate-500" colSpan={14}>
                       {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
                     </td>
                   </tr>
@@ -413,6 +433,32 @@ export default function ReservationsPage() {
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => void toggleNotificationStatus(r.id, 'customer', !!r.customer_notified)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all border shadow-sm cursor-pointer active:scale-95 ${
+                              r.customer_notified
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${r.customer_notified ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                            {r.customer_notified ? '送信済' : '未送信'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => void toggleNotificationStatus(r.id, 'therapist', !!r.therapist_notified)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all border shadow-sm cursor-pointer active:scale-95 ${
+                              r.therapist_notified
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${r.therapist_notified ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                            {r.therapist_notified ? '送信済' : '未送信'}
+                          </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
@@ -590,6 +636,32 @@ export default function ReservationsPage() {
                             {statusLabel(r.status)}
                           </span>
                         </div>
+                      </div>
+
+                      {/* 3行目: 連絡ステータス (スマホ用) */}
+                      <div className="flex gap-2 mt-2 pt-2 border-t border-slate-100/50">
+                        <button
+                          onClick={() => void toggleNotificationStatus(r.id, 'customer', !!r.customer_notified)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            r.customer_notified
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${r.customer_notified ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                          客: {r.customer_notified ? '送信済' : '未送信'}
+                        </button>
+                        <button
+                          onClick={() => void toggleNotificationStatus(r.id, 'therapist', !!r.therapist_notified)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            r.therapist_notified
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${r.therapist_notified ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                          セラ: {r.therapist_notified ? '送信済' : '未送信'}
+                        </button>
                       </div>
                     </div>
                   );

@@ -110,6 +110,8 @@ interface Schedule {
   isHime?: boolean;
   isPending?: boolean;
   paymentMethod?: string | null;
+  customerNotified?: boolean;
+  therapistNotified?: boolean;
 }
 
 type ViewMode = 'day' | 'week';
@@ -702,6 +704,8 @@ export default function ShiftsPage() {
           is_handled,
           source,
           payment_method,
+          customer_notified,
+          therapist_notified,
           customers(name, created_at),
           courses(name, duration)
         `)
@@ -751,6 +755,8 @@ export default function ShiftsPage() {
         isHandled: reservation.is_handled,
         source: reservation.source,
         paymentMethod: reservation.payment_method,
+        customerNotified: reservation.customer_notified,
+        therapistNotified: reservation.therapist_notified,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
