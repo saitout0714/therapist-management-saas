@@ -39,6 +39,8 @@ interface Reservation {
   courses: { name: string; duration: number } | null;
   is_handled?: boolean;
   source?: string;
+  customer_notified?: boolean;
+  therapist_notified?: boolean;
 }
 
 interface Room {
