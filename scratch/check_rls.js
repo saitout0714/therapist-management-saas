@@ -8,15 +8,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false
-  }
+  auth: { persistSession: false, autoRefreshToken: false }
 });
 
 async function runTest() {
-  const { data: dt, error } = await supabase.from('designation_types').select('*');
-  console.log('designation_types:', dt, 'error:', error);
+  console.log('--- Development Database ---');
+  const { data: codes, error } = await supabase.from('shop_reservation_codes').select('*');
+  console.log('shop_reservation_codes:', codes, 'error:', error);
+
+  const { data: shops, error: shopsErr } = await supabase.from('shops').select('id, name');
+  console.log('shops:', shops, 'error:', shopsErr);
 }
 
 runTest();

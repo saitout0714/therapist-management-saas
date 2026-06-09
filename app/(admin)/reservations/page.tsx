@@ -401,9 +401,9 @@ export default function ReservationsPage() {
                   </tr>
                 ) : (
                   reservations.map((r, idx) => {
-                    const isUnhandledWeb = r.source === 'web' && !r.is_handled;
+                    const isNotificationUnsent = !r.customer_notified || !r.therapist_notified;
                     return (
-                      <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
+                      <tr key={r.id} className={`transition-colors ${isNotificationUnsent ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
                         <td className="px-6 py-4 text-sm whitespace-nowrap">
                           <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
                             詳細
@@ -427,11 +427,6 @@ export default function ReservationsPage() {
                             <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
                               {statusLabel(r.status)}
                             </span>
-                            {isUnhandledWeb && (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white border border-amber-400 shadow-sm animate-pulse">
-                                未対応
-                              </span>
-                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -466,42 +461,6 @@ export default function ReservationsPage() {
                         <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
                         <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-3">
-                            {isUnhandledWeb && (
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('reservations')
-                                    .update({ is_handled: true })
-                                    .eq('id', r.id);
-                                  if (error) {
-                                    alert('更新に失敗しました: ' + error.message);
-                                  } else {
-                                    void fetchReservations(page, applied);
-                                  }
-                                }}
-                                className="text-amber-700 hover:text-amber-800 font-bold text-xs bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg border border-amber-300 transition-colors shadow-sm cursor-pointer"
-                              >
-                                対応済にする
-                              </button>
-                            )}
-                            {r.source === 'web' && r.is_handled && (
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('reservations')
-                                    .update({ is_handled: false })
-                                    .eq('id', r.id);
-                                  if (error) {
-                                    alert('更新に失敗しました: ' + error.message);
-                                  } else {
-                                    void fetchReservations(page, applied);
-                                  }
-                                }}
-                                className="text-slate-600 hover:text-slate-800 font-bold text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-300 transition-colors shadow-sm cursor-pointer"
-                              >
-                                未対応に戻す
-                              </button>
-                            )}
                             <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
                               削除
                             </button>
@@ -531,12 +490,12 @@ export default function ReservationsPage() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {reservations.map((r, idx) => {
-                  const isUnhandledWeb = r.source === 'web' && !r.is_handled;
+                  const isNotificationUnsent = !r.customer_notified || !r.therapist_notified;
                   return (
                     <div
                       key={r.id}
                       className={`p-2.5 transition-colors ${
-                        isUnhandledWeb
+                        isNotificationUnsent
                           ? 'bg-amber-50/70 border-l-4 border-l-amber-500 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.15)]'
                           : idx % 2 === 0
                             ? 'bg-white hover:bg-slate-50/80'
@@ -562,47 +521,6 @@ export default function ReservationsPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {isUnhandledWeb && (
-                            <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white border border-amber-400 shadow-sm animate-pulse">
-                              未対応
-                            </span>
-                          )}
-                          {isUnhandledWeb && (
-                            <button
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('reservations')
-                                  .update({ is_handled: true })
-                                  .eq('id', r.id);
-                                if (error) {
-                                  alert('更新に失敗しました: ' + error.message);
-                                } else {
-                                  void fetchReservations(page, applied);
-                                }
-                              }}
-                              className="text-amber-700 hover:text-amber-800 font-bold text-[9px] bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded border border-amber-300 transition-colors shadow-sm cursor-pointer"
-                            >
-                              対応済
-                            </button>
-                          )}
-                          {r.source === 'web' && r.is_handled && (
-                            <button
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('reservations')
-                                  .update({ is_handled: false })
-                                  .eq('id', r.id);
-                                if (error) {
-                                  alert('更新に失敗しました: ' + error.message);
-                                } else {
-                                  void fetchReservations(page, applied);
-                                }
-                              }}
-                              className="text-slate-600 hover:text-slate-800 font-bold text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-colors shadow-sm cursor-pointer"
-                            >
-                              未対応に戻す
-                            </button>
-                          )}
                           <button
                             onClick={() => void handleDelete(r.id)}
                             className="text-xs font-semibold text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"

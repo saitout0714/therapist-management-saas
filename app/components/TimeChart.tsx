@@ -690,18 +690,21 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                 // 予約ブロック
                 const isNotificationUnsent = isReservation && !schedule.isPending && (!schedule.customerNotified || !schedule.therapistNotified);
+                const isWeb = schedule.source === 'web';
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
-                    ? isUnhandledWeb
-                      ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 border border-orange-400 shadow-md shadow-orange-500/30 animate-pulse-subtle'
-                      : schedule.isHime
+                    ? schedule.isHime
+                      ? isNotificationUnsent
+                        ? 'bg-gradient-to-br from-[#e27396] to-[#c35175] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
+                        : 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-[#c35175]/30 shadow-md shadow-rose-900/10'
+                      : isWeb
                         ? isNotificationUnsent
-                          ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
-                          : 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-md shadow-pink-500/20'
+                          ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
+                          : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/40 shadow-md shadow-teal-700/20'
                         : isNotificationUnsent
                           ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
-                          : 'bg-[#0f2d59] border border-[#0f2d59]/40 shadow-md shadow-[#0f2d59]/20'
+                          : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20';
 
                 return (
@@ -725,10 +728,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                         {isReservation && !schedule.isPending && !schedule.customerNotified && (
-                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="お客様未送信">客未</span>
+                          <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="お客様未送信">客未</span>
                         )}
                         {isReservation && !schedule.isPending && !schedule.therapistNotified && (
-                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="セラピスト未送信">セラ未</span>
+                          <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="セラピスト未送信">セラ未</span>
                         )}
                       </div>
 
@@ -747,11 +750,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             💳 クレジット
                           </span>
                         )}
-                        {isUnhandledWeb && (
-                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-yellow-400 text-slate-900 border border-yellow-300 shadow-sm animate-pulse whitespace-nowrap">
-                            未対応
-                          </span>
-                        )}
+
                       </div>
 
                       {/* Row 3: Duration, Designation and Price */}

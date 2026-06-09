@@ -55,6 +55,8 @@ interface Reservation {
   payment_method: string | null
   customer_notified: boolean
   therapist_notified: boolean
+  source?: string | null
+  is_handled?: boolean | null
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
 }
@@ -198,7 +200,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -568,13 +570,18 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               {dayReservations.map((res) => {
                                 const isNewCustomer = res.customers?.created_at?.split('T')[0] === res.date
                                 const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
+                                const isWeb = res.source === 'web'
                                 const cardBgClass = (res.is_hime || res.designation_type === 'princess')
                                   ? isNotificationUnsent
-                                    ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
-                                    : 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border border-pink-300/50 shadow-pink-500/20'
-                                  : isNotificationUnsent
-                                    ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
-                                    : 'bg-[#0f2d59] border border-[#0f2d59]/40 shadow-md shadow-[#0f2d59]/20'
+                                    ? 'bg-gradient-to-br from-[#e27396] to-[#c35175] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                    : 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-[#c35175]/30 shadow-md shadow-rose-900/10'
+                                  : isWeb
+                                    ? isNotificationUnsent
+                                      ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                      : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/40 shadow-md shadow-teal-700/20'
+                                    : isNotificationUnsent
+                                      ? 'bg-[#4d3c00] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                      : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
                                 
                                 return (
                                   <div
@@ -587,10 +594,10 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
                                         <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
                                         {!res.customer_notified && (
-                                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="お客様未送信">客未</span>
+                                          <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="お客様未送信">客未</span>
                                         )}
                                         {!res.therapist_notified && (
-                                          <span className="bg-amber-500 text-slate-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-amber-300" title="セラピスト未送信">セラ未</span>
+                                          <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="セラピスト未送信">セラ未</span>
                                         )}
                                       </div>
                                       {/* Row 2: 顧客名 + 新規/会員バッジ */}
