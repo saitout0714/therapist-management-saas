@@ -47,6 +47,7 @@ interface Schedule {
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
+  extensionMinutes?: number;
 }
 
 interface TimeChartProps {
@@ -677,6 +678,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           {schedule.courseDuration && (
                             <span className="opacity-80">{schedule.courseDuration}分</span>
                           )}
+                          {schedule.extensionMinutes !== undefined && schedule.extensionMinutes > 0 && (
+                            <span className="bg-amber-500 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400">
+                              延長+{schedule.extensionMinutes}分
+                            </span>
+                          )}
                           {schedule.totalPrice !== undefined && (
                             <span className="text-[11px] font-extrabold bg-amber-200/60 px-1 py-0 rounded">
                               ¥{schedule.totalPrice.toLocaleString()}
@@ -753,10 +759,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                       </div>
 
-                      {/* Row 3: Duration, Designation and Price */}
+                      {/* Row 3: Duration, Designation, Extension and Price */}
                       <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                         {schedule.courseDuration && (
                           <span className="opacity-90">{schedule.courseDuration}分</span>
+                        )}
+                        {schedule.extensionMinutes !== undefined && schedule.extensionMinutes > 0 && (
+                          <span className="bg-amber-500/90 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400/40">
+                            延長+{schedule.extensionMinutes}分
+                          </span>
                         )}
                         {schedule.designationLabel && (
                           <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">{schedule.designationLabel}</span>

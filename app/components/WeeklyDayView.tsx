@@ -57,6 +57,7 @@ interface Reservation {
   therapist_notified: boolean
   source?: string | null
   is_handled?: boolean | null
+  extension_count?: number
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
 }
@@ -71,6 +72,7 @@ interface WeeklyDayViewProps {
   roomOrderMap?: Map<string, number>
   shopIntervalMinutes?: number
   minCourseDuration?: number
+  extensionUnitMinutes?: number
   onShiftEditOpen?: (therapistId: string, date: string) => void
 }
 
@@ -107,6 +109,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   roomOrderMap = new Map(),
   shopIntervalMinutes = 20,
   minCourseDuration = 0,
+  extensionUnitMinutes = 30,
   onShiftEditOpen,
 }) => {
   const router = useRouter()
@@ -200,7 +203,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -614,10 +617,15 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           </span>
                                         )}
                                       </div>
-                                      {/* Row 3: コース時間・指名種別・金額 */}
+                                      {/* Row 3: コース時間・指名種別・延長・金額 */}
                                       <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                                         {res.courses?.duration && (
                                           <span className="opacity-90">{res.courses.duration}分</span>
+                                        )}
+                                        {res.extension_count !== undefined && res.extension_count > 0 && (
+                                          <span className="bg-amber-500/90 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400/40">
+                                            延長+{res.extension_count * extensionUnitMinutes}分
+                                          </span>
                                         )}
                                         {res.designation_type && (
                                           <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">

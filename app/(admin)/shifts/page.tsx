@@ -41,6 +41,7 @@ interface Reservation {
   source?: string;
   customer_notified?: boolean;
   therapist_notified?: boolean;
+  extension_count?: number;
 }
 
 interface Room {
@@ -114,6 +115,7 @@ interface Schedule {
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
+  extensionMinutes?: number;
 }
 
 type ViewMode = 'day' | 'week';
@@ -133,6 +135,7 @@ export default function ShiftsPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
+  const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30);
   const [filterDate, setFilterDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
@@ -544,11 +547,12 @@ export default function ShiftsPage() {
 
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('reservation_interval_minutes')
+        .select('reservation_interval_minutes, extension_unit_minutes')
         .eq('shop_id', selectedShop.id)
         .limit(1);
       const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
       setShopIntervalMinutes(shopInterval);
+      setExtensionUnitMinutes(settingsData?.[0]?.extension_unit_minutes ?? 30);
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
@@ -708,6 +712,7 @@ export default function ShiftsPage() {
           payment_method,
           customer_notified,
           therapist_notified,
+          extension_count,
           customers(name, created_at),
           courses(name, duration)
         `)
@@ -759,6 +764,7 @@ export default function ShiftsPage() {
         paymentMethod: reservation.payment_method,
         customerNotified: reservation.customer_notified,
         therapistNotified: reservation.therapist_notified,
+        extensionMinutes: (reservation.extension_count || 0) * extensionUnitMinutes,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
@@ -1245,6 +1251,7 @@ export default function ShiftsPage() {
             roomOrderMap={roomOrderMap}
             shopIntervalMinutes={shopIntervalMinutes}
             minCourseDuration={minCourseDuration}
+            extensionUnitMinutes={extensionUnitMinutes}
             onDayClick={(date) => {
               setFilterDate(date);
               setViewMode('day');
