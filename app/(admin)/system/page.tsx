@@ -430,6 +430,7 @@ export default function SystemPage() {
                     <input
                       type="text"
                       placeholder="user@example.com"
+                      autoComplete="off"
                       value={form.smtp_user}
                       onChange={(e) => setForm({ ...form, smtp_user: e.target.value })}
                       className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
@@ -440,6 +441,7 @@ export default function SystemPage() {
                     <input
                       type="password"
                       placeholder="••••••••••••••••"
+                      autoComplete="new-password"
                       value={form.smtp_pass}
                       onChange={(e) => setForm({ ...form, smtp_pass: e.target.value })}
                       className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
