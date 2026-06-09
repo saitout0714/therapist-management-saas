@@ -18,6 +18,12 @@ function validateServiceRoleKey(): { isValid: boolean; reason?: string } {
       reason: '環境変数 SUPABASE_SERVICE_ROLE_KEY が設定されていません。Vercelのプロジェクト設定（Environment Variables）でキーを追加し、プロジェクトを「再デプロイ（Redeploy）」してください。'
     }
   }
+
+  // 新しい Supabase API キー形式 (sb_secret_...) の場合は検証をパスする
+  if (key.startsWith('sb_secret_')) {
+    return { isValid: true }
+  }
+
   try {
     const parts = key.split('.')
     if (parts.length !== 3) {

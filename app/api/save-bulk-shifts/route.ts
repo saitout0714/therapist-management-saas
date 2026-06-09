@@ -77,8 +77,75 @@ export async function POST(req: NextRequest) {
       throw new Error(`シフトの挿入に失敗しました: ${insertError.message}`)
     }
 
+    // Googleスプレッドシートへの同期処理
+    let gasSynced = false
+    let gasMessage = ''
+    const gasUrl = process.env.GAS_SHIFT_SYNC_URL
 
-    return NextResponse.json({ success: true, count: data.length })
+    if (gasUrl && uniqueRows.length > 0) {
+      try {
+        // セラピストとルームの情報をフェッチして、スプレッドシート出力用の表示名をマッピング
+        const [therapistsRes, roomsRes] = await Promise.all([
+          supabase.from('therapists').select('id, name, reservation_interval_minutes').eq('shop_id', shop_id),
+          supabase.from('rooms').select('id, name').eq('shop_id', shop_id)
+        ])
+
+        const therapistsMap = new Map(therapistsRes.data?.map(t => [t.id, t]) || [])
+        const roomsMap = new Map(roomsRes.data?.map(r => [r.id, r]) || [])
+
+        const syncShifts = uniqueRows.map(row => {
+          const therapist = therapistsMap.get(row.therapist_id)
+          const room = row.room_id ? roomsMap.get(row.room_id) : null
+          
+          const interval = therapist?.reservation_interval_minutes ?? 20
+          const staffLabel = therapist?.name ? `${therapist.name}${interval}` : ''
+          
+          const formatTimeStr = (t: string) => {
+            if (!t) return ''
+            const parts = t.split(':')
+            return `${parts[0]}:${parts[1]}`
+          }
+          
+          return {
+            date: row.date,
+            therapist_name: therapist?.name || '',
+            staff_label: staffLabel,
+            room_name: room?.name || '',
+            start_time: formatTimeStr(row.start_time),
+            end_time: formatTimeStr(row.end_time)
+          }
+        })
+
+        const token = process.env.SYNC_API_TOKEN || 'yoyakl_sync_token_2026'
+        const gasResponse = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token,
+            shopId: shop_id,
+            shifts: syncShifts
+          })
+        })
+        const gasResult = await gasResponse.json()
+        if (gasResult.success) {
+          gasSynced = true
+          gasMessage = gasResult.message || '同期成功'
+        } else {
+          console.error('GAS sync returned error:', gasResult.error)
+          gasMessage = gasResult.error || 'スプレッドシート書き込みエラー'
+        }
+      } catch (err) {
+        console.error('Failed to sync to Google Spreadsheet:', err)
+        gasMessage = err instanceof Error ? err.message : 'GAS通信エラー'
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      count: data.length,
+      gasSynced,
+      gasMessage
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : '不明なエラー'
     return NextResponse.json({ error: `サーバーエラー: ${msg}` }, { status: 500 })

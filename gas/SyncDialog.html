@@ -40,10 +40,9 @@
     <div class="form-group">
       <label>🏢 店舗を選択</label>
       <select id="shopKey">
-        <option value="shop_a">クリスタル</option>
-        <option value="shop_b">裏妻</option>
-        <option value="shop_c">クイーンテラス</option>
-        <option value="shop_d">レジェンド</option>
+        <? for (const key in SHOP_CONFIG) { ?>
+          <option value="<?= key ?>"><?= SHOP_CONFIG[key].name ?></option>
+        <? } ?>
       </select>
     </div>
 
@@ -63,11 +62,13 @@
   <div id="status"></div>
 
   <script>
-    // デフォルト日付を本日に設定
+    // デフォルト日付を明日に設定
     window.onload = function() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('dateFrom').value = today;
-      document.getElementById('dateTo').value = today;
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      document.getElementById('dateFrom').value = tomorrowStr;
+      document.getElementById('dateTo').value = tomorrowStr;
     };
 
     function setStatus(msg, type) {

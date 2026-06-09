@@ -99,8 +99,9 @@ export default function RegisterShift() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '解析に失敗しました');
       setAiModal(m => m ? { ...m, parsing: false, parsedShifts: data.shifts } : null);
-    } catch (e: any) {
-      setAiModal(m => m ? { ...m, parsing: false, error: e.message } : null);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setAiModal(m => m ? { ...m, parsing: false, error: err.message } : null);
     }
   };
 
@@ -123,10 +124,21 @@ export default function RegisterShift() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '登録に失敗しました');
+      
+      // スプレッドシート同期の成否をお知らせする
+      let message = 'シフトの一括登録が完了しました。';
+      if (data.gasSynced) {
+        message += `\n\nスプレッドシートの同期も完了しました：\n${data.gasMessage}`;
+      } else if (data.gasMessage) {
+        message += `\n\n⚠️ スプレッドシート同期エラー:\n${data.gasMessage}`;
+      }
+      alert(message);
+
       setAiModal(null);
       setRefreshKey(c => c + 1);
-    } catch (e: any) {
-      setAiModal(m => m ? { ...m, saving: false, error: e.message } : null);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setAiModal(m => m ? { ...m, saving: false, error: err.message } : null);
     }
   };
 

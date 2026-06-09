@@ -22,10 +22,9 @@
     <div class="shop-selector">
       <label>🏢 店舗を選択</label>
       <div class="radio-group">
-        <label><input type="radio" name="shop" value="shop_a" checked> クリスタル</label>
-        <label><input type="radio" name="shop" value="shop_b"> 裏妻</label>
-        <label><input type="radio" name="shop" value="shop_c"> クイーンテラス</label>
-        <label><input type="radio" name="shop" value="shop_d"> レジェンド</label>
+        <? for (const key in SHOP_CONFIG) { ?>
+          <label><input type="radio" name="shop" value="<?= key ?>" <?= key === 'shop_1' ? 'checked' : '' ?>> <?= SHOP_CONFIG[key].name ?></label>
+        <? } ?>
       </div>
     </div>
 

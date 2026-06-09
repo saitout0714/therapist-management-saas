@@ -5,13 +5,10 @@ shift_scraper.py  ─  ホームページからシフトをスクレイピング
 
 対応サイト:
   - 辻堂茅ヶ崎       (mens-esthe-tsujido.com)
-  - クイーンテラス    (queen-terrace.com)
-  - こころリンス浅草橋 (kokoro-rinse.com)
-  - こころリンス大山   (ooyama.kokoro-rinse.com)
   - ローズカフェ      (rosecafe.men-este.com)
   - 淑女の秘密スパ    (himitsuspa.com)
-  - クリスタルスパ    (crystalspayokkaichi.com)
-  - 裏妻SPA          (urazuma.com)
+  - アーバンスパ      (urbanspa.jp)
+  - 新宿秘密妻        (himitsuma.com)
 """
 
 
@@ -35,13 +32,10 @@ HEADERS = {
 
 # ── ショップ ID ──────────────────────────────────────────────────
 SHOP_ID_TSUJIDO    = "92c51e51-339b-48ce-8535-0f45c859b195"
-SHOP_ID_QUEEN      = "960d84c5-d1cd-44bc-a39a-85f8ecc3d51a"
-SHOP_ID_KOKORO_A   = "dc3caa06-fcc2-4bdc-b063-7969296efd34"
-SHOP_ID_KOKORO_O   = "a0000001-0000-0000-0000-000000000004"
 SHOP_ID_ROSECAFE   = "a0000001-0000-0000-0000-000000000005"
 SHOP_ID_HIMITSUSPA = "3464ed8c-44e8-46f1-b701-9b6ae0f465a8"
-SHOP_ID_CRYSTALSPA = "1faab510-3c7e-4a01-9ce6-d3b93bbdad81"
-SHOP_ID_URAZUMA    = "da3ac7a8-e84d-4dbd-830c-81e9e8b6631a"
+SHOP_ID_URBAN      = "7d430288-8aed-4381-b3bf-f35fad962d2f"
+SHOP_ID_HIMITSUMA  = "774101be-d8c5-4ca5-ba4a-fc61c039fbaa"
 
 # ── サイト定義 ───────────────────────────────────────────────────
 SITES = [
@@ -56,32 +50,6 @@ SITES = [
         "time_sel": ".therapist_time",
     },
     {
-        "name": "クイーンテラス",
-        "shop_id": SHOP_ID_QUEEN,
-        "type": "tsujido",
-        "url_tpl": "https://queen-terrace.com/schedule/?works={date}",
-        "container": ".castlist",
-        "box_selector": ".therapist-box",
-        "name_sel": ".therapist_name",
-        "time_sel": ".therapist_time",
-    },
-    {
-        "name": "こころリンス浅草橋",
-        "shop_id": SHOP_ID_KOKORO_A,
-        "type": "kokoro",
-        "url_tpl": "https://kokoro-rinse.com/schedule/?works={date}",
-        "name_sel": ".therapist_name",
-        "time_sel": ".startend",
-    },
-    {
-        "name": "こころリンス大山",
-        "shop_id": SHOP_ID_KOKORO_O,
-        "type": "kokoro",
-        "url_tpl": "https://ooyama.kokoro-rinse.com/schedule/?works={date}",
-        "name_sel": ".therapist_name",
-        "time_sel": ".startend",
-    },
-    {
         "name": "ローズカフェ",
         "shop_id": SHOP_ID_ROSECAFE,
         "type": "rosecafe",
@@ -94,16 +62,20 @@ SITES = [
         "url_tpl": "https://himitsuspa.com/schedule/index.php?day={date_compact}",
     },
     {
-        "name": "クリスタルスパ",
-        "shop_id": SHOP_ID_CRYSTALSPA,
-        "type": "crystalspa",
-        "url_tpl": "https://crystalspayokkaichi.com/schedule/?works={date}",
+        "name": "アーバンスパ",
+        "shop_id": SHOP_ID_URBAN,
+        "type": "kokoro",
+        "url_tpl": "https://urbanspa.jp/schedule/?works={date}",
+        "name_sel": ".therapist_name",
+        "time_sel": ".startend",
     },
     {
-        "name": "裏妻SPA",
-        "shop_id": SHOP_ID_URAZUMA,
-        "type": "urazuma",
-        "url_tpl": "https://urazuma.com/shift-schedule/?date={date_compact}",
+        "name": "新宿秘密妻",
+        "shop_id": SHOP_ID_HIMITSUMA,
+        "type": "kokoro",
+        "url_tpl": "https://himitsuma.com/schedule/?works={date}",
+        "name_sel": ".therapist_name",
+        "time_sel": ".startend",
     },
 ]
 
@@ -326,12 +298,18 @@ def scrape_kokoro(site: dict, date_str: str) -> list:
         print(f"    ⚠ タブ/パネルが見つかりません")
         return []
     target_dt = datetime.strptime(date_str, "%Y-%m-%d")
-    target_label_md = f"{target_dt.month}/{target_dt.day}"
+    
     panel_idx = None
     for i, label in enumerate(labels):
-        if label.get_text(strip=True).startswith(target_label_md):
-            panel_idx = i
-            break
+        label_text = label.get_text(strip=True)
+        m = re.search(r"(\d{1,2})[/\u6708](\d{1,2})", label_text)
+        if m:
+            l_month = int(m.group(1))
+            l_day = int(m.group(2))
+            if l_month == target_dt.month and l_day == target_dt.day:
+                panel_idx = i
+                break
+                
     if panel_idx is None:
         print(f"    ⚠ {date_str} に対応するタブが見つかりません")
         return []
@@ -407,48 +385,11 @@ def scrape_himitsuspa(site: dict, date_str: str) -> list:
     return results
 
 
-def scrape_crystalspa(site: dict, date_str: str) -> list:
-    url = site["url_tpl"].format(date=date_str)
-    soup = fetch_html(url)
-    results = []
-    for box in soup.select(".one-cast"):
-        name_el = box.select_one("span.cast-name")
-        time_el = box.select_one("span.worktime")
-        if not name_el or not time_el:
-            continue
-        raw_name = name_el.get_text(strip=True)
-        start, end = parse_time(time_el.get_text())
-        if not start:
-            continue
-        results.append({"name": raw_name, "start": start, "end": end, "room": ""})
-    return results
-
-
-def scrape_urazuma(site: dict, date_str: str) -> list:
-    date_compact = date_str.replace("-", "")
-    url = site["url_tpl"].format(date_compact=date_compact)
-    soup = fetch_html(url)
-    results = []
-    for box in soup.select("article"):
-        name_el = box.select_one("h3.card-name")
-        time_el = box.select_one("span.cast-time__text")
-        if not name_el or not time_el:
-            continue
-        raw_name = name_el.get_text(strip=True)
-        start, end = parse_time(time_el.get_text())
-        if not start:
-            continue
-        results.append({"name": raw_name, "start": start, "end": end, "room": ""})
-    return results
-
-
 SCRAPERS = {
     "tsujido":    scrape_tsujido,
     "kokoro":     scrape_kokoro,
     "rosecafe":   scrape_rosecafe,
     "himitsuspa": scrape_himitsuspa,
-    "crystalspa": scrape_crystalspa,
-    "urazuma":    scrape_urazuma,
 }
 
 

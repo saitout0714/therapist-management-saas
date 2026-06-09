@@ -48,7 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const dbUser = dbUserData[0]
         let shops: { id: string; name: string }[] = []
         
-        if (dbUser.role !== 'system_admin' && dbUser.role !== 'agency_staff') {
+        // データベースのロール値をフロントエンドのロール値にマッピング/正規化
+        let normalizedRole = dbUser.role
+        if (normalizedRole === 'admin') normalizedRole = 'system_admin'
+        if (normalizedRole === 'owner') normalizedRole = 'simple_client_owner'
+        if (normalizedRole === 'staff') normalizedRole = 'agency_staff'
+
+        if (normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
           const { data: shopsData, error: shopsError } = await supabase
             .from('shop_owners')
             .select('shops(*)')
@@ -68,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: dbUser.id,
           loginId: dbUser.login_id,
           name: dbUser.name,
-          role: dbUser.role,
+          role: normalizedRole as User['role'],
           shops: shops.length > 0 ? shops : undefined,
         }
 
@@ -201,9 +207,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const dbUser = dbUserData[0]
 
+      // データベースのロール値をフロントエンドのロール値にマッピング/正規化
+      let normalizedRole = dbUser.role
+      if (normalizedRole === 'admin') normalizedRole = 'system_admin'
+      if (normalizedRole === 'owner') normalizedRole = 'simple_client_owner'
+      if (normalizedRole === 'staff') normalizedRole = 'agency_staff'
+
       // 3. 店舗情報を取得（system_admin と agency_staff 以外の場合）
       let shops: { id: string; name: string }[] = []
-      if (dbUser.role !== 'system_admin' && dbUser.role !== 'agency_staff') {
+      if (normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
         const { data: shopsData, error: shopsError } = await supabase
           .from('shop_owners')
           .select('shops(*)')
@@ -223,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: dbUser.id,
         loginId: dbUser.login_id,
         name: dbUser.name,
-        role: dbUser.role,
+        role: normalizedRole as User['role'],
         shops: shops.length > 0 ? shops : undefined,
       }
 
