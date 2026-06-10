@@ -38,7 +38,7 @@ type Reservation = {
   nomination_fee: number
   total_price: number
   discount_amount: number
-  designation_type: 'free' | 'nomination' | 'confirmed' | 'princess'
+  designation_type: 'free' | 'nomination' | 'first_nomination' | 'confirmed' | 'princess'
   notes: string | null
   status: 'pending' | 'confirmed' | 'cancelled'
   payment_method: 'cash' | 'credit' | null

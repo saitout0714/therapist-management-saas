@@ -59,6 +59,7 @@ export default function EditShopPage() {
     name: '',
     short_name: '',
     description: '',
+    phone: '',
     is_active: true,
   })
   const [reservationCode, setReservationCode] = useState('')
@@ -106,6 +107,7 @@ export default function EditShopPage() {
         name: shopRes.data.name,
         short_name: shopRes.data.short_name || '',
         description: shopRes.data.description || '',
+        phone: shopRes.data.phone || '',
         is_active: shopRes.data.is_active,
       })
 
@@ -188,6 +190,7 @@ export default function EditShopPage() {
         name: form.name,
         short_name: form.short_name.trim() || null,
         description: form.description || null,
+        phone: form.phone.trim() || null,
         is_active: form.is_active,
         updated_at: new Date().toISOString(),
       })
@@ -305,6 +308,17 @@ export default function EditShopPage() {
                     maxLength={10}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">電話番号</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                  placeholder="例: 03-1234-5678"
+                />
               </div>
 
               <div>

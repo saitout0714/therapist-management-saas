@@ -93,8 +93,9 @@ export function DesignationTypesTab() {
     const existingSlugs = (data || []).map((d: DesignationType) => d.slug)
     const missing = DEFAULT_DESIGNATION_TYPES.filter(d => !existingSlugs.includes(d.slug))
     if (missing.length > 0) {
-      await supabase.from('designation_types').insert(
-        missing.map(d => ({ ...d, shop_id: selectedShop.id }))
+      await supabase.from('designation_types').upsert(
+        missing.map(d => ({ ...d, shop_id: selectedShop.id })),
+        { onConflict: 'shop_id, slug' }
       )
       // 再取得
       const { data: refetched } = await supabase

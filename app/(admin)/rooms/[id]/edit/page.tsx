@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -17,6 +17,8 @@ export default function EditRoomPage() {
     memo: '',
     template_member: '',
     template_new_customer: '',
+    template_web_member: '',
+    template_web_new_customer: '',
   });
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -29,7 +31,7 @@ export default function EditRoomPage() {
         setInitializing(true);
         const { data, error: fetchError } = await supabase
           .from('rooms')
-          .select('name, display_name, google_map_url, memo, template_member, template_new_customer')
+          .select('name, display_name, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer')
           .eq('id', roomId)
           .single();
 
@@ -43,6 +45,8 @@ export default function EditRoomPage() {
             memo: data.memo || '',
             template_member: data.template_member || '',
             template_new_customer: data.template_new_customer || '',
+            template_web_member: data.template_web_member || '',
+            template_web_new_customer: data.template_web_new_customer || '',
           });
         }
       } catch (err: unknown) {
@@ -83,6 +87,8 @@ export default function EditRoomPage() {
         memo: formData.memo || null,
         template_member: formData.template_member || null,
         template_new_customer: formData.template_new_customer || null,
+        template_web_member: formData.template_web_member || null,
+        template_web_new_customer: formData.template_web_new_customer || null,
       })
       .eq('id', roomId);
 
@@ -187,34 +193,72 @@ export default function EditRoomPage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  会員様テンプレ
-                </label>
-                <p className="text-xs text-slate-400">2回目以降のお客様に送るルーム案内文。住所・マップURL・注意事項をすべて含めてください。</p>
-                <textarea
-                  name="template_member"
-                  value={formData.template_member}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                  placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２リージア海老名ビナフロント805号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
-                  rows={10}
-                />
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2">SMS/手動送信用 案内テンプレート</h3>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">
+                    会員様テンプレ
+                  </label>
+                  <p className="text-xs text-slate-400">2回目以降のお客様に送るルーム案内文。</p>
+                  <textarea
+                    name="template_member"
+                    value={formData.template_member}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                    placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２リージア海老名ビナフロント805号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
+                    rows={6}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">
+                    ご新規様テンプレ
+                  </label>
+                  <p className="text-xs text-slate-400">初回のお客様に送るルーム案内文。</p>
+                  <textarea
+                    name="template_new_customer"
+                    value={formData.template_new_customer}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                    placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目３ー１\nガイアネクスト海老名駅前店（パチンコ屋）付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
+                    rows={6}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  ご新規様テンプレ
-                </label>
-                <p className="text-xs text-slate-400">初回のお客様に送るルーム案内文。未入力の場合は会員様テンプレが使用されます。</p>
-                <textarea
-                  name="template_new_customer"
-                  value={formData.template_new_customer}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                  placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目３ー１\nガイアネクスト海老名駅前店（パチンコ屋）付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
-                  rows={10}
-                />
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2">WEB予約メール自動返信用 テンプレート</h3>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">
+                    WEB自動返信 会員様テンプレ
+                  </label>
+                  <p className="text-xs text-slate-400">リピーターの会員様にWEB予約完了メールで自動送信する案内文です。部屋番号入り住所などを含めてください。</p>
+                  <textarea
+                    name="template_web_member"
+                    value={formData.template_web_member}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                    placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２ リージア海老名805号室`}
+                    rows={6}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">
+                    WEB自動返信 新規様テンプレ
+                  </label>
+                  <p className="text-xs text-slate-400">ご新規様にWEB予約完了メールで自動送信する案内文です。目印の住所のみ記載するか、SMS案内に誘導する文章を含めてください。</p>
+                  <textarea
+                    name="template_web_new_customer"
+                    value={formData.template_web_new_customer}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                    placeholder={`例:\nご予約ありがとうございます。\n防犯上の理由により、お部屋の詳細は店舗より別途SMSにてお送りいたします。`}
+                    rows={6}
+                  />
+                </div>
               </div>
 
               <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">

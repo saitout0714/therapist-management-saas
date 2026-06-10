@@ -478,7 +478,7 @@ export default function EditReservationPage() {
       if (data && data.length > 0) {
         setFormData((prev) => ({ ...prev, designation_type: 'confirmed' }))
       } else {
-        setFormData((prev) => ({ ...prev, designation_type: 'nomination' }))
+        setFormData((prev) => ({ ...prev, designation_type: 'first_nomination' }))
       }
     } catch (error) {
       console.error('指名判定の検索に失敗:', error)

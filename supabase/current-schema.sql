@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS "public"."designation_types" (
   "updated_at" timestamp with time zone DEFAULT now(),
   "default_fee" integer DEFAULT 0,
   "default_back_amount" integer DEFAULT 0,
-  CONSTRAINT "designation_types_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "designation_types_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "designation_types_shop_id_slug_key" UNIQUE ("shop_id", "slug")
 );
 
 CREATE TABLE IF NOT EXISTS "public"."discount_policies" (
@@ -364,6 +365,8 @@ CREATE TABLE IF NOT EXISTS "public"."rooms" (
   "display_name" text,
   "template_member" text,
   "template_new_customer" text,
+  "template_web_member" text,
+  "template_web_new_customer" text,
   "memo" text,
   CONSTRAINT "rooms_pkey" PRIMARY KEY ("id")
 );
@@ -426,6 +429,7 @@ CREATE TABLE IF NOT EXISTS "public"."shops" (
   "short_name" text,
   "sms_address_mode" text NOT NULL DEFAULT 'unified'::text,
   "special_rules" text,
+  "phone" text,
   CONSTRAINT "shops_pkey" PRIMARY KEY ("id")
 );
 

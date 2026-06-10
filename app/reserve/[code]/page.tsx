@@ -850,15 +850,30 @@ export default function ReservePage() {
                         </div>
                       </div>
 
-                      {/* 時間ボタングリッド（30分刻み） */}
+                      {/* 時間ボタングリッド */}
                       <div>
                         <p className="text-xs text-slate-500 mb-2">開始時間を選択（±5分で微調整できます）</p>
                         <div className="max-h-52 overflow-y-auto rounded-xl">
                           <div className="grid grid-cols-4 gap-2">
                             {slotsWithAvailability
-                              .filter(s => {
-                                const [, m] = s.time.split(':').map(Number)
-                                return m % 30 === 0
+                              .filter((s, _, arr) => {
+                                const [h, m] = s.time.split(':').map(Number)
+                                if (m % 30 === 0) return true
+
+                                // 30分刻み以外の時間は、空き枠（available）の場合のみ候補にする
+                                if (!s.available) return false
+
+                                // かつ、前後30分以内に利用可能な30分刻みの枠がない場合のみ表示する
+                                const timeInMins = h * 60 + m
+                                const hasAvailable30MinNearby = arr.some(other => {
+                                  const [oh, om] = other.time.split(':').map(Number)
+                                  if (om % 30 !== 0) return false
+                                  if (!other.available) return false
+                                  const otherMins = oh * 60 + om
+                                  return Math.abs(otherMins - timeInMins) <= 30
+                                })
+
+                                return !hasAvailable30MinNearby
                               })
                               .map(slot => (
                                 <button
