@@ -302,21 +302,28 @@ const TimeChart: React.FC<TimeChartProps> = ({
           {/* Therapist List */}
           <div className="flex-1 overflow-y-hidden">
             {therapists.map((therapist) => {
-              const hasAnyBlock = schedules.some(
-                s => s.therapistId === therapist.id && s.type === 'blocked'
+              const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
+                s =>
+                  s.therapistId === therapist.id &&
+                  s.type === 'blocked' &&
+                  s.startTime === therapist.shiftStart &&
+                  s.endTime === therapist.shiftEnd
               );
               return (
                 <div
                   key={therapist.id}
                   style={{ height: `${rowHeight}px` }}
-                  className="flex items-stretch border-b border-slate-100 bg-white hover:bg-indigo-50/40 transition-colors group relative overflow-hidden"
+                  className={`flex items-stretch border-b border-slate-100 transition-colors group relative overflow-hidden
+                    ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                 >
                   {/* Active indicator bar */}
-                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {!isOff && (
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
 
                   {/* 写真 — 3:4固定比率 */}
                   <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
-                    <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
+                    <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
                       {therapist.id === 'unassigned' ? (
                         <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -334,9 +341,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   {/* テキスト情報 */}
                   <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
                     {/* 名前 */}
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <p
-                        className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
+                        className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate
+                          ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                         onMouseEnter={(e) => {
                           if (therapist.id === 'unassigned') return;
                           if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
@@ -350,6 +358,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       >
                         {therapist.name}
                       </p>
+                      {isOff && (
+                        <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
+                          休み
+                        </span>
+                      )}
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                         <span
                           className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[120px]"
@@ -370,6 +383,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
                       {therapist.id === 'unassigned' ? (
                         <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                      ) : isOff ? (
+                        <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                       ) : therapist.shiftStart && therapist.shiftEnd ? (
                         <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                       ) : (
@@ -378,7 +393,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     </p>
 
                     {/* ルーム + インターバル */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
                       {therapist.room && (
                         <span
                           className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
