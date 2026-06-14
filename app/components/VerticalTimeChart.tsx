@@ -108,6 +108,48 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Mobile Directional Scroll Lock
+  const [scrollLock, setScrollLock] = useState<'x' | 'y' | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lockAppliedRef = useRef<boolean>(false);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+      lockAppliedRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || lockAppliedRef.current) return;
+
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (absX > 6 || absY > 6) {
+      if (absY > absX * 1.1) {
+        // Vertical is dominant -> Lock horizontal scroll (x-axis hidden)
+        setScrollLock('x');
+      } else if (absX > absY * 1.1) {
+        // Horizontal is dominant -> Lock vertical scroll (y-axis hidden)
+        setScrollLock('y');
+      }
+      lockAppliedRef.current = true;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+    lockAppliedRef.current = false;
+    setScrollLock(null);
+  };
+
   // Time grid configuration
   const cellHeight = 10; // Height per 5 minutes cell
   const columnWidth = 160; // Width of each therapist column
@@ -274,8 +316,16 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
       {/* Scrollable Container */}
       <div
         ref={scrollContainerRef}
-        className="w-full h-full overflow-auto custom-scrollbar select-none"
-        style={{ cursor: 'default' }}
+        className="w-full h-full custom-scrollbar select-none"
+        style={{
+          cursor: 'default',
+          overflowX: scrollLock === 'x' ? 'hidden' : 'auto',
+          overflowY: scrollLock === 'y' ? 'hidden' : 'auto',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {/* Scroll Content Wrap */}
         <div className="relative min-w-max min-h-max">
