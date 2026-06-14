@@ -529,6 +529,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     shopDiscountBurden = input.discountAmount
   }
 
+  // マトリクス詳細設定が使用されている場合、登録額は指名料バックを含んだ合計であるため、
+  // コースバックの内訳から指名料バック分を差し引く（合計額は維持する）
+  if (matrixBackUsed) {
+    courseBack = Math.max(0, courseBack - nominationBack)
+  }
+
   const totalBack = courseBack + extensionBack + optionBack + nominationBack - therapistDiscountBurden
 
   // Step 6: 予約単位の控除・手当処理
