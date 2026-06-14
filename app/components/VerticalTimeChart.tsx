@@ -796,8 +796,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                             <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                             <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
                           </div>
-                          <div className="flex items-center justify-start gap-1 min-w-0">
-                            <span className="font-bold text-[13px] text-amber-950 leading-none truncate">
+                          <div className="flex items-start justify-start gap-1 min-w-0">
+                            <span className="font-bold text-[13px] text-amber-950 leading-tight break-all">
                               {schedule.customerName || schedule.title}
                             </span>
                           </div>
@@ -873,20 +873,20 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           )}
                         </div>
 
-                        {/* Row 2: Name and New/Member */}
-                        <div className="flex items-center justify-start gap-1 min-w-0">
-                          <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
+                        {/* Row 2: Name */}
+                        <div className="flex items-start justify-start gap-1 min-w-0">
+                          <span className="font-bold text-[13px] text-white leading-tight break-all drop-shadow-sm">
                             {schedule.customerName || schedule.title}
                           </span>
+                        </div>
+
+                        {/* Row 3: Duration, Designation, Extension and Price */}
+                        <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                           {isReservation && (
                             <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${schedule.isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                               {schedule.isNewCustomer ? '新規' : '会員'}
                             </span>
                           )}
-                        </div>
-
-                        {/* Row 3: Duration, Designation, Extension and Price */}
-                        <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                           {schedule.courseDuration && (
                             <span className="opacity-90">{schedule.courseDuration}分</span>
                           )}

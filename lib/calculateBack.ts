@@ -482,9 +482,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
-  // マトリクスの back_amount を使用した場合は指名料バックを別途計算しない
-  // （back_amount がコース+指名料の合計バックとして設定されているため）
-  if (!matrixBackUsed && nominationFeeForBack > 0) {
+  // マトリクスの back_amount を使用した場合でも指名料バックを別途計算する
+  if (nominationFeeForBack > 0) {
     // designation_types の default_back_amount が設定されている場合はそれを優先
     if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
       nominationBack = resolved_price.backAmount
