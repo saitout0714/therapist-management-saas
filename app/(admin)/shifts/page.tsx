@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
@@ -128,7 +128,7 @@ const getBusinessDate = () => {
   return now
 }
 
-export default function ShiftsPage() {
+function ShiftsContent() {
   const { selectedShop } = useShop();
   const { loading: authLoading, user } = useAuth();
   const searchParams = useSearchParams();
@@ -1716,5 +1716,17 @@ export default function ShiftsPage() {
 
 
     </div>
+  );
+}
+
+export default function ShiftsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-slate-500 font-medium">読み込み中...</div>
+      </div>
+    }>
+      <ShiftsContent />
+    </Suspense>
   );
 }
