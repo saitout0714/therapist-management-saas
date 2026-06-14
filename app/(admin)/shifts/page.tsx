@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import { useAuth } from '@/app/contexts/AuthContext';
 import TimeChart from '@/app/components/TimeChart';
+import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
 import { toDisplayTime } from '@/lib/timeUtils';
 
@@ -119,7 +120,7 @@ interface Schedule {
   extensionMinutes?: number;
 }
 
-type ViewMode = 'day' | 'week';
+type ViewMode = 'day' | 'vertical' | 'week';
 
 const getBusinessDate = () => {
   const now = new Date()
@@ -132,6 +133,24 @@ export default function ShiftsPage() {
   const { loading: authLoading, user } = useAuth();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
+
+  // Load saved view mode from localStorage on client-side mount
+  useEffect(() => {
+    const saved = localStorage.getItem('shifts_view_mode');
+    if (saved === 'vertical' || saved === 'week' || saved === 'day') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (!viewParam) {
+        setViewMode(saved as ViewMode);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('shifts_view_mode', viewMode);
+    }
+  }, [viewMode]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -149,6 +168,8 @@ export default function ShiftsPage() {
       setViewMode('week');
     } else if (view === 'day') {
       setViewMode('day');
+    } else if (view === 'vertical') {
+      setViewMode('vertical');
     }
 
     const qDate = searchParams.get('date');
@@ -1129,7 +1150,7 @@ export default function ShiftsPage() {
               </div>
             </h1>
             <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-              {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
+              {viewMode === 'day' ? 'タイムチャート横表示' : viewMode === 'vertical' ? 'タイムチャート縦表示' : '週間表示'}
             </p>
           </div>
         </div>
@@ -1146,7 +1167,16 @@ export default function ShiftsPage() {
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
               >
-                タイムチャート
+                タイムチャート（横）
+              </button>
+              <button
+                onClick={() => setViewMode('vertical')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'vertical'
+                  ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                タイムチャート（縦）
               </button>
               <button
                 onClick={() => setViewMode('week')}
@@ -1181,7 +1211,7 @@ export default function ShiftsPage() {
 
             {/* 日付ナビゲーション */}
             <div className="flex gap-1 items-center bg-slate-100 p-1 rounded-lg">
-              {viewMode === 'day' ? (
+              {viewMode === 'day' || viewMode === 'vertical' ? (
                 <>
                   <button
                     onClick={handlePrevDay}
@@ -1255,6 +1285,37 @@ export default function ShiftsPage() {
               <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart
+                    therapists={sortedTherapistsWithShift}
+                    schedules={schedules}
+                    date={filterDate}
+                    scrollToTime={searchParams.get('scroll_to_time')}
+                    onBlockedClick={(id, startTime, endTime) =>
+                      setBlockedModal({ id, startTime, endTime })
+                    }
+                    onShiftEditOpen={handleOpenShiftEdit}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    シフトがあるセラピストがいません
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* タイムチャート縦（バーティカル）ビュー */}
+        {viewMode === 'vertical' && (() => {
+          return (
+            <div className="bg-white rounded-lg shadow-lg overflow-visible relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+                  <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
+                </div>
+              )}
+              <div style={{ height: '700px' }} className="w-full">
+                {sortedTherapistsWithShift.length > 0 ? (
+                  <VerticalTimeChart
                     therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}

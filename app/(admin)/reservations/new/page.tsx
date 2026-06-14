@@ -745,6 +745,8 @@ export default function NewReservationPage() {
         if (error) throw error
         if (fromPage === 'weekly') {
           window.location.href = `/shifts?date=${formData.date}&view=week`
+        } else if (fromPage === 'vertical') {
+          window.location.href = `/shifts?date=${formData.date}&view=vertical&scroll_to_time=${formData.start_time}`
         } else {
           window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
         }
@@ -941,6 +943,8 @@ export default function NewReservationPage() {
 
       if (fromPage === 'weekly') {
         window.location.href = `/shifts?date=${formData.date}&view=week`
+      } else if (fromPage === 'vertical') {
+        window.location.href = `/shifts?date=${formData.date}&view=vertical&scroll_to_time=${formData.start_time}`
       } else {
         window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
       }

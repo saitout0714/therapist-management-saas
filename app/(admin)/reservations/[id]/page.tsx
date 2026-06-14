@@ -451,6 +451,8 @@ export default function ReservationPreviewPage() {
   const goBack = () => {
     if (fromPage === 'weekly') {
       window.location.href = reservation?.date ? `/shifts?date=${reservation.date}&view=week` : '/shifts?view=week'
+    } else if (fromPage === 'vertical') {
+      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}&view=vertical` : '/shifts?view=vertical'
     } else if (fromPage === 'shifts') {
       window.location.href = reservation?.date ? `/shifts?date=${reservation.date}` : '/shifts'
     } else {
