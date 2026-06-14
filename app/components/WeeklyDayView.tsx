@@ -570,7 +570,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       const t = new Date()
                                       t.setHours(t.getHours() + 1, 0, 0, 0)
                                       const time = `${String(t.getHours()).padStart(2, '0')}:00`
-                                      const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
+                                      const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time, from: 'weekly' })
                                       if (shift.room_id) params.set('room_id', shift.room_id)
                                       router.push(`/reservations/new?${params.toString()}`)
                                     }}
@@ -626,7 +626,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                         <div
                                           key={res.id}
                                           className="rounded-lg px-2 py-1.5 border border-rose-200 bg-rose-50/60 text-rose-800 cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-md"
-                                          onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
+                                          onClick={() => router.push(`/reservations/${res.id}?from=weekly`)}
                                         >
                                           <div className="flex flex-col py-0.5 gap-1">
                                             <div className="text-[10px] font-bold text-rose-700 leading-none flex items-center justify-between gap-1">
@@ -662,7 +662,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       <div
                                         key={res.id}
                                         className={`rounded-lg px-2 py-1.5 border text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${cardBgClass}`}
-                                        onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
+                                        onClick={() => router.push(`/reservations/${res.id}?from=weekly`)}
                                       >
                                         <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
                                           {/* Row 1: 時間 & 未送信バッジ */}

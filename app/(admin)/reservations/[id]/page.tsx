@@ -449,8 +449,10 @@ export default function ReservationPreviewPage() {
   }
 
   const goBack = () => {
-    if (fromPage === 'shifts') {
-      router.push(reservation?.date ? `/shifts?date=${reservation.date}` : '/shifts')
+    if (fromPage === 'weekly') {
+      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}&view=week` : '/shifts?view=week'
+    } else if (fromPage === 'shifts') {
+      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}` : '/shifts'
     } else {
       router.push('/reservations')
     }
@@ -542,7 +544,7 @@ export default function ReservationPreviewPage() {
               <span className="hidden xs:inline">削除</span>
             </button>
             <Link
-              href={`/reservations/${reservationId}/edit${fromPage === 'shifts' ? '?from=shifts' : ''}`}
+              href={`/reservations/${reservationId}/edit${fromPage ? `?from=${fromPage}` : ''}`}
               className="px-3 py-1.5 sm:px-6 sm:py-2.5 bg-indigo-600 text-white font-medium rounded-lg sm:rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
             >
               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

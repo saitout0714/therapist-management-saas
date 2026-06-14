@@ -144,6 +144,13 @@ export default function ShiftsPage() {
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
 
   useEffect(() => {
+    const view = searchParams.get('view');
+    if (view === 'week') {
+      setViewMode('week');
+    } else if (view === 'day') {
+      setViewMode('day');
+    }
+
     const qDate = searchParams.get('date');
     if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
       setFilterDate(qDate);
@@ -152,17 +159,18 @@ export default function ShiftsPage() {
         setWeekStartDate(parsedDate);
       }
     }
-  }, [searchParams]);
 
-  useEffect(() => {
+    // URLクエリパラメータをクリアして、リロード時に今日・デフォルト表示に戻るようにする
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('date') !== filterDate) {
-        url.searchParams.set('date', filterDate);
+      if (url.searchParams.has('date') || url.searchParams.has('scroll_to_time') || url.searchParams.has('view')) {
+        url.searchParams.delete('date');
+        url.searchParams.delete('scroll_to_time');
+        url.searchParams.delete('view');
         window.history.replaceState(null, '', url.pathname + url.search);
       }
     }
-  }, [filterDate]);
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
@@ -1250,6 +1258,7 @@ export default function ShiftsPage() {
                     therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
+                    scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime })
                     }

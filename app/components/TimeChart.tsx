@@ -54,6 +54,7 @@ interface TimeChartProps {
   therapists: Therapist[];
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
+  scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string) => void;
 }
@@ -64,6 +65,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   therapists: rawTherapists,
   schedules: rawSchedules = [],
   date,
+  scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
 }) => {
@@ -88,6 +90,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   // スクロール同期用のref
   const headerTimelineRef = useRef<HTMLDivElement>(null);
   const contentTimelineRef = useRef<HTMLDivElement>(null);
+  const lastScrolledRef = useRef<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
@@ -232,33 +235,95 @@ const TimeChart: React.FC<TimeChartProps> = ({
   };
 
   useEffect(() => {
-    setTimeout(() => {
+    const scrollKey = `${date}_${scrollToTime}`;
+    if (lastScrolledRef.current === scrollKey) return;
+
+    const getBusinessDateString = () => {
+      const now = new Date();
+      if (now.getHours() < 6) now.setDate(now.getDate() - 1);
+      return now.toISOString().split('T')[0];
+    };
+
+    const timer = setTimeout(() => {
       if (contentTimelineRef.current) {
-        const now = new Date();
-        const h = now.getHours();
-        const m = now.getMinutes();
-
-        let adjustedHour = h;
-        if (h < 10) adjustedHour += 24;
-
         let idx = 0;
-        if (adjustedHour >= 10 && adjustedHour <= 29) {
-          idx = (adjustedHour - 10) * 12 + Math.floor(m / 5);
-        } else {
-          return; // 6〜9時は表示範囲外
+        let foundTime = false;
+
+        // 1. If scrollToTime is specified
+        if (scrollToTime) {
+          const parts = scrollToTime.split(':');
+          if (parts.length >= 2) {
+            const sh = parseInt(parts[0], 10);
+            const sm = parseInt(parts[1], 10);
+            if (!isNaN(sh) && !isNaN(sm)) {
+              let adjustedHour = sh;
+              if (sh < 10) adjustedHour += 24;
+              if (adjustedHour >= 10 && adjustedHour <= 29) {
+                idx = (adjustedHour - 10) * 12 + Math.floor(sm / 5);
+                foundTime = true;
+              }
+            }
+          }
         }
 
-        const cellWidth = 20;
-        const containerWidth = contentTimelineRef.current.clientWidth;
-        const scrollPosition = idx * cellWidth - containerWidth / 2;
+        // 2. If no scrollToTime is specified, check if the displayed date is today's business date
+        if (!foundTime) {
+          const todayStr = getBusinessDateString();
+          const isToday = !date || date === todayStr;
 
-        contentTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
-        if (headerTimelineRef.current) {
-          headerTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
+          if (isToday) {
+            const now = new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            let adjustedHour = h;
+            if (h < 10) adjustedHour += 24;
+            if (adjustedHour >= 10 && adjustedHour <= 29) {
+              idx = (adjustedHour - 10) * 12 + Math.floor(m / 5);
+              foundTime = true;
+            }
+          }
+        }
+
+        // 3. If it's a future/past date, scroll to the start of the earliest shift/reservation
+        if (!foundTime) {
+          let minMinutes = Infinity;
+
+          therapists.forEach((t) => {
+            if (t.shiftStart) {
+              minMinutes = Math.min(minMinutes, timeToMinutes(t.shiftStart));
+            }
+          });
+
+          schedules.forEach((s) => {
+            if (s.startTime && s.type !== 'interval') {
+              minMinutes = Math.min(minMinutes, timeToMinutes(s.startTime));
+            }
+          });
+
+          if (minMinutes !== Infinity) {
+            idx = Math.floor(minMinutes / 5);
+            foundTime = true;
+          }
+        }
+
+        // Apply scrolling if we found a valid index
+        if (foundTime) {
+          const cellWidth = 20;
+          const containerWidth = contentTimelineRef.current.clientWidth;
+          const scrollPosition = idx * cellWidth - containerWidth / 2;
+
+          contentTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
+          if (headerTimelineRef.current) {
+            headerTimelineRef.current.scrollLeft = Math.max(0, scrollPosition);
+          }
+          // Only mark as scrolled once we successfully apply it
+          lastScrolledRef.current = scrollKey;
         }
       }
     }, 100);
-  }, []);
+
+    return () => clearTimeout(timer);
+  }, [date, scrollToTime, therapists, schedules]);
 
   const now = new Date();
   const nowHour = now.getHours();

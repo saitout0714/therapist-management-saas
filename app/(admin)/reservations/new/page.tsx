@@ -143,7 +143,7 @@ export default function NewReservationPage() {
     hime_bonus: 0,
   })
 
-  const [fromShifts, setFromShifts] = useState(false)
+  const [fromPage, setFromPage] = useState<string | null>(null)
 
   // セクション自動スクロール用 ref
   const sectionRef1 = useRef<HTMLDivElement>(null)
@@ -226,8 +226,8 @@ export default function NewReservationPage() {
     const time = params.get('time')
     const from = params.get('from')
 
-    if (from === 'shifts') {
-      setFromShifts(true)
+    if (from) {
+      setFromPage(from)
     }
 
     if (therapistId || date || time) {
@@ -743,7 +743,11 @@ export default function NewReservationPage() {
           reception_source: formData.reception_source,
         }])
         if (error) throw error
-        router.push(`/shifts?date=${formData.date}`)
+        if (fromPage === 'weekly') {
+          window.location.href = `/shifts?date=${formData.date}&view=week`
+        } else {
+          window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
+        }
       } catch (error: any) {
         setSaveError(`登録に失敗しました: ${error.message}`)
       }
@@ -935,7 +939,11 @@ export default function NewReservationPage() {
         }
       }
 
-      router.push(`/shifts?date=${formData.date}`)
+      if (fromPage === 'weekly') {
+        window.location.href = `/shifts?date=${formData.date}&view=week`
+      } else {
+        window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
+      }
     } catch (error: any) {
       console.error('予約の登録に失敗:', error)
       const details = error?.details ? ` (${error.details})` : ''
