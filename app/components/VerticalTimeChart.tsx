@@ -108,47 +108,118 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mobile Directional Scroll Lock
+  // Mobile Directional Scroll Lock Refs & State
   const [scrollLock, setScrollLock] = useState<'x' | 'y' | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const scrollLockRef = useRef<'x' | 'y' | null>(null);
+  const initialScrollLeft = useRef<number>(0);
+  const initialScrollTop = useRef<number>(0);
   const lockAppliedRef = useRef<boolean>(false);
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 1) {
-      touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY
-      };
-      lockAppliedRef.current = false;
-    }
-  };
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!touchStartRef.current || lockAppliedRef.current) return;
-
-    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
-    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
-
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-
-    if (absX > 6 || absY > 6) {
-      if (absY > absX * 1.1) {
-        // Vertical is dominant -> Lock horizontal scroll (x-axis hidden)
-        setScrollLock('x');
-      } else if (absX > absY * 1.1) {
-        // Horizontal is dominant -> Lock vertical scroll (y-axis hidden)
-        setScrollLock('y');
+    const handleTouchStartNative = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        touchStartRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        };
+        lastTouchRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        };
+        initialScrollLeft.current = container.scrollLeft;
+        initialScrollTop.current = container.scrollTop;
+        lockAppliedRef.current = false;
+        scrollLockRef.current = null;
+        setScrollLock(null);
       }
-      lockAppliedRef.current = true;
-    }
-  };
+    };
 
-  const handleTouchEnd = () => {
-    touchStartRef.current = null;
-    lockAppliedRef.current = false;
-    setScrollLock(null);
-  };
+    const handleTouchMoveNative = (e: TouchEvent) => {
+      if (!touchStartRef.current || !lastTouchRef.current) return;
+
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+
+      const deltaXFromStart = currentX - touchStartRef.current.x;
+      const deltaYFromStart = currentY - touchStartRef.current.y;
+
+      const absXStart = Math.abs(deltaXFromStart);
+      const absYStart = Math.abs(deltaYFromStart);
+
+      // Determine locking axis if not determined yet
+      if (!lockAppliedRef.current) {
+        if (absXStart > 8 || absYStart > 8) {
+          if (absYStart > absXStart * 1.2) {
+            scrollLockRef.current = 'x'; // Horizontal locked (Vertical scroll allowed)
+            setScrollLock('x');
+          } else if (absXStart > absYStart * 1.2) {
+            scrollLockRef.current = 'y'; // Vertical locked (Horizontal scroll allowed)
+            setScrollLock('y');
+          }
+          lockAppliedRef.current = true;
+        }
+      }
+
+      // Apply lock via e.preventDefault() for opposing movements
+      if (lockAppliedRef.current) {
+        const deltaX = currentX - lastTouchRef.current.x;
+        const deltaY = currentY - lastTouchRef.current.y;
+
+        if (scrollLockRef.current === 'x') {
+          // Horizontal is locked, prevent horizontal scroll
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            e.preventDefault();
+          }
+        } else if (scrollLockRef.current === 'y') {
+          // Vertical is locked, prevent vertical scroll
+          if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            e.preventDefault();
+          }
+        }
+      }
+
+      lastTouchRef.current = { x: currentX, y: currentY };
+    };
+
+    const handleTouchEndNative = () => {
+      touchStartRef.current = null;
+      lastTouchRef.current = null;
+      lockAppliedRef.current = false;
+      scrollLockRef.current = null;
+      setScrollLock(null);
+    };
+
+    const handleScrollNative = () => {
+      if (scrollLockRef.current === 'x') {
+        if (container.scrollLeft !== initialScrollLeft.current) {
+          container.scrollLeft = initialScrollLeft.current;
+        }
+      } else if (scrollLockRef.current === 'y') {
+        if (container.scrollTop !== initialScrollTop.current) {
+          container.scrollTop = initialScrollTop.current;
+        }
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStartNative, { passive: true });
+    container.addEventListener('touchmove', handleTouchMoveNative, { passive: false });
+    container.addEventListener('touchend', handleTouchEndNative, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEndNative, { passive: true });
+    container.addEventListener('scroll', handleScrollNative, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStartNative);
+      container.removeEventListener('touchmove', handleTouchMoveNative);
+      container.removeEventListener('touchend', handleTouchEndNative);
+      container.removeEventListener('touchcancel', handleTouchEndNative);
+      container.removeEventListener('scroll', handleScrollNative);
+    };
+  }, []);
 
   // Time grid configuration
   const cellHeight = 10; // Height per 5 minutes cell
@@ -322,10 +393,6 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           overflowX: scrollLock === 'x' ? 'hidden' : 'auto',
           overflowY: scrollLock === 'y' ? 'hidden' : 'auto',
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
       >
         {/* Scroll Content Wrap */}
         <div className="relative min-w-max min-h-max">
