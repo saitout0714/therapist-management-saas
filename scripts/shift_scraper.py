@@ -36,6 +36,7 @@ SHOP_ID_ROSECAFE   = "a0000001-0000-0000-0000-000000000005"
 SHOP_ID_HIMITSUSPA = "3464ed8c-44e8-46f1-b701-9b6ae0f465a8"
 SHOP_ID_URBAN      = "7d430288-8aed-4381-b3bf-f35fad962d2f"
 SHOP_ID_HIMITSUMA  = "774101be-d8c5-4ca5-ba4a-fc61c039fbaa"
+SHOP_ID_QUEEN_HIROSHIMA = "09807189-96f2-4ccc-b238-815bd9e579e7"
 
 # ── サイト定義 ───────────────────────────────────────────────────
 SITES = [
@@ -76,6 +77,12 @@ SITES = [
         "url_tpl": "https://himitsuma.com/schedule/?works={date}",
         "name_sel": ".therapist_name",
         "time_sel": ".startend",
+    },
+    {
+        "name": "クイーン広島",
+        "shop_id": SHOP_ID_QUEEN_HIROSHIMA,
+        "type": "queen_hiroshima",
+        "url_tpl": "https://hiroshima-queen.com/schedule.php",
     },
 ]
 
@@ -385,11 +392,63 @@ def scrape_himitsuspa(site: dict, date_str: str) -> list:
     return results
 
 
+def scrape_queen_hiroshima(site: dict, date_str: str) -> list:
+    target_dt = datetime.strptime(date_str, "%Y-%m-%d")
+    target_md = target_dt.strftime("%m/%d")
+
+    base_url = site["url_tpl"]
+    for offset in range(3):
+        url = f"{base_url}?offset={offset}"
+        soup = fetch_html(url)
+        
+        first_table = soup.select_one(".scheduleList table")
+        if not first_table:
+            continue
+            
+        th_elements = first_table.select("thead th")
+        col_idx = None
+        for idx, th in enumerate(th_elements):
+            if target_md in th.get_text():
+                col_idx = idx
+                break
+                
+        if col_idx is not None:
+            results = []
+            for li in soup.select(".scheduleList > li"):
+                name_el = li.select_one(".ladyName a") or li.select_one(".ladyName")
+                if not name_el:
+                    continue
+                raw_name = name_el.get_text(strip=True)
+                
+                table = li.select_one("table")
+                if not table:
+                    continue
+                    
+                tds = table.select("tbody tr td")
+                if col_idx < len(tds):
+                    td = tds[col_idx]
+                    time_text = td.get_text(strip=True)
+                    if time_text:
+                        start, end = parse_time(time_text)
+                        if start:
+                            results.append({
+                                "name": raw_name,
+                                "start": start,
+                                "end": end,
+                                "room": ""
+                            })
+            return results
+            
+    print(f"    ⚠ {date_str} に対応する出勤日が見つかりませんでした。")
+    return []
+
+
 SCRAPERS = {
-    "tsujido":    scrape_tsujido,
-    "kokoro":     scrape_kokoro,
-    "rosecafe":   scrape_rosecafe,
-    "himitsuspa": scrape_himitsuspa,
+    "tsujido":         scrape_tsujido,
+    "kokoro":          scrape_kokoro,
+    "rosecafe":        scrape_rosecafe,
+    "himitsuspa":      scrape_himitsuspa,
+    "queen_hiroshima": scrape_queen_hiroshima,
 }
 
 

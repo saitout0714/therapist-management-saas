@@ -284,18 +284,7 @@ export default function ReservationPreviewPage() {
       text += `下記のサイトから決済手数料10%込みの金額`
       text += `¥${creditTotal.toLocaleString()}\n`
       text += `でご決済をご入室前までにお願い致します\n\n`
-      const customerPhone = reservation.customers?.phone || ''
-      let finalLink = ''
-      if (creditPaymentUrl) {
-        if (creditPaymentUrl.includes('tel=')) {
-          finalLink = creditPaymentUrl.replace('tel=', `tel=${customerPhone}`)
-        } else {
-          const separator = creditPaymentUrl.includes('?') ? '&' : '?'
-          finalLink = `${creditPaymentUrl}${separator}tel=${customerPhone}`
-        }
-      } else {
-        finalLink = `https://pay2.star-pay.jp/site/com/shop.php?tel=${customerPhone}&payc=A4233&guide=`
-      }
+      const finalLink = creditPaymentUrl || `https://pay2.star-pay.jp/site/com/shop.php?tel=&payc=A4233&guide=`
       text += `${finalLink}\n`
     } else {
       if (reservation.credit_fee_amount > 0) {

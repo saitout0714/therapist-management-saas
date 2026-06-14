@@ -624,7 +624,12 @@ const SHOP_CONFIG = {
     "name": "タイガーリリー",
     "sheetName": "タイガーリリー",
     "supabaseShopId": "4808aee9-9940-410c-aa5b-dd1364e2da2c",
-    "rooms": {},
+    "rooms": {
+      "1": {
+        "name": "ルーム①",
+        "color": "#00FFFF"
+      }
+    },
     "staffList": [
       "神崎 るな",
       "乃咲 えな",
@@ -1386,7 +1391,7 @@ function formatTime(timeStr) {
 
 function processShifts(shifts, shopKey) {
   const config = SHOP_CONFIG[shopKey];
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(config.sheetName);
  
   if (!sheet) throw new Error(`シート「${config.sheetName}」が見つかりません。シートを作成してください。`);
