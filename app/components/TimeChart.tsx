@@ -830,11 +830,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             {schedule.isNewCustomer ? '新規' : '会員'}
                           </span>
                         )}
-                        {isReservation && schedule.paymentMethod === 'credit' && (
-                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
-                            💳 クレジット
-                          </span>
-                        )}
+
 
                       </div>
 
@@ -859,6 +855,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {isReservation && schedule.discountAmount !== undefined && (
                           <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
                             -¥{schedule.discountAmount.toLocaleString()}
+                          </span>
+                        )}
+                        {isReservation && schedule.paymentMethod === 'credit' && (
+                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
+                            💳 クレジット
                           </span>
                         )}
                       </div>
