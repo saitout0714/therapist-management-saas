@@ -100,6 +100,10 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrolledRef = useRef<string | null>(null);
 
+  // Drag-to-scroll state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragDistanceRef = useRef(0);
+
   // Popups state
   const [hoverData, setHoverData] = useState<{ x: number; y: number; time: string } | null>(null);
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null);
@@ -107,6 +111,56 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only drag with left click
+    if (e.button !== 0) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const startScrollLeft = container.scrollLeft;
+    const startScrollTop = container.scrollTop;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    dragDistanceRef.current = 0;
+
+    const handleDragMove = (moveEvent: MouseEvent) => {
+      const distanceX = Math.abs(moveEvent.clientX - startClientX);
+      const distanceY = Math.abs(moveEvent.clientY - startClientY);
+      const distance = Math.max(distanceX, distanceY);
+      dragDistanceRef.current = distance;
+
+      if (distance > 5) {
+        setIsDragging(true);
+        moveEvent.preventDefault();
+        document.body.style.userSelect = 'none';
+        container.style.cursor = 'grabbing';
+      }
+
+      if (distance > 5) {
+        const deltaX = moveEvent.clientX - startClientX;
+        const deltaY = moveEvent.clientY - startClientY;
+        container.scrollLeft = startScrollLeft - deltaX;
+        container.scrollTop = startScrollTop - deltaY;
+      }
+    };
+
+    const handleDragEnd = () => {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('blur', handleDragEnd);
+      document.body.style.userSelect = '';
+      container.style.cursor = 'default';
+      setTimeout(() => {
+        setIsDragging(false);
+        dragDistanceRef.current = 0;
+      }, 50);
+    };
+
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('blur', handleDragEnd);
+  };
 
   // Mobile Directional Scroll Lock Refs & State
   const [scrollLock, setScrollLock] = useState<'x' | 'y' | null>(null);
@@ -393,6 +447,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           overflowX: scrollLock === 'x' ? 'hidden' : 'auto',
           overflowY: scrollLock === 'y' ? 'hidden' : 'auto',
         }}
+        onMouseDown={handleMouseDown}
       >
         {/* Scroll Content Wrap */}
         <div className="relative min-w-max min-h-max">
@@ -606,6 +661,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     const cellStyle = getCellBackgroundStyle(inShift);
 
                     const handleCellClick = () => {
+                      if (isDragging || dragDistanceRef.current > 5) return;
                       if (!date || therapist.id === 'unassigned') return;
                       router.push(`/reservations/new?from=vertical&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                     };
@@ -617,7 +673,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         style={{ ...cellStyle, height: `${cellHeight}px`, cursor: therapist.id === 'unassigned' ? 'default' : 'pointer' }}
                         onClick={handleCellClick}
                         onMouseEnter={(e) => {
-                          if (therapist.id === 'unassigned') return;
+                          if (isDragging || dragDistanceRef.current > 5 || therapist.id === 'unassigned') return;
                           const rect = e.currentTarget.getBoundingClientRect();
                           setHoverData({
                             x: rect.left + rect.width / 2,
@@ -651,6 +707,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   const width = columnWidth - 8;
 
                   const handleScheduleClick = () => {
+                    if (isDragging || dragDistanceRef.current > 5) return;
                     if (schedule.type === 'reservation' && schedule.reservationId) {
                       router.push(`/reservations/${schedule.reservationId}?from=vertical`);
                     }
@@ -678,6 +735,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         title={`${schedule.startTime}～${schedule.endTime} 予約不可`}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (isDragging || dragDistanceRef.current > 5) return;
                           if (onBlockedClick && schedule.reservationId) {
                             onBlockedClick(schedule.reservationId, schedule.startTime, schedule.endTime);
                           }
