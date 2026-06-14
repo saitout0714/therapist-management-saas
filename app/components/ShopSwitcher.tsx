@@ -89,13 +89,13 @@ export default function ShopSwitcher() {
 
           {isShopMenuOpen && (
             <div className={`absolute right-0 mt-2 rounded-2xl shadow-xl bg-white border border-slate-100 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 ${
-              shops.length > 5 ? 'w-[400px]' : 'w-56'
+              shops.length > 5 ? 'w-64 sm:w-[400px]' : 'w-56'
             }`}>
               <div className="px-4 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 店舗の切り替え
               </div>
               <div className={`max-h-[400px] overflow-y-auto py-1 ${
-                shops.length > 5 ? 'grid grid-cols-2 gap-1 px-2' : ''
+                shops.length > 5 ? 'grid grid-cols-1 sm:grid-cols-2 gap-1 px-2' : ''
               }`}>
                 {shops.map((shop) => {
                   const isActive = shop.id === selectedShop.id
