@@ -714,7 +714,7 @@ export default function EditReservationPage() {
 
       // 遷移元に応じて戻る先を変更
       if (fromPage === 'shifts') {
-        router.push('/shifts')
+        router.push(`/shifts?date=${formData.date}`)
       } else {
         router.push('/reservations')
       }

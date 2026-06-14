@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
@@ -129,6 +130,7 @@ const getBusinessDate = () => {
 export default function ShiftsPage() {
   const { selectedShop } = useShop();
   const { loading: authLoading, user } = useAuth();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -140,6 +142,27 @@ export default function ShiftsPage() {
     return new Date().toISOString().split('T')[0];
   });
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
+
+  useEffect(() => {
+    const qDate = searchParams.get('date');
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+      setFilterDate(qDate);
+      const parsedDate = new Date(qDate);
+      if (!isNaN(parsedDate.getTime())) {
+        setWeekStartDate(parsedDate);
+      }
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('date') !== filterDate) {
+        url.searchParams.set('date', filterDate);
+        window.history.replaceState(null, '', url.pathname + url.search);
+      }
+    }
+  }, [filterDate]);
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');

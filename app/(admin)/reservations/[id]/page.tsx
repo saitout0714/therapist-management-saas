@@ -450,7 +450,7 @@ export default function ReservationPreviewPage() {
 
   const goBack = () => {
     if (fromPage === 'shifts') {
-      router.push('/shifts')
+      router.push(reservation?.date ? `/shifts?date=${reservation.date}` : '/shifts')
     } else {
       router.push('/reservations')
     }

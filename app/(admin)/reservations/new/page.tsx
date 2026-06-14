@@ -743,7 +743,7 @@ export default function NewReservationPage() {
           reception_source: formData.reception_source,
         }])
         if (error) throw error
-        router.push('/shifts')
+        router.push(`/shifts?date=${formData.date}`)
       } catch (error: any) {
         setSaveError(`登録に失敗しました: ${error.message}`)
       }
@@ -935,7 +935,7 @@ export default function NewReservationPage() {
         }
       }
 
-      router.push('/shifts')
+      router.push(`/shifts?date=${formData.date}`)
     } catch (error: any) {
       console.error('予約の登録に失敗:', error)
       const details = error?.details ? ` (${error.details})` : ''
