@@ -186,7 +186,7 @@ export default function SystemPage() {
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
-      <div className="mx-auto">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
           <p className="text-sm text-slate-500 mt-1">サービス設定と店舗の初期料金設定を管理します。</p>
@@ -217,7 +217,7 @@ export default function SystemPage() {
         {activeTab === 'deductions' && <DeductionRulesTab />}
 
         {activeTab === 'pricing_defaults' && (
-          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 max-w-2xl space-y-8">
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
               <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>

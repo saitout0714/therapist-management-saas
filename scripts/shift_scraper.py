@@ -183,7 +183,7 @@ def register_shift(therapist_id, shop_id, date_str, room_id, start_time, end_tim
         headers=HEADERS,
     )
     if r.status_code not in (200, 201):
-        print(f"    ❌ POST失敗 {r.status_code}: {r.text[:200]}")
+        print(f"    [ERR] POST失敗 {r.status_code}: {r.text[:200]}")
         return False
     return True
 
@@ -203,7 +203,7 @@ def update_shift(shift_id, room_id, start_time, end_time, dry_run):
         headers=HEADERS,
     )
     if r.status_code not in (200, 204):
-        print(f"    ❌ PATCH失敗 {r.status_code}: {r.text[:200]}")
+        print(f"    [ERR] PATCH失敗 {r.status_code}: {r.text[:200]}")
         return False
     return True
 
@@ -217,7 +217,7 @@ def delete_shift(shift_id, dry_run):
         headers=HEADERS,
     )
     if r.status_code not in (200, 204):
-        print(f"    ❌ DELETE失敗 {r.status_code}: {r.text[:200]}")
+        print(f"    [ERR] DELETE失敗 {r.status_code}: {r.text[:200]}")
         return False
     return True
 
@@ -264,7 +264,7 @@ def scrape_tsujido(site: dict, date_str: str) -> list:
     soup = fetch_html(url)
     container = soup.select_one(site["container"])
     if not container:
-        print(f"    ⚠ コンテナ '{site['container']}' が見つかりません")
+        print(f"    [WARN] コンテナ '{site['container']}' が見見つかりません")
         return []
     results = []
     for box in container.select(site["box_selector"]):
@@ -302,7 +302,7 @@ def scrape_kokoro(site: dict, date_str: str) -> list:
     labels = soup.select(".tab_area label")
     panels = soup.select(".tab_panel")
     if not labels or not panels:
-        print(f"    ⚠ タブ/パネルが見つかりません")
+        print(f"    [WARN] タブ/パネルが見つかりません")
         return []
     target_dt = datetime.strptime(date_str, "%Y-%m-%d")
     
@@ -318,10 +318,10 @@ def scrape_kokoro(site: dict, date_str: str) -> list:
                 break
                 
     if panel_idx is None:
-        print(f"    ⚠ {date_str} に対応するタブが見つかりません")
+        print(f"    [WARN] {date_str} に対応するタブが見つかりません")
         return []
     if panel_idx >= len(panels):
-        print(f"    ⚠ パネルインデックス {panel_idx} が範囲外")
+        print(f"    [WARN] パネルインデックス {panel_idx} が範囲外")
         return []
     panel = panels[panel_idx]
     results = []
@@ -439,7 +439,7 @@ def scrape_queen_hiroshima(site: dict, date_str: str) -> list:
                             })
             return results
             
-    print(f"    ⚠ {date_str} に対応する出勤日が見つかりませんでした。")
+    print(f"    [WARN] {date_str} に対応する出勤日が見つかりませんでした。")
     return []
 
 
@@ -458,8 +458,8 @@ SCRAPERS = {
 
 def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete: bool):
     today = date.today().isoformat()
-    if date_str < today:
-        print(f"  ⏭ {date_str} は過去のためスキップ")
+    if date_str <= today:
+        print(f"  [SKIP] {date_str} は過去または当日のためスキップ")
         return
 
     shop_id   = site["shop_id"]
@@ -474,20 +474,20 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
         rooms           = get_rooms(shop_id)
         existing_shifts = get_existing_shifts(shop_id, date_str)
     except Exception as e:
-        print(f"  ❌ Supabase取得エラー: {e}")
+        print(f"  [ERR] Supabase取得エラー: {e}")
         return
 
     print(f"  セラピスト数: {len(therapist_map)} / ルーム数: {len(rooms)} / 登録済: {len(existing_shifts)}")
 
     scraper = SCRAPERS.get(site["type"])
     if not scraper:
-        print(f"  ❌ 未対応の type: {site['type']}")
+        print(f"  [ERR] 未対応の type: {site['type']}")
         return
 
     try:
         scraped = scraper(site, date_str)
     except Exception as e:
-        print(f"  ❌ スクレイピングエラー: {e}")
+        print(f"  [ERR] スクレイピングエラー: {e}")
         return
 
     print(f"  スクレイピング件数: {len(scraped)}")
@@ -502,7 +502,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
         tid  = match_therapist(norm, therapist_map)
 
         if not tid:
-            print(f"    ⚠ 未マッチ: '{item['name']}' → normalize='{norm}'")
+            print(f"    [WARN] 未マッチ: '{item['name']}' → normalize='{norm}'")
             skipped_unmatch += 1
             continue
 
@@ -510,7 +510,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
 
         # ルームが指定されているのにマッチしない → ダミー出勤としてスキップ
         if room_id is None:
-            print(f"    ⏭ ルーム未登録のためスキップ（ダミー出勤）: {item['name']} [{item.get('room', '')}]")
+            print(f"    [SKIP] ルーム未登録のためスキップ（ダミー出勤）: {item['name']} [{item.get('room', '')}]")
             skipped_room += 1
             continue
 
@@ -522,7 +522,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
             existing = existing_shifts[tid]
 
             if not update:
-                print(f"    ⏭ 登録済みスキップ: {item['name']}")
+                print(f"    [SKIP] 登録済みスキップ: {item['name']}")
                 skipped_dup += 1
                 continue
 
@@ -540,7 +540,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
                 changed_parts.append(f"ルーム: {old_room} → {room_label}")
 
             if not changed_parts:
-                print(f"    ⏭ 変更なしスキップ: {item['name']}")
+                print(f"    [SKIP] 変更なしスキップ: {item['name']}")
                 skipped_dup += 1
                 continue
 
@@ -552,7 +552,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
                 dry_run=dry_run,
             )
             if ok:
-                tag = "[DRY]" if dry_run else "🔄"
+                tag = "[DRY]" if dry_run else "[UPDATE]"
                 print(f"    {tag} 更新: {item['name']} ({', '.join(changed_parts)})")
                 updated += 1
             continue
@@ -568,7 +568,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
             dry_run=dry_run,
         )
         if ok:
-            tag = "[DRY]" if dry_run else "✅"
+            tag = "[DRY]" if dry_run else "[OK]"
             print(f"    {tag} 登録: {item['name']} {item['start']}～{item['end']} [{room_label}]")
             existing_shifts[tid] = {
                 "id": None,
@@ -590,7 +590,7 @@ def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete:
                 )
                 ok = delete_shift(existing["id"], dry_run=dry_run)
                 if ok:
-                    tag = "[DRY]" if dry_run else "🗑"
+                    tag = "[DRY]" if dry_run else "[DEL]"
                     print(f"    {tag} 削除: {therapist_name} (サイトから消滅)")
                     deleted += 1
 

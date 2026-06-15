@@ -71,6 +71,40 @@ SUPABASE_HEADERS = {
 WEEKS = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 
 
+def normalize_cast_name(raw: str) -> str:
+    if not raw:
+        return ""
+    # スラッシュや括弧以降を取り除く
+    s = raw.split("/")[0].split("(")[0].split("（")[0]
+    return s.strip()
+
+
+def match_therapist(caskan_name: str, therapist_map: dict):
+    # ① 完全一致
+    if caskan_name in therapist_map:
+        return therapist_map[caskan_name]
+    
+    # ② キャス観名を正規化して一致するか
+    norm_caskan = normalize_cast_name(caskan_name)
+    if norm_caskan in therapist_map:
+        return therapist_map[norm_caskan]
+        
+    # ③ Supabase側の名前も正規化して一致するか
+    for t_name, t_id in therapist_map.items():
+        if normalize_cast_name(t_name) == norm_caskan:
+            return t_id
+            
+    # ④ 部分一致（前方・後方一致）
+    for t_name, t_id in therapist_map.items():
+        norm_t = normalize_cast_name(t_name)
+        if norm_t and norm_caskan:
+            if norm_t.startswith(norm_caskan) or norm_caskan.startswith(norm_t):
+                return t_id
+                
+    return None
+
+
+
 def caskan_login(session):
     r = session.post("https://my.caskan.jp/login", data={"mode": "step1", "shop_code": CASKAN_SHOP_CODE, "code": CASKAN_LOGIN_ID}, allow_redirects=True)
     if r.status_code != 200:
@@ -109,7 +143,7 @@ def caskan_get_shifts(session, target_date):
             room_id = CASKAN_ROOM_MAP.get(raw_room_id, None)
             
             if raw_room_id and not room_id:
-                print(f"⚠️ [ルームMAP未登録] キャスト:{cast_name} / キャス観側部屋ID:{raw_room_id} が CASKAN_ROOM_MAP にありません。")
+                print(f"[WARN] [ルームMAP未登録] キャスト:{cast_name} / キャス観側部屋ID:{raw_room_id} が CASKAN_ROOM_MAP にありません。")
 
             shifts.append({
                 "cast_name": cast_name,
@@ -191,10 +225,11 @@ def main():
             date_from = target.isoformat()
             date_to = (target + timedelta(days=6)).isoformat()
 
-            if date_to < today.isoformat():
+            tomorrow = (today + timedelta(days=1)).isoformat()
+            if date_to < tomorrow:
                 continue
-            if date_from < today.isoformat():
-                date_from = today.isoformat()
+            if date_from < tomorrow:
+                date_from = tomorrow
 
             print("Date: " + date_from + " - " + date_to)
 
@@ -203,14 +238,15 @@ def main():
 
             caskan_index = {}
             for s in caskan_shifts:
-                name = s["cast_name"]
-                if name not in therapist_map:
-                    if name not in unknown:
-                        unknown.append(name)
+                raw_name = s["cast_name"]
+                t_id = match_therapist(raw_name, therapist_map)
+                if not t_id:
+                    if raw_name not in unknown:
+                        unknown.append(raw_name)
                     continue
                 if s["day"] < date_from:
                     continue
-                key = (therapist_map[name], s["day"])
+                key = (t_id, s["day"])
                 if key not in caskan_index:
                     caskan_index[key] = []
                 caskan_index[key].append(s)
