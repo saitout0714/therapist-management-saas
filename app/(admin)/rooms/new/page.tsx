@@ -107,7 +107,7 @@ export default function NewRoomPage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: 海老名A（管理用）"
+                    placeholder="例: ルームA（管理用）"
                     required
                   />
                 </div>
@@ -121,7 +121,7 @@ export default function NewRoomPage() {
                     value={formData.display_name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: 海老名ルーム"
+                    placeholder="例: 〇〇ルーム"
                   />
                 </div>
               </div>
@@ -167,7 +167,7 @@ export default function NewRoomPage() {
                     value={formData.template_member}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２リージア海老名ビナフロント805号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
+                    placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
                     rows={6}
                   />
                 </div>
@@ -182,7 +182,7 @@ export default function NewRoomPage() {
                     value={formData.template_new_customer}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\n海老名ルームのご案内です。\n\n〒243-0432\n神奈川県海老名市中央１丁目３ー１\nガイアネクスト海老名駅前店（パチンコ屋）付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
+                    placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1\n〇〇ビル・〇〇店付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
                     rows={6}
                   />
                 </div>
@@ -201,7 +201,7 @@ export default function NewRoomPage() {
                     value={formData.template_web_member}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒243-0432\n神奈川県海老名市中央１丁目２−２ リージア海老名805号室`}
+                    placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室`}
                     rows={6}
                   />
                 </div>
