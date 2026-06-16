@@ -576,9 +576,9 @@ export async function POST(
       }
     }
 
-    // 3. メール送信を実行 (非同期でバックグラウンド実行)
+    // 3. メール送信を実行 (サーバーレス環境でプロセスが終了するのを防ぐため、送信完了を待機する)
     if (customer.email) {
-      sendConfirmationEmail({
+      await sendConfirmationEmail({
         email: customer.email,
         customerName: customer.name,
         date,
@@ -598,8 +598,6 @@ export async function POST(
         shopName,
         hpUrl,
         phone: shopPhone,
-      }).catch((err) => {
-        console.error('[Email Background Error] sendConfirmationEmail failed:', err)
       })
     }
   } catch (emailFetchErr) {
