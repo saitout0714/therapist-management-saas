@@ -742,70 +742,70 @@ export default function CustomersPage() {
                 })}
               </div>
             )}
+          </div>
 
-            {/* ページネーションコントロール */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
-              <div className="text-xs text-slate-500">
-                {searchQuery.trim() ? (
-                  <>
-                    検索結果: <span className="font-bold text-slate-800">{filteredCount ?? 0}</span>人中
-                    <span className="font-bold text-slate-800 ml-1">
-                      {Math.min((currentPage - 1) * 100 + 1, filteredCount ?? 0)}〜
-                      {Math.min(currentPage * 100, filteredCount ?? 0)}
-                    </span>件目を表示中
-                  </>
-                ) : (
-                  <>
-                    登録顧客数: <span className="font-bold text-slate-800">{totalCount}</span>人
-                    <span className="font-bold text-slate-800 ml-1">
-                      {totalCount > 0 ? Math.min((currentPage - 1) * 100 + 1, totalCount) : 0}〜
-                      {Math.min(currentPage * 100, totalCount)}
-                    </span>件目を表示中
-                  </>
-                )}
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
-                  >
-                    前へ
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                    .map((p, idx, arr) => {
-                      const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
-                      return (
-                        <div key={p} className="flex items-center">
-                          {showEllipsis && <span className="px-2 text-slate-400">...</span>}
-                          <button
-                            onClick={() => handlePageChange(p)}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                              currentPage === p
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            {p}
-                          </button>
-                        </div>
-                      )
-                    })}
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
-                  >
-                    次へ
-                  </button>
-                </div>
+          {/* ページネーションコントロール */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+            <div className="text-xs text-slate-500">
+              {searchQuery.trim() ? (
+                <>
+                  検索結果: <span className="font-bold text-slate-800">{filteredCount ?? 0}</span>人中
+                  <span className="font-bold text-slate-800 ml-1">
+                    {Math.min((currentPage - 1) * 100 + 1, filteredCount ?? 0)}〜
+                    {Math.min(currentPage * 100, filteredCount ?? 0)}
+                  </span>件目を表示中
+                </>
+              ) : (
+                <>
+                  登録顧客数: <span className="font-bold text-slate-800">{totalCount}</span>人
+                  <span className="font-bold text-slate-800 ml-1">
+                    {totalCount > 0 ? Math.min((currentPage - 1) * 100 + 1, totalCount) : 0}〜
+                    {Math.min(currentPage * 100, totalCount)}
+                  </span>件目を表示中
+                </>
               )}
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                >
+                  前へ
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .map((p, idx, arr) => {
+                    const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
+                    return (
+                      <div key={p} className="flex items-center">
+                        {showEllipsis && <span className="px-2 text-slate-400">...</span>}
+                        <button
+                          onClick={() => handlePageChange(p)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            currentPage === p
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </div>
+                    )
+                  })}
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                >
+                  次へ
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
