@@ -59,6 +59,11 @@ export default function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // ページネーション・件数表示
+  const [totalCount, setTotalCount] = useState<number>(0)
+  const [filteredCount, setFilteredCount] = useState<number | null>(null)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+
   const fetchVisitCounts = useCallback(async (customerIds: string[]) => {
     if (!selectedShop || customerIds.length === 0) return
     const { data } = await supabase
@@ -73,20 +78,29 @@ export default function CustomersPage() {
     setVisitCounts(map)
   }, [selectedShop])
 
-  const fetchRecentCustomers = useCallback(async () => {
+  const fetchRecentCustomers = useCallback(async (page: number = 1) => {
     if (!selectedShop) return
     setLoading(true)
     try {
+      const from = (page - 1) * 100
+      const to = page * 100 - 1
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .order('created_at', { ascending: false })
-        .limit(100)
+        .range(from, to)
       if (error) throw error
       const list = data || []
       setCustomers(list)
       await fetchVisitCounts(list.map((c) => c.id))
+
+      // 総登録件数を取得
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', selectedShop.id)
+      if (count !== null) setTotalCount(count)
     } catch (err) {
       console.error('顧客の取得に失敗:', JSON.stringify(err))
     } finally {
@@ -94,18 +108,29 @@ export default function CustomersPage() {
     }
   }, [selectedShop, fetchVisitCounts])
 
-  const searchCustomers = useCallback(async (query: string) => {
+  const searchCustomers = useCallback(async (query: string, page: number = 1) => {
     if (!selectedShop) return
     setSearching(true)
     try {
       const normalized = query.replace(/-/g, '')
+      const from = (page - 1) * 100
+      const to = page * 100 - 1
+
+      // 検索フィルタに合致する件数を取得
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', selectedShop.id)
+        .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
+      if (count !== null) setFilteredCount(count)
+
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
         .order('name')
-        .limit(200)
+        .range(from, to)
       if (error) throw error
       const list = data || []
       setCustomers(list)
@@ -119,23 +144,27 @@ export default function CustomersPage() {
 
   useEffect(() => {
     setSearchQuery('')
-    fetchRecentCustomers()
-  }, [selectedShop])
+    setCurrentPage(1)
+    setFilteredCount(null)
+    void fetchRecentCustomers(1)
+  }, [selectedShop, fetchRecentCustomers])
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     const q = searchQuery.trim()
+    setCurrentPage(1)
     if (!q) {
-      fetchRecentCustomers()
+      setFilteredCount(null)
+      void fetchRecentCustomers(1)
       return
     }
     debounceTimer.current = setTimeout(() => {
-      searchCustomers(q)
+      void searchCustomers(q, 1)
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [searchQuery])
+  }, [searchQuery, fetchRecentCustomers, searchCustomers])
 
   const openHistoryModal = async (customer: Customer) => {
     setHistoryTarget(customer)
@@ -259,6 +288,19 @@ export default function CustomersPage() {
     }
   }
 
+  const totalItems = searchQuery.trim() ? (filteredCount ?? 0) : totalCount
+  const totalPages = Math.ceil(totalItems / 100)
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+    const q = searchQuery.trim()
+    if (q) {
+      void searchCustomers(q, newPage)
+    } else {
+      void fetchRecentCustomers(newPage)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20 text-indigo-600">
@@ -273,7 +315,12 @@ export default function CustomersPage() {
       <div className="mx-auto">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">顧客管理</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              顧客管理
+              <span className="text-xs font-normal text-slate-500 bg-slate-200/60 border border-slate-300/60 px-2 py-0.5 rounded-lg">
+                登録数: {totalCount}人
+              </span>
+            </h1>
             <p className="text-sm text-slate-500 mt-1">店舗を利用されるお客様の情報や来店履歴を管理します。</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
@@ -349,8 +396,10 @@ export default function CustomersPage() {
               </button>
             )}
           </div>
-          {!searchQuery && (
-            <p className="text-xs text-slate-400 mt-1 ml-1">最新100件を表示中。名前・電話番号で検索すると全件から探せます。</p>
+          {!searchQuery ? (
+            <p className="text-xs text-slate-400 mt-1 ml-1">登録されているすべての顧客が表示されます。（1ページ100人表示）</p>
+          ) : (
+            <p className="text-xs text-slate-400 mt-1 ml-1">検索結果を全件から探しています。</p>
           )}
         </div>
 
@@ -693,6 +742,70 @@ export default function CustomersPage() {
                 })}
               </div>
             )}
+
+            {/* ページネーションコントロール */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+              <div className="text-xs text-slate-500">
+                {searchQuery.trim() ? (
+                  <>
+                    検索結果: <span className="font-bold text-slate-800">{filteredCount ?? 0}</span>人中
+                    <span className="font-bold text-slate-800 ml-1">
+                      {Math.min((currentPage - 1) * 100 + 1, filteredCount ?? 0)}〜
+                      {Math.min(currentPage * 100, filteredCount ?? 0)}
+                    </span>件目を表示中
+                  </>
+                ) : (
+                  <>
+                    登録顧客数: <span className="font-bold text-slate-800">{totalCount}</span>人
+                    <span className="font-bold text-slate-800 ml-1">
+                      {totalCount > 0 ? Math.min((currentPage - 1) * 100 + 1, totalCount) : 0}〜
+                      {Math.min(currentPage * 100, totalCount)}
+                    </span>件目を表示中
+                  </>
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                  >
+                    前へ
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((p, idx, arr) => {
+                      const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
+                      return (
+                        <div key={p} className="flex items-center">
+                          {showEllipsis && <span className="px-2 text-slate-400">...</span>}
+                          <button
+                            onClick={() => handlePageChange(p)}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                              currentPage === p
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        </div>
+                      )
+                    })}
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                  >
+                    次へ
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
