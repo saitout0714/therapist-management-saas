@@ -70,6 +70,7 @@ export type InitialReserveData = {
   shifts: Shift[]
   reservations: ExistingReservation[]
   system_interval_minutes: number
+  allow_new_customers?: boolean
   code: string
 }
 
@@ -495,6 +496,13 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         {/* Step 1: 出勤情報 */}
         {step === 'attendance' && (
           <div className="space-y-5">
+            {initialData.allow_new_customers === false && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm space-y-1">
+                <p className="font-bold">📢 【会員様限定】WEB予約について</p>
+                <p>現在、新規のお客様のWEB予約は受け付けておりません。</p>
+                <p>既存の会員様のみご利用いただけます。ご新規様はお電話または公式LINEよりお問い合わせください。</p>
+              </div>
+            )}
             <div>
               <h2 className="text-xl font-bold text-slate-800">出勤情報</h2>
               <p className="text-sm text-slate-500 mt-1">ご希望のセラピストをお選びください</p>
@@ -1008,6 +1016,14 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 <p className="text-sm text-slate-500">ご予約者の情報を入力してください</p>
               </div>
             </div>
+
+            {initialData.allow_new_customers === false && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 space-y-1">
+                <p className="font-bold">⚠️ 会員限定予約のお知らせ</p>
+                <p>当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。</p>
+                <p className="text-xs text-red-500">※会員様で電話番号が登録されていない場合も予約が完了できない場合がございます。その際はお手数ですが、店舗へ直接ご連絡ください。</p>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
               {([

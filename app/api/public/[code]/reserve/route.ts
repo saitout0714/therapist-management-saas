@@ -217,6 +217,74 @@ async function sendConfirmationEmail({
   }
 }
 
+async function sendRejectionEmail({
+  email,
+  customerName,
+  shopName,
+  phone,
+  hpUrl,
+  smtpSettings,
+}: {
+  email: string
+  customerName: string
+  shopName: string
+  phone?: string | null
+  hpUrl?: string | null
+  smtpSettings?: SmtpSettings | null
+}) {
+  try {
+    const transporter = getMailTransporter(smtpSettings)
+    
+    let from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"店舗案内" <noreply@example.com>'
+    if (!smtpSettings?.smtp_from && shopName) {
+      const emailMatch = from.match(/<([^>]+)>/)
+      const emailAddress = emailMatch ? emailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+      from = `"${shopName}" <${emailAddress}>`
+    }
+
+    const fromEmailMatch = from.match(/<([^>]+)>/)
+    const replyToAddress = fromEmailMatch ? fromEmailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+
+    let bodyText = `${customerName} 様
+    
+この度はご予約のお申し込みをいただきありがとうございます。
+
+大変恐れ入りますが、当店は現在、WEB予約が初めてのお客様からの自動受付を制限させていただいております。
+
+WEB予約を完了することができませんでしたので、ご新規でのご予約をご希望の場合、または【お電話番号が変わられたお客様】は、大変お手数ですが直接店舗までお電話または公式LINEよりお問い合わせいただきますようお願い申し上げます。
+`
+
+    let footerText = `
+------------------------
+※このメールは送信専用アドレス（noreply）のため、直接ご返信いただくことはできません。`
+
+    if (shopName) {
+      footerText += `\n\n【店舗情報】\n・店舗名：${shopName}`
+      if (phone) {
+        footerText += `\n・電話番号：${phone}`
+      }
+      if (hpUrl) {
+        footerText += `\n・ウェブサイト：${hpUrl}`
+      }
+    }
+
+    bodyText += footerText
+
+    const mailOptions = {
+      from,
+      to: email,
+      replyTo: replyToAddress,
+      subject: `【重要】WEB予約の受付についてのご案内`,
+      text: bodyText,
+    }
+
+    await transporter.sendMail(mailOptions)
+    console.log(`[Rejection Email Sent] Sent to ${email}`)
+  } catch (error) {
+    console.error('[Rejection Email Error] Failed to send email:', error)
+  }
+}
+
 interface ReserveBody {
   therapist_id: string | null
   date: string
@@ -252,6 +320,15 @@ export async function POST(
   }
 
   const shopId = codeRow.shop_id
+
+  // 新規予約受付設定を取得
+  const { data: systemSettings } = await supabase
+    .from('system_settings')
+    .select('allow_new_customers')
+    .eq('shop_id', shopId)
+    .maybeSingle()
+  const allowNewCustomers = systemSettings?.allow_new_customers ?? true
+
   let body: ReserveBody
 
   try {
@@ -303,6 +380,44 @@ export async function POST(
       .eq('id', customerId)
       .is('furigana', null)
   } else {
+    // 新規予約制限のチェック
+    if (!allowNewCustomers) {
+      // メールアドレスが入力されている場合、お断りメールを自動送信
+      if (customer.email) {
+        try {
+          const [shopRes, settingsRes] = await Promise.all([
+            supabase.from('shops').select('name, phone').eq('id', shopId).maybeSingle(),
+            supabase
+              .from('system_settings')
+              .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url')
+              .eq('shop_id', shopId)
+              .maybeSingle()
+          ])
+
+          const shopName = shopRes.data?.name || ''
+          const shopPhone = shopRes.data?.phone || null
+          const smtpSettings = settingsRes.data
+          const hpUrl = settingsRes.data?.hp_url || null
+
+          await sendRejectionEmail({
+            email: customer.email,
+            customerName: customer.name,
+            shopName,
+            phone: shopPhone,
+            hpUrl,
+            smtpSettings,
+          })
+        } catch (emailErr) {
+          console.error('[Rejection Email Error] Failed to send rejection email:', emailErr)
+        }
+      }
+
+      return NextResponse.json(
+        { error: '現在、新規のお客様のWEB予約は受け付けておりません。お手数ですが、お電話または公式LINEなどからお問い合わせください。' },
+        { status: 400 }
+      )
+    }
+
     // 新規顧客作成（電話番号は数字のみに正規化して保存）
     const { data: newCustomer, error: customerError } = await supabase
       .from('customers')

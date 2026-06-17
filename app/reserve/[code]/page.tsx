@@ -78,7 +78,7 @@ export default async function ReservePage({ params }: PageProps) {
       .in('status', ['confirmed', 'blocked']),
     supabase
       .from('system_settings')
-      .select('reservation_interval_minutes')
+      .select('reservation_interval_minutes, allow_new_customers')
       .eq('shop_id', shopId)
       .maybeSingle(),
   ])
@@ -138,6 +138,7 @@ export default async function ReservePage({ params }: PageProps) {
     shifts: shiftsWithPhotos,
     reservations: reservationsRes.data || [],
     system_interval_minutes: settingsRes.data?.reservation_interval_minutes ?? 20,
+    allow_new_customers: settingsRes.data?.allow_new_customers ?? true,
     code,
   }
 
