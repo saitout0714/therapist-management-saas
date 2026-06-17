@@ -81,6 +81,7 @@ async function sendConfirmationEmail({
   room,
   isNewCustomer,
   shopAddressMode,
+  webReserveAddressMode,
   smtpSettings,
   shopName,
   hpUrl,
@@ -101,6 +102,7 @@ async function sendConfirmationEmail({
   room: any | null
   isNewCustomer: boolean
   shopAddressMode: string
+  webReserveAddressMode: string
   smtpSettings?: SmtpSettings | null
   shopName: string
   hpUrl?: string | null
@@ -130,7 +132,8 @@ async function sendConfirmationEmail({
     const commonNote = room?.sms_note_common || ''
 
     if (room) {
-      if (isNewCustomer) {
+      // WEB予約住所送信モードが「新規／会員で切替」かつ「新規顧客」の場合のみ新規様用テンプレートを使用
+      if (webReserveAddressMode === 'split_by_membership' && isNewCustomer) {
         // 新規顧客向け
         // WEB予約メール自動返信用の新規様向けテンプレがあればそれを使用。なければデフォルト案内文を表示
         template = room.template_web_new_customer || `※※ ご新規様へ重要なお知らせ ※※
@@ -140,7 +143,7 @@ async function sendConfirmationEmail({
         
         additionalNote = room.sms_note_new_customer || ''
       } else {
-        // 会員顧客向け
+        // 会員顧客向け（または一律送信の場合）
         template = room.template_web_member || ''
         additionalNote = room.sms_note_member || ''
       }
@@ -644,7 +647,7 @@ export async function POST(
   try {
     // 1. 店舗の送信モードと個別SMTP設定を並行取得
     const [shopRes, settingsRes] = await Promise.all([
-      supabase.from('shops').select('name, sms_address_mode, phone').eq('id', shopId).maybeSingle(),
+      supabase.from('shops').select('name, sms_address_mode, web_reserve_address_mode, phone').eq('id', shopId).maybeSingle(),
       supabase
         .from('system_settings')
         .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url')
@@ -653,6 +656,7 @@ export async function POST(
     ])
 
     const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
+    const webReserveAddressMode = shopRes.data?.web_reserve_address_mode || 'unified'
     const shopName = shopRes.data?.name || ''
     const shopPhone = shopRes.data?.phone || null
     const smtpSettings = settingsRes.data
@@ -709,6 +713,7 @@ export async function POST(
         room: roomInfo,
         isNewCustomer,
         shopAddressMode,
+        webReserveAddressMode,
         smtpSettings,
         shopName,
         hpUrl,

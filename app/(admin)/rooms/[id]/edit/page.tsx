@@ -10,6 +10,9 @@ export default function EditRoomPage() {
   const params = useParams();
   const roomId = params.id as string;
 
+  const [smsAddressMode, setSmsAddressMode] = useState<'unified' | 'split_by_membership'>('unified');
+  const [webReserveAddressMode, setWebReserveAddressMode] = useState<'unified' | 'split_by_membership'>('unified');
+
   const [formData, setFormData] = useState({
     name: '',
     display_name: '',
@@ -31,7 +34,7 @@ export default function EditRoomPage() {
         setInitializing(true);
         const { data, error: fetchError } = await supabase
           .from('rooms')
-          .select('name, display_name, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer')
+          .select('shop_id, name, display_name, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer')
           .eq('id', roomId)
           .single();
 
@@ -48,6 +51,18 @@ export default function EditRoomPage() {
             template_web_member: data.template_web_member || '',
             template_web_new_customer: data.template_web_new_customer || '',
           });
+
+          if (data.shop_id) {
+            const { data: shopData } = await supabase
+              .from('shops')
+              .select('sms_address_mode, web_reserve_address_mode')
+              .eq('id', data.shop_id)
+              .single();
+            if (shopData) {
+              setSmsAddressMode(shopData.sms_address_mode || 'unified');
+              setWebReserveAddressMode(shopData.web_reserve_address_mode || 'unified');
+            }
+          }
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : '不明なエラー';
@@ -194,71 +209,119 @@ export default function EditRoomPage() {
               </div>
 
               <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2">SMS/手動送信用 案内テンプレート</h3>
+                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2 flex items-center gap-2">
+                  <span>SMS/手動送信用 案内テンプレート</span>
+                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-normal">
+                    {smsAddressMode === 'unified' ? '一律送信モード' : '新規/会員切替モード'}
+                  </span>
+                </h3>
                 
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-slate-700">
-                    会員様テンプレ
-                  </label>
-                  <p className="text-xs text-slate-400">2回目以降のお客様に送るルーム案内文。</p>
-                  <textarea
-                    name="template_member"
-                    value={formData.template_member}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
-                    rows={6}
-                  />
-                </div>
+                {smsAddressMode === 'unified' ? (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-slate-700">
+                      テンプレート
+                    </label>
+                    <p className="text-xs text-slate-400">お客様に送るルーム案内文。部屋番号入り住所などを含めてください。</p>
+                    <textarea
+                      name="template_member"
+                      value={formData.template_member}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                      placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
+                      rows={6}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        会員様用テンプレート
+                      </label>
+                      <p className="text-xs text-slate-400">2回目以降のお客様に送るルーム案内文。</p>
+                      <textarea
+                        name="template_member"
+                        value={formData.template_member}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                        placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室\n\nhttps://maps.app.goo.gl/...\n\n※スタート時間丁度にインターホンをお願い致します。`}
+                        rows={6}
+                      />
+                    </div>
 
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-slate-700">
-                    ご新規様テンプレ
-                  </label>
-                  <p className="text-xs text-slate-400">初回のお客様に送るルーム案内文。</p>
-                  <textarea
-                    name="template_new_customer"
-                    value={formData.template_new_customer}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1\n〇〇ビル・〇〇店付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
-                    rows={6}
-                  />
-                </div>
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        新規様用テンプレート
+                      </label>
+                      <p className="text-xs text-slate-400">初回のお客様に送るルーム案内文。</p>
+                      <textarea
+                        name="template_new_customer"
+                        value={formData.template_new_customer}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                        placeholder={`例:\n〇〇ルームのご案内です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1\n〇〇ビル・〇〇店付近\n\nhttps://maps.app.goo.gl/...\n\nこちらよりお電話ください。`}
+                        rows={6}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2">WEB予約メール自動返信用 テンプレート</h3>
+                <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2 flex items-center gap-2">
+                  <span>WEB予約メール自動返信用 テンプレート</span>
+                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-normal">
+                    {webReserveAddressMode === 'unified' ? '一律送信モード' : '新規/会員切替モード'}
+                  </span>
+                </h3>
                 
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-slate-700">
-                    WEB自動返信 会員様テンプレ
-                  </label>
-                  <p className="text-xs text-slate-400">リピーターの会員様にWEB予約完了メールで自動送信する案内文です。部屋番号入り住所などを含めてください。</p>
-                  <textarea
-                    name="template_web_member"
-                    value={formData.template_web_member}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室`}
-                    rows={6}
-                  />
-                </div>
+                {webReserveAddressMode === 'unified' ? (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-slate-700">
+                      テンプレート
+                    </label>
+                    <p className="text-xs text-slate-400">WEB予約完了メールで自動送信する案内文です。部屋番号入り住所などを含めてください。</p>
+                    <textarea
+                      name="template_web_member"
+                      value={formData.template_web_member}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                      placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室`}
+                      rows={6}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        会員様用テンプレート
+                      </label>
+                      <p className="text-xs text-slate-400">リピーターの会員様にWEB予約完了メールで自動送信する案内文です。部屋番号入り住所などを含めてください。</p>
+                      <textarea
+                        name="template_web_member"
+                        value={formData.template_web_member}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                        placeholder={`例:\nご予約ありがとうございます。以下、本日のご案内のお部屋です。\n\n〒000-0000\n〇〇県〇〇市〇〇 1丁目1-1 〇〇マンション101号室`}
+                        rows={6}
+                      />
+                    </div>
 
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-slate-700">
-                    WEB自動返信 新規様テンプレ
-                  </label>
-                  <p className="text-xs text-slate-400">ご新規様にWEB予約完了メールで自動送信する案内文です。目印の住所のみ記載するか、SMS案内に誘導する文章を含めてください。</p>
-                  <textarea
-                    name="template_web_new_customer"
-                    value={formData.template_web_new_customer}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
-                    placeholder={`例:\nご予約ありがとうございます。\n防犯上の理由により、お部屋の詳細は店舗より別途SMSにてお送りいたします。`}
-                    rows={6}
-                  />
-                </div>
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        新規様用テンプレート
+                      </label>
+                      <p className="text-xs text-slate-400">ご新規様にWEB予約完了メールで自動送信する案内文です。目印 of 住所のみ記載するか、SMS案内に誘導する文章を含めてください。</p>
+                      <textarea
+                        name="template_web_new_customer"
+                        value={formData.template_web_new_customer}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-slate-800 placeholder-slate-400 font-mono text-sm"
+                        placeholder={`例:\nご予約ありがとうございます。\n防犯上の理由により、お部屋の詳細は店舗より別途SMSにてお送りいたします。`}
+                        rows={6}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">

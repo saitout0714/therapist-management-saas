@@ -63,6 +63,7 @@ export default function SystemPage() {
     smtp_pass: string
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
+    web_reserve_address_mode: 'unified' | 'split_by_membership'
     special_rules: string
     credit_payment_url: string
   }>({
@@ -84,6 +85,7 @@ export default function SystemPage() {
     smtp_pass: '',
     smtp_from: '',
     sms_address_mode: 'unified',
+    web_reserve_address_mode: 'unified',
     special_rules: '',
     credit_payment_url: '',
   })
@@ -93,13 +95,14 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode, special_rules').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules').eq('id', selectedShop.id).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
 
     const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
     const smsMode = shopRes.data?.sms_address_mode || 'unified'
+    const webMode = shopRes.data?.web_reserve_address_mode || 'unified'
 
     setSettings(row)
     setForm({
@@ -121,6 +124,7 @@ export default function SystemPage() {
       smtp_pass: row?.smtp_pass ?? '',
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
+      web_reserve_address_mode: webMode,
       special_rules: shopRes.data?.special_rules ?? '',
       credit_payment_url: row?.credit_payment_url ?? '',
     })
@@ -132,7 +136,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, special_rules, ...systemSettingsPayload } = form
+    const { sms_address_mode, web_reserve_address_mode, special_rules, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -147,7 +151,7 @@ export default function SystemPage() {
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ sms_address_mode, special_rules, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ special_rules, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
@@ -344,41 +348,7 @@ export default function SystemPage() {
               </div>
             </div>
 
-            {/* SMS住所送信モード */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">SMS住所送信モード</h3>
-              <p className="text-xs text-slate-400 mb-4">Web予約確定時に自動送信されるSMSでの、住所情報の送信方法を設定します。</p>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="unified"
-                    checked={form.sms_address_mode === 'unified'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'unified' })}
-                    className="mt-1 accent-indigo-600 w-4 h-4"
-                  />
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">一律送信</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規・会員問わず同じ住所（ルームに設定した住所）を送信します。</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="split_by_membership"
-                    checked={form.sms_address_mode === 'split_by_membership'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'split_by_membership' })}
-                    className="mt-1 accent-indigo-600 w-4 h-4"
-                  />
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">新規／会員で切替</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規のお客様にはルームに設定した「近隣住所」を、会員には実住所を送信します。</p>
-                  </div>
-                </label>
-              </div>
-            </div>
+
 
 
 

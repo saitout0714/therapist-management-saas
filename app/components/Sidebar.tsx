@@ -29,7 +29,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/therapists", label: "セラピスト" },
     { href: "/memos", label: "給与引継ぎメモ" },
     { href: "/customers", label: "顧客管理" },
-    { href: "/rooms", label: "ルーム一覧" },
+    { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
     { href: "/system", label: "システム管理" },
     { href: "/aggregation", label: "店舗集計" },
     ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
