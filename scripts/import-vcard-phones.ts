@@ -8,15 +8,48 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 // DRY_RUN=true の場合は実際にDBを更新しない
 const DRY_RUN = process.env.DRY_RUN !== 'false';
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DEVELOPMENT_DATABASE_URL;
-const shopId = 'dc3caa06-fcc2-4bdc-b063-7969296efd34'; // こころリンス浅草橋
 
 if (!dbUrl) {
   console.error('❌ Error: PRODUCTION_DATABASE_URL or DEVELOPMENT_DATABASE_URL is not set.');
   process.exit(1);
 }
 
-// vCard ファイルのパス
-const vcfPath = path.resolve(process.cwd(), 'やまもと9176🆖くらた.vcf');
+// Shop configuration mapping
+const SHOP_MAPPING: Record<string, { id: string; name: string }> = {
+  tsujido: { id: '92c51e51-339b-48ce-8535-0f45c859b195', name: '辻堂茅ヶ崎' },
+  crystal: { id: '1faab510-3c7e-4a01-9ce6-d3b93bbdad81', name: 'クリスタルスパ' },
+  urazuma: { id: 'da3ac7a8-e84d-4dbd-830c-81e9e8b6631a', name: '裏妻SPA' },
+  kokoro: { id: 'dc3caa06-fcc2-4bdc-b063-7969296efd34', name: 'こころリンス浅草橋' }
+};
+
+const args = process.argv.slice(2);
+if (args.length < 2) {
+  console.error('\n❌ 使用方法が正しくありません。');
+  console.error('Usage: npx tsx scripts/import-vcard-phones.ts <shop_slug> <vcf_filename>');
+  console.error('例: npx tsx scripts/import-vcard-phones.ts tsujido tsujido_contacts.vcf\n');
+  console.error('対応店舗スラグ (<shop_slug>):');
+  Object.keys(SHOP_MAPPING).forEach(slug => {
+    console.error(`  - ${slug} : ${SHOP_MAPPING[slug].name}`);
+  });
+  process.exit(1);
+}
+
+const shopSlug = args[0].toLowerCase();
+const vcfFilename = args[1];
+
+const shopConfig = SHOP_MAPPING[shopSlug];
+if (!shopConfig) {
+  console.error(`❌ Error: 指定された店舗スラグ "${shopSlug}" は存在しません。`);
+  process.exit(1);
+}
+
+const shopId = shopConfig.id;
+const vcfPath = path.resolve(process.cwd(), vcfFilename);
+
+if (!fs.existsSync(vcfPath)) {
+  console.error(`❌ Error: 指定された vCard ファイルが見つかりません: ${vcfPath}`);
+  process.exit(1);
+}
 
 interface Contact {
   name: string;
