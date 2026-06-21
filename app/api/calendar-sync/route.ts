@@ -23,13 +23,7 @@ export async function POST(request: Request) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const gasUrl = process.env.GAS_CALENDAR_SYNC_URL
     const syncToken = process.env.SYNC_API_TOKEN || 'yoyakl_sync_token_2026'
-
-    if (!gasUrl) {
-      console.warn('[CalendarSync] GAS_CALENDAR_SYNC_URL is not set. Skipping sync.')
-      return NextResponse.json({ ok: true, message: 'GAS URL not configured. Skipped.' })
-    }
 
     // 1. 物理削除アクションの場合の処理
     if (action === 'delete') {
@@ -42,7 +36,27 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true, message: 'No event ID mapping found. Skipped delete.' })
       }
 
-      console.log(`[CalendarSync] Sending delete request to GAS for event: ${eventId} on calendar: ${calendarId}`)
+      // 店舗設定から GAS ウェブアプリURL をロード
+      let gasUrl = process.env.GAS_CALENDAR_SYNC_URL
+      try {
+        const { data: settingsData } = await supabase
+          .from('system_settings')
+          .select('gas_calendar_sync_url')
+          .eq('google_calendar_id', calendarId)
+          .maybeSingle()
+        if (settingsData?.gas_calendar_sync_url) {
+          gasUrl = settingsData.gas_calendar_sync_url
+        }
+      } catch (err) {
+        console.warn('[CalendarSync] Failed to fetch gas_calendar_sync_url for deletion:', err)
+      }
+
+      if (!gasUrl) {
+        console.warn('[CalendarSync] GAS URL is not configured. Skipping delete.')
+        return NextResponse.json({ ok: true, message: 'GAS URL not configured. Skipped delete.' })
+      }
+
+      console.log(`[CalendarSync] Sending delete request to GAS for event: ${eventId} on calendar: ${calendarId} to: ${gasUrl}`)
       const response = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,7 +84,7 @@ export async function POST(request: Request) {
         customers(name),
         courses(name, duration),
         therapists(name),
-        system_settings:system_settings(google_calendar_id)
+        system_settings:system_settings(google_calendar_id, gas_calendar_sync_url)
       `)
       .eq('id', reservationId)
       .maybeSingle()
@@ -86,6 +100,12 @@ export async function POST(request: Request) {
       // カレンダーIDが未設定の店舗の場合は同期を安全にスキップ
       console.log(`[CalendarSync] Google Calendar ID is not configured for shop: ${res.shop_id}. Skipping.`)
       return NextResponse.json({ ok: true, message: 'Calendar ID not configured. Skipped.' })
+    }
+
+    const gasUrl = res.system_settings?.gas_calendar_sync_url || process.env.GAS_CALENDAR_SYNC_URL
+    if (!gasUrl) {
+      console.warn(`[CalendarSync] GAS URL is not configured for shop: ${res.shop_id}. Skipping sync.`)
+      return NextResponse.json({ ok: true, message: 'GAS URL not configured. Skipped.' })
     }
 
     const eventId = res.google_event_id
