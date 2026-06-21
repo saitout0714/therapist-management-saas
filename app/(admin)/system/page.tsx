@@ -337,10 +337,10 @@ export default function SystemPage() {
 
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済リンク URL</h3>
-                <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。電話番号「tel=」の直後にはお客様の電話番号が自動挿入されます。</p>
+                <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。</p>
                 <input
                   type="text"
-                  placeholder="https://pay2.star-pay.jp/site/com/shop.php?tel=&payc=A4233&guide="
+                  placeholder="https://pay.example.com/payment"
                   value={form.credit_payment_url}
                   onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"

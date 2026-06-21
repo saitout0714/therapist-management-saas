@@ -284,8 +284,11 @@ export default function ReservationPreviewPage() {
       text += `下記のサイトから決済手数料10%込みの金額`
       text += `¥${creditTotal.toLocaleString()}\n`
       text += `でご決済をご入室前までにお願い致します\n\n`
-      const finalLink = creditPaymentUrl || `https://pay2.star-pay.jp/site/com/shop.php?tel=&payc=A4233&guide=`
-      text += `${finalLink}\n`
+      if (creditPaymentUrl) {
+        text += `${creditPaymentUrl}\n`
+      } else {
+        text += `【⚠️ご注意：クレジット決済URLが設定されていません。システム管理で設定してください】\n`
+      }
     } else {
       if (reservation.credit_fee_amount > 0) {
         text += `クレジット手数料：￥${reservation.credit_fee_amount.toLocaleString()}\n`
