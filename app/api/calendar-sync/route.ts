@@ -83,8 +83,7 @@ export async function POST(request: Request) {
         *,
         customers(name),
         courses(name, duration),
-        therapists(name),
-        system_settings:system_settings(google_calendar_id, gas_calendar_sync_url)
+        therapists:therapists!therapist_id(name)
       `)
       .eq('id', reservationId)
       .maybeSingle()
@@ -95,14 +94,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Reservation not found' }, { status: 404 })
     }
 
-    const calendarId = res.system_settings?.google_calendar_id
+    // 別クエリで system_settings を shop_id から取得
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('system_settings')
+      .select('google_calendar_id, gas_calendar_sync_url')
+      .eq('shop_id', res.shop_id)
+      .maybeSingle()
+
+    if (settingsError) {
+      console.warn(`[CalendarSync] Failed to fetch system_settings for shop ${res.shop_id}:`, settingsError)
+    }
+
+    const calendarId = settingsData?.google_calendar_id
     if (!calendarId) {
       // カレンダーIDが未設定の店舗の場合は同期を安全にスキップ
       console.log(`[CalendarSync] Google Calendar ID is not configured for shop: ${res.shop_id}. Skipping.`)
       return NextResponse.json({ ok: true, message: 'Calendar ID not configured. Skipped.' })
     }
 
-    const gasUrl = res.system_settings?.gas_calendar_sync_url || process.env.GAS_CALENDAR_SYNC_URL
+    const gasUrl = settingsData?.gas_calendar_sync_url || process.env.GAS_CALENDAR_SYNC_URL
     if (!gasUrl) {
       console.warn(`[CalendarSync] GAS URL is not configured for shop: ${res.shop_id}. Skipping sync.`)
       return NextResponse.json({ ok: true, message: 'GAS URL not configured. Skipped.' })
