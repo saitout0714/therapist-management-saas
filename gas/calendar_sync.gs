@@ -52,17 +52,13 @@ function doPost(e) {
       throw new Error('Calendar not found: ' + calendarId);
     }
 
-    // 時刻オブジェクトの作成 (日本時間 JST 基準)
-    var startDateTime = null;
-    var endDateTime = null;
-    if (dateStr && startTimeStr && endTimeStr) {
-      startDateTime = new Date(dateStr + 'T' + startTimeStr + ':00+09:00');
-      endDateTime = new Date(dateStr + 'T' + endTimeStr + ':00+09:00');
-      
-      // 日またぎ時の終了時間補正
-      if (endDateTime < startDateTime) {
-        endDateTime.setDate(endDateTime.getDate() + 1);
-      }
+    // 時刻オブジェクトの作成 (日本時間 JST 基準 / 深夜時間・日またぎ対応)
+    var startDateTime = parseDateTime(dateStr, startTimeStr);
+    var endDateTime = parseDateTime(dateStr, endTimeStr);
+
+    // 終了時間が開始時間より前の場合は、日またぎ（翌日未明）として終了日を1日進める
+    if (startDateTime && endDateTime && endDateTime < startDateTime) {
+      endDateTime.setDate(endDateTime.getDate() + 1);
     }
 
     if (action === 'create') {
@@ -134,4 +130,42 @@ function doPost(e) {
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 営業日日付 (YYYY-MM-DD) と時間 (HH:mm) から、
+ * 実時間基準の Date オブジェクトを作成します。(深夜 24時以降や 00:00〜04:59 の翌日ズレに対応)
+ */
+function parseDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  
+  var timeMatch = timeStr.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!timeMatch) return null;
+  
+  var h = parseInt(timeMatch[1], 10);
+  var m = parseInt(timeMatch[2], 10);
+  
+  var dateParts = dateStr.split('-');
+  var y = parseInt(dateParts[0], 10);
+  var M = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+  var d = parseInt(dateParts[2], 10);
+  
+  // 基準日を0時0分0秒で初期化
+  var dt = new Date(y, M, d, 0, 0, 0);
+  
+  // 深夜時間の判定
+  // 1) 24時間以上の表記（例: 25:30）の場合は翌日にして時間を24引く
+  if (h >= 24) {
+    dt.setDate(dt.getDate() + 1);
+    h = h - 24;
+  }
+  // 2) 00:00 〜 04:59 の表記の場合、営業システムの日付（営業日）を基準としているため
+  // 実際には翌日の早朝にあたる。日付を1日進める。
+  else if (h < 5) {
+    dt.setDate(dt.getDate() + 1);
+  }
+  
+  dt.setHours(h);
+  dt.setMinutes(m);
+  return dt;
 }
