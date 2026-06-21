@@ -123,7 +123,16 @@ function runImport(startDate, endDate) {
     log.push('[警告] 既存顧客取得失敗（都度検索にフォールバック）: ' + String(err));
   }
 
-  // 5. カレンダーイベント取得
+  // 5. コース一覧を取得
+  var courseMap = {};
+  try {
+    courseMap = fetchActiveCoursesMap(key);
+    log.push('[準備] コース情報取得完了');
+  } catch (err) {
+    log.push('[警告] コース情報取得失敗（コース紐付けなしでインポートします）: ' + String(err));
+  }
+
+  // 6. カレンダーイベント取得
   var calendar = CalendarApp.getCalendarById(CALENDAR_ID);
   if (!calendar) {
     return { imported: 0, skipped: 0, errors: 1, log: ['カレンダーが見つかりません: ' + CALENDAR_ID] };
@@ -176,19 +185,26 @@ function runImport(startDate, endDate) {
       continue;
     }
 
+    // 顧客名のs/ｓクレンジング
+    var cleanCustName = parsed.customerName.trim();
+    var sMatch = cleanCustName.match(/^[sｓ]([^a-zA-Z\s\d].*)$/);
+    if (sMatch) {
+      cleanCustName = sMatch[1].trim();
+    }
+
     // 顧客ID取得（キャッシュヒット → APIコールなし、新規のみAPIコール）
     var customerId;
     try {
-      if (customerCache[parsed.customerName]) {
-        customerId = customerCache[parsed.customerName];
+      if (customerCache[cleanCustName]) {
+        customerId = customerCache[cleanCustName];
       } else {
         // 新規顧客作成（APIコール1回）
-        customerId = createCustomer(key, parsed.customerName);
-        customerCache[parsed.customerName] = customerId;
-        log.push('[新規顧客] ' + parsed.customerName);
+        customerId = createCustomer(key, cleanCustName);
+        customerCache[cleanCustName] = customerId;
+        log.push('[新規顧客] ' + cleanCustName);
       }
     } catch (err) {
-      log.push('[エラー] 顧客作成失敗: "' + parsed.customerName + '" / ' + String(err));
+      log.push('[エラー] 顧客作成失敗: "' + cleanCustName + '" / ' + String(err));
       errors++;
       continue;
     }
@@ -196,6 +212,10 @@ function runImport(startDate, endDate) {
     // 指名種別
     var designationSlug   = mapDesignationType(parsed.designationType);
     var designationTypeId = designationTypeMap[designationSlug] || null;
+
+    // コース時間の自動判別
+    var durationMin = calculateDuration(startTimeStr, endTimeStr);
+    var matchedCourse = courseMap[durationMin] || null;
 
     // 予約登録（APIコール1回）
     try {
@@ -209,13 +229,17 @@ function runImport(startDate, endDate) {
         status:              'confirmed', // ★ 'completed' から 'confirmed' に変更して表示を可能にする
         designation_type:    designationSlug,
         designation_type_id: designationTypeId,
-        total_price:         0,
+        course_id:           matchedCourse ? matchedCourse.id : null,
+        base_price:          matchedCourse ? matchedCourse.base_price : 0,
+        total_price:         matchedCourse ? matchedCourse.base_price : 0,
+        customer_notified:   true,
+        therapist_notified:  true,
         notes:               'Googleカレンダーよりインポート',
       });
 
       existingReservations[dupKey] = true; // 同一実行内の重複防止
       log.push('[成功] ' + dateStr + ' ' + startTimeStr + '〜' + endTimeStr +
-        ' ' + therapist.name + ' / ' + parsed.customerName + ' (' + designationSlug + ')');
+        ' ' + therapist.name + ' / ' + cleanCustName + ' (' + designationSlug + ')');
       imported++;
     } catch (err) {
       log.push('[エラー] 予約登録失敗: ' + dateStr + ' ' + startTimeStr +
@@ -410,4 +434,26 @@ function fetchDesignationTypeMap(key) {
 
 function insertReservation(key, data) {
   supabaseRequest(key, 'POST', '/reservations', data);
+}
+
+function fetchActiveCoursesMap(key) {
+  var rows = supabaseRequest(key, 'GET',
+    '/courses?shop_id=eq.' + SHOP_ID + '&is_active=eq.true&select=id,duration,base_price'
+  ) || [];
+  var map = {};
+  rows.forEach(function(c) {
+    map[c.duration] = { id: c.id, base_price: c.base_price };
+  });
+  return map;
+}
+
+function calculateDuration(startStr, endStr) {
+  var startParts = startStr.split(':');
+  var endParts = endStr.split(':');
+  var startMin = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
+  var endMin = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1], 10);
+  if (endMin < startMin) {
+    endMin += 24 * 60;
+  }
+  return endMin - startMin;
 }

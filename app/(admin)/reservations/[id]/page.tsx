@@ -76,6 +76,7 @@ export default function ReservationPreviewPage() {
   const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [loading, setLoading] = useState(true)
   const [creditPaymentUrl, setCreditPaymentUrl] = useState<string | null>(null)
+  const [googleCalendarId, setGoogleCalendarId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -161,10 +162,11 @@ export default function ReservationPreviewPage() {
       // 5. Fetch credit_payment_url from system_settings
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('credit_payment_url')
+        .select('credit_payment_url, google_calendar_id')
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
       setCreditPaymentUrl(settingsData?.credit_payment_url || null)
+      setGoogleCalendarId(settingsData?.google_calendar_id || null)
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -465,6 +467,11 @@ export default function ReservationPreviewPage() {
 
   const handleDelete = async () => {
     if (!confirm('この予約を削除しますか？この操作は元に戻せません。')) return
+    
+    // 削除前の同期用パラメータ取得
+    const eventId = (reservation as any)?.google_event_id
+    const calendarId = googleCalendarId
+
     const { error } = await supabase
       .from('reservations')
       .delete()
@@ -472,6 +479,21 @@ export default function ReservationPreviewPage() {
     if (error) {
       alert('削除に失敗しました: ' + error.message)
     } else {
+      if (eventId && calendarId) {
+        try {
+          await fetch('/api/calendar-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'delete',
+              deletedEventId: eventId,
+              deletedCalendarId: calendarId
+            })
+          })
+        } catch (syncErr) {
+          console.error('[CalendarSync] カレンダー削除同期に失敗しました:', syncErr)
+        }
+      }
       goBack()
     }
   }

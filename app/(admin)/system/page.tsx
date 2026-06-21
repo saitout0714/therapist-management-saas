@@ -33,6 +33,7 @@ type SystemSettings = {
   smtp_pass: string | null
   smtp_from: string | null
   credit_payment_url: string | null
+  google_calendar_id: string | null
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
@@ -66,6 +67,7 @@ export default function SystemPage() {
     web_reserve_address_mode: 'unified' | 'split_by_membership'
     special_rules: string
     credit_payment_url: string
+    google_calendar_id: string
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -88,6 +90,7 @@ export default function SystemPage() {
     web_reserve_address_mode: 'unified',
     special_rules: '',
     credit_payment_url: '',
+    google_calendar_id: '',
   })
 
   async function fetchSettings() {
@@ -127,6 +130,7 @@ export default function SystemPage() {
       web_reserve_address_mode: webMode,
       special_rules: shopRes.data?.special_rules ?? '',
       credit_payment_url: row?.credit_payment_url ?? '',
+      google_calendar_id: row?.google_calendar_id ?? '',
     })
     setLoading(false)
   }
@@ -145,6 +149,7 @@ export default function SystemPage() {
       smtp_pass: form.smtp_pass || null,
       smtp_from: form.smtp_from || null,
       credit_payment_url: form.credit_payment_url || null,
+      google_calendar_id: form.google_calendar_id || null,
     }
 
     const [result, shopResult] = await Promise.all([
@@ -343,6 +348,18 @@ export default function SystemPage() {
                   placeholder="https://pay.example.com/payment"
                   value={form.credit_payment_url}
                   onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">GoogleカレンダーID</h3>
+                <p className="text-xs text-slate-400 mb-4">予約情報を同期する対象のGoogleカレンダーID（例: example@gmail.com）を設定します。</p>
+                <input
+                  type="text"
+                  placeholder="example@gmail.com"
+                  value={form.google_calendar_id}
+                  onChange={(e) => setForm({ ...form, google_calendar_id: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>

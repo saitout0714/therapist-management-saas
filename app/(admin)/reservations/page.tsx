@@ -156,12 +156,58 @@ export default function ReservationsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('この予約を削除しますか？')) return
+
+    // 削除前の同期用パラメータ取得
+    let eventId: string | null = null
+    let calendarId: string | null = null
+    try {
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('google_event_id, shop_id')
+        .eq('id', id)
+        .maybeSingle()
+      
+      if (resData) {
+        eventId = resData.google_event_id
+        if (resData.shop_id) {
+          const { data: settingsData } = await supabase
+            .from('system_settings')
+            .select('google_calendar_id')
+            .eq('shop_id', resData.shop_id)
+            .maybeSingle()
+          if (settingsData) {
+            calendarId = settingsData.google_calendar_id
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[CalendarSync] 削除前のカレンダー情報取得に失敗しました:', err)
+    }
+
     await supabase.from('reservation_options').delete().eq('reservation_id', id)
     const { error } = await supabase.from('reservations').delete().eq('id', id)
     if (error) {
       alert('削除に失敗しました')
       return
     }
+
+    // 削除に成功したら非同期でカレンダーから削除
+    if (eventId && calendarId) {
+      try {
+        await fetch('/api/calendar-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete',
+            deletedEventId: eventId,
+            deletedCalendarId: calendarId
+          })
+        })
+      } catch (syncErr) {
+        console.error('[CalendarSync] カレンダー削除同期に失敗しました:', syncErr)
+      }
+    }
+
     void fetchReservations(page, applied)
   }
 

@@ -712,6 +712,20 @@ export default function EditReservationPage() {
         console.warn('バック計算に失敗しましたが予約は更新されています:', backErr)
       }
 
+      // Googleカレンダー同期APIの呼び出し
+      try {
+        await fetch('/api/calendar-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reservationId,
+            action: 'update'
+          })
+        })
+      } catch (syncErr) {
+        console.error('[CalendarSync] 同期APIの呼び出しに失敗しました:', syncErr)
+      }
+
       // 遷移元に応じて戻る先を変更
       if (fromPage === 'weekly') {
         window.location.href = `/shifts?date=${formData.date}&view=week`
