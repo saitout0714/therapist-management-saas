@@ -16,7 +16,7 @@ type Reservation = {
   status: string
   designation_type: string
   created_at: string
-  customer: { name: string } | null
+  customer: { id: string; name: string } | null
   therapist: { name: string } | null
   course: { name: string } | null
   created_by: { name: string } | null
@@ -118,7 +118,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -394,36 +394,36 @@ export default function ReservationsPage() {
           </div>
 
           {/* PC用テーブル表示 */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-left border-collapse">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">詳細</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日時</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">お客様</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">セラピスト</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">コース</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">指名</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料金</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状態</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">登録日</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">担当者</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">操作</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">詳細</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">予約日</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">顧客</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">セラピスト</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">指名</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">コース</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">料金</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">状態</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">登録日</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">担当者</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">削除</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td className="px-6 py-12 text-center" colSpan={12}>
+                    <td className="px-2.5 py-8 md:px-6 md:py-12 text-center" colSpan={11}>
                       <div className="flex justify-center items-center text-indigo-600">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                        <span className="ml-3 font-medium text-sm">読み込み中...</span>
+                        <span className="ml-3 font-medium text-xs md:text-sm">読み込み中...</span>
                       </div>
                     </td>
                   </tr>
                 ) : reservations.length === 0 ? (
                   <tr>
-                    <td className="px-6 py-12 text-center text-slate-500" colSpan={12}>
+                    <td className="px-2.5 py-8 md:px-6 md:py-12 text-center text-slate-500" colSpan={11}>
                       {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
                     </td>
                   </tr>
@@ -432,41 +432,48 @@ export default function ReservationsPage() {
                     const isNotificationUnsent = !r.customer_notified || !r.therapist_notified;
                     return (
                       <tr key={r.id} className={`transition-colors ${isNotificationUnsent ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">
+                          <Link href={`/reservations/${r.id}`} style={{ color: '#ff4500' }} className="font-semibold hover:opacity-75 transition-opacity">
                             詳細
                           </Link>
                         </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm font-semibold text-slate-800 whitespace-nowrap">
                           {(r.business_date || r.date).slice(5).replace('-', '/')} {toDisplayTime(r.start_time)}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.course?.name || '-'}</td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${designationStyle(r.designation_type)}`}>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">
+                          {r.customer ? (
+                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#006400' }} className="font-medium hover:opacity-80 transition-opacity">
+                              {r.customer.name}
+                            </Link>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">{r.therapist?.name || '-'}</td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${designationStyle(r.designation_type)}`}>
                             {designationLabel(r.designation_type)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-800">¥{r.total_price.toLocaleString()}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
-                              {statusLabel(r.status)}
-                            </span>
-                          </div>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">{r.course?.name || '-'}</td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm font-bold text-slate-800 whitespace-nowrap hidden md:table-cell">
+                          ¥{r.total_price.toLocaleString()}
                         </td>
-
-                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap hidden md:table-cell">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
+                            {statusLabel(r.status)}
+                          </span>
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-500 whitespace-nowrap">
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-3">
-                            <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
-                              削除
-                            </button>
-                          </div>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap hidden md:table-cell">
+                          {r.created_by?.name || '-'}
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-right whitespace-nowrap">
+                          <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
+                            削除
+                          </button>
                         </td>
                       </tr>
                     );
@@ -474,96 +481,6 @@ export default function ReservationsPage() {
                 )}
               </tbody>
             </table>
-          </div>
-
-          {/* スマホ用カード表示 */}
-          <div className="block md:hidden">
-            {loading ? (
-              <div className="p-6 text-center">
-                <div className="flex justify-center items-center text-indigo-600">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
-                  <span className="ml-2.5 font-medium text-xs">読み込み中...</span>
-                </div>
-              </div>
-            ) : reservations.length === 0 ? (
-              <div className="p-6 text-center text-slate-500 text-xs">
-                {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {reservations.map((r, idx) => {
-                  const isNotificationUnsent = !r.customer_notified || !r.therapist_notified;
-                  return (
-                    <div
-                      key={r.id}
-                      className={`p-2.5 transition-colors ${
-                        isNotificationUnsent
-                          ? 'bg-amber-50/70 border-l-4 border-l-amber-500 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.15)]'
-                          : idx % 2 === 0
-                            ? 'bg-white hover:bg-slate-50/80'
-                            : 'bg-slate-100 hover:bg-slate-200/80'
-                      }`}
-                    >
-                      {/* 1行目: 詳細 ＆ 日時 ＆ アクション */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/reservations/${r.id}`}
-                            className="text-xs font-bold text-sky-500 hover:text-sky-600 shrink-0"
-                          >
-                            詳細
-                          </Link>
-                          <span className="text-xs font-bold text-slate-800">
-                            {(r.business_date || r.date).slice(5).replace('-', '/')} {toDisplayTime(r.start_time)}
-                          </span>
-                          {r.created_at && (
-                            <span className="text-[10px] font-normal text-slate-400">
-                              (登録: {new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => void handleDelete(r.id)}
-                            className="text-xs font-semibold text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 2行目: 均等幅グリッド（5カラム）によるデータ表示 */}
-                      <div className="grid grid-cols-5 gap-1 items-center text-xs text-slate-700">
-                        {/* お客様名 */}
-                        <span className="font-bold text-slate-900 truncate text-left whitespace-nowrap">{r.customer?.name || 'なし'}</span>
-
-                        {/* セラピスト名 */}
-                        <span className="font-semibold text-indigo-700 truncate text-center whitespace-nowrap">{r.therapist?.name || 'フリー'}</span>
-
-                        {/* コース名 */}
-                        <span className="text-slate-600 truncate text-center whitespace-nowrap">{r.course?.name || '-'}</span>
-
-                        {/* 指名区分 */}
-                        <div className="flex justify-center">
-                          <span className={`inline-flex justify-center px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 whitespace-nowrap ${designationStyle(r.designation_type)}`}>
-                            {designationLabel(r.designation_type)}
-                          </span>
-                        </div>
-
-                        {/* 状態バッジ */}
-                        <div className="flex justify-center">
-                          <span className={`inline-flex justify-center px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 whitespace-nowrap ${statusStyle(r.status)}`}>
-                            {statusLabel(r.status)}
-                          </span>
-                        </div>
-                      </div>
-
-
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* ページネーション */}
