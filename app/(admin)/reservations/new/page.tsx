@@ -139,6 +139,7 @@ export default function NewReservationPage() {
     reception_source: 'staff' as 'staff' | 'client' | 'therapist',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
+    extension_payment_method: 'cash' as 'cash' | 'credit',
     is_hime: false,
     hime_bonus: 0,
   })
@@ -471,8 +472,17 @@ export default function NewReservationPage() {
     // クレジット手数料の計算
     const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
     let creditFeeAmount = 0
+    let creditBase = 0
     if (formData.payment_method === 'credit') {
-      const creditBase = basePrice + nominationFee + extensionPrice + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
+      creditBase += basePrice + nominationFee
+    }
+    if (formData.extension_payment_method === 'credit') {
+      creditBase += extensionPrice
+    }
+    if (formData.options_payment_method === 'credit') {
+      creditBase += optionsPrice
+    }
+    if (creditBase > 0) {
       creditFeeAmount = Math.floor(creditBase * feeRate)
     }
 
@@ -812,6 +822,7 @@ export default function NewReservationPage() {
           reception_source: formData.reception_source,
           payment_method: formData.payment_method,
           options_payment_method: formData.options_payment_method,
+          extension_payment_method: formData.extension_payment_method,
           credit_fee_amount: calculatedPrice.creditFeeAmount,
           is_hime: formData.is_hime,
           hime_bonus: formData.is_hime ? formData.hime_bonus : 0,
@@ -1549,6 +1560,19 @@ export default function NewReservationPage() {
                         </label>
                         <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                           <input type="radio" name="options_payment_method" value="credit" checked={formData.options_payment_method === 'credit'} onChange={() => setFormData({ ...formData, options_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
+                          <span className="text-xs font-bold">💳 クレジット</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-2">延長料金の支払方法</label>
+                      <div className="flex gap-3">
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.extension_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="extension_payment_method" value="cash" checked={formData.extension_payment_method === 'cash'} onChange={() => setFormData({ ...formData, extension_payment_method: 'cash' })} className="w-3.5 h-3.5 accent-slate-600" />
+                          <span className="text-xs font-bold">💴 現金（セラピストへ）</span>
+                        </label>
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.extension_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="extension_payment_method" value="credit" checked={formData.extension_payment_method === 'credit'} onChange={() => setFormData({ ...formData, extension_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
                           <span className="text-xs font-bold">💳 クレジット</span>
                         </label>
                       </div>

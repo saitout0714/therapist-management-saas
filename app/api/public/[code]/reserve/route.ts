@@ -622,6 +622,8 @@ export async function POST(
       course_id,
       status: 'confirmed',
       payment_method,
+      options_payment_method: 'cash',
+      extension_payment_method: 'cash',
       source: 'web',
       is_handled: false,
       base_price: basePrice,

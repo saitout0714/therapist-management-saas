@@ -29,6 +29,7 @@ type ReservationWithDetails = {
   extension_count: number
   payment_method: 'cash' | 'credit' | null
   options_payment_method: 'cash' | 'credit' | null
+  extension_payment_method: 'cash' | 'credit' | null
   credit_fee_amount: number
   // 計算済みバック額（予約登録時に保存されたもの）
   therapist_back_amount: number | null
@@ -186,7 +187,7 @@ export default function PayrollPage() {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, business_date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at, is_hime, hime_bonus,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, business_date, start_time, end_time, extension_count, status, payment_method, options_payment_method, extension_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at, is_hime, hime_bonus,
           course:courses(name, duration, base_price, back_amount),
           customer:customers(name),
           reservation_options(option_id, price, custom_name, custom_back_amount, option:options(name)),
@@ -328,6 +329,10 @@ export default function PayrollPage() {
         hasCredit = true
         if (res.options_payment_method === 'cash') {
           cashReceived += res.options_price || 0
+        }
+        if (res.extension_payment_method === 'cash' && res.extension_count > 0) {
+          const extensionPrice = Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
+          cashReceived += extensionPrice
         }
       } else {
         cashReceived += result.totalPrice
@@ -689,13 +694,25 @@ export default function PayrollPage() {
 
                         {res.payment_method === 'credit' && (() => {
                           const optionsCash = res.options_payment_method === 'cash' ? (res.options_price || 0) : 0
-                          const cashBalance = optionsCash - r.netBack
+                          const extPrice = res.extension_count > 0
+                            ? Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
+                            : 0
+                          const extensionCash = res.extension_payment_method === 'cash' ? extPrice : 0
+                          const customerCash = optionsCash + extensionCash
+                          const cashBalance = customerCash - r.netBack
                           return (
                             <div className="mt-2.5 pt-2.5 border-t border-slate-100">
                               <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">現金精算（クレジット着金前）</div>
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                                 <div>
-                                  お客様現金: <span className="font-bold text-slate-800">¥{optionsCash.toLocaleString()}</span>
+                                  お客様現金: <span className="font-bold text-slate-800">¥{customerCash.toLocaleString()}</span>
+                                  {(optionsCash > 0 || extensionCash > 0) && (
+                                    <span className="text-[10px] text-slate-400 ml-1">
+                                      ({optionsCash > 0 && `オプション:¥${optionsCash.toLocaleString()}`}
+                                      {optionsCash > 0 && extensionCash > 0 && ' + '}
+                                      {extensionCash > 0 && `延長:¥${extensionCash.toLocaleString()}`})
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-slate-300">|</div>
                                 <div>

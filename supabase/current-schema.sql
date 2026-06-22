@@ -336,6 +336,7 @@ CREATE TABLE IF NOT EXISTS "public"."reservations" (
   "reception_source" character varying(20) DEFAULT 'staff'::character varying,
   "payment_method" text DEFAULT 'cash'::text,
   "options_payment_method" text DEFAULT 'cash'::text,
+  "extension_payment_method" text DEFAULT 'cash'::text,
   "credit_fee_amount" integer DEFAULT 0,
   "designation_type_id" uuid,
   "extension_count" integer NOT NULL DEFAULT 0,

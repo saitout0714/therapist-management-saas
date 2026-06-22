@@ -44,7 +44,9 @@ type Reservation = {
   status: 'pending' | 'confirmed' | 'cancelled'
   payment_method: 'cash' | 'credit' | null
   options_payment_method: 'cash' | 'credit' | null
+  extension_payment_method: 'cash' | 'credit' | null
   credit_fee_amount: number
+  extension_count: number
   customers: { name: string; phone: string | null; email: string | null } | null
   courses: { name: string; duration: number; base_price: number } | null
   therapists: { name: string } | null
@@ -511,6 +513,10 @@ export default function ReservationPreviewPage() {
     )
   }
 
+  const extensionPrice = reservation.extension_count > 0
+    ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
+    : 0
+
   return (
     <div className="bg-slate-50 p-2 sm:p-4">
       <div className="max-w-4xl mx-auto space-y-3 sm:space-y-6">
@@ -934,6 +940,12 @@ export default function ReservationPreviewPage() {
                       <span>¥{reservation.options_price.toLocaleString()}</span>
                     </div>
                   )}
+                  {reservation.extension_count > 0 && (
+                    <div className="flex justify-between items-center mb-1 text-slate-600">
+                      <span>延長料金 ({reservation.extension_count}回)</span>
+                      <span>¥{extensionPrice.toLocaleString()}</span>
+                    </div>
+                  )}
                   {reservation.nomination_fee > 0 && (
                     <div className="flex justify-between items-center mb-1 text-slate-600">
                       <span>指名料等</span>
@@ -958,8 +970,14 @@ export default function ReservationPreviewPage() {
                   </div>
                   {reservation.credit_fee_amount > 0 && (
                     <div className="flex justify-between items-center mt-1 font-bold text-xs sm:text-base text-amber-600">
-                      <span>💳 クレジット請求額</span>
-                      <span>¥{(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}</span>
+                      <span>💳 クレジット決済額</span>
+                      <span>
+                        ¥{(
+                          reservation.total_price + reservation.credit_fee_amount
+                          - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0)
+                          - (reservation.extension_payment_method === 'cash' ? extensionPrice : 0)
+                        ).toLocaleString()}
+                      </span>
                     </div>
                   )}
                   <div className="mt-2.5 pt-2 border-t border-slate-100">
@@ -973,6 +991,11 @@ export default function ReservationPreviewPage() {
                       {reservation.payment_method === 'credit' && reservation.options_price > 0 && (
                         <span className="text-slate-400">
                           OP: {reservation.options_payment_method === 'credit' ? '💳 クレ' : '💴 現金（セラへ）'}
+                        </span>
+                      )}
+                      {reservation.payment_method === 'credit' && reservation.extension_count > 0 && (
+                        <span className="text-slate-400">
+                          延長: {reservation.extension_payment_method === 'credit' ? '💳 クレ' : '💴 現金（セラへ）'}
                         </span>
                       )}
                     </div>

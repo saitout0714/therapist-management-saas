@@ -399,8 +399,7 @@ export default function ReservationsPage() {
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">詳細</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">時間</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日時</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">お客様</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">セラピスト</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">コース</th>
@@ -438,9 +437,8 @@ export default function ReservationsPage() {
                             詳細
                           </Link>
                         </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.business_date || r.date}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                          {toDisplayTime(r.start_time)} - {toDisplayTime(r.end_time)}
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">
+                          {(r.business_date || r.date).slice(5).replace('-', '/')} {toDisplayTime(r.start_time)}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
@@ -516,7 +514,7 @@ export default function ReservationsPage() {
                             詳細
                           </Link>
                           <span className="text-xs font-bold text-slate-800">
-                            {r.business_date || r.date} {toDisplayTime(r.start_time)}
+                            {(r.business_date || r.date).slice(5).replace('-', '/')} {toDisplayTime(r.start_time)}
                           </span>
                           {r.created_at && (
                             <span className="text-[10px] font-normal text-slate-400">
