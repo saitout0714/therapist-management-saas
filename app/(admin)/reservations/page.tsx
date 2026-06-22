@@ -433,7 +433,7 @@ export default function ReservationsPage() {
                     return (
                       <tr key={r.id} className={`transition-colors ${isNotificationUnsent ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">
-                          <Link href={`/reservations/${r.id}`} style={{ color: '#ff4500' }} className="font-semibold hover:opacity-75 transition-opacity">
+                          <Link href={`/reservations/${r.id}`} style={{ color: '#00b4d8' }} className="font-semibold hover:opacity-75 transition-opacity">
                             詳細
                           </Link>
                         </td>
@@ -442,7 +442,7 @@ export default function ReservationsPage() {
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">
                           {r.customer ? (
-                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#006400' }} className="font-medium hover:opacity-80 transition-opacity">
+                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity">
                               {r.customer.name}
                             </Link>
                           ) : (

@@ -404,18 +404,18 @@ export default function CustomersPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          {/* PC用テーブル表示 */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* テーブル表示（PC/スマホ共通・横スクロール対応） */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
-                  {mergeMode && <th className="px-4 py-4 w-10"></th>}
-                  <th className="px-6 py-4 whitespace-nowrap">氏名</th>
-                  <th className="px-6 py-4 whitespace-nowrap">電話番号</th>
-                  <th className="px-6 py-4 whitespace-nowrap">メールアドレス</th>
-                  <th className="px-6 py-4 whitespace-nowrap text-center">来店履歴</th>
-                  <th className="px-6 py-4 whitespace-nowrap">ステータス</th>
-                  <th className="px-4 py-4 w-20 text-center">操作</th>
+                <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] md:text-sm font-medium text-slate-600">
+                  {mergeMode && <th className="px-2.5 py-2.5 md:px-4 md:py-4 w-8 whitespace-nowrap"></th>}
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">氏名</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">電話番号</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap hidden md:table-cell">メールアドレス</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap text-center">来店</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">ステータス</th>
+                  <th className="px-2.5 py-2.5 md:px-4 md:py-4 text-center whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -471,7 +471,7 @@ export default function CustomersPage() {
                         style={mergeMode ? { cursor: 'pointer' } : undefined}
                       >
                         {mergeMode ? (
-                          <td className={`px-4 py-4 ${rowBorderClass}`}>
+                          <td className={`px-2.5 py-2 md:px-4 md:py-4 ${rowBorderClass}`}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -481,7 +481,7 @@ export default function CustomersPage() {
                             />
                           </td>
                         ) : null}
-                        <td className={`px-6 py-4 ${!mergeMode ? rowBorderClass : ''}`}>
+                        <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm ${!mergeMode ? rowBorderClass : ''}`}>
                           {mergeMode ? (
                             <div className="flex items-center gap-3">
                               <div className="flex flex-col">
@@ -539,7 +539,7 @@ export default function CustomersPage() {
                             </Link>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-600 font-medium whitespace-nowrap">
                           <div className="flex flex-col gap-0.5">
                             <span>{customer.phone || <span className="text-slate-400 font-normal italic">未登録</span>}</span>
                             {customer.phone2 && (
@@ -547,10 +547,10 @@ export default function CustomersPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap hidden md:table-cell">
                           {customer.email || <span className="text-slate-400 italic">未登録</span>}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-center whitespace-nowrap">
                           <button
                             onClick={(e) => { e.stopPropagation(); openHistoryModal(customer) }}
                             className="inline-flex items-center justify-center px-3 py-1 bg-slate-100 text-slate-600 font-medium rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
@@ -558,12 +558,12 @@ export default function CustomersPage() {
                             <span className="mr-1 text-lg leading-none">{visitCounts.get(customer.id) ?? '…'}</span> 回
                           </button>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusStyles[status] || 'bg-slate-100 text-slate-800'}`}>
                             {status}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-center">
+                        <td className="px-2.5 py-2 md:px-4 md:py-4 text-center whitespace-nowrap">
                           {!mergeMode && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer) }}
@@ -584,8 +584,8 @@ export default function CustomersPage() {
             </table>
           </div>
 
-          {/* スマホ用リスト表示 */}
-          <div className="block md:hidden">
+          {/* スマホ用リスト表示（テーブルに統合済みのため非表示） */}
+          <div className="hidden">
             {customers.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
