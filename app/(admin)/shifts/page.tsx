@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
@@ -192,6 +192,18 @@ function ShiftsContent() {
       }
     }
   }, [searchParams]);
+
+  // 店舗（selectedShop）が変更された場合、日付を今日（当日）に戻す
+  const lastShopIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedShop) return;
+    if (lastShopIdRef.current !== null && lastShopIdRef.current !== selectedShop.id) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setFilterDate(todayStr);
+      setWeekStartDate(new Date());
+    }
+    lastShopIdRef.current = selectedShop.id;
+  }, [selectedShop]);
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
