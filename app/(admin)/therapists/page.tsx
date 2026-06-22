@@ -34,6 +34,7 @@ export default function TherapistsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
   const [deleteCountLoading, setDeleteCountLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
@@ -162,8 +163,21 @@ export default function TherapistsPage() {
     fetchTherapists();
   }, [selectedShop]);
 
+  const filterByQuery = (list: TherapistItem[]) => {
+    const q = searchQuery.trim();
+    if (!q) return list;
+    return list.filter((t) =>
+      q.split(/\s+/).every((word) =>
+        t.name.toLowerCase().includes(word.toLowerCase())
+      )
+    );
+  };
+
   const activeTherapists = therapists.filter((t) => t.is_active !== false);
   const inactiveTherapists = therapists.filter((t) => t.is_active === false);
+  const filteredActive = filterByQuery(activeTherapists);
+  const filteredInactive = filterByQuery(inactiveTherapists);
+  const isSearching = searchQuery.trim().length > 0;
 
   const TherapistRow = ({ therapist }: { therapist: TherapistItem }) => {
     const isActive = therapist.is_active !== false;
@@ -288,10 +302,49 @@ export default function TherapistsPage() {
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">セラピスト管理</h1>
             <p className="text-sm text-slate-500 mt-1">所属するセラピストの登録・編集および表示順の並び替えを行います。</p>
+          </div>
+          {/* 検索バー */}
+          <div className="flex items-center gap-3 mt-1">
+            <div className="relative">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                id="therapist-list-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="名前で検索..."
+                className="pl-9 pr-8 py-2 w-52 text-sm border border-slate-200 rounded-lg bg-white focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label="検索をクリア"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {isSearching && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold whitespace-nowrap">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {filteredActive.length + filteredInactive.length}名ヒット
+              </span>
+            )}
           </div>
         </div>
 
@@ -337,12 +390,17 @@ export default function TherapistsPage() {
           </div>
 
           <div className="p-4 md:p-5">
-            {activeTherapists.length > 0 ? (
+            {filteredActive.length > 0 ? (
               <ul className="space-y-3">
-                {activeTherapists.map((therapist) => (
+                {filteredActive.map((therapist) => (
                   <TherapistRow key={therapist.id} therapist={therapist} />
                 ))}
               </ul>
+            ) : isSearching ? (
+              <div className="text-center py-10">
+                <p className="text-slate-500 font-medium">「{searchQuery}」に一致する在籍中セラピストが見つかりません</p>
+                <button onClick={() => setSearchQuery('')} className="mt-2 text-sm text-indigo-500 hover:text-indigo-700 underline transition-colors">検索をクリア</button>
+              </div>
             ) : (
               <div className="text-center py-10">
                 <p className="text-slate-500 font-medium">在籍中のセラピストがいません</p>
@@ -368,11 +426,17 @@ export default function TherapistsPage() {
             </div>
 
             <div className="p-4 md:p-5">
-              <ul className="space-y-3">
-                {inactiveTherapists.map((therapist) => (
-                  <TherapistRow key={therapist.id} therapist={therapist} />
-                ))}
-              </ul>
+              {filteredInactive.length > 0 ? (
+                <ul className="space-y-3">
+                  {filteredInactive.map((therapist) => (
+                    <TherapistRow key={therapist.id} therapist={therapist} />
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-slate-400 text-sm">「{searchQuery}」に一致する退店セラピストが見つかりません</p>
+                </div>
+              )}
             </div>
           </div>
         )}
