@@ -307,9 +307,12 @@ export default function TherapistsPage() {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">セラピスト管理</h1>
             <p className="text-sm text-slate-500 mt-1">所属するセラピストの登録・編集および表示順の並び替えを行います。</p>
           </div>
-          {/* 検索バー */}
-          <div className="flex items-center gap-3 mt-1">
-            <div className="relative">
+        </div>
+
+        {/* セラピスト検索バー (シフト登録画面と同じスタイル) */}
+        <div className="px-5 py-3 border border-slate-100 rounded-xl bg-white mb-6">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -322,8 +325,8 @@ export default function TherapistsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="名前で検索..."
-                className="pl-9 pr-8 py-2 w-52 text-sm border border-slate-200 rounded-lg bg-white focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                placeholder="セラピスト名で絞り込み..."
+                className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               />
               {searchQuery && (
                 <button
@@ -337,12 +340,24 @@ export default function TherapistsPage() {
                 </button>
               )}
             </div>
-            {isSearching && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold whitespace-nowrap">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {filteredActive.length + filteredInactive.length}名ヒット
+            {searchQuery.trim() ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {filteredActive.length + filteredInactive.length}名表示中
+                </span>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs text-slate-500 hover:text-indigo-600 underline transition-colors"
+                >
+                  全員表示
+                </button>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">
+                全{therapists.length}名
               </span>
             )}
           </div>
