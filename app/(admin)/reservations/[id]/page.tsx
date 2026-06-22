@@ -481,7 +481,7 @@ export default function ReservationPreviewPage() {
     } else {
       if (eventId && calendarId) {
         try {
-          await fetch('/api/calendar-sync', {
+          void fetch('/api/calendar-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -489,9 +489,11 @@ export default function ReservationPreviewPage() {
               deletedEventId: eventId,
               deletedCalendarId: calendarId
             })
+          }).catch((syncErr) => {
+            console.error('[CalendarSync] カレンダー削除同期に失敗しました:', syncErr)
           })
         } catch (syncErr) {
-          console.error('[CalendarSync] カレンダー削除同期に失敗しました:', syncErr)
+          console.error('[CalendarSync] カレンダー削除同期のセットアップに失敗しました:', syncErr)
         }
       }
       goBack()

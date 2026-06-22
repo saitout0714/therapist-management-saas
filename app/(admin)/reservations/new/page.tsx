@@ -940,18 +940,20 @@ export default function NewReservationPage() {
           console.warn('バック計算に失敗しましたが予約は登録されています:', backErr)
         }
 
-        // Googleカレンダー同期APIの呼び出し
+        // Googleカレンダー同期APIの呼び出し（非同期）
         try {
-          await fetch('/api/calendar-sync', {
+          void fetch('/api/calendar-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               reservationId,
               action: 'create'
             })
+          }).catch((syncErr) => {
+            console.error('[CalendarSync] 同期APIの呼び出しに失敗しました:', syncErr)
           })
         } catch (syncErr) {
-          console.error('[CalendarSync] 同期APIの呼び出しに失敗しました:', syncErr)
+          console.error('[CalendarSync] 同期API呼び出しのセットアップに失敗しました:', syncErr)
         }
       }
 

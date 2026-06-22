@@ -724,22 +724,24 @@ export async function POST(
     console.error('[Email Info Fetch Error] Failed to fetch context for email dispatch:', emailFetchErr)
   }
 
-  // Googleカレンダー同期APIの呼び出し
+  // Googleカレンダー同期APIの呼び出し（バックグラウンド実行）
   try {
     const protocol = req.headers.get('x-forwarded-proto') || 'http'
     const host = req.headers.get('host')
     const syncUrl = `${protocol}://${host}/api/calendar-sync`
     
-    await fetch(syncUrl, {
+    void fetch(syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         reservationId: reservation.id,
         action: 'create'
       })
+    }).catch((syncErr) => {
+      console.error('[CalendarSync] Web予約時のカレンダー同期呼び出しに失敗しました:', syncErr)
     })
   } catch (syncErr) {
-    console.error('[CalendarSync] Web予約時のカレンダー同期呼び出しに失敗しました:', syncErr)
+    console.error('[CalendarSync] Web予約時のカレンダー同期呼び出しのセットアップに失敗しました:', syncErr)
   }
 
   return NextResponse.json({
