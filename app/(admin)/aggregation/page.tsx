@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
-import { calculateBack, BackCalculationInput } from '@/lib/calculateBack'
 import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
 
@@ -30,6 +29,8 @@ interface ReservationWithDetails {
   extension_count: number
   credit_fee_amount: number
   total_price: number | null
+  therapist_back_amount: number | null
+  shop_revenue: number | null
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
   reservation_options: { option_id: string | null; price: number; custom_name?: string | null; option?: { name: string } | null }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
@@ -141,45 +142,17 @@ export default function AggregationPage() {
           const fee = res.credit_fee_amount || 0
           dayCreditFee += fee
 
-          let calculatedTotalPrice = 0
-          let calculatedNetBack = 0
-
-          if (!therapist) {
+          // すでに計算されDBに保存されている値を優先使用（N+1問題を回避）
+          let calculatedTotalPrice = res.total_price
+          if (calculatedTotalPrice === null || calculatedTotalPrice === undefined) {
             const totalOptionsPrice = res.reservation_options?.reduce((sum, o) => sum + (o.price || 0), 0) || 0
             const totalDiscount = res.reservation_discounts?.reduce((sum, d) => sum + d.applied_amount, 0) || res.discount_amount || 0
             const basePrice = res.base_price || 0
             const nominationFee = res.nomination_fee || 0
-            calculatedTotalPrice = res.total_price ?? Math.max(0, basePrice + totalOptionsPrice + nominationFee - totalDiscount)
-            calculatedNetBack = 0
-          } else {
-            const input: BackCalculationInput = {
-              shopId: selectedShop.id,
-              therapistId: therapist.id,
-              therapistRankId: therapist.rank_id,
-              therapistBackCalcType: therapist.back_calc_type,
-              courseId: res.course_id,
-              coursePrice: res.course?.base_price ?? res.base_price ?? 0,
-              courseBackAmount: res.course?.back_amount || 0,
-              courseDuration: res.course?.duration || 0,
-              designationType: res.designation_type as any || 'free',
-              nominationFee: res.nomination_fee || 0,
-              options: (res.reservation_options || []).map(o => ({
-                option_id: o.option_id,
-                price: o.price,
-                custom_name: o.custom_name,
-                option: o.option,
-              })),
-              discounts: res.reservation_discounts || [],
-              discountAmount: res.discount_amount || 0,
-              date: res.date,
-              startTime: res.start_time,
-              extensionCount: res.extension_count || 0,
-            }
-
-            const calc = await calculateBack(input)
-            calculatedTotalPrice = calc.totalPrice
-            calculatedNetBack = calc.netBack
+            calculatedTotalPrice = Math.max(0, basePrice + totalOptionsPrice + nominationFee - totalDiscount)
           }
+
+          const calculatedNetBack = res.therapist_back_amount ?? 0
 
           daySales += calculatedTotalPrice
           dayBack += calculatedNetBack
@@ -377,11 +350,17 @@ export default function AggregationPage() {
         </div>
 
         {loading && (
-          <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+          <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4">
             <div className="bg-white p-6 rounded-2xl shadow-2xl border border-slate-200 flex items-center gap-4 animate-in fade-in zoom-in-95">
               <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
               <div className="font-bold text-slate-700">集計しています...</div>
             </div>
+            <Link
+              href="/"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow active:scale-95 transition-all z-10"
+            >
+              集計をキャンセルして戻る
+            </Link>
           </div>
         )}
       </div>
