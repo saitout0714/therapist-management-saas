@@ -781,7 +781,7 @@ function ShiftsContent() {
           courses(name, duration)
         `)
         .eq('shop_id', selectedShop.id)
-        .eq('date', filterDate)
+        .or(`business_date.eq.${filterDate},and(business_date.is.null,date.eq.${filterDate})`)
         .in('status', ['confirmed', 'blocked', 'pending']);
 
       if (error) throw error;

@@ -24,6 +24,7 @@ interface ReservationWithDetails {
   discount_amount: number
   designation_type: string
   date: string
+  business_date?: string | null
   start_time: string
   end_time: string
   extension_count: number
@@ -99,8 +100,7 @@ export default function AggregationPage() {
             customer:customers(name)
           `)
           .eq('shop_id', selectedShop.id)
-          .gte('date', startStr)
-          .lte('date', endStr)
+          .or(`and(business_date.gte.${startStr},business_date.lte.${endStr}),and(business_date.is.null,date.gte.${startStr},date.lte.${endStr})`)
           .neq('status', 'cancelled')
           .neq('status', 'blocked')
           .order('date', { ascending: true }),
@@ -121,8 +121,9 @@ export default function AggregationPage() {
 
       const dailyMap: Record<string, ReservationWithDetails[]> = {}
       reservations.forEach(res => {
-        if (!dailyMap[res.date]) dailyMap[res.date] = []
-        dailyMap[res.date].push(res)
+        const targetDate = res.business_date || res.date
+        if (!dailyMap[targetDate]) dailyMap[targetDate] = []
+        dailyMap[targetDate].push(res)
       })
 
       const results: DailySummary[] = []

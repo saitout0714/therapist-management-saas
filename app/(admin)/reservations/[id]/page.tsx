@@ -31,6 +31,7 @@ type Reservation = {
   therapist_id: string
   course_id: string
   date: string
+  business_date?: string | null
   start_time: string
   end_time: string
   base_price: number
@@ -143,7 +144,7 @@ export default function ReservationPreviewPage() {
         .from('shifts')
         .select('rooms(name, display_name, template_member, template_new_customer)')
         .eq('therapist_id', resData.therapist_id)
-        .eq('date', resData.date)
+        .eq('date', resData.business_date || resData.date)
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
 
@@ -222,7 +223,7 @@ export default function ReservationPreviewPage() {
     let text = `【ご予約内容のご確認】\n\n`
 
     // 日時（日付と時間を別行）
-    text += `■ 日時\n${reservation.date}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
+    text += `■ 日時\n${reservation.business_date || reservation.date}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
@@ -323,7 +324,7 @@ export default function ReservationPreviewPage() {
       displayBasePrice = originalCoursePrice
     }
 
-    let text = `【${reservation.date} ご予約詳細】\n\n`
+    let text = `【${reservation.business_date || reservation.date} ご予約詳細】\n\n`
 
     // 時間
     text += `■ 時間\n${toDisplayTime(reservation.start_time)}-${toDisplayTime(reservation.end_time)}\n\n`
@@ -454,12 +455,13 @@ export default function ReservationPreviewPage() {
   }
 
   const goBack = () => {
+    const targetDate = reservation?.business_date || reservation?.date
     if (fromPage === 'weekly') {
-      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}&view=week` : '/shifts?view=week'
+      window.location.href = targetDate ? `/shifts?date=${targetDate}&view=week` : '/shifts?view=week'
     } else if (fromPage === 'vertical') {
-      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}&view=vertical` : '/shifts?view=vertical'
+      window.location.href = targetDate ? `/shifts?date=${targetDate}&view=vertical` : '/shifts?view=vertical'
     } else if (fromPage === 'shifts') {
-      window.location.href = reservation?.date ? `/shifts?date=${reservation.date}` : '/shifts'
+      window.location.href = targetDate ? `/shifts?date=${targetDate}` : '/shifts'
     } else {
       router.push('/reservations')
     }
@@ -848,7 +850,7 @@ export default function ReservationPreviewPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-slate-500 font-medium">日時</div>
                   <div className="col-span-2 text-slate-800 font-bold">
-                    {reservation.date} <br/> {toDisplayTime(reservation.start_time)} - {toDisplayTime(reservation.end_time)}
+                    {reservation.business_date || reservation.date} <br/> {toDisplayTime(reservation.start_time)} - {toDisplayTime(reservation.end_time)}
                   </div>
                 </div>
                 

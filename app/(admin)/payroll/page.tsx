@@ -23,6 +23,7 @@ type ReservationWithDetails = {
   discount_amount: number
   designation_type: string
   date: string
+  business_date?: string | null
   start_time: string
   end_time: string
   extension_count: number
@@ -185,7 +186,7 @@ export default function PayrollPage() {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
-          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at, is_hime, hime_bonus,
+          id, course_id, base_price, options_price, nomination_fee, discount_amount, designation_type, date, business_date, start_time, end_time, extension_count, status, payment_method, options_payment_method, credit_fee_amount, therapist_back_amount, total_price, shop_revenue, back_calculated_at, is_hime, hime_bonus,
           course:courses(name, duration, base_price, back_amount),
           customer:customers(name),
           reservation_options(option_id, price, custom_name, custom_back_amount, option:options(name)),
@@ -193,7 +194,7 @@ export default function PayrollPage() {
         `)
         .eq('shop_id', selectedShop.id)
         .eq('therapist_id', selectedTherapistId)
-        .eq('date', targetDate)
+        .or(`business_date.eq.${targetDate},and(business_date.is.null,date.eq.${targetDate})`)
         .neq('status', 'cancelled')
         .neq('status', 'blocked')
         .order('start_time', { ascending: true })
@@ -236,7 +237,7 @@ export default function PayrollPage() {
               resolvedCustomerPrice: res.base_price || 0,
               totalDiscount: totalDiscount,
               therapistDiscountBurden: therapistBurden,
-              businessDate: res.date,
+              businessDate: res.business_date || res.date,
               appliedRate: null,
               calcMethod: '予約登録時に計算済み',
             },

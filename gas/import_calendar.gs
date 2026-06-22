@@ -217,6 +217,17 @@ function runImport(startDate, endDate) {
     var durationMin = calculateDuration(startTimeStr, endTimeStr);
     var matchedCourse = courseMap[durationMin] || null;
 
+    // 営業日の計算 (朝 06:00 前は前日の営業日)
+    var businessDateStr = dateStr;
+    var startParts = startTimeStr.split(':');
+    var startH = parseInt(startParts[0], 10);
+    var startM = parseInt(startParts[1], 10);
+    if (startH * 60 + startM < 6 * 60) {
+      var d = new Date(dateStr + 'T00:00:00+09:00');
+      d.setDate(d.getDate() - 1);
+      businessDateStr = formatDate(d);
+    }
+
     // 予約登録（APIコール1回）
     try {
       insertReservation(key, {
@@ -224,6 +235,7 @@ function runImport(startDate, endDate) {
         therapist_id:        therapist.id,
         customer_id:         customerId,
         date:                dateStr,
+        business_date:       businessDateStr,
         start_time:          startTimeStr,
         end_time:            endTimeStr,
         status:              'confirmed', // ★ 'completed' から 'confirmed' に変更して表示を可能にする

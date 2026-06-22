@@ -658,6 +658,7 @@ export default function EditReservationPage() {
       }
 
       // ★ バック再計算
+      let redirectDate = formData.date
       try {
         const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
         const selectedCourse = courses.find(c => c.id === formData.course_id)
@@ -702,6 +703,7 @@ export default function EditReservationPage() {
           himeBonus: formData.is_hime ? formData.hime_bonus : 0,
         }
         const backResult = await calculateBack(backInput)
+        redirectDate = backResult.businessDate || formData.date
         await supabase.from('reservations').update({
           therapist_back_amount: backResult.netBack,
           shop_revenue: backResult.shopRevenue,
@@ -730,11 +732,11 @@ export default function EditReservationPage() {
 
       // 遷移元に応じて戻る先を変更
       if (fromPage === 'weekly') {
-        window.location.href = `/shifts?date=${formData.date}&view=week`
+        window.location.href = `/shifts?date=${redirectDate}&view=week`
       } else if (fromPage === 'vertical') {
-        window.location.href = `/shifts?date=${formData.date}&view=vertical&scroll_to_time=${formData.start_time}`
+        window.location.href = `/shifts?date=${redirectDate}&view=vertical&scroll_to_time=${formData.start_time}`
       } else if (fromPage === 'shifts') {
-        window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
+        window.location.href = `/shifts?date=${redirectDate}&scroll_to_time=${formData.start_time}`
       } else {
         router.push('/reservations')
       }

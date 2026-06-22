@@ -60,6 +60,7 @@ interface Reservation {
   extension_count?: number
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
+  business_date?: string | null
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -203,10 +204,9 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
     ])
 
@@ -263,7 +263,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         const shiftEndStr = toDisplayTime(s.end_time)
         return reservations.some(
           r =>
-            r.date === dateStr &&
+            (r.business_date || r.date) === dateStr &&
             r.status === 'blocked' &&
             r.therapist_id === s.therapist_id &&
             toDisplayTime(r.start_time) === shiftStartStr &&
@@ -272,7 +272,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       }
 
       const hasUnassigned = reservations.some(
-        r => r.date === dateStr && r.therapist_id === null && r.status !== 'blocked'
+        r => (r.business_date || r.date) === dateStr && r.therapist_id === null && r.status !== 'blocked'
       )
 
       let others = [...list]
@@ -293,7 +293,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       } else if (sortMode === 'reservation') {
         const earliestMap = new Map<string, number>()
         reservations
-          .filter(r => r.date === dateStr && r.status === 'confirmed' && r.therapist_id)
+          .filter(r => (r.business_date || r.date) === dateStr && r.status === 'confirmed' && r.therapist_id)
           .forEach(r => {
             const mins = toMinutes(r.start_time.slice(0, 5))
             const cur = earliestMap.get(r.therapist_id) ?? 9999
@@ -309,7 +309,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           const therapist = therapistMap.get(shift.therapist_id)
           const interval = therapist?.reservation_interval_minutes ?? shopIntervalMinutes
           const therapistReservations = reservations.filter(
-            r => r.therapist_id === shift.therapist_id && r.date === dateStr && r.status === 'confirmed'
+            r => r.therapist_id === shift.therapist_id && (r.business_date || r.date) === dateStr && r.status === 'confirmed'
           )
           const lastEndMins = therapistReservations.length > 0
             ? Math.max(...therapistReservations.map(r => toMinutes(r.end_time.slice(0, 5))))
@@ -357,7 +357,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const reservationsByDateTherapist = useMemo(() => {
     const map = new Map<string, Reservation[]>()
     reservations.forEach(r => {
-      const key = `${r.date}_${r.therapist_id || 'unassigned'}`
+      const key = `${r.business_date || r.date}_${r.therapist_id || 'unassigned'}`
       const list = map.get(key) || []
       list.push(r)
       map.set(key, list)

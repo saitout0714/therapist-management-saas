@@ -9,6 +9,7 @@ import { toDisplayTime } from '@/lib/timeUtils'
 type Reservation = {
   id: string
   date: string
+  business_date?: string | null
   start_time: string
   end_time: string
   total_price: number
@@ -117,7 +118,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -437,7 +438,7 @@ export default function ReservationsPage() {
                             詳細
                           </Link>
                         </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.business_date || r.date}</td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
                           {toDisplayTime(r.start_time)} - {toDisplayTime(r.end_time)}
                         </td>
@@ -515,7 +516,7 @@ export default function ReservationsPage() {
                             詳細
                           </Link>
                           <span className="text-xs font-bold text-slate-800">
-                            {r.date} {toDisplayTime(r.start_time)}
+                            {r.business_date || r.date} {toDisplayTime(r.start_time)}
                           </span>
                           {r.created_at && (
                             <span className="text-[10px] font-normal text-slate-400">
