@@ -63,6 +63,7 @@ export default function CustomersPage() {
   const [totalCount, setTotalCount] = useState<number>(0)
   const [filteredCount, setFilteredCount] = useState<number | null>(null)
   const [currentPage, setCurrentPage] = useState<number>(1)
+  const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
   const fetchVisitCounts = useCallback(async (customerIds: string[]) => {
     if (!selectedShop || customerIds.length === 0) return
@@ -94,6 +95,17 @@ export default function CustomersPage() {
       const list = data || []
       setCustomers(list)
       await fetchVisitCounts(list.map((c) => c.id))
+
+      // NGセラピストを持つ顧客IDを取得
+      if (list.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', list.map((c) => c.id))
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
 
       // 総登録件数を取得
       const { count } = await supabase
@@ -135,6 +147,17 @@ export default function CustomersPage() {
       const list = data || []
       setCustomers(list)
       await fetchVisitCounts(list.map((c) => c.id))
+
+      // NGセラピストを持つ顧客IDを取得
+      if (list.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', list.map((c) => c.id))
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
     } catch (err) {
       console.error('顧客検索に失敗:', err)
     } finally {
@@ -509,6 +532,9 @@ export default function CustomersPage() {
                               <div className="flex flex-col">
                                 <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors flex items-center gap-1.5 flex-wrap">
                                   {customer.name}
+                                  {ngCustomerIds.has(customer.id) && (
+                                    <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                                  )}
                                   {customer.status === '出禁' && (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">出禁</span>
                                   )}

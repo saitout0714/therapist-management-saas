@@ -51,6 +51,7 @@ export default function ReservationsPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
+  const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
   const [draft, setDraft] = useState<SearchFilters>(EMPTY_FILTERS)
   const [applied, setApplied] = useState<SearchFilters>(EMPTY_FILTERS)
@@ -136,8 +137,21 @@ export default function ReservationsPage() {
 
     if (error) alert('予約の取得に失敗しました')
     else {
-      setReservations((data as unknown as Reservation[]) || [])
+      const reservationList = (data as unknown as Reservation[]) || []
+      setReservations(reservationList)
       setTotalCount(count ?? 0)
+
+      // NGセラピストを持つ顧客IDを取得
+      const cIds = reservationList.filter(r => r.customer).map(r => r.customer!.id)
+      if (cIds.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', cIds)
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
     }
     setLoading(false)
   }
@@ -442,8 +456,11 @@ export default function ReservationsPage() {
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">
                           {r.customer ? (
-                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity">
+                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1">
                               {r.customer.name}
+                              {ngCustomerIds.has(r.customer.id) && (
+                                <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                              )}
                             </Link>
                           ) : (
                             '-'
