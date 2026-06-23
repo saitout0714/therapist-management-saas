@@ -1669,7 +1669,7 @@ function hmToMinutesAllowing24Plus(hm) {
 }
 
 // 予約セルのパース
-function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration) {
+function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration, phoneDigitLength) {
   if (!text) return null;
   text = text.trim();
   if (text === '') return null;
@@ -1731,15 +1731,10 @@ function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration) {
   let phoneSuffix = '';
   let designation = 'free';
 
-  if (customerLine) {
-    // 電話番号下4桁の抽出
-    const phoneMatch = customerLine.match(/\d{4}/);
-    if (phoneMatch) {
-      phoneSuffix = phoneMatch[0];
-      customerLine = customerLine.replace(phoneSuffix, '');
-    }
+  // 桁数のデフォルトは4桁
+  phoneDigitLength = phoneDigitLength || 4;
 
-    // 指名区分およびキャンセル・休憩の抽出と判定
+  if (customerLine) {
     const cleanLower = customerLine.toLowerCase();
     
     // C（キャンセル）および Z（休憩・インターバル）は YOYAKL に登録しないため除外
@@ -1755,24 +1750,31 @@ function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration) {
       return null;
     }
 
+    // 指名区分の判定
     if (cleanLower.indexOf('b') !== -1 || cleanLower.indexOf('本') !== -1) {
       designation = 'confirmed';
-      customerLine = customerLine.replace(/[bB本]/g, '').replace(/指名/g, '');
     } else if (cleanLower.indexOf('s') !== -1 || cleanLower.indexOf('新') !== -1 || cleanLower.indexOf('初回') !== -1) {
       designation = 'first_nomination';
-      customerLine = customerLine.replace(/[sS新]/g, '').replace(/初回(指名)?/g, '');
     } else if (cleanLower.indexOf('指') !== -1) {
       designation = 'nomination';
-      customerLine = customerLine.replace(/指(名)?/g, '');
     } else if (cleanLower.indexOf('姫') !== -1) {
       designation = 'princess';
-      customerLine = customerLine.replace(/姫(予約)?/g, '');
     }
 
-    // 顧客名のクレンジング (様、括弧、余分なスペースの除去)
+    // 1. 指定桁数の数字（4桁または5桁）の抽出と除去（前後の位置を問わず抽出）
+    const digitRegex = new RegExp('\\d{' + phoneDigitLength + '}');
+    const phoneMatch = customerLine.match(digitRegex);
+    if (phoneMatch) {
+      phoneSuffix = phoneMatch[0];
+      customerLine = customerLine.replace(phoneSuffix, '');
+    }
+
+    // 2. 指名記号、区分ワード、カッコ、スペースなどのゴミを徹底的に排除
     customerName = customerLine
+      .replace(/[bBsS]/g, '')
       .replace(/[（\(\)）]/g, '')
-      .replace(/様$/, '')
+      .replace(/(ご?新規|初回|本指名|指名|フリー|会員|様)/g, '')
+      .replace(/[本指姫新]/g, '')
       .trim();
 
     if (!customerName) {
@@ -1922,6 +1924,12 @@ function exportDataToYoyakl() {
 
     dateSet.add(dateStr);
 
+    // 会員番号の桁数を決定 (クイーンテラスとローズカフェは5桁、その他は4桁)
+    let phoneDigitLength = 4;
+    if (shopKey === 'shop_queenterrace' || shopKey === 'shop_rosecafe' || sheetName === 'ﾃﾗｽ' || sheetName === 'ﾛｰｽﾞｶﾌｪ') {
+      phoneDigitLength = 5;
+    }
+
     let colResCount = 0;
     let rowIdx = 6;
     while (rowIdx < maxRows) {
@@ -1990,7 +1998,7 @@ function exportDataToYoyakl() {
       const defStart = minutesToHm(startMin);
       const defEnd = minutesToHm(endMin);
 
-      const parsedRes = parseReservationCell(targetText, defStart, defEnd, duration);
+      const parsedRes = parseReservationCell(targetText, defStart, defEnd, duration, phoneDigitLength);
       if (parsedRes) {
         reservations.push({
           date: dateStr,
