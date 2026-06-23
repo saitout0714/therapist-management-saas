@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -29,6 +28,255 @@ interface SyncPayload {
   }[]
 }
 
+interface CachedData {
+  shopBackRule: any
+  designationTypes: any[]
+  courseBackAmounts: any[]
+  therapistBackOverrides: any[]
+  rankBackRules: any[]
+  deductionRules: any[]
+  systemSettings: any
+  therapistPricings: any[]
+}
+
+// 高速インメモリ計算関数 (DBアクセスなし)
+function calculateBackInMemory(
+  input: {
+    shopId: string
+    therapistId: string
+    therapistRankId: string | null
+    therapistBackCalcType: 'percentage' | 'fixed' | 'half_split' | null
+    courseId: string
+    coursePrice: number
+    courseDuration: number
+    designationType: string // slug
+    date: string
+    startTime: string
+    courseBackAmount?: number
+  },
+  cache: CachedData
+) {
+  const shopRule = cache.shopBackRule || {
+    course_calc_type: 'fixed',
+    course_back_rate: 0,
+    course_back_amount: 0,
+    nomination_calc_type: 'full_back',
+    nomination_back_rate: 100,
+    rounding_method: 'floor',
+    business_day_cutoff: '06:00'
+  }
+
+  // 1. 営業日の解決
+  const resolveBusinessDate = (date: string, startTime: string, cutoff: string): string => {
+    const [cutH, cutM] = cutoff.split(':').map(Number)
+    const [startH, startM] = startTime.split(':').map(Number)
+    const cutMinutes = cutH * 60 + cutM
+    const startMinutes = startH * 60 + startM
+    if (startMinutes < cutMinutes) {
+      const d = new Date(date)
+      d.setDate(d.getDate() - 1)
+      return d.toISOString().split('T')[0]
+    }
+    return date
+  }
+  const businessDate = resolveBusinessDate(input.date, input.startTime, shopRule.business_day_cutoff)
+
+  // 2. 顧客料金・バック額のマトリクス解決
+  let effectiveCoursePrice = input.coursePrice
+  let matrixBackAmount: number | null = null
+  let source: 'matrix' | 'default' | 'fallback' = 'fallback'
+
+  // A. マトリクス表 (course_back_amounts)
+  if (input.therapistRankId) {
+    const row = cache.courseBackAmounts.find(
+      cba => cba.course_id === input.courseId &&
+             cba.rank_id === input.therapistRankId &&
+             cba.designation_type === input.designationType
+    )
+    if (row) {
+      effectiveCoursePrice = row.customer_price ?? row.course_price_override ?? input.coursePrice
+      matrixBackAmount = row.back_amount
+      source = 'matrix'
+    }
+  }
+
+  // B. 指名種別デフォルト (designation_types)
+  if (source === 'fallback') {
+    const dt = cache.designationTypes.find(d => d.slug === input.designationType)
+    if (dt) {
+      effectiveCoursePrice = input.coursePrice + (dt.default_fee || 0)
+      matrixBackAmount = dt.default_back_amount ?? null
+      source = 'default'
+    }
+  }
+
+  const matrixBackUsed = source === 'matrix' && matrixBackAmount !== null
+
+  // 3. 指名料の分離
+  const implicitNominationFee = (
+    !matrixBackUsed &&
+    source === 'default' &&
+    effectiveCoursePrice > input.coursePrice
+  ) ? effectiveCoursePrice - input.coursePrice : 0
+  const courseOnlyPrice = effectiveCoursePrice - implicitNominationFee
+  const nominationFeeForBack = implicitNominationFee
+
+  // 4. バック率の解決 (resolveBackRates)
+  let calcType = shopRule.course_calc_type
+  let courseRate = Number(shopRule.course_back_rate)
+  let nominationRate: number | null = null
+
+  if (input.therapistBackCalcType === 'half_split') {
+    calcType = 'half_split'
+    const override = cache.therapistBackOverrides.find(o => o.therapist_id === input.therapistId && o.course_id === input.courseId) ||
+                     cache.therapistBackOverrides.find(o => o.therapist_id === input.therapistId && o.course_id === null)
+    courseRate = override?.course_back_rate ?? 50
+  } else {
+    // セラピスト個別オーバーライド
+    const override = cache.therapistBackOverrides.find(o => o.therapist_id === input.therapistId && o.course_id === input.courseId) ||
+                     cache.therapistBackOverrides.find(o => o.therapist_id === input.therapistId && o.course_id === null)
+    if (override && override.course_back_rate !== null) {
+      calcType = 'percentage'
+      courseRate = override.course_back_rate
+      nominationRate = override.nomination_back_rate
+    } else if (input.therapistRankId) {
+      // ランク別
+      const rankRule = cache.rankBackRules.find(r => r.rank_id === input.therapistRankId)
+      if (rankRule && rankRule.course_back_rate !== null) {
+        courseRate = rankRule.course_back_rate
+      }
+    }
+  }
+
+  // 5. 端数処理
+  const applyRounding = (val: number, method: string): number => {
+    switch (method) {
+      case 'floor': return Math.floor(val)
+      case 'ceil': return Math.ceil(val)
+      case 'round': return Math.round(val)
+      default: return Math.floor(val)
+    }
+  }
+
+  let courseBack = 0
+  let nominationBack = 0
+  let calcMethod = ''
+
+  if (calcType === 'half_split') {
+    // 折半
+    const halfSplitNominationBack = (implicitNominationFee > 0 && matrixBackAmount !== null)
+      ? matrixBackAmount
+      : nominationFeeForBack
+    const courseHalfBack = (input.courseBackAmount && input.courseBackAmount > 0)
+      ? input.courseBackAmount
+      : applyRounding((courseOnlyPrice - 0) * courseRate / 100, shopRule.rounding_method)
+    const totalBack = courseHalfBack + halfSplitNominationBack
+
+    // 控除
+    let deductions = 0
+    let allowances = 0
+    cache.deductionRules.forEach(rule => {
+      if (rule.calc_timing === 'per_reservation' && input.courseDuration >= rule.min_duration) {
+        if (rule.category === 'deduction' || rule.category === 'penalty') deductions += rule.amount
+        else if (rule.category === 'allowance') allowances += rule.amount
+      }
+    })
+
+    const totalPrice = courseOnlyPrice + nominationFeeForBack
+    return {
+      courseBack: courseHalfBack,
+      nominationBack: halfSplitNominationBack,
+      totalBack,
+      deductions,
+      allowances,
+      netBack: totalBack - deductions + allowances,
+      shopRevenue: totalPrice - totalBack,
+      totalPrice,
+      resolvedCustomerPrice: effectiveCoursePrice,
+      businessDate,
+      calcMethod: `総売上折半方式（${courseRate}%）`
+    }
+  }
+
+  // 通常計算 (percentage or fixed)
+  if (matrixBackUsed) {
+    courseBack = matrixBackAmount!
+    calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+  } else if (calcType === 'percentage') {
+    if (input.courseBackAmount && input.courseBackAmount > 0) {
+      courseBack = input.courseBackAmount
+      calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
+    } else {
+      courseBack = applyRounding(courseOnlyPrice * courseRate / 100, shopRule.rounding_method)
+      calcMethod = `パーセンテージ（${courseRate}%）`
+    }
+  } else if (calcType === 'fixed') {
+    if (matrixBackAmount) {
+      courseBack = matrixBackAmount
+      calcMethod = `固定額（詳細設定: ¥${courseBack.toLocaleString()}）`
+    } else if (input.courseBackAmount && input.courseBackAmount > 0) {
+      courseBack = input.courseBackAmount
+      calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
+    } else {
+      courseBack = 0
+      calcMethod = '固定額（未設定 → 0円）'
+    }
+  }
+
+  // 指名料バック
+  if (nominationFeeForBack > 0) {
+    if (implicitNominationFee > 0 && matrixBackAmount !== null) {
+      nominationBack = matrixBackAmount
+    } else {
+      switch (shopRule.nomination_calc_type) {
+        case 'full_back':
+          nominationBack = nominationFeeForBack
+          break
+        case 'percentage':
+          const nomRate = nominationRate ?? shopRule.nomination_back_rate
+          nominationBack = applyRounding(nominationFeeForBack * nomRate / 100, shopRule.rounding_method)
+          break
+        default:
+          nominationBack = nominationFeeForBack
+      }
+    }
+  }
+
+  if (matrixBackUsed) {
+    courseBack = Math.max(0, courseBack - nominationBack)
+  }
+
+  const totalBack = courseBack + nominationBack
+
+  // 控除
+  let deductions = 0
+  let allowances = 0
+  cache.deductionRules.forEach(rule => {
+    if (rule.calc_timing === 'per_reservation' && input.courseDuration >= rule.min_duration) {
+      if (rule.category === 'deduction' || rule.category === 'penalty') deductions += rule.amount
+      else if (rule.category === 'allowance') allowances += rule.amount
+    }
+  })
+
+  const totalPrice = courseOnlyPrice + nominationFeeForBack
+  const netBack = totalBack - deductions + allowances
+  const shopRevenue = totalPrice - totalBack
+
+  return {
+    courseBack,
+    nominationBack,
+    totalBack,
+    deductions,
+    allowances,
+    netBack: Math.max(0, netBack),
+    shopRevenue: Math.max(0, shopRevenue),
+    totalPrice,
+    resolvedCustomerPrice: effectiveCoursePrice,
+    businessDate,
+    calcMethod
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body: SyncPayload = await req.json()
@@ -50,22 +298,58 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 2. マスタデータの取得 (セラピスト、ルーム、コース、既存顧客)
-    const [therapistsRes, roomsRes, coursesRes, customersRes] = await Promise.all([
+    // 2. 基本マスタデータの一括取得 (セラピスト、ルーム、コース)
+    const [therapistsRes, roomsRes, coursesRes] = await Promise.all([
       supabase.from('therapists').select('id, name, rank_id, back_calc_type').eq('shop_id', shopId),
       supabase.from('rooms').select('id, name').eq('shop_id', shopId),
       supabase.from('courses').select('id, name, duration, base_price, back_amount').eq('shop_id', shopId).eq('is_active', true),
-      supabase.from('customers').select('id, name, phone').eq('shop_id', shopId)
     ])
 
-    if (therapistsRes.error || roomsRes.error || coursesRes.error || customersRes.error) {
-      throw new Error(`マスタデータの取得に失敗しました: ${therapistsRes.error?.message || roomsRes.error?.message || coursesRes.error?.message || customersRes.error?.message}`)
+    if (therapistsRes.error || roomsRes.error || coursesRes.error) {
+      throw new Error(`基本マスタデータの取得に失敗しました: ${therapistsRes.error?.message || roomsRes.error?.message || coursesRes.error?.message}`)
     }
 
     const therapists = therapistsRes.data || []
     const rooms = roomsRes.data || []
     const courses = coursesRes.data || []
-    const customers = customersRes.data || []
+
+    // 3. バック額のインメモリ計算用マスタデータの一括取得 (Pre-fetch)
+    const therapistIds = Array.from(new Set(therapists.map(t => t.id)))
+    
+    const [
+      designationTypesRes,
+      shopBackRulesRes,
+      systemSettingsRes,
+      therapistPricingsRes,
+      therapistBackOverridesRes,
+      rankBackRulesRes,
+      deductionRulesRes,
+      courseBackAmountsRes
+    ] = await Promise.all([
+      supabase.from('designation_types').select('id, slug, default_fee, default_back_amount, is_store_paid_back').eq('shop_id', shopId),
+      supabase.from('shop_back_rules').select('*').eq('shop_id', shopId).maybeSingle(),
+      supabase.from('system_settings').select('*').eq('shop_id', shopId).maybeSingle(),
+      therapistIds.length > 0
+        ? supabase.from('therapist_pricing').select('*').in('therapist_id', therapistIds)
+        : Promise.resolve({ data: [] }),
+      therapistIds.length > 0
+        ? supabase.from('therapist_back_overrides').select('*').in('therapist_id', therapistIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from('rank_back_rules').select('*').eq('shop_id', shopId),
+      supabase.from('deduction_rules').select('*').eq('shop_id', shopId).eq('is_active', true),
+      supabase.from('course_back_amounts').select('*').eq('shop_id', shopId)
+    ])
+
+    const cache: CachedData = {
+      shopBackRule: shopBackRulesRes.data || null,
+      designationTypes: designationTypesRes.data || [],
+      courseBackAmounts: courseBackAmountsRes.data || [],
+      therapistBackOverrides: therapistBackOverridesRes.data || [],
+      rankBackRules: rankBackRulesRes.data || [],
+      deductionRules: deductionRulesRes.data || [],
+      systemSettings: systemSettingsRes.data || null,
+      therapistPricings: therapistPricingsRes.data || []
+    }
 
     // セラピスト名マッピング (前方一致にも対応)
     const findTherapist = (name: string) => {
@@ -100,21 +384,70 @@ export async function POST(req: NextRequest) {
       return null
     }
 
-    // 顧客の特定 (名前 + 電話番号下4桁)
-    const findCustomer = (name: string, phoneSuffix?: string) => {
-      const cleanName = name.trim()
-      const matchedByName = customers.filter(c => c.name.trim() === cleanName)
-      if (matchedByName.length === 0) return null
+    // 4. 顧客の一括取得と、存在しない顧客のバルクインサートによる高速化
+    const customerNames = Array.from(new Set(reservations.map(r => r.customer_name.trim())))
+    const { data: dbCustomers, error: custFetchError } = await supabase
+      .from('customers')
+      .select('id, name, phone')
+      .eq('shop_id', shopId)
+      .in('name', customerNames)
 
-      if (phoneSuffix) {
-        const matchedByPhone = matchedByName.find(c => c.phone && c.phone.replace(/[^0-9]/g, '').endsWith(phoneSuffix))
-        if (matchedByPhone) return matchedByPhone.id
-      }
-      
-      return matchedByName[0].id
+    if (custFetchError) {
+      throw new Error(`既存顧客データの取得に失敗しました: ${custFetchError.message}`)
     }
 
-    // 3. 既存の該当期間・店舗の shifts と reservations を一括削除
+    const customerMap = new Map<string, string>() // key (name_phoneSuffix) -> customerId
+
+    const findDbCustomer = (name: string, phoneSuffix?: string) => {
+      const cleanName = name.trim()
+      const matched = dbCustomers?.filter(c => c.name.trim() === cleanName) || []
+      if (matched.length === 0) return null
+      if (phoneSuffix) {
+        const found = matched.find(c => c.phone && c.phone.replace(/[^0-9]/g, '').endsWith(phoneSuffix))
+        if (found) return found.id
+      }
+      return matched[0].id
+    }
+
+    const uniqueCustomerKeys = Array.from(new Set(reservations.map(r => `${r.customer_name.trim()}_${r.phone_suffix || ''}`)))
+    const customersToInsert = []
+
+    for (const key of uniqueCustomerKeys) {
+      const [name, phoneSuffix] = key.split('_')
+      const dbId = findDbCustomer(name, phoneSuffix)
+      if (dbId) {
+        customerMap.set(key, dbId)
+      } else {
+        const phoneVal = phoneSuffix ? `0000000${phoneSuffix}` : null
+        customersToInsert.push({
+          shop_id: shopId,
+          name: name.trim(),
+          phone: phoneVal,
+          status: '予約可'
+        })
+      }
+    }
+
+    if (customersToInsert.length > 0) {
+      const { data: insertedCusts, error: insertCustError } = await supabase
+        .from('customers')
+        .insert(customersToInsert)
+        .select('id, name, phone')
+
+      if (insertCustError) {
+        throw new Error(`新規顧客の一括作成に失敗しました: ${insertCustError.message}`)
+      }
+
+      if (insertedCusts) {
+        for (const c of insertedCusts) {
+          const phoneSuffix = c.phone ? c.phone.slice(-4) : ''
+          const key = `${c.name.trim()}_${phoneSuffix}`
+          customerMap.set(key, c.id)
+        }
+      }
+    }
+
+    // 5. 既存の該当期間・店舗の shifts と reservations を一括削除
     const { error: delResError } = await supabase
       .from('reservations')
       .delete()
@@ -135,7 +468,7 @@ export async function POST(req: NextRequest) {
       throw new Error(`既存出勤データのクリーンアップに失敗しました: ${delShiftsError.message}`)
     }
 
-    // 4. 出勤情報 (shifts) のインサート
+    // 6. 出勤情報 (shifts) のインサート
     const shiftRows = []
     for (const s of shifts) {
       const therapist = findTherapist(s.therapist_name)
@@ -164,20 +497,18 @@ export async function POST(req: NextRequest) {
 
     let insertedShiftsCount = 0
     if (shiftRows.length > 0) {
-      const { data: insShifts, error: insShiftsError } = await supabase
+      const { error: insShiftsError } = await supabase
         .from('shifts')
         .insert(shiftRows)
-        .select('id')
 
       if (insShiftsError) {
         throw new Error(`出勤情報のインサートに失敗しました: ${insShiftsError.message}`)
       }
-      insertedShiftsCount = insShifts?.length || 0
+      insertedShiftsCount = shiftRows.length
     }
 
-    // 5. 予約情報 (reservations) のインサート
+    // 7. 予約情報 (reservations) のインメモリ計算とインサート
     const reservationRows = []
-    const newCustomersCache = new Map<string, string>()
 
     for (const r of reservations) {
       const therapist = findTherapist(r.therapist_name)
@@ -186,33 +517,11 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      const cleanCustomerName = r.customer_name.trim()
-      let customerId = findCustomer(cleanCustomerName, r.phone_suffix)
-
+      const cacheKey = `${r.customer_name.trim()}_${r.phone_suffix || ''}`
+      const customerId = customerMap.get(cacheKey)
       if (!customerId) {
-        const cacheKey = `${cleanCustomerName}_${r.phone_suffix || ''}`
-        if (newCustomersCache.has(cacheKey)) {
-          customerId = newCustomersCache.get(cacheKey)!
-        } else {
-          const phoneVal = r.phone_suffix ? `0000000${r.phone_suffix}` : null
-          const { data: newCust, error: custError } = await supabase
-            .from('customers')
-            .insert({
-              shop_id: shopId,
-              name: cleanCustomerName,
-              phone: phoneVal,
-              status: '予約可'
-            })
-            .select('id')
-            .single()
-
-          if (custError || !newCust) {
-            console.error(`[SpreadsheetSync] Failed to create customer: ${cleanCustomerName}`, custError?.message)
-            continue
-          }
-          customerId = newCust.id
-          newCustomersCache.set(cacheKey, customerId)
-        }
+        console.warn(`[SpreadsheetSync] Customer resolved failed for reservation: ${r.customer_name}`)
+        continue
       }
 
       const course = findCourse(r.duration)
@@ -222,48 +531,38 @@ export async function POST(req: NextRequest) {
       const courseDuration = course?.duration || r.duration
 
       const designationType = r.designation_type || 'free'
-      let designationTypeId = null
-      
-      const { data: dtRow } = await supabase
-        .from('designation_types')
-        .select('id, default_fee, is_store_paid_back')
-        .eq('shop_id', shopId)
-        .eq('slug', designationType)
-        .maybeSingle()
+      const dtRow = cache.designationTypes.find(dt => dt.slug === designationType)
+      const designationTypeId = dtRow?.id || null
 
-      if (dtRow) {
-        designationTypeId = dtRow.id
-      }
-
-      let resolvedPrice = { customerPrice: coursePrice }
-      try {
-        resolvedPrice = await resolveCustomerPrice(
+      // インメモリで売上・指名料・バックを高速計算
+      const backResult = calculateBackInMemory(
+        {
           shopId,
-          courseId || '',
-          therapist.rank_id || null,
+          therapistId: therapist.id,
+          therapistRankId: therapist.rank_id || null,
+          therapistBackCalcType: therapist.back_calc_type as any,
+          courseId: courseId || '',
+          coursePrice: coursePrice,
+          courseDuration: courseDuration,
           designationType,
-          coursePrice,
-          supabase
-        )
-      } catch (err) {
-        console.warn(`[SpreadsheetSync] resolveCustomerPrice failed, using course base price:`, err)
-      }
+          date: r.date,
+          startTime: r.start_time,
+          courseBackAmount: courseBackAmount
+        },
+        cache
+      )
 
-      let basePrice = resolvedPrice.customerPrice
+      // 指名料の算出
+      let basePrice = backResult.resolvedCustomerPrice
       let nominationFee = 0
 
       if (designationType !== 'free' && !dtRow?.is_store_paid_back) {
-        if (resolvedPrice.customerPrice > coursePrice) {
-          nominationFee = resolvedPrice.customerPrice - coursePrice
+        if (backResult.resolvedCustomerPrice > coursePrice) {
+          nominationFee = backResult.resolvedCustomerPrice - coursePrice
           basePrice = coursePrice
         } else {
-          const [settingsRes, pricingRes] = await Promise.all([
-            supabase.from('system_settings').select('default_nomination_fee, default_confirmed_nomination_fee, default_princess_reservation_fee').eq('shop_id', shopId).maybeSingle(),
-            supabase.from('therapist_pricing').select('nomination_fee, confirmed_nomination_fee, princess_reservation_fee').eq('therapist_id', therapist.id).maybeSingle()
-          ])
-
-          const systemSettings = settingsRes.data
-          const therapistPricing = pricingRes.data
+          const therapistPricing = cache.therapistPricings.find(tp => tp.therapist_id === therapist.id)
+          const systemSettings = cache.systemSettings
 
           const defaultNominationFee = systemSettings?.default_nomination_fee || 0
           const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
@@ -280,35 +579,6 @@ export async function POST(req: NextRequest) {
             nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
           }
         }
-      }
-
-      let therapistBackAmount = 0
-      let shopRevenue = 0
-      let businessDate = r.date
-
-      try {
-        const backResult = await calculateBack({
-          shopId,
-          therapistId: therapist.id,
-          therapistRankId: therapist.rank_id || null,
-          therapistBackCalcType: therapist.back_calc_type || null,
-          courseId: courseId || '',
-          coursePrice: coursePrice,
-          courseBackAmount: courseBackAmount,
-          courseDuration: courseDuration,
-          designationType,
-          nominationFee,
-          options: [],
-          discounts: [],
-          date: r.date,
-          startTime: r.start_time,
-          supabaseClient: supabase
-        })
-        therapistBackAmount = backResult.netBack
-        shopRevenue = backResult.shopRevenue
-        businessDate = backResult.businessDate
-      } catch (err) {
-        console.error(`[SpreadsheetSync] calculateBack failed:`, err)
       }
 
       const formatTime = (t: string) => {
@@ -338,25 +608,24 @@ export async function POST(req: NextRequest) {
         discount_amount: 0,
         designation_type: designationType,
         designation_type_id: designationTypeId,
-        therapist_back_amount: therapistBackAmount,
-        shop_revenue: shopRevenue,
+        therapist_back_amount: backResult.netBack,
+        shop_revenue: backResult.shopRevenue,
         back_calculated_at: new Date().toISOString(),
-        business_date: businessDate,
+        business_date: backResult.businessDate,
         notes: r.notes || 'スプレッドシート同期'
       })
     }
 
     let insertedReservationsCount = 0
     if (reservationRows.length > 0) {
-      const { data: insReservations, error: insReservationsError } = await supabase
+      const { error: insReservationsError } = await supabase
         .from('reservations')
         .insert(reservationRows)
-        .select('id')
 
       if (insReservationsError) {
         throw new Error(`予約情報のインサートに失敗しました: ${insReservationsError.message}`)
       }
-      insertedReservationsCount = insReservations?.length || 0
+      insertedReservationsCount = reservationRows.length
     }
 
     return NextResponse.json({

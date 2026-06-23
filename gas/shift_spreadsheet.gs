@@ -1999,63 +1999,95 @@ function exportDataToYoyakl() {
 
   // YOYAKL API への送信
   const token = 'yoyakl_sync_token_2026';
-  // TODO: 本番稼働時は 'https://your-yoyakl-domain.com' に置き換えてください
+  // ⚠️ 接続先のURLを書き換えてください (例: 'https://xxx.vercel.app' など)
   const baseUrl = 'http://localhost:3000';
-  const url = `${baseUrl}/api/sync-from-spreadsheet`;
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+  const url = `${cleanBaseUrl}/api/sync-from-spreadsheet`;
 
-  const payload = {
-    token: token,
-    shopId: config.supabaseShopId,
-    dates: Array.from(dateSet),
-    shifts: shifts,
-    reservations: reservations
-  };
+  // 日付の配列を取得し、昇順にソート
+  const dateList = Array.from(dateSet).sort();
+  let totalShiftsSynced = 0;
+  let totalReservationsSynced = 0;
 
-  try {
-    const response = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
+  // 進捗表示用のトーストを表示
+  SpreadsheetApp.getActiveSpreadsheet().toast('同期処理を開始します...', '🔄 YOYAKL同期', 5);
 
-    const code = response.getResponseCode();
-    const text = response.getContentText();
+  for (let i = 0; i < dateList.length; i++) {
+    const targetDate = dateList[i];
+    
+    // その日のデータを抽出
+    const dayShifts = shifts.filter(s => s.date === targetDate);
+    const dayReservations = reservations.filter(r => r.date === targetDate);
 
-    if (code === 200) {
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (parseErr) {
-        let errorDetail = `サーバーから正常応答(200 OK)を受け取りましたが、データ形式が不正です(JSONではありません)。\n\n`;
-        errorDetail += `■ 返ってきた内容 (先頭500文字):\n${text.slice(0, 500)}\n\n`;
-        errorDetail += `※ ローカルサーバー(localhost)に接続しようとしてGoogleのプロキシエラーが発生しているか、ngrokの警告画面が表示されている可能性があります。\n`;
-        errorDetail += `※ GAS内の baseUrl (現在の値: "${baseUrl}") が正しい接続先ドメインになっているか確認してください。`;
-        ui.alert('❌ レスポンス解析エラー (HTTP 200)', errorDetail, ui.ButtonSet.OK);
-        return;
-      }
+    // トーストで進捗を表示
+    const progressMsg = `[${i + 1}/${dateList.length}日] ${targetDate} を同期中 (出勤: ${dayShifts.length}件, 予約: ${dayReservations.length}件)...`;
+    SpreadsheetApp.getActiveSpreadsheet().toast(progressMsg, '🔄 YOYAKL同期中', 15);
+    SpreadsheetApp.flush();
 
-      if (result.success) {
-        let successMsg = `✅ YOYAKL への同期が成功しました！\n出勤: ${result.shifts_count} 件\n予約: ${result.reservations_count} 件`;
-        if (logs.length > 0) {
-          successMsg += `\n\n【デバッグログ】\n` + logs.slice(0, 10).join('\n');
-          if (logs.length > 10) successMsg += '\n...他多数';
+    const payload = {
+      token: token,
+      shopId: config.supabaseShopId,
+      dates: [targetDate], // 1日分のみ
+      shifts: dayShifts,
+      reservations: dayReservations
+    };
+
+    try {
+      const response = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+
+      const code = response.getResponseCode();
+      const text = response.getContentText();
+
+      if (code === 200) {
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (parseErr) {
+          let errorDetail = `【${targetDate} の同期中にエラー】\n`;
+          errorDetail += `サーバーから正常応答(200 OK)を受け取りましたが、データ形式が不正です(JSONではありません)。\n\n`;
+          errorDetail += `■ 返ってきた内容 (先頭500文字):\n${text.slice(0, 500)}\n\n`;
+          errorDetail += `※ GAS内の baseUrl (現在の値: "${baseUrl}") が正しい接続先ドメインになっているか確認してください。`;
+          ui.alert(`❌ レスポンス解析エラー (HTTP 200) - ${targetDate}`, errorDetail, ui.ButtonSet.OK);
+          return;
         }
-        ui.alert('✅ 同期完了', successMsg, ui.ButtonSet.OK);
+
+        if (result.success) {
+          totalShiftsSynced += result.shifts_count || 0;
+          totalReservationsSynced += result.reservations_count || 0;
+        } else {
+          let errDetail = `【${targetDate} の同期中にエラー】\n`;
+          errDetail += `エラーが発生しました:\n${result.error || text}\n\n`;
+          ui.alert(`❌ 同期失敗 - ${targetDate}`, errDetail, ui.ButtonSet.OK);
+          return; // ループ中断
+        }
       } else {
-        ui.alert('❌ 同期失敗', `エラーが発生しました:\n${result.error || text}\n\n【デバッグログ】\n` + logs.join('\n'), ui.ButtonSet.OK);
+        // 500 や 404 などの HTML エラー時
+        let errorDetail = `【${targetDate} の同期中にエラー】\n`;
+        errorDetail += `サーバーでエラーが発生しました (HTTP ${code})。\n\n`;
+        errorDetail += `■ 返ってきた内容 (先頭500文字):\n${text.slice(0, 500)}\n\n`;
+        errorDetail += `※ APIサーバーで例外が発生したか、またはルーティングが存在しない可能性があります。\n`;
+        errorDetail += `※ GAS内の baseUrl (現在の値: "${baseUrl}") および APIサーバーのデプロイ状況を確認してください。`;
+        ui.alert(`❌ 同期失敗 (HTTP ${code}) - ${targetDate}`, errorDetail, ui.ButtonSet.OK);
+        return; // ループ中断
       }
-    } else {
-      // 500 や 404 などの HTML エラー時
-      let errorDetail = `サーバーでエラーが発生しました (HTTP ${code})。\n\n`;
-      errorDetail += `■ 返ってきた内容 (先頭500文字):\n${text.slice(0, 500)}\n\n`;
-      errorDetail += `※ APIサーバーで例外が発生したか、またはルーティングが存在しない可能性があります。\n`;
-      errorDetail += `※ GAS内の baseUrl (現在の値: "${baseUrl}") および APIサーバーのデプロ状況を確認してください。`;
-      ui.alert('❌ 同期失敗 (HTTP ' + code + ')', errorDetail, ui.ButtonSet.OK);
+    } catch (err) {
+      ui.alert(`❌ 通信エラー - ${targetDate}`, `【${targetDate} の同期中に通信エラーが発生しました】\n${String(err)}`, ui.ButtonSet.OK);
+      return; // ループ中断
     }
-  } catch (err) {
-    ui.alert('❌ 通信エラー', `サーバーとの通信に失敗しました:\n${String(err)}\n\n【デバッグログ】\n` + logs.join('\n'), ui.ButtonSet.OK);
   }
+
+  // すべて完了したら成功アラート
+  let successMsg = `✅ YOYAKL へのすべての同期が成功しました！\n対象日程数: ${dateList.length} 日間\n総出勤数: ${totalShiftsSynced} 件\n総予約数: ${totalReservationsSynced} 件`;
+  if (logs.length > 0) {
+    successMsg += `\n\n【デバッグログ】\n` + logs.slice(0, 10).join('\n');
+    if (logs.length > 10) successMsg += '\n...他多数';
+  }
+  ui.alert('✅ 同期完了', successMsg, ui.ButtonSet.OK);
 }
 
 
