@@ -1727,7 +1727,7 @@ function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration, p
   }
 
   // 顧客名、電話番号、指名区分のパース
-  let customerName = 'ゲスト';
+  let customerName = '';
   let phoneSuffix = '';
   let designation = 'free';
 
@@ -1750,36 +1750,50 @@ function parseReservationCell(text, defaultStart, defaultEnd, defaultDuration, p
       return null;
     }
 
+    // 指名区分の判定対象文字列を作成（2行目と3行目の1行目を結合）
+    let designationTarget = customerLine;
+    if (memoLines.length > 0) {
+      designationTarget += '\n' + memoLines[0];
+    }
+    const cleanDesignationTarget = designationTarget.toLowerCase();
+
     // 指名区分の判定
-    if (cleanLower.indexOf('b') !== -1 || cleanLower.indexOf('本') !== -1) {
+    const isConfirmed = ['b', 'ｂ', '本', '本指名', 'ほん', 'ほん指名'].some(k => cleanDesignationTarget.indexOf(k) !== -1);
+    const isFirstNomination = ['s', 'ｓ', '新', '新指', '新規', '初回', '初回指名'].some(k => cleanDesignationTarget.indexOf(k) !== -1);
+    const isNomination = ['指', '指名', 'しめい'].some(k => cleanDesignationTarget.indexOf(k) !== -1);
+    const isPrincess = ['姫', '姫予約', 'ひめ'].some(k => cleanDesignationTarget.indexOf(k) !== -1);
+
+    if (isConfirmed) {
       designation = 'confirmed';
-    } else if (cleanLower.indexOf('s') !== -1 || cleanLower.indexOf('新') !== -1 || cleanLower.indexOf('初回') !== -1) {
+    } else if (isFirstNomination) {
       designation = 'first_nomination';
-    } else if (cleanLower.indexOf('指') !== -1) {
+    } else if (isNomination) {
       designation = 'nomination';
-    } else if (cleanLower.indexOf('姫') !== -1) {
+    } else if (isPrincess) {
       designation = 'princess';
     }
 
-    // 1. 指定桁数の数字（4桁または5桁）の抽出と除去（前後の位置を問わず抽出）
+    // 1. 指定桁数の数字（4桁または5桁）の抽出（顧客名からは除去せず残す）
     const digitRegex = new RegExp('\\d{' + phoneDigitLength + '}');
     const phoneMatch = customerLine.match(digitRegex);
     if (phoneMatch) {
       phoneSuffix = phoneMatch[0];
-      customerLine = customerLine.replace(phoneSuffix, '');
     }
 
     // 2. 指名記号、区分ワード、カッコ、スペースなどのゴミを徹底的に排除
     customerName = customerLine
-      .replace(/[bBsS]/g, '')
+      .replace(/[bBsSｂｂｓｓ]/g, '') // 全角のｂ, ｓも追加
       .replace(/[（\(\)）]/g, '')
       .replace(/(ご?新規|初回|本指名|指名|フリー|会員|様)/g, '')
       .replace(/[本指姫新]/g, '')
+      .replace(/[\s　]+/g, '') // スペースも完全に除去
       .trim();
 
     if (!customerName) {
-      customerName = 'ゲスト';
+      return null; // 名前部分が空になったら無効な予約としてスキップ
     }
+  } else {
+    return null; // 顧客名セルが空欄の場合は無効な予約としてスキップ
   }
 
   return {
@@ -1835,7 +1849,7 @@ function exportDataToYoyakl() {
   }
 
   // シート内のすべての結合セルを一括ロードしてメモリ上にインデックス化
-  const mergedRanges = sheet.getRange(1, 1, maxRows, maxCols).getMergedRanges();
+  const mergedRanges = sheet.getDataRange().getMergedRanges();
   const mergeMap = new Map();
   for (const r of mergedRanges) {
     const startRow = r.getRow();
@@ -1933,36 +1947,63 @@ function exportDataToYoyakl() {
     let colResCount = 0;
     let rowIdx = 6;
     while (rowIdx < maxRows) {
-      const cellText = values[rowIdx][colIdx];
-
-      // 結合情報の取得
-      const cellKey = `${rowIdx + 1}_${colIdx + 1}`;
-      let startRow = rowIdx + 1;
-      let endRow = rowIdx + 1;
-      
-      if (mergeMap.has(cellKey)) {
-        const m = mergeMap.get(cellKey);
-        startRow = m.startRow;
-        endRow = m.endRow;
+      const cellText = values[rowIdx][colIdx] ? values[rowIdx][colIdx].trim() : "";
+      if (cellText === "") {
+        rowIdx++;
+        continue;
       }
 
-      // セルに入力されているテキスト（お客様名や時間など）を決定
-      // 2行以上の結合セルの場合、2行目（お客様名＋会員番号が入っているセル）から優先取得
-      let targetText = "";
-      if (startRow < endRow) {
-        const line1 = values[startRow - 1][colIdx] ? values[startRow - 1][colIdx].trim() : "";
-        const line2 = values[startRow][colIdx] ? values[startRow][colIdx].trim() : "";
+      // 時間表記（例: 1200-1330, 12:00-13:30 など）にマッチするか
+      const timeRegex = /(\d{1,2})[：:]?(\d{2})[\s\-〜~ー]+(\d{1,2})[：:]?(\d{2})/;
+      const timeMatch = cellText.match(timeRegex);
+
+      if (timeMatch) {
+        const startH = timeMatch[1].padStart(2, '0');
+        const startM = timeMatch[2];
+        const endH = timeMatch[3].padStart(2, '0');
+        const endM = timeMatch[4];
+        const startTime = `${startH}:${startM}`;
+        const endTime = `${endH}:${endM}`;
+
+        const startMin = hmToMinutesAllowing24Plus(startTime);
+        const endMin = hmToMinutesAllowing24Plus(endTime);
+        const duration = (startMin != null && endMin != null) ? (endMin - startMin) : 60; // デフォルト60分
+
+        // 顧客名とメモの取得先を判定（非結合セルの縦並びに対応）
+        let targetText = cellText;
+        const cellLines = cellText.split('\n').map(l => l.trim()).filter(l => l !== '');
         
-        if (line2 !== "") {
-          targetText = line2;
+        if (cellLines.length > 1) {
+          // すでにセル内に複数行（改行区切り）で情報が入っている場合
         } else {
-          targetText = line1;
+          // 非結合セルで、下の行に顧客名や指名区分がバラバラに入っている場合
+          // 予約時間（duration）に対応するステップ数の範囲で、次の時間表記が現れる前までのセルをマージする
+          const lines = [cellText];
+          const steps = Math.max(1, Math.floor(duration / 10));
+          
+          for (let offset = 1; offset < steps; offset++) {
+            if (rowIdx + offset >= maxRows) break;
+            const nextCellText = values[rowIdx + offset][colIdx] ? values[rowIdx + offset][colIdx].trim() : "";
+            
+            // 途中で別の時間表記が現れたら、それは別の予約なのでマージをストップする
+            if (nextCellText.match(timeRegex)) {
+              break;
+            }
+            if (nextCellText !== "") {
+              lines.push(nextCellText);
+            }
+          }
+          targetText = lines.join('\n');
         }
 
-        // 【追加要件】3行目のセルに値が入力されている場合、指名・本指名・フリー以外の無関係な文字列なら無視（スキップ）する
-        if (startRow + 1 <= endRow) {
-          const line3 = values[startRow + 1][colIdx] ? values[startRow + 1][colIdx].trim().toLowerCase() : "";
-          if (line3 !== "") {
+        // 3行目の値が、指名区分ではない無関係な文字列（例: メモ書き等）なら無視する
+        const targetLines = targetText.split('\n').map(l => l.trim()).filter(l => l !== '');
+        let isInvalid = false;
+        
+        if (targetLines.length >= 3) {
+          const line3 = targetLines[2].toLowerCase();
+          // 3文字以下の短い文字列は、指名記号 (k, p, も 等) や略称とみなしてスキップ判定を行わない
+          if (line3.length > 3) {
             const validKeywords = [
               '本', '本指名', 'ほん', 'ほん指名', 'b', 'ｂ',
               '指', '指名', 'しめい',
@@ -1970,56 +2011,42 @@ function exportDataToYoyakl() {
               'フリー', 'ふりー', 'free', 'f', 'ｆ',
               '姫', '姫予約', 'ひめ'
             ];
-            const isDesignation = validKeywords.some(keyword => line3 === keyword || line3.indexOf(keyword) !== -1);
+            const isDesignation = validKeywords.some(keyword => line3.indexOf(keyword) !== -1);
             if (!isDesignation) {
-              rowIdx = endRow;
-              continue;
+              isInvalid = true; // 4文字以上でキーワードがないものだけを無効と判定
             }
           }
         }
-      } else {
-        // 結合されていない（1行のみ）の場合
-        targetText = cellText ? cellText.trim() : "";
-      }
 
-      if (targetText === "") {
-        rowIdx = endRow;
-        continue;
-      }
-
-      // D列（3列目）と結合セルの高さから、時間帯を自動計算
-      let startMin = toMinutes(values[startRow - 1][3]);
-      if (startMin == null) {
-        startMin = 10 * 60 + (startRow - 7) * 10;
-      }
-      const duration = (endRow - startRow + 1) * 10;
-      const endMin = startMin + duration;
-
-      const defStart = minutesToHm(startMin);
-      const defEnd = minutesToHm(endMin);
-
-      const parsedRes = parseReservationCell(targetText, defStart, defEnd, duration, phoneDigitLength);
-      if (parsedRes) {
-        reservations.push({
-          date: dateStr,
-          therapist_name: staffName,
-          customer_name: parsedRes.customerName,
-          phone_suffix: parsedRes.phoneSuffix || undefined,
-          start_time: defStart, // 自動計算した時間を優先して設定
-          end_time: defEnd,
-          duration: duration,
-          designation_type: 'free', // 直接出力の場合は指名区分は不要（free固定）
-          notes: parsedRes.notes || targetText
-        });
-        colResCount++;
-      } else {
-        if (targetText.match(/\d+/) && targetText.length < 20) {
-          logs.push(`[列 ${colIdx + 1} / 行 ${startRow}] 予約パース失敗: "${targetText.replace(/\n/g, ' ')}"`);
+        if (!isInvalid) {
+          const parsedRes = parseReservationCell(targetText, startTime, endTime, duration, phoneDigitLength);
+          if (parsedRes) {
+            reservations.push({
+              date: dateStr,
+              therapist_name: staffName,
+              customer_name: parsedRes.customerName,
+              phone_suffix: parsedRes.phoneSuffix || undefined,
+              start_time: startTime,
+              end_time: endTime,
+              duration: duration,
+              designation_type: parsedRes.designation || 'free',
+              notes: parsedRes.notes || targetText
+            });
+            colResCount++;
+          } else {
+            if (targetText.match(/\d+/) && targetText.length < 20) {
+              logs.push(`[列 ${colIdx + 1} / 行 ${rowIdx + 1}] 予約パース失敗: "${targetText.replace(/\n/g, ' ')}"`);
+            }
+          }
         }
-      }
 
-      // 結合セルの終了行の次に進める（二重スキャン防止）
-      rowIdx = endRow;
+        // 次のスキャン位置へジャンプ（予約のコマ数分だけ進める）
+        const steps = Math.max(1, Math.floor(duration / 10));
+        rowIdx += steps;
+      } else {
+        // 時間表記がないセルは、予約の開始ではないためスキップ
+        rowIdx++;
+      }
     }
     if (colResCount > 0) {
       logs.push(`[列 ${colIdx + 1}] ${staffName} の予約を ${colResCount} 件抽出`);
