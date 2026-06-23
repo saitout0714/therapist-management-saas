@@ -1923,10 +1923,9 @@ function exportDataToYoyakl() {
     dateSet.add(dateStr);
 
     let colResCount = 0;
-    // 7行目以降 (インデックス 6 以降) の予約情報をスキャン
-    for (let rowIdx = 6; rowIdx < maxRows; rowIdx++) {
+    let rowIdx = 6;
+    while (rowIdx < maxRows) {
       const cellText = values[rowIdx][colIdx];
-      if (!cellText || cellText.trim() === '') continue;
 
       // 結合情報の取得
       const cellKey = `${rowIdx + 1}_${colIdx + 1}`;
@@ -1939,10 +1938,51 @@ function exportDataToYoyakl() {
         endRow = m.endRow;
       }
 
-      // セル位置からデフォルトの時間を計算 (D列: 4列目 の時刻をパース)
+      // セルに入力されているテキスト（お客様名や時間など）を決定
+      // 2行以上の結合セルの場合、2行目（お客様名＋会員番号が入っているセル）から優先取得
+      let targetText = "";
+      if (startRow < endRow) {
+        const line1 = values[startRow - 1][colIdx] ? values[startRow - 1][colIdx].trim() : "";
+        const line2 = values[startRow][colIdx] ? values[startRow][colIdx].trim() : "";
+        
+        if (line2 !== "") {
+          targetText = line2;
+        } else {
+          targetText = line1;
+        }
+
+        // 【追加要件】3行目のセルに値が入力されている場合、指名・本指名・フリー以外の無関係な文字列なら無視（スキップ）する
+        if (startRow + 1 <= endRow) {
+          const line3 = values[startRow + 1][colIdx] ? values[startRow + 1][colIdx].trim().toLowerCase() : "";
+          if (line3 !== "") {
+            const validKeywords = [
+              '本', '本指名', 'ほん', 'ほん指名', 'b', 'ｂ',
+              '指', '指名', 'しめい',
+              '新', '新指', '新規', '初回', '初回指名', 's', 'ｓ',
+              'フリー', 'ふりー', 'free', 'f', 'ｆ',
+              '姫', '姫予約', 'ひめ'
+            ];
+            const isDesignation = validKeywords.some(keyword => line3 === keyword || line3.indexOf(keyword) !== -1);
+            if (!isDesignation) {
+              rowIdx = endRow;
+              continue;
+            }
+          }
+        }
+      } else {
+        // 結合されていない（1行のみ）の場合
+        targetText = cellText ? cellText.trim() : "";
+      }
+
+      if (targetText === "") {
+        rowIdx = endRow;
+        continue;
+      }
+
+      // D列（3列目）と結合セルの高さから、時間帯を自動計算
       let startMin = toMinutes(values[startRow - 1][3]);
       if (startMin == null) {
-        startMin = 10 * 60 + (startRow - 7) * 10; // フォールバック: 10:00起点で1コマ10分
+        startMin = 10 * 60 + (startRow - 7) * 10;
       }
       const duration = (endRow - startRow + 1) * 10;
       const endMin = startMin + duration;
@@ -1950,26 +1990,28 @@ function exportDataToYoyakl() {
       const defStart = minutesToHm(startMin);
       const defEnd = minutesToHm(endMin);
 
-      const parsedRes = parseReservationCell(cellText, defStart, defEnd, duration);
+      const parsedRes = parseReservationCell(targetText, defStart, defEnd, duration);
       if (parsedRes) {
         reservations.push({
           date: dateStr,
           therapist_name: staffName,
           customer_name: parsedRes.customerName,
           phone_suffix: parsedRes.phoneSuffix || undefined,
-          start_time: parsedRes.startTime,
-          end_time: parsedRes.endTime,
-          duration: parsedRes.duration,
-          designation_type: parsedRes.designation,
-          notes: parsedRes.notes
+          start_time: defStart, // 自動計算した時間を優先して設定
+          end_time: defEnd,
+          duration: duration,
+          designation_type: 'free', // 直接出力の場合は指名区分は不要（free固定）
+          notes: parsedRes.notes || targetText
         });
         colResCount++;
       } else {
-        // デバッグ用にログを記録 (単なる休み等を除く)
-        if (cellText.match(/\d+/) && cellText.length < 20) {
-          logs.push(`[列 ${colIdx + 1} / 行 ${rowIdx + 1}] 予約パース失敗: "${cellText.replace(/\n/g, ' ')}"`);
+        if (targetText.match(/\d+/) && targetText.length < 20) {
+          logs.push(`[列 ${colIdx + 1} / 行 ${startRow}] 予約パース失敗: "${targetText.replace(/\n/g, ' ')}"`);
         }
       }
+
+      // 結合セルの終了行の次に進める（二重スキャン防止）
+      rowIdx = endRow;
     }
     if (colResCount > 0) {
       logs.push(`[列 ${colIdx + 1}] ${staffName} の予約を ${colResCount} 件抽出`);
