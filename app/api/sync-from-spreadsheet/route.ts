@@ -600,7 +600,7 @@ export async function POST(req: NextRequest) {
         payment_method: 'cash',
         options_payment_method: 'cash',
         extension_payment_method: 'cash',
-        source: 'spreadsheet',
+        source: 'staff',
         is_handled: true,
         base_price: basePrice,
         nomination_fee: nominationFee,
