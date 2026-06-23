@@ -1835,7 +1835,7 @@ function exportDataToYoyakl() {
   }
 
   // シート内のすべての結合セルを一括ロードしてメモリ上にインデックス化
-  const mergedRanges = sheet.getDataRange().getMergedRanges();
+  const mergedRanges = sheet.getRange(1, 1, maxRows, maxCols).getMergedRanges();
   const mergeMap = new Map();
   for (const r of mergedRanges) {
     const startRow = r.getRow();
