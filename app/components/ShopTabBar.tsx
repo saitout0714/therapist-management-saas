@@ -345,7 +345,7 @@ export default function ShopTabBar() {
                 <span
                   className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300 ${isActive ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.9)]' : 'bg-slate-300'}`}
                 />
-                {shop.short_name || shop.name}
+                {shop.name}
               </button>
             )
           })}

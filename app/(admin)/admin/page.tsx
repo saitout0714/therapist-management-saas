@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -163,7 +163,6 @@ export default function AdminPage() {
                       <tr className="bg-slate-50 border-b border-slate-200">
                         <th className="w-10 px-3 py-4"></th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">店舗名</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:table-cell">略称</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden md:table-cell">説明</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">SMS案内</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状態</th>
@@ -173,7 +172,7 @@ export default function AdminPage() {
                     <tbody className="divide-y divide-slate-100">
                       {shops.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                             店舗が登録されていません。上のボタンから追加してください。
                           </td>
                         </tr>
@@ -204,12 +203,6 @@ export default function AdminPage() {
                                 <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                                 {shop.name}
                               </div>
-                            </td>
-                            <td className="px-6 py-4 hidden sm:table-cell whitespace-nowrap">
-                              {shop.short_name
-                                ? <span className="text-sm font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg">{shop.short_name}</span>
-                                : <span className="text-slate-400 italic text-sm">未設定</span>
-                              }
                             </td>
                             <td className="px-6 py-4 hidden md:table-cell">
                               <div className="text-sm text-slate-600 line-clamp-2">{shop.description || <span className="text-slate-400 italic">説明なし</span>}</div>

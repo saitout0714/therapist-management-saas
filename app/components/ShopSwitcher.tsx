@@ -13,11 +13,66 @@ export default function ShopSwitcher() {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pinnedShopIds, setPinnedShopIds] = useState<string[]>([])
 
   const userMenuRef = useRef<HTMLDivElement>(null)
   const shopMenuRef = useRef<HTMLDivElement>(null)
 
   const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
+
+  // Load pinned shops from localStorage after mount to avoid SSR hydration mismatch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pinnedShopIds')
+      if (saved) {
+        try {
+          setPinnedShopIds(JSON.parse(saved))
+        } catch (e) {
+          console.error('Failed to parse pinnedShopIds:', e)
+        }
+      }
+    }
+  }, [])
+
+  // Reset search query when popup closes
+  useEffect(() => {
+    if (!isShopMenuOpen) {
+      setSearchQuery('')
+    }
+  }, [isShopMenuOpen])
+
+  const togglePin = (shopId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPinnedShopIds((prev) => {
+      const next = prev.includes(shopId)
+        ? prev.filter((id) => id !== shopId)
+        : [...prev, shopId]
+      localStorage.setItem('pinnedShopIds', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const getAvatarGradient = (id: string) => {
+    const gradients = [
+      'from-indigo-500 to-purple-500 text-white',
+      'from-violet-500 to-fuchsia-500 text-white',
+      'from-pink-500 to-rose-500 text-white',
+      'from-emerald-500 to-teal-500 text-white',
+      'from-cyan-500 to-blue-500 text-white',
+      'from-amber-500 to-orange-500 text-white',
+    ]
+    let hash = 0
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const index = Math.abs(hash) % gradients.length
+    return gradients[index]
+  }
+
+  const getInitials = (name: string) => {
+    return name.slice(0, 2)
+  }
 
   // 外側クリック・タップでメニューを閉じる
   useEffect(() => {
@@ -58,33 +113,97 @@ export default function ShopSwitcher() {
   const renderShopButton = (shop: typeof selectedShop) => {
     if (!shop || !selectedShop) return null
     const isActive = shop.id === selectedShop.id
+    const isPinned = pinnedShopIds.includes(shop.id)
+    const gradient = getAvatarGradient(shop.id)
+    const initials = getInitials(shop.name)
+
     return (
-      <button
+      <div
         key={shop.id}
         onClick={() => handleShopSelect(shop)}
-        className={`w-full text-left px-3 py-2 text-sm font-semibold transition-colors flex items-center justify-between rounded-xl ${
+        className={`group w-full px-3 py-2 text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
           isActive
-            ? 'bg-indigo-50 text-indigo-700'
+            ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border-indigo-100/50'
             : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
         }`}
       >
-        <span className="truncate">{shop.name}</span>
-        {isActive && (
-          <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
+        <div className="flex items-center min-w-0 flex-1 mr-2">
+          {/* Avatar */}
+          <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-[11px] font-bold mr-2.5 shadow-sm`}>
+            {initials}
+          </div>
+          
+          {/* Name & Active Status Indicator */}
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-slate-800 group-hover:text-indigo-600 font-bold transition-colors">
+                {shop.name}
+              </span>
+              {isActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons: Checkmark and Pin Star */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={(e) => togglePin(shop.id, e)}
+            className={`p-1 rounded-lg transition-all focus:outline-none ${
+              isPinned
+                ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-50'
+                : 'text-slate-300 hover:text-amber-400 hover:bg-slate-50 opacity-40 group-hover:opacity-100'
+            }`}
+            title={isPinned ? 'ピン留め解除' : 'ピン留めする'}
+          >
+            <svg
+              className="w-4 h-4"
+              fill={isPinned ? 'currentColor' : 'none'}
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.961 0 1.36 1.253.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.175 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.98 10.117c-.773-.558-.375-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z"
+              />
+            </svg>
+          </button>
+
+          {isActive && (
+            <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+      </div>
     )
   }
 
   if (!user) return null
 
+  // Filter and sort shops
+  const filteredShops = shops.filter((shop) => {
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return true
+    return shop.name.toLowerCase().includes(query)
+  })
+
+  const sortedShops = [...filteredShops].sort((a, b) => {
+    const aPinned = pinnedShopIds.includes(a.id)
+    const bPinned = pinnedShopIds.includes(b.id)
+    if (aPinned && !bPinned) return -1
+    if (!aPinned && bPinned) return 1
+    return 0
+  })
+
   return (
-    <div className="flex items-center gap-3 z-50">
+    <div className="flex items-center gap-3 z-50 relative">
       {/* 店舗切り替えメニュー（店舗数が2つ以上の場合のみ表示） */}
       {shops.length > 1 && selectedShop && (
-        <div ref={shopMenuRef} className="relative inline-block text-left z-50">
+        <div ref={shopMenuRef} className="inline-block text-left z-50">
           <button
             onClick={() => setIsShopMenuOpen(!isShopMenuOpen)}
             className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-xl text-sm font-bold transition-all focus:outline-none ${
@@ -94,11 +213,11 @@ export default function ShopSwitcher() {
             }`}
             title="店舗切り替え"
           >
-            <svg className="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-            </svg>
+            <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${getAvatarGradient(selectedShop.id)} text-[9px] font-bold shadow-sm`}>
+              {getInitials(selectedShop.name)}
+            </div>
             <span className="truncate max-w-[100px] sm:max-w-[160px]">
-              {selectedShop.short_name || selectedShop.name}
+              {selectedShop.name}
             </span>
             <svg
               className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isShopMenuOpen ? '-rotate-180 text-indigo-600' : ''}`}
@@ -111,26 +230,52 @@ export default function ShopSwitcher() {
           </button>
 
           {isShopMenuOpen && (
-            <div className={`absolute right-0 mt-2 rounded-2xl shadow-xl bg-white border border-slate-100 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 ${
-              shops.length > 5 ? 'w-64 sm:w-[400px]' : 'w-56'
-            }`}>
-              <div className="px-4 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                店舗の切り替え
+            <div className="absolute right-0 top-full mt-2 rounded-2xl shadow-2xl bg-white/95 backdrop-blur-md border border-slate-100/80 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 w-64 sm:w-72">
+              <div className="px-4 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>店舗の切り替え</span>
+                {pinnedShopIds.length > 0 && (
+                  <span className="text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    ★ ピン留め優先
+                  </span>
+                )}
               </div>
-              <div className={`max-h-[400px] overflow-y-auto py-1 ${
-                shops.length > 5 ? 'grid grid-cols-1 sm:grid-cols-2 gap-1 px-2' : ''
-              }`}>
-                {shops.length > 5 ? (
-                  <>
-                    <div className="flex flex-col gap-1">
-                      {shops.slice(0, Math.ceil(shops.length / 2)).map((shop) => renderShopButton(shop))}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {shops.slice(Math.ceil(shops.length / 2)).map((shop) => renderShopButton(shop))}
-                    </div>
-                  </>
+
+              {/* 検索バー */}
+              <div className="px-3 py-2 border-b border-slate-50">
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="店舗名で検索..."
+                    className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-150 rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 店舗リスト */}
+              <div className="max-h-[700px] overflow-y-auto py-1.5 px-1.5 flex flex-col gap-0.5">
+                {sortedShops.length === 0 ? (
+                  <div className="py-8 text-center text-xs font-semibold text-slate-400">
+                    一致する店舗が見つかりません
+                  </div>
                 ) : (
-                  shops.map((shop) => renderShopButton(shop))
+                  sortedShops.map((shop) => renderShopButton(shop))
                 )}
               </div>
             </div>
@@ -142,24 +287,28 @@ export default function ShopSwitcher() {
       <div ref={userMenuRef} className="relative inline-block text-left z-50">
         <button
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          className={`inline-flex items-center justify-center p-1 md:px-3 md:py-1.5 border rounded-full md:rounded-xl text-sm font-medium transition-all focus:outline-none ${isUserMenuOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-xl text-sm font-bold transition-all focus:outline-none ${
+            isUserMenuOpen
+              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+          }`}
           title="アカウントメニュー"
         >
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-inner ${isUserMenuOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200'} transition-colors`}>
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-inner transition-colors flex-shrink-0 ${
+            isUserMenuOpen
+              ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white'
+              : 'bg-slate-100 text-slate-600 border border-slate-200'
+          }`}>
             {(user.name || user.loginId || '').charAt(0).toUpperCase()}
           </div>
-          <span className="text-sm font-bold truncate max-w-[120px] hidden md:block ml-2">{user.name || user.loginId}</span>
+          <span className="truncate max-w-[120px] hidden md:block">{user.name || user.loginId}</span>
           <svg
-            className={`ml-1 mr-1 h-4 w-4 hidden md:block transition-transform duration-200 ${isUserMenuOpen ? '-rotate-180 text-indigo-600' : 'text-slate-400'}`}
+            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? '-rotate-180 text-indigo-600' : ''} hidden md:block flex-shrink-0`}
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
-            <path
-              fillRule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
         </button>
 
