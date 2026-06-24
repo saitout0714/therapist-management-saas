@@ -447,29 +447,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. 既存の該当期間・店舗の shifts と reservations を一括削除
-    const { error: delResError } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('shop_id', shopId)
-      .in('date', dates)
+    // 5. 既存の該当期間・店舗の shifts と reservations を一括取得
+    const [existingShiftsRes, existingReservationsRes] = await Promise.all([
+      supabase
+        .from('shifts')
+        .select('id, therapist_id, date, room_id')
+        .eq('shop_id', shopId)
+        .in('date', dates),
+      supabase
+        .from('reservations')
+        .select('id, therapist_id, date, start_time, room_id, customer_id, customers(name)')
+        .eq('shop_id', shopId)
+        .in('date', dates)
+    ])
 
-    if (delResError) {
-      throw new Error(`既存予約データのクリーンアップに失敗しました: ${delResError.message}`)
+    if (existingShiftsRes.error || existingReservationsRes.error) {
+      throw new Error(`既存データの確認に失敗しました: ${existingShiftsRes.error?.message || existingReservationsRes.error?.message}`)
     }
 
-    const { error: delShiftsError } = await supabase
-      .from('shifts')
-      .delete()
-      .eq('shop_id', shopId)
-      .in('date', dates)
+    const existingShifts = existingShiftsRes.data || []
+    const existingReservations = existingReservationsRes.data || []
 
-    if (delShiftsError) {
-      throw new Error(`既存出勤データのクリーンアップに失敗しました: ${delShiftsError.message}`)
-    }
+    // 6. 出勤情報 (shifts) の同期振り分け
+    const shiftRowsToInsert = []
+    const shiftsToUpdateRoom: { id: string; room_id: string }[] = []
+    const therapistShiftRoomMap = new Map<string, string>() // therapistId_date -> roomId
 
-    // 6. 出勤情報 (shifts) のインサート
-    const shiftRows = []
     for (const s of shifts) {
       const therapist = findTherapist(s.therapist_name)
       if (!therapist) {
@@ -485,30 +488,51 @@ export async function POST(req: NextRequest) {
         return `${h}:${m}:00`
       }
 
-      shiftRows.push({
-        shop_id: shopId,
-        therapist_id: therapist.id,
-        room_id: roomId || null,
-        date: s.date,
-        start_time: formatTime(s.start_time),
-        end_time: formatTime(s.end_time)
-      })
-    }
+      // 既存シフトの検索
+      const matchShift = existingShifts.find(es => es.therapist_id === therapist.id && es.date === s.date)
 
-    let insertedShiftsCount = 0
-    if (shiftRows.length > 0) {
-      const { error: insShiftsError } = await supabase
-        .from('shifts')
-        .insert(shiftRows)
-
-      if (insShiftsError) {
-        throw new Error(`出勤情報のインサートに失敗しました: ${insShiftsError.message}`)
+      if (matchShift) {
+        // すでに存在する場合: room_idが空で、スプレッドシート側にあるならアップデート対象
+        if (!matchShift.room_id && roomId) {
+          shiftsToUpdateRoom.push({ id: matchShift.id, room_id: roomId })
+        }
+        // マップには既存のroom_id、またはスプレッドシートのroomIdを優先記録
+        const effectiveRoomId = matchShift.room_id || roomId
+        if (effectiveRoomId) {
+          therapistShiftRoomMap.set(`${therapist.id}_${s.date}`, effectiveRoomId)
+        }
+      } else {
+        // 新規登録対象
+        shiftRowsToInsert.push({
+          shop_id: shopId,
+          therapist_id: therapist.id,
+          room_id: roomId || null,
+          date: s.date,
+          start_time: formatTime(s.start_time),
+          end_time: formatTime(s.end_time)
+        })
+        if (roomId) {
+          therapistShiftRoomMap.set(`${therapist.id}_${s.date}`, roomId)
+        }
       }
-      insertedShiftsCount = shiftRows.length
     }
 
-    // 7. 予約情報 (reservations) のインメモリ計算とインサート
-    const reservationRows = []
+    // シフトのバルク処理
+    let insertedShiftsCount = shiftRowsToInsert.length
+    if (shiftRowsToInsert.length > 0) {
+      const { error } = await supabase.from('shifts').insert(shiftRowsToInsert)
+      if (error) throw new Error(`新規出勤の登録に失敗しました: ${error.message}`)
+    }
+    for (const up of shiftsToUpdateRoom) {
+      const { error } = await supabase.from('shifts').update({ room_id: up.room_id }).eq('id', up.id)
+      if (error) {
+        console.error(`[SpreadsheetSync] Failed to update room_id for shift: ${up.id}`, error)
+      }
+    }
+
+    // 7. 予約情報 (reservations) の同期振り分け
+    const reservationRowsToInsert = []
+    const reservationsToUpdateRoom: { id: string; room_id: string }[] = []
 
     for (const r of reservations) {
       const therapist = findTherapist(r.therapist_name)
@@ -524,19 +548,49 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      const course = findCourse(r.duration)
-      const courseId = course?.id || null
-      const coursePrice = course?.base_price || 0
-      const courseBackAmount = course?.back_amount || 0
-      const courseDuration = course?.duration || r.duration
+      const reservationRoomId = therapistShiftRoomMap.get(`${therapist.id}_${r.date}`) || null
 
-      const designationType = r.designation_type || 'free'
-      const dtRow = cache.designationTypes.find(dt => dt.slug === designationType)
-      const designationTypeId = dtRow?.id || null
+      // 既存予約の検索 (セラピスト、日付、開始時刻、顧客名が一致するもの)
+      const matchRes = existingReservations.find(er => {
+        let erCustomerName = null
+        if (er.customers) {
+          if (Array.isArray(er.customers)) {
+            erCustomerName = er.customers[0]?.name || null
+          } else {
+            erCustomerName = (er.customers as any).name || null
+          }
+        }
 
-      // インメモリで売上・指名料・バックを高速計算
-      const backResult = calculateBackInMemory(
-        {
+        const dbStart = er.start_time ? er.start_time.substring(0, 5) : ''
+        const rStart = r.start_time ? r.start_time.substring(0, 5) : ''
+        const timeMatch = dbStart === rStart
+        
+        const therapistMatch = er.therapist_id === therapist.id
+        const dateMatch = er.date === r.date
+        const customerMatch = erCustomerName && 
+          erCustomerName.trim().toLowerCase() === r.customer_name.trim().toLowerCase()
+
+        return timeMatch && therapistMatch && dateMatch && customerMatch
+      })
+
+      if (matchRes) {
+        // すでに存在する場合: room_idが空で、引き当てたルームIDがあるならアップデート対象
+        if (!matchRes.room_id && reservationRoomId) {
+          reservationsToUpdateRoom.push({ id: matchRes.id, room_id: reservationRoomId })
+        }
+      } else {
+        // 新規登録対象 (金額・バック計算を含む既存ロジック)
+        const course = findCourse(r.duration)
+        const courseId = course?.id || null
+        const coursePrice = course?.base_price || 0
+        const courseBackAmount = course?.back_amount || 0
+        const courseDuration = course?.duration || r.duration
+
+        const designationType = r.designation_type || 'free'
+        const dtRow = cache.designationTypes.find(dt => dt.slug === designationType)
+        const designationTypeId = dtRow?.id || null
+
+        const backResult = calculateBackInMemory({
           shopId,
           therapistId: therapist.id,
           therapistRankId: therapist.rank_id || null,
@@ -548,84 +602,84 @@ export async function POST(req: NextRequest) {
           date: r.date,
           startTime: r.start_time,
           courseBackAmount: courseBackAmount
-        },
-        cache
-      )
+        }, cache)
 
-      // 指名料の算出
-      let basePrice = backResult.resolvedCustomerPrice
-      let nominationFee = 0
+        let basePrice = backResult.resolvedCustomerPrice
+        let nominationFee = 0
 
-      if (designationType !== 'free' && !dtRow?.is_store_paid_back) {
-        if (backResult.resolvedCustomerPrice > coursePrice) {
-          nominationFee = backResult.resolvedCustomerPrice - coursePrice
-          basePrice = coursePrice
-        } else {
-          const therapistPricing = cache.therapistPricings.find(tp => tp.therapist_id === therapist.id)
-          const systemSettings = cache.systemSettings
+        if (designationType !== 'free' && !dtRow?.is_store_paid_back) {
+          if (backResult.resolvedCustomerPrice > coursePrice) {
+            nominationFee = backResult.resolvedCustomerPrice - coursePrice
+            basePrice = coursePrice
+          } else {
+            const therapistPricing = cache.therapistPricings.find(tp => tp.therapist_id === therapist.id)
+            const systemSettings = cache.systemSettings
 
-          const defaultNominationFee = systemSettings?.default_nomination_fee || 0
-          const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
-          const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
-          
-          const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
-            therapistFee !== null && therapistFee !== undefined && therapistFee > 0 ? therapistFee : defaultFee
+            const defaultNominationFee = systemSettings?.default_nomination_fee || 0
+            const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
+            const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
+            
+            const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
+              therapistFee !== null && therapistFee !== undefined && therapistFee > 0 ? therapistFee : defaultFee
 
-          if (designationType === 'first_nomination' || designationType === 'nomination') {
-            nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
-          } else if (designationType === 'confirmed') {
-            nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
-          } else if (designationType === 'princess') {
-            nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+            if (designationType === 'first_nomination' || designationType === 'nomination') {
+              nominationFee = resolveFee(therapistPricing?.nomination_fee, defaultNominationFee)
+            } else if (designationType === 'confirmed') {
+              nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
+            } else if (designationType === 'princess') {
+              nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+            }
           }
         }
-      }
 
-      const formatTime = (t: string) => {
-        const parts = t.split(':')
-        const h = String(parseInt(parts[0], 10)).padStart(2, '0')
-        const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0')
-        return `${h}:${m}:00`
-      }
+        const formatTime = (t: string) => {
+          const parts = t.split(':')
+          const h = String(parseInt(parts[0], 10)).padStart(2, '0')
+          const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0')
+          return `${h}:${m}:00`
+        }
 
-      reservationRows.push({
-        shop_id: shopId,
-        therapist_id: therapist.id,
-        customer_id: customerId,
-        date: r.date,
-        start_time: formatTime(r.start_time),
-        end_time: formatTime(r.end_time),
-        course_id: courseId,
-        status: 'confirmed',
-        payment_method: 'cash',
-        options_payment_method: 'cash',
-        extension_payment_method: 'cash',
-        source: 'staff',
-        is_handled: true,
-        base_price: basePrice,
-        nomination_fee: nominationFee,
-        total_price: basePrice + nominationFee,
-        discount_amount: 0,
-        designation_type: designationType,
-        designation_type_id: designationTypeId,
-        therapist_back_amount: backResult.netBack,
-        shop_revenue: backResult.shopRevenue,
-        back_calculated_at: new Date().toISOString(),
-        business_date: backResult.businessDate,
-        notes: r.notes || 'スプレッドシート同期'
-      })
+        reservationRowsToInsert.push({
+          shop_id: shopId,
+          therapist_id: therapist.id,
+          room_id: reservationRoomId,
+          customer_id: customerId,
+          date: r.date,
+          start_time: formatTime(r.start_time),
+          end_time: formatTime(r.end_time),
+          course_id: courseId,
+          status: 'confirmed',
+          payment_method: 'cash',
+          options_payment_method: 'cash',
+          extension_payment_method: 'cash',
+          source: 'staff',
+          is_handled: true,
+          base_price: basePrice,
+          nomination_fee: nominationFee,
+          total_price: basePrice + nominationFee,
+          discount_amount: 0,
+          designation_type: designationType,
+          designation_type_id: designationTypeId,
+          therapist_back_amount: backResult.netBack,
+          shop_revenue: backResult.shopRevenue,
+          back_calculated_at: new Date().toISOString(),
+          business_date: backResult.businessDate,
+          notes: r.notes || 'スプレッドシート同期'
+        })
+      }
     }
 
-    let insertedReservationsCount = 0
-    if (reservationRows.length > 0) {
-      const { error: insReservationsError } = await supabase
-        .from('reservations')
-        .insert(reservationRows)
-
-      if (insReservationsError) {
-        throw new Error(`予約情報のインサートに失敗しました: ${insReservationsError.message}`)
+    // 予約のバルク処理
+    let insertedReservationsCount = reservationRowsToInsert.length
+    if (reservationRowsToInsert.length > 0) {
+      const { error } = await supabase.from('reservations').insert(reservationRowsToInsert)
+      if (error) throw new Error(`新規予約の登録に失敗しました: ${error.message}`)
+    }
+    for (const up of reservationsToUpdateRoom) {
+      const { error } = await supabase.from('reservations').update({ room_id: up.room_id }).eq('id', up.id)
+      if (error) {
+        console.error(`[SpreadsheetSync] Failed to update room_id for reservation: ${up.id}`, error)
       }
-      insertedReservationsCount = reservationRows.length
     }
 
     return NextResponse.json({
