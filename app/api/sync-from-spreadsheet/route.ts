@@ -361,14 +361,37 @@ export async function POST(req: NextRequest) {
       return null
     }
 
-    // ルーム名マッピング (部分一致対応)
+    // ルーム名マッピング (部分一致・スマートあいまい一致対応)
     const findRoom = (name: string) => {
       if (!name) return null
-      const cleanName = name.trim()
-      const exact = rooms.find(r => r.name.trim() === cleanName)
+      const cleanInput = name.trim()
+
+      // 1. 完全一致
+      const exact = rooms.find(r => r.name.trim() === cleanInput)
       if (exact) return exact.id
-      const partial = rooms.find(r => r.name.includes(cleanName) || cleanName.includes(r.name))
+
+      // 2. あいまい一致 (数字と「ルーム」「部屋」「room」を除外して比較)
+      // 例: "海老名805" と "海老名ルーム" -> どちらも "海老名" になり一致
+      const cleanPattern = (s: string) => {
+        return s
+          .replace(/[\d\s　]+/g, '')             // 全角半角の数字・スペースを除外
+          .replace(/ルーム|部屋|room/gi, '')    // 「ルーム」「部屋」「room」(大文字小文字問わず) を除外
+          .toLowerCase()
+      }
+
+      const patternInput = cleanPattern(cleanInput)
+      if (patternInput) {
+        const fuzzyMatch = rooms.find(r => {
+          const patternDb = cleanPattern(r.name)
+          return patternDb === patternInput || patternDb.includes(patternInput) || patternInput.includes(patternDb)
+        })
+        if (fuzzyMatch) return fuzzyMatch.id
+      }
+
+      // 3. 通常の部分一致フォールバック
+      const partial = rooms.find(r => r.name.includes(cleanInput) || cleanInput.includes(r.name))
       if (partial) return partial.id
+
       return null
     }
 
