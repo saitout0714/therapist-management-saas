@@ -361,7 +361,22 @@ export default function ReservationPreviewPage() {
       })
     }
 
-    // 割引情報はセラピスト向けには表示しないため算出不要
+    // 割引
+    let discountsText = ''
+    if (reservation.discount_amount > 0) {
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      if (discounts.length > 0) {
+        discounts.forEach((d, idx) => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
+          discountsText += `${discountName} -${d.applied_amount.toLocaleString()}円`
+          if (idx < discounts.length - 1) {
+            discountsText += '\n'
+          }
+        })
+      } else {
+        discountsText += `割引 -${reservation.discount_amount.toLocaleString()}円`
+      }
+    }
 
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
@@ -400,8 +415,12 @@ export default function ReservationPreviewPage() {
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
 
-      // 割引タグが含まれる行全体を常に削除する（セラピスト連絡には表示しないため）
-      finalTemplate = finalTemplate.replace(/^[^\n]*\[割引\][^\n]*\n?/gm, '')
+      // 割引がない場合は、[割引]タグが含まれる行全体を削除する
+      if (!discountsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[割引\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
+      }
 
       // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
       if (!optionsText) {
@@ -448,7 +467,9 @@ export default function ReservationPreviewPage() {
       text += optionsText + `\n`
     }
 
-
+    if (discountsText) {
+      text += discountsText + `\n`
+    }
 
     text += `------------------------\n`
     if (reservation.payment_method === 'credit') {
