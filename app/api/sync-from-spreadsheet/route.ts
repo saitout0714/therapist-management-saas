@@ -408,7 +408,35 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. 顧客の一括取得と、存在しない顧客のバルクインサートによる高速化
-    const customerNames = Array.from(new Set(reservations.map(r => r.customer_name.trim())))
+    // Helper to get canonical name (name + 5 digit number)
+    const getCanonicalName = (customerName: string, phoneSuffix?: string): string => {
+      const name = customerName.trim()
+      if (!phoneSuffix) return name
+      if (/\d{5}$/.test(name)) return name
+      const matchLastDigit = name.match(/\d$/)
+      if (matchLastDigit && phoneSuffix.length === 4) {
+        return name.slice(0, -1).trim() + phoneSuffix + matchLastDigit[0]
+      }
+      return name + phoneSuffix
+    }
+
+    const uniqueCustomerKeys = Array.from(new Set(reservations.map(r => `${r.customer_name.trim()}_${r.phone_suffix || ''}`)))
+    const canonicalToKeys = new Map<string, string[]>()
+    const canonicalNamesSet = new Set<string>()
+
+    for (const key of uniqueCustomerKeys) {
+      const [name, phoneSuffix] = key.split('_')
+      const canonicalName = getCanonicalName(name, phoneSuffix)
+      canonicalNamesSet.add(canonicalName)
+      
+      if (!canonicalToKeys.has(canonicalName)) {
+        canonicalToKeys.set(canonicalName, [])
+      }
+      canonicalToKeys.get(canonicalName)!.push(key)
+    }
+
+    const customerNames = Array.from(canonicalNamesSet)
+
     const { data: dbCustomers, error: custFetchError } = await supabase
       .from('customers')
       .select('id, name, phone')
@@ -420,32 +448,21 @@ export async function POST(req: NextRequest) {
     }
 
     const customerMap = new Map<string, string>() // key (name_phoneSuffix) -> customerId
-
-    const findDbCustomer = (name: string, phoneSuffix?: string) => {
-      const cleanName = name.trim()
-      const matched = dbCustomers?.filter(c => c.name.trim() === cleanName) || []
-      if (matched.length === 0) return null
-      if (phoneSuffix) {
-        const found = matched.find(c => c.phone && c.phone.replace(/[^0-9]/g, '').endsWith(phoneSuffix))
-        if (found) return found.id
-      }
-      return matched[0].id
-    }
-
-    const uniqueCustomerKeys = Array.from(new Set(reservations.map(r => `${r.customer_name.trim()}_${r.phone_suffix || ''}`)))
     const customersToInsert = []
 
-    for (const key of uniqueCustomerKeys) {
-      const [name, phoneSuffix] = key.split('_')
-      const dbId = findDbCustomer(name, phoneSuffix)
-      if (dbId) {
-        customerMap.set(key, dbId)
+    for (const canonicalName of customerNames) {
+      const dbCust = dbCustomers?.find(c => c.name.trim() === canonicalName)
+      const keys = canonicalToKeys.get(canonicalName) || []
+      
+      if (dbCust) {
+        for (const key of keys) {
+          customerMap.set(key, dbCust.id)
+        }
       } else {
-        const phoneVal = phoneSuffix ? `0000000${phoneSuffix}` : null
         customersToInsert.push({
           shop_id: shopId,
-          name: name.trim(),
-          phone: phoneVal,
+          name: canonicalName,
+          phone: null,
           status: '予約可'
         })
       }
@@ -455,7 +472,7 @@ export async function POST(req: NextRequest) {
       const { data: insertedCusts, error: insertCustError } = await supabase
         .from('customers')
         .insert(customersToInsert)
-        .select('id, name, phone')
+        .select('id, name')
 
       if (insertCustError) {
         throw new Error(`新規顧客の一括作成に失敗しました: ${insertCustError.message}`)
@@ -463,9 +480,11 @@ export async function POST(req: NextRequest) {
 
       if (insertedCusts) {
         for (const c of insertedCusts) {
-          const phoneSuffix = c.phone ? c.phone.slice(-4) : ''
-          const key = `${c.name.trim()}_${phoneSuffix}`
-          customerMap.set(key, c.id)
+          const canonicalName = c.name.trim()
+          const keys = canonicalToKeys.get(canonicalName) || []
+          for (const key of keys) {
+            customerMap.set(key, c.id)
+          }
         }
       }
     }
@@ -602,8 +621,9 @@ export async function POST(req: NextRequest) {
         
         const therapistMatch = er.therapist_id === therapist.id
         const dateMatch = er.date === r.date
+        const canonicalRName = getCanonicalName(r.customer_name, r.phone_suffix)
         const customerMatch = erCustomerName && 
-          erCustomerName.trim().toLowerCase() === r.customer_name.trim().toLowerCase()
+          erCustomerName.trim().toLowerCase() === canonicalRName.toLowerCase()
 
         return timeMatch && therapistMatch && dateMatch && customerMatch
       })
