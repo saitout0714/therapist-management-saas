@@ -173,8 +173,8 @@ export function TherapistTemplateTab() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
           <label htmlFor="template-textarea" className="block text-sm font-semibold text-slate-700">
             テンプレート文面
           </label>
@@ -215,18 +215,18 @@ export function TherapistTemplateTab() {
             </p>
           </div>
 
-          <div className="flex flex-wrap md:flex-col gap-2 max-h-[400px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
             {TAGS.map((t) => (
               <button
                 key={t.tag}
                 type="button"
                 onClick={() => insertTag(t.tag)}
-                className="flex items-center justify-between text-left px-3 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-lg text-xs transition-all duration-150 group"
+                className="flex items-center justify-between text-left px-2.5 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-lg text-xs transition-all duration-150 group"
               >
-                <code className="font-mono font-semibold bg-white border border-slate-200 px-1.5 py-0.5 rounded text-indigo-600 group-hover:bg-indigo-100 group-hover:border-indigo-300">
+                <code className="font-mono font-semibold bg-white border border-slate-200 px-1 py-0.5 rounded text-indigo-600 group-hover:bg-indigo-100 group-hover:border-indigo-300 text-[10px]">
                   {t.tag}
                 </code>
-                <span className="text-slate-500 text-[10px] md:text-xs ml-2 text-right">
+                <span className="text-slate-500 text-[10px] ml-1.5 text-right whitespace-nowrap overflow-hidden text-ellipsis">
                   {t.label}
                 </span>
               </button>
