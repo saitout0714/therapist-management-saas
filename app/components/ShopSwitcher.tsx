@@ -55,6 +55,29 @@ export default function ShopSwitcher() {
     router.push('/shifts')
   }
 
+  const renderShopButton = (shop: typeof selectedShop) => {
+    if (!shop || !selectedShop) return null
+    const isActive = shop.id === selectedShop.id
+    return (
+      <button
+        key={shop.id}
+        onClick={() => handleShopSelect(shop)}
+        className={`w-full text-left px-3 py-2 text-sm font-semibold transition-colors flex items-center justify-between rounded-xl ${
+          isActive
+            ? 'bg-indigo-50 text-indigo-700'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
+        }`}
+      >
+        <span className="truncate">{shop.name}</span>
+        {isActive && (
+          <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </button>
+    )
+  }
+
   if (!user) return null
 
   return (
@@ -97,27 +120,18 @@ export default function ShopSwitcher() {
               <div className={`max-h-[400px] overflow-y-auto py-1 ${
                 shops.length > 5 ? 'grid grid-cols-1 sm:grid-cols-2 gap-1 px-2' : ''
               }`}>
-                {shops.map((shop) => {
-                  const isActive = shop.id === selectedShop.id
-                  return (
-                    <button
-                      key={shop.id}
-                      onClick={() => handleShopSelect(shop)}
-                      className={`w-full text-left px-3 py-2 text-sm font-semibold transition-colors flex items-center justify-between rounded-xl ${
-                        isActive
-                          ? 'bg-indigo-50 text-indigo-700'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
-                      }`}
-                    >
-                      <span className="truncate">{shop.name}</span>
-                      {isActive && (
-                        <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  )
-                })}
+                {shops.length > 5 ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      {shops.slice(0, Math.ceil(shops.length / 2)).map((shop) => renderShopButton(shop))}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {shops.slice(Math.ceil(shops.length / 2)).map((shop) => renderShopButton(shop))}
+                    </div>
+                  </>
+                ) : (
+                  shops.map((shop) => renderShopButton(shop))
+                )}
               </div>
             </div>
           )}
