@@ -541,9 +541,21 @@ export async function POST(req: NextRequest) {
     }
 
     // シフトのバルク処理
-    let insertedShiftsCount = shiftRowsToInsert.length
-    if (shiftRowsToInsert.length > 0) {
-      const { error } = await supabase.from('shifts').insert(shiftRowsToInsert)
+    const uniqueShiftRows: any[] = []
+    const seenShifts = new Set<string>()
+    for (const row of shiftRowsToInsert) {
+      const key = `${row.therapist_id}_${row.date}_${row.start_time}_${row.end_time}`
+      if (!seenShifts.has(key)) {
+        seenShifts.add(key)
+        uniqueShiftRows.push(row)
+      }
+    }
+
+    let insertedShiftsCount = uniqueShiftRows.length
+    if (uniqueShiftRows.length > 0) {
+      const { error } = await supabase
+        .from('shifts')
+        .upsert(uniqueShiftRows, { onConflict: 'therapist_id,date,start_time,end_time' })
       if (error) throw new Error(`新規出勤の登録に失敗しました: ${error.message}`)
     }
     for (const up of shiftsToUpdateRoom) {
