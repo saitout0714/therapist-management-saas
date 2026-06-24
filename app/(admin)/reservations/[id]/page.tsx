@@ -398,7 +398,7 @@ export default function ReservationPreviewPage() {
       const nominationFeeVal = displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円'
       const totalVal = `${reservation.total_price.toLocaleString()}円`
 
-      return therapistTemplate
+      let finalTemplate = therapistTemplate
         .replace(/\[日付\]/g, dateVal)
         .replace(/\[開始時刻\]/g, startTimeVal)
         .replace(/\[終了時刻\]/g, endTimeVal)
@@ -410,11 +410,31 @@ export default function ReservationPreviewPage() {
         .replace(/\[コース料金\]/g, coursePriceVal)
         .replace(/\[指名区分\]/g, designationVal)
         .replace(/\[指名料金\]/g, nominationFeeVal)
-        .replace(/\[オプション\]/g, optionsText)
-        .replace(/\[割引\]/g, discountsText)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
-        .replace(/\[備考\]/g, notesText)
+
+      // 割引がない場合は、[割引]タグが含まれる行全体を削除する
+      if (!discountsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[割引\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
+      }
+
+      // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
+      if (!optionsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+      }
+
+      // 備考がない場合は、[備考]タグが含まれる行全体を削除する
+      if (!notesText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[備考\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[備考\]/g, notesText)
+      }
+
+      return finalTemplate
     }
 
     // デフォルトのフォールバックテンプレート
