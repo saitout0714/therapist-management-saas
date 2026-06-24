@@ -7,6 +7,23 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
 
+const formatShortDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const match = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (match) {
+    const month = parseInt(match[2], 10)
+    const day = parseInt(match[3], 10)
+    return `${month}/${day}`
+  }
+  const match2 = dateStr.match(/^(\d{1,2})[-/](\d{1,2})/)
+  if (match2) {
+    const month = parseInt(match2[1], 10)
+    const day = parseInt(match2[2], 10)
+    return `${month}/${day}`
+  }
+  return dateStr
+}
+
 type CustomOption = {
   option_id: string | null
   price: number
@@ -80,6 +97,7 @@ export default function ReservationPreviewPage() {
   const [loading, setLoading] = useState(true)
   const [creditPaymentUrl, setCreditPaymentUrl] = useState<string | null>(null)
   const [googleCalendarId, setGoogleCalendarId] = useState<string | null>(null)
+  const [therapistTemplate, setTherapistTemplate] = useState<string | null>(null)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -165,11 +183,12 @@ export default function ReservationPreviewPage() {
       // 5. Fetch credit_payment_url from system_settings
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('credit_payment_url, google_calendar_id')
+        .select('credit_payment_url, google_calendar_id, therapist_template')
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
       setCreditPaymentUrl(settingsData?.credit_payment_url || null)
       setGoogleCalendarId(settingsData?.google_calendar_id || null)
+      setTherapistTemplate(settingsData?.therapist_template || null)
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -225,7 +244,7 @@ export default function ReservationPreviewPage() {
     let text = `【ご予約内容のご確認】\n\n`
 
     // 日時（日付と時間を別行）
-    text += `■ 日時\n${reservation.business_date || reservation.date}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
+    text += `■ 日時\n${formatShortDate(reservation.business_date || reservation.date)}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
@@ -326,7 +345,80 @@ export default function ReservationPreviewPage() {
       displayBasePrice = originalCoursePrice
     }
 
-    let text = `【${reservation.business_date || reservation.date} ご予約詳細】\n\n`
+    // オプション（通常＋手入力）
+    const allOptions = reservation.reservation_options?.filter(ro =>
+      (ro.option_id && ro.options) || (!ro.option_id && ro.custom_name)
+    ) ?? []
+    let optionsText = ''
+    if (allOptions.length > 0) {
+      optionsText = `■ オプション\n`
+      allOptions.forEach(ro => {
+        if (ro.option_id && ro.options) {
+          optionsText += `${ro.options.name} ￥${ro.options.price.toLocaleString()}\n`
+        } else if (!ro.option_id && ro.custom_name) {
+          optionsText += `${ro.custom_name} ￥${ro.price.toLocaleString()}\n`
+        }
+      })
+    }
+
+    // 割引
+    let discountsText = ''
+    if (reservation.discount_amount > 0) {
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      discountsText = `■ 割引\n`
+      if (discounts.length > 0) {
+        discounts.forEach(d => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
+          discountsText += `${discountName} -￥${d.applied_amount.toLocaleString()}\n`
+        })
+      } else {
+        discountsText += `割引 -￥${reservation.discount_amount.toLocaleString()}\n`
+      }
+    }
+
+    const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    let notesText = ''
+    if (reservation.notes) {
+      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
+      notesText = `■ ${label}\n${reservation.notes}`
+    }
+
+    // カスタムテンプレートが設定されている場合、置換ロジックを使用
+    if (therapistTemplate) {
+      const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+      const startTimeVal = toDisplayTime(reservation.start_time)
+      const endTimeVal = toDisplayTime(reservation.end_time)
+      const roomVal = roomInfo?.name || '未定'
+      const custNameVal = reservation.customers?.name || '未設定'
+      const courseNameVal = reservation.courses?.name || '未設定'
+      const courseDurationVal = `${reservation.courses?.duration || 0}分`
+      const coursePriceVal = `￥${displayBasePrice.toLocaleString()}`
+      const designationVal = designationLabel(reservation.designation_type)
+      const nominationFeeVal = displayNominationFee > 0 ? `￥${displayNominationFee.toLocaleString()}` : '￥0'
+      const totalVal = `￥${reservation.total_price.toLocaleString()}`
+
+      return therapistTemplate
+        .replace(/\[日付\]/g, dateVal)
+        .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[ルーム\]/g, roomVal)
+        .replace(/\[お客様区分\]/g, customerPrefix)
+        .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[コース\]/g, courseNameVal)
+        .replace(/\[コース時間\]/g, courseDurationVal)
+        .replace(/\[コース料金\]/g, coursePriceVal)
+        .replace(/\[指名区分\]/g, designationVal)
+        .replace(/\[指名料金\]/g, nominationFeeVal)
+        .replace(/\[オプション\]/g, optionsText)
+        .replace(/\[割引\]/g, discountsText)
+        .replace(/\[支払方法\]/g, paymentText)
+        .replace(/\[合計料金\]/g, totalVal)
+        .replace(/\[備考\]/g, notesText)
+    }
+
+    // デフォルトのフォールバックテンプレート
+    let text = `【${formatShortDate(reservation.business_date || reservation.date)} ご予約詳細】\n\n`
 
     // 時間
     text += `■ 時間\n${toDisplayTime(reservation.start_time)}-${toDisplayTime(reservation.end_time)}\n\n`
@@ -335,7 +427,6 @@ export default function ReservationPreviewPage() {
     text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
 
     // お客様（新規/会員 + 氏名）
-    const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様\n\n`
 
     // コース（時間 ￥料金）
@@ -350,34 +441,12 @@ export default function ReservationPreviewPage() {
     }
     text += `\n\n`
 
-    // オプション（通常＋手入力）
-    const allOptions = reservation.reservation_options?.filter(ro =>
-      (ro.option_id && ro.options) || (!ro.option_id && ro.custom_name)
-    ) ?? []
-    if (allOptions.length > 0) {
-      text += `■ オプション\n`
-      allOptions.forEach(ro => {
-        if (ro.option_id && ro.options) {
-          text += `${ro.options.name} ￥${ro.options.price.toLocaleString()}\n`
-        } else if (!ro.option_id && ro.custom_name) {
-          text += `${ro.custom_name} ￥${ro.price.toLocaleString()}\n`
-        }
-      })
+    if (optionsText) {
+      text += optionsText + `\n`
     }
 
-    // 割引
-    if (reservation.discount_amount > 0) {
-      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
-      text += `■ 割引\n`
-      if (discounts.length > 0) {
-        discounts.forEach(d => {
-          const discountName = d.is_adhoc ? (d.adhoc_name || '手動割引') : (d.policy?.name || '割引')
-          text += `${discountName} -￥${d.applied_amount.toLocaleString()}\n`
-        })
-      } else {
-        text += `割引 -￥${reservation.discount_amount.toLocaleString()}\n`
-      }
-      text += `\n`
+    if (discountsText) {
+      text += discountsText + `\n`
     }
 
     text += `------------------------\n`
@@ -390,8 +459,7 @@ export default function ReservationPreviewPage() {
     }
 
     if (reservation.notes) {
-      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
-      text += `\n\n■ ${label}\n${reservation.notes}`
+      text += `\n\n` + notesText
     }
 
     return text
