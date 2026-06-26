@@ -84,7 +84,7 @@ export default function ImportTherapistsPage() {
     )
   }
 
-  if (!user || !['system_admin', 'agency_client_owner', 'simple_client_owner'].includes(user.role)) {
+  if (!user || user.role !== 'system_admin') {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-6 text-center">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-md">

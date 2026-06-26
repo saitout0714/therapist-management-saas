@@ -387,7 +387,7 @@ export default function TherapistsPage() {
               <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">{activeTherapists.length}</span>
             </h2>
             <div className="flex gap-2">
-              {['system_admin', 'agency_client_owner', 'simple_client_owner'].includes(user?.role || '') && (
+              {user?.role === 'system_admin' && (
                 <Link
                   href="/therapists/import"
                   className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"

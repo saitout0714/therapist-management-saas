@@ -35,13 +35,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
   ];
 
-  const adminItems = [];
-  if (user?.role === "system_admin") {
-    adminItems.push({ href: "/users", label: "アカウント管理" });
-  }
-  if (["system_admin", "agency_client_owner", "simple_client_owner"].includes(user?.role || "")) {
-    adminItems.push({ href: "/shifts/sync", label: "外部シフト同期" });
-  }
+  const adminItems = user?.role === "system_admin" ? [
+    { href: "/users", label: "アカウント管理" },
+    { href: "/shifts/sync", label: "外部シフト同期" },
+  ] : [];
 
   return (
     <>
