@@ -148,6 +148,9 @@ function matchTherapist(caskanName: string, therapistMap: Record<string, string>
 }
 
 async function caskanLogin(session: FetchSession): Promise<boolean> {
+  // Initialize the CAKEPHP session cookie with a GET request first
+  await session.get('https://my.caskan.jp/login')
+
   const r = await session.post('https://my.caskan.jp/login', {
     mode: 'step1',
     shop_code: CASKAN_SHOP_CODE,
