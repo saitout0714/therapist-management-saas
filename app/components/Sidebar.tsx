@@ -24,14 +24,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/", label: "ホーム" },
     { href: "/shifts", label: "スケジュール" },
     { href: "/reservations", label: "予約管理" },
-    { href: "/payroll", label: "報酬・バック計算" },
-    { href: "/shifts/register", label: "シフト登録" },
-    { href: "/therapists", label: "セラピスト" },
-    { href: "/memos", label: "給与引継ぎメモ" },
     { href: "/customers", label: "顧客管理" },
-    { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
-    { href: "/system", label: "システム管理" },
+    { href: "/therapists", label: "セラピスト" },
+    { href: "/shifts/register", label: "シフト登録" },
+    { href: "/payroll", label: "報酬・バック計算" },
+    { href: "/memos", label: "給与引継ぎメモ" },
     { href: "/aggregation", label: "店舗集計" },
+    { href: "/system", label: "システム管理" },
+    { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
+
+
     ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
   ];
 
