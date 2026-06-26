@@ -158,14 +158,27 @@ export async function POST(request: Request) {
     const timeDisplay = `${res.start_time.slice(0, 5)}〜${res.end_time.slice(0, 5)}`
     const title = `${therapistName}さん ${customerName}様 ${courseDuration}分 ${designationLabel} ${timeDisplay}`
 
-    // 5. GASにリクエストを送信
-    console.log(`[CalendarSync] Sending ${finalAction} request to GAS for calendar: ${calendarId}`)
+    // 5. GASに送るデータの作成（日付がタイムゾーンの影響でずれないよう、日本時間基準の文字列 'YYYY-MM-DD' に変換）
+    let formattedDate = ''
+    if (res.date instanceof Date) {
+      formattedDate = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(res.date).replace(/\//g, '-')
+    } else if (typeof res.date === 'string') {
+      formattedDate = res.date.split('T')[0]
+    } else {
+      formattedDate = String(res.date).split('T')[0]
+    }
+
     const payload = {
       action: finalAction,
       calendarId,
       eventId,
       title,
-      date: res.date,
+      date: formattedDate,
       startTime: res.start_time.slice(0, 5),
       endTime: res.end_time.slice(0, 5),
       token: syncToken
