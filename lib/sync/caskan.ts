@@ -40,7 +40,7 @@ const CASKAN_ROOM_MAP: Record<string, string> = {
   '2563': 'e2ffebbb-dd6d-42f3-9f57-2eabd7070ef7',
   '2927': '7a3dc129-6738-46f1-b4a8-167835a90e31',
   '4806': '1ec96894-d383-4156-9cab-7354f63b549a',
-  '4812': 'ddebb857-d5f0-4689-990f-7e80ef033dd3',
+  '4812': 'debac2e1-22be-46ea-a5a0-d7f20b3bb3e8',
   '3962': 'a084152b-fced-43c6-8d20-810a596d6db4',
   '2800': '09ba5146-59aa-4ab6-8d12-ed4869cb17e2',
   '3389': '129f4759-961b-4573-8fd1-fcda3cd99066',
@@ -54,7 +54,7 @@ const CASKAN_ROOM_MAP: Record<string, string> = {
   '4813': '60ea8984-197f-437b-b3f5-9e3a94e0037a',
   '4814': '6154fad0-0b11-4de6-95c8-5190663ccc22',
   '3168': '657606f0-2f84-4ce6-9899-5e6e8445c428',
-  '4812_2': 'debac2e1-22be-46ea-a5a0-d7f20b3bb3e8', // Avoid duplicate key, python has duplicate 4812 key
+  '2560': '958d4d64-f535-4818-8873-5b197e7eae17',
 }
 
 class FetchSession {
@@ -210,11 +210,7 @@ async function caskanGetShifts(
       }
 
       const rawRoomId = $(cell).attr('data-room-id') || ''
-      // Fallback for duplicates in python map
-      let roomId = CASKAN_ROOM_MAP[rawRoomId] || null
-      if (!roomId && rawRoomId === '4812') {
-        roomId = CASKAN_ROOM_MAP['4812_2']
-      }
+      const roomId = CASKAN_ROOM_MAP[rawRoomId] || null
 
       if (rawRoomId && !roomId) {
         onLog(`[WARN] [ルームMAP未登録] キャスト:${castName} / キャスカン側部屋ID:${rawRoomId} が CASKAN_ROOM_MAP にありません。\n`)
@@ -392,7 +388,7 @@ export async function syncCaskanShop(
         }
         continue
       }
-      if (s.day < dateFrom) {
+      if (s.day < dateFrom || s.day > dateTo) {
         continue
       }
       const key = `${tId}_${s.day}`
