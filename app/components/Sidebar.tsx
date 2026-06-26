@@ -32,15 +32,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/aggregation", label: "店舗集計" },
     { href: "/system", label: "システム管理" },
     { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
-
-
-    ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
   ];
 
-  const adminItems = user?.role === "system_admin" ? [
-    { href: "/users", label: "アカウント管理" },
-    { href: "/shifts/sync", label: "外部シフト同期" },
-  ] : [];
+  const adminItems = [
+    ...(user?.role === "system_admin" ? [
+      { href: "/users", label: "アカウント管理" },
+      { href: "/shifts/sync", label: "外部シフト同期" },
+    ] : []),
+    ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
+  ];
 
   return (
     <>
