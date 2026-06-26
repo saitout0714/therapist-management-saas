@@ -576,19 +576,19 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                   const handleCellClick = () => {
                     if (isDragging || dragDistanceRef.current > 5) return;
-                    if (!date || therapist.id === 'unassigned') return;
+                    if (!date) return;
                     router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                   };
 
                   return (
                     <div
                       key={`${therapist.id}-${idx}`}
-                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} ${therapist.id !== 'unassigned' ? 'hover:bg-indigo-50/50 transition-colors' : ''}`}
-                      style={{ ...cellStyle, height: `${rowHeight}px`, cursor: therapist.id === 'unassigned' ? 'default' : 'pointer' }}
+                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
+                      style={{ ...cellStyle, height: `${rowHeight}px`, cursor: 'pointer' }}
                       onClick={handleCellClick}
                       onMouseDown={() => { dragDistanceRef.current = 0; }}
                       onMouseEnter={(e) => {
-                        if (isDragging || dragDistanceRef.current > 5 || therapist.id === 'unassigned') return;
+                        if (isDragging || dragDistanceRef.current > 5) return;
                         const rect = e.currentTarget.getBoundingClientRect();
                         setHoverData({
                           x: rect.left + rect.width / 2,

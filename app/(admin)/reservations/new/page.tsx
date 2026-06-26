@@ -591,8 +591,8 @@ export default function NewReservationPage() {
       setAvailableTherapistIds(ids)
       setAvailableShifts(shifts)
 
-      // URLパラメータで設定されたセラピストは保護し、シフトにいない場合のみクリア
-      if (formData.therapist_id && !ids.includes(formData.therapist_id)) {
+      // URLパラメータで設定されたセラピストは保護し、シフトにいない場合のみクリア（未割当は例外）
+      if (formData.therapist_id && formData.therapist_id !== 'unassigned' && !ids.includes(formData.therapist_id)) {
         const clearedId = formData.therapist_id
         setFormData(prev => prev.therapist_id === clearedId ? { ...prev, therapist_id: '' } : prev)
       }
@@ -734,7 +734,7 @@ export default function NewReservationPage() {
       try {
         setLoading(true)
         const { error } = await supabase.from('reservations').insert([{
-          therapist_id: formData.therapist_id,
+          therapist_id: formData.therapist_id === 'unassigned' ? null : formData.therapist_id,
           shop_id: selectedShop.id,
           date: formData.date,
           start_time: formData.start_time,
@@ -802,7 +802,7 @@ export default function NewReservationPage() {
         .from('reservations')
         .insert([{
           customer_id: customerId,
-          therapist_id: formData.therapist_id,
+          therapist_id: formData.therapist_id === 'unassigned' ? null : formData.therapist_id,
           course_id: formData.course_id,
           shop_id: selectedShop.id,
           date: formData.date,
@@ -1153,6 +1153,7 @@ export default function NewReservationPage() {
                   disabled={availableTherapists.length === 0}
                 >
                   <option value="">選択してください</option>
+                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
                   {availableTherapists.map(therapist => (
                     <option key={therapist.id} value={therapist.id}>
                       {therapist.name}

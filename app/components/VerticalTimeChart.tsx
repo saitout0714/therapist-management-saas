@@ -555,18 +555,18 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                     const handleCellClick = () => {
                       if (isDragging || dragDistanceRef.current > 5) return;
-                      if (!date || therapist.id === 'unassigned') return;
+                      if (!date) return;
                       router.push(`/reservations/new?from=vertical&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                     };
 
                     return (
                       <div
                         key={`${therapist.id}-${idx}`}
-                        className={`border-b border-slate-100/50 ${therapist.id !== 'unassigned' ? 'hover:bg-indigo-50/40 transition-colors' : ''}`}
-                        style={{ ...cellStyle, height: `${cellHeight}px`, cursor: therapist.id === 'unassigned' ? 'default' : 'pointer' }}
+                        className={`border-b border-slate-100/50 hover:bg-indigo-50/40 transition-colors`}
+                        style={{ ...cellStyle, height: `${cellHeight}px`, cursor: 'pointer' }}
                         onClick={handleCellClick}
                         onMouseEnter={(e) => {
-                          if (isDragging || dragDistanceRef.current > 5 || therapist.id === 'unassigned') return;
+                          if (isDragging || dragDistanceRef.current > 5) return;
                           const rect = e.currentTarget.getBoundingClientRect();
                           setHoverData({
                             x: rect.left + rect.width / 2,

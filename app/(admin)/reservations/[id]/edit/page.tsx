@@ -304,7 +304,7 @@ export default function EditReservationPage() {
         start_time: reservation.start_time,
         end_time: reservation.end_time || '',
         course_id: reservation.course_id,
-        therapist_id: reservation.therapist_id,
+        therapist_id: reservation.therapist_id || 'unassigned',
         designation_type: reservation.designation_type,
         selected_options: selectedOptions,
         extension_count: reservation.extension_count || 0,
@@ -582,7 +582,7 @@ export default function EditReservationPage() {
         .from('reservations')
         .update({
           customer_id: formData.customer_id,
-          therapist_id: formData.therapist_id,
+          therapist_id: formData.therapist_id === 'unassigned' ? null : formData.therapist_id,
           course_id: formData.course_id,
           date: formData.date,
           start_time: formData.start_time,
@@ -934,6 +934,7 @@ export default function EditReservationPage() {
                   required
                 >
                   <option value="">選択してください</option>
+                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
                   {therapists.map(therapist => (
                     <option key={therapist.id} value={therapist.id}>
                       {therapist.name}

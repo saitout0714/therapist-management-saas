@@ -496,13 +496,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                   className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate
                                     ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                                   onMouseEnter={(e) => {
-                                    if (therapist.id === 'unassigned' ? true : false) return
                                     if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
                                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                     setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 })
                                   }}
                                   onMouseLeave={() => {
-                                    if (therapist.id === 'unassigned') return
                                     therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150)
                                   }}
                                 >
@@ -583,7 +581,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               )}
                             </div>
                             {/* アクションボタン（予約・編集）の縦スタック — 右端上下中央 */}
-                            {therapist.id !== 'unassigned' && (
+                            {true && (
                               <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 mr-1.5 self-center">
                                 {!isOff && (
                                   <button

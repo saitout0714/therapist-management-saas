@@ -928,16 +928,12 @@ function ShiftsContent() {
       );
     };
 
-    // Check if there are any unassigned reservations for the current day
-    const hasUnassigned = reservations.some(r => r.therapist_id === null && r.status !== 'blocked');
-    const unassignedTherapist: Therapist | null = hasUnassigned
-      ? {
-          id: 'unassigned',
-          name: 'フリー（未割当）',
-          intervalMinutes: shopIntervalMinutes,
-          notes: '未割当のフリー予約があります',
-        }
-      : null;
+    const unassignedTherapist: Therapist = {
+      id: 'unassigned',
+      name: 'フリー（未割当）',
+      intervalMinutes: shopIntervalMinutes,
+      notes: '未割当のフリー予約枠',
+    };
 
     let sortedOthers = [...withShift];
 
@@ -1040,7 +1036,7 @@ function ShiftsContent() {
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
     }
-    return unassignedTherapist ? [unassignedTherapist, ...sortedOthers] : sortedOthers;
+    return [unassignedTherapist, ...sortedOthers];
   }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
 
   // 週間表示用：全セラピストを詳細な形式にマップ
