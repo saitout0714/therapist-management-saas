@@ -33,9 +33,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/system", label: "システム管理" },
     { href: "/aggregation", label: "店舗集計" },
     ...(["system_admin", "agency_staff"].includes(user?.role || "") ? [{ href: "/admin", label: "店舗管理" }] : []),
-    ...(user?.role === "system_admin" ? [{ href: "/users", label: "アカウント管理" }] : []),
   ];
 
+  const adminItems = user?.role === "system_admin" ? [
+    { href: "/users", label: "アカウント管理" },
+    { href: "/shifts/sync", label: "外部シフト同期" },
+  ] : [];
 
   return (
     <>
@@ -75,6 +78,32 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </Link>
               );
             })}
+
+            {adminItems.length > 0 && (
+              <div className="pt-4 border-t border-slate-100/60 mt-4">
+                <div className="px-4 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  管理者メニュー
+                </div>
+                <div className="space-y-1.5">
+                  {adminItems.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center px-4 py-2.5 text-sm rounded-xl transition-all duration-200 group ${
+                          isActive
+                            ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm"
+                            : "text-slate-600 font-medium hover:bg-slate-50 hover:text-indigo-600"
+                        }`}
+                      >
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </nav>
         </div>
       </div>

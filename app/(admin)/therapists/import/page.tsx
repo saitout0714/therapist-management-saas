@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
 import Image from 'next/image'
 
 type ShopRank = { id: string; name: string }
@@ -71,7 +72,34 @@ function matchRank(extracted: string | null | undefined, ranks: ShopRank[]): str
 export default function ImportTherapistsPage() {
   const router = useRouter()
   const { selectedShop } = useShop()
+  const { user, loading: authLoading } = useAuth()
   const [mode, setMode] = useState<Mode>('import')
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex justify-center items-center py-20 text-indigo-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <span className="ml-3 font-medium">読み込み中...</span>
+      </div>
+    )
+  }
+
+  if (!user || user.role !== 'system_admin') {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-6 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-md">
+          <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h2 className="text-lg font-bold text-slate-800 mb-2">アクセス権限がありません</h2>
+          <p className="text-sm text-slate-500 mb-6">この機能はシステム管理者専用です。</p>
+          <Link href="/therapists" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors text-sm shadow-sm">
+            セラピスト一覧に戻る
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   // --- 新規取り込みモード ---
   const [url, setUrl] = useState('')

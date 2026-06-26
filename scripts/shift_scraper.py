@@ -14,8 +14,14 @@ shift_scraper.py  ─  ホームページからシフトをスクレイピング
 
 import argparse
 import re
+import sys
 import time
 from datetime import date, datetime, timedelta
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import requests
 from bs4 import BeautifulSoup
@@ -456,9 +462,9 @@ SCRAPERS = {
 # メイン処理
 # ═══════════════════════════════════════════════════════════════════
 
-def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete: bool):
+def process_site(site: dict, date_str: str, dry_run: bool, update: bool, delete: bool, force: bool):
     today = date.today().isoformat()
-    if date_str <= today:
+    if not force and date_str <= today:
         print(f"  [SKIP] {date_str} は過去または当日のためスキップ")
         return
 
@@ -608,6 +614,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true",              help="登録せずに確認のみ")
     parser.add_argument("--update",  action="store_true",              help="登録済みシフトも変更があれば上書き更新する")
     parser.add_argument("--delete",  action="store_true",              help="サイトから消えたシフトをSupabaseからも削除する")
+    parser.add_argument("--force",   action="store_true",              help="過去または当日の日付のスキップを無効にして強制同期")
     args = parser.parse_args()
 
     start_date  = datetime.strptime(args.date, "%Y-%m-%d").date()
@@ -623,6 +630,7 @@ def main():
     print(f"DRY RUN   : {args.dry_run}")
     print(f"UPDATE    : {args.update}")
     print(f"DELETE    : {args.delete}")
+    print(f"FORCE     : {args.force}")
 
     for offset in range(args.days):
         target_date = (start_date + timedelta(days=offset)).isoformat()
@@ -632,6 +640,7 @@ def main():
                 dry_run=args.dry_run,
                 update=args.update,
                 delete=args.delete,
+                force=args.force,
             )
 
 

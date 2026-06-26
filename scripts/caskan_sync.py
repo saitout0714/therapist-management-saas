@@ -1,11 +1,14 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
+import argparse
 import requests
 from bs4 import BeautifulSoup
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import time
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 CASKAN_SHOP_CODE = "sparich"
 CASKAN_LOGIN_ID  = "mts"
@@ -68,8 +71,6 @@ SUPABASE_HEADERS = {
     "Prefer": "return=minimal",
 }
 
-WEEKS = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-
 
 def normalize_cast_name(raw: str) -> str:
     if not raw:
@@ -84,7 +85,7 @@ def match_therapist(caskan_name: str, therapist_map: dict):
     if caskan_name in therapist_map:
         return therapist_map[caskan_name]
     
-    # ② キャス観名を正規化して一致するか
+    # ② キャスカン名を正規化して一致するか
     norm_caskan = normalize_cast_name(caskan_name)
     if norm_caskan in therapist_map:
         return therapist_map[norm_caskan]
@@ -143,7 +144,7 @@ def caskan_get_shifts(session, target_date):
             room_id = CASKAN_ROOM_MAP.get(raw_room_id, None)
             
             if raw_room_id and not room_id:
-                print(f"[WARN] [ルームMAP未登録] キャスト:{cast_name} / キャス観側部屋ID:{raw_room_id} が CASKAN_ROOM_MAP にありません。")
+                print(f"[WARN] [ルームMAP未登録] キャスト:{cast_name} / キャスカン側部屋ID:{raw_room_id} が CASKAN_ROOM_MAP にありません。")
 
             shifts.append({
                 "cast_name": cast_name,
@@ -175,7 +176,9 @@ def get_existing_shifts(supabase_id, date_from, date_to):
     return result
 
 
-def register_shift(therapist_id, supabase_id, day, start_time, end_time, room_id):
+def register_shift(therapist_id, supabase_id, day, start_time, end_time, room_id, dry_run=False):
+    if dry_run:
+        return True
     data = {"therapist_id": therapist_id, "shop_id": supabase_id, "date": day, "start_time": start_time, "end_time": end_time}
     if room_id:
         data["room_id"] = room_id
@@ -183,19 +186,31 @@ def register_shift(therapist_id, supabase_id, day, start_time, end_time, room_id
     return r.status_code == 201
 
 
-def update_shift(shift_id, start_time, end_time, room_id):
+def update_shift(shift_id, start_time, end_time, room_id, dry_run=False):
+    if dry_run:
+        return True
     data = {"start_time": start_time, "end_time": end_time}
     data["room_id"] = room_id if room_id else None
     r = requests.patch(SUPABASE_URL + "/rest/v1/shifts?id=eq." + shift_id, headers=SUPABASE_HEADERS, json=data)
     return r.status_code == 204
 
 
-def delete_shift(shift_id):
+def delete_shift(shift_id, dry_run=False):
+    if dry_run:
+        return True
     r = requests.delete(SUPABASE_URL + "/rest/v1/shifts?id=eq." + shift_id, headers=SUPABASE_HEADERS)
     return r.status_code == 204
 
 
 def main():
+    parser = argparse.ArgumentParser(description="キャスカンからシフトを同期してSupabaseに登録")
+    parser.add_argument("--date",    default=date.today().isoformat(), help="開始日 YYYY-MM-DD (デフォルト: 今日)")
+    parser.add_argument("--weeks",   type=int, default=1,              help="登録する週数 (デフォルト: 1)")
+    parser.add_argument("--force",   action="store_true",              help="過去または当日の日付のスキップを無効にして強制同期")
+    parser.add_argument("--dry-run", action="store_true",              help="登録せずに確認のみ")
+    parser.add_argument("--shops",   nargs="*",                        help="対象店舗名 (省略時は全店舗)")
+    args = parser.parse_args()
+
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
     print("Login...")
@@ -204,10 +219,23 @@ def main():
         return
     print("Login OK")
 
+    start_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+    week_start = start_date - timedelta(days=start_date.weekday())
     today = date.today()
-    week_start = today - timedelta(days=today.weekday())
 
-    for shop in SHOPS:
+    shop_filter = args.shops or []
+    target_shops = [
+        s for s in SHOPS
+        if not shop_filter or s["name"] in shop_filter
+    ]
+
+    print(f"開始日  : {start_date} (週の開始: {week_start})")
+    print(f"登録期間: {week_start} ～ {week_start + timedelta(weeks=args.weeks) - timedelta(days=1)}")
+    print(f"DRY RUN : {args.dry_run}")
+    print(f"FORCE   : {args.force}")
+    print(f"対象店舗: {[s['name'] for s in target_shops]}")
+
+    for shop in target_shops:
         print("=" * 50)
         print("Shop: " + shop["name"] + " (caskan:" + str(shop["caskan_id"]) + ")")
         print("=" * 50)
@@ -220,16 +248,18 @@ def main():
 
         total_ok, total_update, total_delete, total_skip, unknown = 0, 0, 0, 0, []
 
-        for week_offset in range(WEEKS):
+        for week_offset in range(args.weeks):
             target = week_start + timedelta(weeks=week_offset)
             date_from = target.isoformat()
             date_to = (target + timedelta(days=6)).isoformat()
 
-            tomorrow = (today + timedelta(days=1)).isoformat()
-            if date_to < tomorrow:
-                continue
-            if date_from < tomorrow:
-                date_from = tomorrow
+            if not args.force:
+                tomorrow = (today + timedelta(days=1)).isoformat()
+                if date_to < tomorrow:
+                    print(f"Date: {date_from} - {date_to} [SKIP (Past)]")
+                    continue
+                if date_from < tomorrow:
+                    date_from = tomorrow
 
             print("Date: " + date_from + " - " + date_to)
 
@@ -271,22 +301,25 @@ def main():
                             ex["end_time"] != s["end_time"] or 
                             ex["room_id"] != s["room_id"]):
                             
-                            if update_shift(ex["id"], s["start_time"], s["end_time"], s["room_id"]):
-                                print(f"UPDATED: {day} {ex['start_time'][:5]}->{s['start_time'][:5]} ({s['end_time'][:5]})")
+                            if update_shift(ex["id"], s["start_time"], s["end_time"], s["room_id"], dry_run=args.dry_run):
+                                tag = "[DRY]" if args.dry_run else "[UPDATE]"
+                                print(f"{tag}: {day} {ex['start_time'][:5]}->{s['start_time'][:5]} ({s['end_time'][:5]})")
                                 total_update += 1
                         else:
                             total_skip += 1
 
                     elif i < len(caskan_list):
                         s = caskan_list[i]
-                        if register_shift(t_id, shop["supabase_id"], day, s["start_time"], s["end_time"], s["room_id"]):
-                            print(f"OK: {day} {s['start_time'][:5]}-{s['end_time'][:5]}" + (" room:OK" if s["room_id"] else " room:none"))
+                        if register_shift(t_id, shop["supabase_id"], day, s["start_time"], s["end_time"], s["room_id"], dry_run=args.dry_run):
+                            tag = "[DRY]" if args.dry_run else "[OK]"
+                            print(f"{tag}: {day} {s['start_time'][:5]}-{s['end_time'][:5]}" + (" room:OK" if s["room_id"] else " room:none"))
                             total_ok += 1
 
                     elif i < len(existing_list):
                         ex = existing_list[i]
-                        if delete_shift(ex["id"]):
-                            print(f"DELETED: {day} {ex['start_time'][:5]}")
+                        if delete_shift(ex["id"], dry_run=args.dry_run):
+                            tag = "[DRY]" if args.dry_run else "[DELETED]"
+                            print(f"{tag}: {day} {ex['start_time'][:5]}")
                             total_delete += 1
 
         print("Registered:" + str(total_ok) + " Updated:" + str(total_update) + " Deleted:" + str(total_delete) + " Skipped:" + str(total_skip))

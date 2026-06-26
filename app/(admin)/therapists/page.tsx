@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
+import { useAuth } from "@/app/contexts/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -25,6 +26,7 @@ type TherapistItem = {
 
 export default function TherapistsPage() {
   const { selectedShop } = useShop();
+  const { user } = useAuth();
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
   const [photosMap, setPhotosMap] = useState<Map<string, string>>(new Map());
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
@@ -385,15 +387,17 @@ export default function TherapistsPage() {
               <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">{activeTherapists.length}</span>
             </h2>
             <div className="flex gap-2">
-              <Link
-                href="/therapists/import"
-                className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <span>HPから一括取込</span>
-              </Link>
+              {user?.role === 'system_admin' && (
+                <Link
+                  href="/therapists/import"
+                  className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span>HPから一括取込</span>
+                </Link>
+              )}
               <Link
                 href="/therapists/new"
                 className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
