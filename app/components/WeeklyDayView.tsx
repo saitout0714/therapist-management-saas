@@ -119,6 +119,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const [shifts, setShifts] = useState<Shift[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
 
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null)
   const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
@@ -225,6 +226,27 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       setRooms((data as Room[]) || [])
     }
     void fetchRooms()
+  }, [selectedShop])
+
+  useEffect(() => {
+    const fetchDesignationTypes = async () => {
+      if (!selectedShop) return
+      const { data } = await supabase
+        .from('designation_types')
+        .select('slug, display_name')
+        .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
+      if (data) {
+        const map: Record<string, string> = {}
+        data.forEach((d: { slug: string; display_name: string }) => {
+          if (d.slug) map[d.slug] = d.display_name
+        })
+        setDesignationMap(map)
+      } else {
+        setDesignationMap({})
+      }
+    }
+    void fetchDesignationTypes()
   }, [selectedShop])
 
   const therapistMap = useMemo(() => {
@@ -701,7 +723,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                             )}
                                             {res.designation_type && (
                                               <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">
-                                                {DESIGNATION_LABEL[res.designation_type] || res.designation_type}
+                                                {designationMap[res.designation_type] || DESIGNATION_LABEL[res.designation_type] || res.designation_type}
                                               </span>
                                             )}
                                             {res.total_price !== undefined && (

@@ -70,6 +70,7 @@ const getBusinessDate = () => {
 export default function PayrollPage() {
   const { selectedShop } = useShop()
   const [therapists, setTherapists] = useState<TherapistItem[]>([])
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
 
   // フォーム状態
   const [targetDate, setTargetDate] = useState<string>(getBusinessDate())
@@ -112,6 +113,27 @@ export default function PayrollPage() {
       setDeductionRules((data as DeductionRule[]) || [])
     }
     void fetchDeductionRules()
+  }, [selectedShop])
+
+  useEffect(() => {
+    async function fetchDesignationTypes() {
+      if (!selectedShop) return
+      const { data } = await supabase
+        .from('designation_types')
+        .select('slug, display_name')
+        .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
+      if (data) {
+        const map: Record<string, string> = {}
+        data.forEach((d) => {
+          if (d.slug) map[d.slug] = d.display_name
+        })
+        setDesignationMap(map)
+      } else {
+        setDesignationMap({})
+      }
+    }
+    void fetchDesignationTypes()
   }, [selectedShop])
 
   useEffect(() => {
@@ -388,6 +410,7 @@ export default function PayrollPage() {
     }, 0)
 
   const designationLabel = (v: string) => {
+    if (designationMap && designationMap[v]) return designationMap[v]
     const map: Record<string, string> = { free: 'フリー', nomination: '指名', first_nomination: '初回指名', confirmed: '本指名', princess: '姫予約' }
     return map[v] || v
   }

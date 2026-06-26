@@ -213,6 +213,7 @@ function ShiftsContent() {
   const [shopCourses, setShopCourses] = useState<{name: string, duration: number, price: number}[]>([]);
   const [shopDiscounts, setShopDiscounts] = useState<{name: string, value: number}[]>([]);
   const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({});
   const [shopOptions, setShopOptions] = useState<{name: string, price: number, duration: number, type: string}[]>([]);
 
 
@@ -573,11 +574,23 @@ function ShiftsContent() {
 
     supabase
       .from('designation_types')
-      .select('display_name, default_fee')
+      .select('slug, display_name, default_fee')
       .eq('shop_id', selectedShop.id)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
-      .then(({ data }) => setShopDesignations((data as any[])?.map(d => ({ name: d.display_name, fee: d.default_fee })) || []));
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          (data as any[]).forEach((d) => {
+            if (d.slug) map[d.slug] = d.display_name;
+          });
+          setDesignationMap(map);
+          setShopDesignations(data.map(d => ({ name: d.display_name, fee: d.default_fee })));
+        } else {
+          setDesignationMap({});
+          setShopDesignations([]);
+        }
+      });
 
     supabase
       .from('options')
@@ -802,7 +815,10 @@ function ShiftsContent() {
     return h * 60 + m;
   };
 
-  const designationLabel = (v: string) => ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+  const designationLabel = (v: string) => {
+    if (designationMap && designationMap[v]) return designationMap[v];
+    return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+  };
 
   const schedules: Schedule[] = [
     ...reservations
