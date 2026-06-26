@@ -10,24 +10,22 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // use service role 
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function main() {
-  const { data: rooms, error } = await supabase
-    .from('rooms')
-    .select('*');
-
-  if (error) {
-    console.error('Error fetching rooms:', error);
-    return;
+async function run() {
+  console.log('Fetching therapists for rabbit_tachikawa from Supabase...')
+  const { data: therapists, error } = await supabase
+    .from('therapists')
+    .select('id, name')
+    .eq('shop_id', 'a0000001-0000-0000-0000-000000000003')
+  
+  if (error || !therapists) {
+    console.error('Failed to fetch therapists:', error)
+    return
   }
 
-  console.log('Rooms in database:', rooms.length);
-  for (const r of rooms) {
-    console.log(`- Room ID: ${r.id}, Name: ${r.name}, Display Name: ${r.display_name}`);
-    console.log(`  template_member: ${r.template_member ? 'Set' : 'Null'}`);
-    console.log(`  template_new_customer: ${r.template_new_customer ? 'Set' : 'Null'}`);
-    console.log(`  template_web_member: ${r.template_web_member ? 'Set' : 'Null'}`);
-    console.log(`  template_web_new_customer: ${r.template_web_new_customer ? 'Set' : 'Null'}`);
-  }
+  console.log(`Fetched ${therapists.length} therapists for rabbit_tachikawa:`)
+  therapists.forEach(t => {
+    console.log(`- ${t.name} (UUID: ${t.id})`)
+  })
 }
 
 main();

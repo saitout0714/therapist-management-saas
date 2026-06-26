@@ -186,50 +186,150 @@ async function caskanGetShifts(
   onLog: (msg: string) => void
 ): Promise<CaskanShift[]> {
   const dateStr = targetDate.toISOString().split('T')[0]
-  const r = await session.get(`https://my.caskan.jp/shift?date=${dateStr}`)
+  const baseUrl = `https://my.caskan.jp/shift?date=${dateStr}`
+  const r = await session.get(baseUrl)
+  if (r.status !== 200) {
+    onLog(`[WARN] シフトカレンダーの取得に失敗しました (Status: ${r.status})\n`)
+    return []
+  }
+  const html = await r.text()
+  let $ = cheerio.load(html)
+  const shifts: CaskanShift[] = []
+
+  const parsePage = (pageCheerio: cheerio.CheerioAPI) => {
+    pageCheerio('.tbl-calendar tr').each((_, row) => {
+      const nameLink = pageCheerio(row).find('a[href^="/cast/view"]')
+      const castName = nameLink.text().trim()
+      if (!castName) return
+
+      pageCheerio(row).find('td[data-cast-id]').each((_, cell) => {
+        const shiftId = pageCheerio(cell).attr('data-id') || ''
+        if (!shiftId) return
+
+        const fromH = pageCheerio(cell).attr('data-from-hour') || ''
+        const fromM = pageCheerio(cell).attr('data-from-min') || '0'
+        const toH = pageCheerio(cell).attr('data-to-hour') || ''
+        const toM = pageCheerio(cell).attr('data-to-min') || '0'
+
+        if (!fromH || !toH) {
+          return
+        }
+
+        const rawRoomId = pageCheerio(cell).attr('data-room-id') || ''
+        const roomId = CASKAN_ROOM_MAP[rawRoomId] || null
+
+        if (rawRoomId && !roomId) {
+          onLog(`[WARN] [ルームMAP未登録] キャスト:${castName} / キャスカン側部屋ID:${rawRoomId} が CASKAN_ROOM_MAP にありません。\n`)
+        }
+
+        const day = pageCheerio(cell).attr('data-day') || ''
+
+        // Format to HH:MM:00
+        const startTime = `${fromH.padStart(2, '0')}:${fromM.padStart(2, '0')}:00`
+        const endTime = `${toH.padStart(2, '0')}:${toM.padStart(2, '0')}:00`
+
+        shifts.push({
+          castName,
+          day,
+          startTime,
+          endTime,
+          roomId,
+          rawRoomId,
+        })
+      })
+    })
+  }
+
+  // Parse page 1
+  parsePage($)
+
+  // Find other pages
+  const pageUrls = new Set<string>()
+  $('.pagination li a[href]').each((_, el) => {
+    const href = $(el).attr('href')
+    if (href) {
+      const fullUrl = href.startsWith('http') ? href : `https://my.caskan.jp${href}`
+      pageUrls.add(fullUrl)
+    }
+  })
+
+  // Fetch and parse other pages
+  for (const url of pageUrls) {
+    onLog(`Fetching pagination page: ${url.replace('https://my.caskan.jp', '')}...\n`)
+    const rPage = await session.get(url)
+    if (rPage.status === 200) {
+      const htmlPage = await rPage.text()
+      const $page = cheerio.load(htmlPage)
+      parsePage($page)
+    } else {
+      onLog(`[WARN] ページ取得失敗 (Status: ${rPage.status})\n`)
+    }
+  }
+
+  return shifts
+}
+
+async function caskanGetScheduleShifts(
+  session: FetchSession,
+  dateStr: string,
+  onLog: (msg: string) => void
+): Promise<CaskanShift[]> {
+  const r = await session.get(`https://my.caskan.jp/schedule?date=${dateStr}`)
+  if (r.status !== 200) {
+    onLog(`[WARN] デイリースケジュール (${dateStr}) の取得に失敗しました (Status: ${r.status})\n`)
+    return []
+  }
   const html = await r.text()
   const $ = cheerio.load(html)
   const shifts: CaskanShift[] = []
 
-  $('.tbl-calendar tr').each((_, row) => {
-    const nameLink = $(row).find('a[href^="/cast/view"]')
-    const castName = nameLink.text().trim()
+  $('tr').each((_, row) => {
+    const editLink = $(row).find('.link-mod-shift')
+    if (editLink.length === 0) return
+
+    const th = $(row).find('th')
+    if (th.length === 0) return
+
+    const nameDiv = th.find('.small.nowrap').first()
+    if (nameDiv.length === 0) return
+
+    let castName = ''
+    nameDiv.contents().each((_, node) => {
+      if (node.type === 'text') {
+        castName += $(node).text()
+      }
+    })
+    castName = castName.trim()
     if (!castName) return
 
-    $(row).find('td[data-cast-id]').each((_, cell) => {
-      const shiftId = $(cell).attr('data-id') || ''
-      if (!shiftId) return
+    const shiftId = editLink.attr('data-id') || ''
+    if (!shiftId) return
 
-      const fromH = $(cell).attr('data-from-hour') || ''
-      const fromM = $(cell).attr('data-from-min') || '0'
-      const toH = $(cell).attr('data-to-hour') || ''
-      const toM = $(cell).attr('data-to-min') || '0'
+    const day = editLink.attr('data-day') || ''
+    const fromH = editLink.attr('data-from-hour') || ''
+    const fromM = editLink.attr('data-from-min') || '0'
+    const toH = editLink.attr('data-to-hour') || ''
+    const toM = editLink.attr('data-to-min') || '0'
+    const rawRoomId = editLink.attr('data-room-id') || ''
 
-      if ($(cell).attr('data-time-undecided') === '1' || !fromH || !toH) {
-        return
-      }
+    if (!fromH || !toH) return
 
-      const rawRoomId = $(cell).attr('data-room-id') || ''
-      const roomId = CASKAN_ROOM_MAP[rawRoomId] || null
+    const roomId = CASKAN_ROOM_MAP[rawRoomId] || null
 
-      if (rawRoomId && !roomId) {
-        onLog(`[WARN] [ルームMAP未登録] キャスト:${castName} / キャスカン側部屋ID:${rawRoomId} が CASKAN_ROOM_MAP にありません。\n`)
-      }
+    if (rawRoomId && !roomId) {
+      onLog(`[WARN] [ルームMAP未登録] キャスト:${castName} / キャスカン側部屋ID:${rawRoomId} が CASKAN_ROOM_MAP にありません。\n`)
+    }
 
-      const day = $(cell).attr('data-day') || ''
+    const startTime = `${fromH.padStart(2, '0')}:${fromM.padStart(2, '0')}:00`
+    const endTime = `${toH.padStart(2, '0')}:${toM.padStart(2, '0')}:00`
 
-      // Format to HH:MM:00
-      const startTime = `${fromH.padStart(2, '0')}:${fromM.padStart(2, '0')}:00`
-      const endTime = `${toH.padStart(2, '0')}:${toM.padStart(2, '0')}:00`
-
-      shifts.push({
-        castName,
-        day,
-        startTime,
-        endTime,
-        roomId,
-        rawRoomId,
-      })
+    shifts.push({
+      castName,
+      day,
+      startTime,
+      endTime,
+      roomId,
+      rawRoomId,
     })
   })
 
@@ -376,7 +476,45 @@ export async function syncCaskanShop(
 
     onLog(`Date: ${dateFrom} - ${dateTo}\n`)
 
-    const caskanShifts = await caskanGetShifts(session, target, onLog)
+    const weeklyShifts = await caskanGetShifts(session, target, onLog)
+    
+    // Group weekly shifts by day
+    const weeklyShiftsByDay: Record<string, CaskanShift[]> = {}
+    for (const s of weeklyShifts) {
+      if (!weeklyShiftsByDay[s.day]) {
+        weeklyShiftsByDay[s.day] = []
+      }
+      weeklyShiftsByDay[s.day].push(s)
+    }
+
+    const caskanShifts: CaskanShift[] = []
+    const parseLocalDate = (str: string) => {
+      const parts = str.split('-').map(Number)
+      return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
+    }
+
+    const currentDate = parseLocalDate(dateFrom)
+    const endDate = parseLocalDate(dateTo)
+
+    while (currentDate <= endDate) {
+      const dayStr = currentDate.toISOString().split('T')[0]
+      onLog(`Syncing day: ${dayStr}... `)
+      const daily = await caskanGetScheduleShifts(session, dayStr, onLog)
+      if (daily.length > 0) {
+        onLog(`found ${daily.length} shifts on daily schedule.\n`)
+        caskanShifts.push(...daily)
+      } else {
+        const weekly = weeklyShiftsByDay[dayStr] || []
+        if (weekly.length > 0) {
+          onLog(`fallback to weekly: ${weekly.length} shifts.\n`)
+          caskanShifts.push(...weekly)
+        } else {
+          onLog(`0 shifts.\n`)
+        }
+      }
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+    }
+
     const existingShifts = await getExistingShifts(shop.supabaseId, dateFrom, dateTo)
 
     const caskanIndex: Record<string, CaskanShift[]> = {}
