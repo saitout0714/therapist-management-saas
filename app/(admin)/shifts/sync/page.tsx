@@ -107,50 +107,71 @@ export default function SyncPage() {
     setIsRunning(true)
     setLogs('')
 
-    const payload = {
-      syncType,
-      date: startDate,
-      dryRun,
-      force,
-      ...(syncType === 'caskan'
-        ? { weeks, shops: selectedShops }
-        : { days, update, delete: delShifts, sites: selectedSites }),
+    const targets = syncType === 'caskan' ? selectedShops : selectedSites
+
+    if (targets.length === 0) {
+      setLogs('[ERROR] 同期対象が選択されていません。\n')
+      setIsRunning(false)
+      return
     }
 
     try {
-      const response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i]
+        const displayLabel = syncType === 'caskan' 
+          ? (CAS_SHOPS.find(s => s.name === target)?.supabaseId ? (dbShops[CAS_SHOPS.find(s => s.name === target)!.supabaseId] || target) : target)
+          : target
 
-      if (!response.ok) {
-        const errText = await response.text()
-        let errMsg = errText
-        try {
-          const errJson = JSON.parse(errText)
-          errMsg = errJson.error || errText
-        } catch {}
-        setLogs(`[ERROR] 同期の起動に失敗しました: ${errMsg}\n`)
-        setIsRunning(false)
-        return
+        setLogs((prev) => prev + `\n[SYSTEM] ==================================================\n`)
+        setLogs((prev) => prev + `[SYSTEM] 同期処理を開始します (${i + 1} / ${targets.length}): ${displayLabel}\n`)
+        setLogs((prev) => prev + `[SYSTEM] ==================================================\n\n`)
+
+        const payload = {
+          syncType,
+          date: startDate,
+          dryRun,
+          force,
+          ...(syncType === 'caskan'
+            ? { weeks, shop: target }
+            : { days, update, delete: delShifts, site: target }),
+        }
+
+        const response = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        if (!response.ok) {
+          const errText = await response.text()
+          let errMsg = errText
+          try {
+            const errJson = JSON.parse(errText)
+            errMsg = errJson.error || errText
+          } catch {}
+          setLogs((prev) => prev + `[ERROR] ${displayLabel} の同期に失敗しました: ${errMsg}\n`)
+          continue
+        }
+
+        if (!response.body) {
+          setLogs((prev) => prev + `[ERROR] レスポンスストリームの取得に失敗しました。\n`)
+          continue
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          const text = decoder.decode(value, { stream: true })
+          setLogs((prev) => prev + text)
+        }
       }
 
-      if (!response.body) {
-        setLogs('[ERROR] レスポンスストリームの取得に失敗しました。\n')
-        setIsRunning(false)
-        return
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder('utf-8')
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        const text = decoder.decode(value, { stream: true })
-        setLogs((prev) => prev + text)
-      }
+      setLogs((prev) => prev + `\n[SYSTEM] ==================================================\n`)
+      setLogs((prev) => prev + `[SYSTEM] すべての同期処理が完了しました！\n`)
+      setLogs((prev) => prev + `[SYSTEM] ==================================================\n`)
     } catch (err: any) {
       setLogs((prev) => prev + `\n[SYSTEM ERROR] 通信エラー: ${err.message || err}\n`)
     } finally {

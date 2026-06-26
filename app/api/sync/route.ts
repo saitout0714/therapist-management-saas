@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { spawn } from 'child_process'
-import path from 'path'
+import { syncCaskanShop } from '@/lib/sync/caskan'
+import { syncScraperSite } from '@/lib/sync/scraper'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +13,9 @@ export async function POST(req: NextRequest) {
       days,
       weeks,
       sites,
+      site,
       shops,
+      shop,
       dryRun,
       update,
       delete: delShifts,
@@ -27,90 +29,54 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const projectRoot = process.cwd()
-    let scriptPath = ''
-    const args: string[] = []
-
-    if (syncType === 'caskan') {
-      scriptPath = path.join(projectRoot, 'scripts', 'caskan_sync.py')
-      if (date) {
-        args.push('--date', date)
-      }
-      if (weeks) {
-        args.push('--weeks', String(weeks))
-      }
-      if (dryRun) {
-        args.push('--dry-run')
-      }
-      if (force) {
-        args.push('--force')
-      }
-      if (shops && Array.isArray(shops) && shops.length > 0) {
-        args.push('--shops', ...shops)
-      }
-    } else {
-      scriptPath = path.join(projectRoot, 'scripts', 'shift_scraper.py')
-      if (date) {
-        args.push('--date', date)
-      }
-      if (days) {
-        args.push('--days', String(days))
-      }
-      if (dryRun) {
-        args.push('--dry-run')
-      }
-      if (update) {
-        args.push('--update')
-      }
-      if (delShifts) {
-        args.push('--delete')
-      }
-      if (force) {
-        args.push('--force')
-      }
-      if (sites && Array.isArray(sites) && sites.length > 0) {
-        args.push('--sites', ...sites)
-      }
+    // Determine target shop or site (supporting both single value and list fallback)
+    let targetShop = shop || ''
+    if (!targetShop && shops && Array.isArray(shops) && shops.length > 0) {
+      targetShop = shops[0]
     }
 
-    // Set encoding to handle Japanese characters properly in cmd/powershell output
-    const env = {
-      ...process.env,
-      PYTHONIOENCODING: 'utf-8',
+    let targetSite = site || ''
+    if (!targetSite && sites && Array.isArray(sites) && sites.length > 0) {
+      targetSite = sites[0]
+    }
+
+    if (syncType === 'caskan' && !targetShop) {
+      return new Response(
+        JSON.stringify({ error: '同期対象の店舗 (shop) が指定されていません' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (syncType === 'scraper' && !targetSite) {
+      return new Response(
+        JSON.stringify({ error: '同期対象のサイト (site) が指定されていません' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(`[SYSTEM] Python プロセスの開始: python ${scriptPath} ${args.join(' ')}\n\n`))
+      async start(controller) {
+        const onLog = (msg: string) => {
+          controller.enqueue(encoder.encode(msg))
+        }
 
-        // Spawn python process
-        // On Windows, using shell: true is safer for resolving command paths
-        const pyProcess = spawn('python', [scriptPath, ...args], {
-          env,
-          shell: true,
-          cwd: projectRoot,
-        })
-
-        pyProcess.stdout.on('data', (chunk) => {
-          controller.enqueue(chunk)
-        })
-
-        pyProcess.stderr.on('data', (chunk) => {
-          // Send errors to log as well
-          controller.enqueue(chunk)
-        })
-
-        pyProcess.on('close', (code) => {
-          controller.enqueue(encoder.encode(`\n[SYSTEM] プロセスがコード ${code} で終了しました。\n`))
+        try {
+          if (syncType === 'caskan') {
+            onLog(`[SYSTEM] キャスカン同期開始: 店舗=${targetShop}, 開始日=${date}, 週数=${weeks || 1}, 強制=${!!force}, テスト=${!!dryRun}\n\n`)
+            await syncCaskanShop(targetShop, date, weeks || 1, !!force, !!dryRun, onLog)
+            onLog(`\n[SYSTEM] キャスカン同期 (店舗: ${targetShop}) が終了しました。\n`)
+          } else {
+            onLog(`[SYSTEM] サイトスクレイピング同期開始: サイト=${targetSite}, 開始日=${date}, 日数=${days || 1}, 更新=${!!update}, 削除=${!!delShifts}, 強制=${!!force}, テスト=${!!dryRun}\n\n`)
+            await syncScraperSite(targetSite, date, days || 1, !!dryRun, !!update, !!delShifts, !!force, onLog)
+            onLog(`\n[SYSTEM] サイトスクレイピング同期 (サイト: ${targetSite}) が終了しました。\n`)
+          }
+        } catch (err: any) {
+          onLog(`\n[SYSTEM ERROR] 同期実行中にエラーが発生しました: ${err.message || err}\n`)
+        } finally {
           controller.close()
-        })
-
-        pyProcess.on('error', (err) => {
-          controller.enqueue(encoder.encode(`\n[SYSTEM] エラーが発生しました: ${err.message}\n`))
-          controller.close()
-        })
+        }
       },
     })
 
@@ -129,3 +95,4 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
