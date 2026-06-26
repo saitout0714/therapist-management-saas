@@ -409,15 +409,22 @@ export async function POST(req: NextRequest) {
 
     // 4. 顧客の一括取得と、存在しない顧客のバルクインサートによる高速化
     // Helper to get canonical name (name + 5 digit number)
+    const is5DigitShop = shopId === '960d84c5-d1cd-44bc-a39a-85f8ecc3d51a' || shopId === 'a0000001-0000-0000-0000-000000000005'
     const getCanonicalName = (customerName: string, phoneSuffix?: string): string => {
       const name = customerName.trim()
       if (!phoneSuffix) return name
-      if (/\d{5}$/.test(name)) return name
-      const matchLastDigit = name.match(/\d$/)
-      if (matchLastDigit && phoneSuffix.length === 4) {
-        return name.slice(0, -1).trim() + phoneSuffix + matchLastDigit[0]
+      
+      if (is5DigitShop) {
+        if (/\d{5}$/.test(name)) return name
+        const matchLastDigit = name.match(/\d$/)
+        if (matchLastDigit && phoneSuffix.length === 4) {
+          return name.slice(0, -1).trim() + phoneSuffix + matchLastDigit[0]
+        }
+        return name + phoneSuffix
+      } else {
+        if (/\d{4}$/.test(name)) return name
+        return name + phoneSuffix
       }
-      return name + phoneSuffix
     }
 
     const uniqueCustomerKeys = Array.from(new Set(reservations.map(r => `${r.customer_name.trim()}_${r.phone_suffix || ''}`)))
