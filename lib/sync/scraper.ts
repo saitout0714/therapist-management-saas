@@ -460,11 +460,14 @@ export async function syncScraperSite(
     return
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  // Get current JST date (UTC + 9 hours)
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
+  const todayStr = today.toISOString().split('T')[0]
 
+  const parsedStart = new Date(dateStr)
   for (let offset = 0; offset < days; offset++) {
-    const targetDt = new Date(dateStr)
-    targetDt.setDate(targetDt.getDate() + offset)
+    const targetDt = new Date(parsedStart)
+    targetDt.setUTCDate(parsedStart.getUTCDate() + offset)
     const targetDateStr = targetDt.toISOString().split('T')[0]
 
     if (!force && targetDateStr <= todayStr) {
@@ -548,7 +551,7 @@ export async function syncScraperSite(
           }
 
           if (!dryRun) {
-            await supabaseAdmin
+            const { error } = await supabaseAdmin
               .from('shifts')
               .update({
                 room_id: roomId,
@@ -556,6 +559,9 @@ export async function syncScraperSite(
                 end_time: `${item.end}:00`,
               })
               .eq('id', existing.id)
+            if (error) {
+              onLog(`    [ERR] database update failed for shift ${existing.id}: ${error.message}\n`)
+            }
           }
 
           const tag = dryRun ? '[DRY]' : '[UPDATE]'
@@ -566,7 +572,7 @@ export async function syncScraperSite(
 
         // New Registration
         if (!dryRun) {
-          await supabaseAdmin.from('shifts').insert({
+          const { error } = await supabaseAdmin.from('shifts').insert({
             therapist_id: tid,
             shop_id: site.shopId,
             date: targetDateStr,
@@ -574,6 +580,9 @@ export async function syncScraperSite(
             start_time: `${item.start}:00`,
             end_time: `${item.end}:00`,
           })
+          if (error) {
+            onLog(`    [ERR] database insert failed for date ${targetDateStr}: ${error.message}\n`)
+          }
         }
 
         const tag = dryRun ? '[DRY]' : '[OK]'
@@ -600,7 +609,10 @@ export async function syncScraperSite(
             const therapistName = Object.entries(therapistMap).find(([_, id]) => id === tid)?.[0] || tid
             
             if (!dryRun) {
-              await supabaseAdmin.from('shifts').delete().eq('id', existing.id)
+              const { error } = await supabaseAdmin.from('shifts').delete().eq('id', existing.id)
+              if (error) {
+                onLog(`    [ERR] database delete failed for shift ${existing.id}: ${error.message}\n`)
+              }
             }
 
             const tag = dryRun ? '[DRY]' : '[DEL]'

@@ -321,12 +321,13 @@ export async function syncCaskanShop(
   // We match python's weekday start which is Monday (weekday()=0)
   // In JS, day of week is 0 (Sunday) to 6 (Saturday).
   // Monday is 1. If it's Sunday (0), weekday_offset is 6. Otherwise day - 1.
-  const dayOfWeek = parsedDate.getDay()
+  const dayOfWeek = parsedDate.getUTCDay()
   const weekdayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   const weekStart = new Date(parsedDate)
-  weekStart.setDate(parsedDate.getDate() - weekdayOffset)
+  weekStart.setUTCDate(parsedDate.getUTCDate() - weekdayOffset)
 
-  const today = new Date()
+  // Get current JST date (UTC + 9 hours)
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
   const todayStr = today.toISOString().split('T')[0]
 
   onLog('==================================================\n')
@@ -352,17 +353,17 @@ export async function syncCaskanShop(
 
   for (let weekOffset = 0; weekOffset < weeks; weekOffset++) {
     const target = new Date(weekStart)
-    target.setDate(weekStart.getDate() + weekOffset * 7)
+    target.setUTCDate(weekStart.getUTCDate() + weekOffset * 7)
     
     let dateFrom = target.toISOString().split('T')[0]
     
     const targetEnd = new Date(target)
-    targetEnd.setDate(target.getDate() + 6)
+    targetEnd.setUTCDate(target.getUTCDate() + 6)
     const dateTo = targetEnd.toISOString().split('T')[0]
 
     if (!force) {
       const tomorrow = new Date(today)
-      tomorrow.setDate(today.getDate() + 1)
+      tomorrow.setUTCDate(today.getUTCDate() + 1)
       const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
       if (dateTo < tomorrowStr) {
@@ -429,7 +430,7 @@ export async function syncCaskanShop(
 
           if (exStart !== sStart || exEnd !== sEnd || ex.room_id !== s.roomId) {
             if (!dryRun) {
-              await supabaseAdmin
+              const { error } = await supabaseAdmin
                 .from('shifts')
                 .update({
                   start_time: s.startTime,
@@ -437,6 +438,9 @@ export async function syncCaskanShop(
                   room_id: s.roomId,
                 })
                 .eq('id', ex.id)
+              if (error) {
+                onLog(`[ERROR] database update failed for shift ${ex.id}: ${error.message}\n`)
+              }
             }
             const tag = dryRun ? '[DRY]' : '[UPDATE]'
             onLog(`${tag}: ${day} ${exStart}->${sStart} (${sEnd})\n`)
@@ -447,7 +451,7 @@ export async function syncCaskanShop(
         } else if (i < caskanList.length) {
           const s = caskanList[i]
           if (!dryRun) {
-            await supabaseAdmin.from('shifts').insert({
+            const { error } = await supabaseAdmin.from('shifts').insert({
               therapist_id: tId,
               shop_id: shop.supabaseId,
               date: day,
@@ -455,6 +459,9 @@ export async function syncCaskanShop(
               end_time: s.endTime,
               room_id: s.roomId,
             })
+            if (error) {
+              onLog(`[ERROR] database insert failed for date ${day}: ${error.message}\n`)
+            }
           }
           const tag = dryRun ? '[DRY]' : '[OK]'
           onLog(`${tag}: ${day} ${s.startTime.slice(0, 5)}-${s.endTime.slice(0, 5)}${s.roomId ? ' room:OK' : ' room:none'}\n`)
@@ -462,7 +469,10 @@ export async function syncCaskanShop(
         } else if (i < existingList.length) {
           const ex = existingList[i]
           if (!dryRun) {
-            await supabaseAdmin.from('shifts').delete().eq('id', ex.id)
+            const { error } = await supabaseAdmin.from('shifts').delete().eq('id', ex.id)
+            if (error) {
+              onLog(`[ERROR] database delete failed for shift ${ex.id}: ${error.message}\n`)
+            }
           }
           const tag = dryRun ? '[DRY]' : '[DELETED]'
           onLog(`${tag}: ${day} ${ex.start_time.slice(0, 5)}\n`)
