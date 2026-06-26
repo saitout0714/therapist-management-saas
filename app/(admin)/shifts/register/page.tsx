@@ -158,7 +158,7 @@ export default function RegisterShift() {
             <p className="text-sm text-slate-500 mt-1">店舗に所属するセラピストのシフト（出勤枠）を週単位で登録・編集できます。</p>
           </div>
           {/* AIシフト一括登録ボタン */}
-          {user?.role === 'system_admin' && (
+          {['system_admin', 'agency_client_owner', 'simple_client_owner'].includes(user?.role || '') && (
             <button
               onClick={() => setAiModal({ text: '', parsing: false, saving: false, error: null, parsedShifts: null })}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-colors font-bold text-xs whitespace-nowrap flex items-center gap-1.5 self-start md:self-auto"

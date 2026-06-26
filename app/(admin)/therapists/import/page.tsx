@@ -84,7 +84,7 @@ export default function ImportTherapistsPage() {
     )
   }
 
-  if (!user || user.role !== 'system_admin') {
+  if (!user || !['system_admin', 'agency_client_owner', 'simple_client_owner'].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-6 text-center">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-md">
@@ -92,7 +92,7 @@ export default function ImportTherapistsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <h2 className="text-lg font-bold text-slate-800 mb-2">アクセス権限がありません</h2>
-          <p className="text-sm text-slate-500 mb-6">この機能はシステム管理者専用です。</p>
+          <p className="text-sm text-slate-500 mb-6">この機能は管理者専用です。</p>
           <Link href="/therapists" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors text-sm shadow-sm">
             セラピスト一覧に戻る
           </Link>
