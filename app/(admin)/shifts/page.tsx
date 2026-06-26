@@ -1302,7 +1302,6 @@ function ShiftsContent() {
 
         {/* タイムチャートビュー */}
         {viewMode === 'day' && (() => {
-          const chartHeight = 56 + sortedTherapistsWithShift.length * 76 + 10;
           return (
             <div className="bg-white rounded-lg shadow-lg overflow-visible relative">
               {loading && (
@@ -1310,7 +1309,7 @@ function ShiftsContent() {
                   <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
                 </div>
               )}
-              <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
+              <div style={{ height: '700px' }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart
                     therapists={sortedTherapistsWithShift}

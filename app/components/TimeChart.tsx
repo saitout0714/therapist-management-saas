@@ -102,39 +102,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragDistanceRef = useRef(0);
 
-  // スクロール同期ハンドラー（コンテンツがスクロール時、ヘッダーを同期）
-  const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollLeft = e.currentTarget.scrollLeft;
 
-    // ヘッダーの時間軸をスクロール
-    if (headerTimelineRef.current) {
-      headerTimelineRef.current.scrollLeft = scrollLeft;
-    }
-  };
-
-  // スクロール同期ハンドラー（ヘッダーがスクロール時、コンテンツを同期）
-  const handleHeaderScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollLeft = e.currentTarget.scrollLeft;
-
-    // コンテンツのタイムラインをスクロール
-    if (contentTimelineRef.current) {
-      contentTimelineRef.current.scrollLeft = scrollLeft;
-    }
-  };
 
   // ドラッグ開始
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!contentTimelineRef.current) return;
 
     const startScrollLeft = contentTimelineRef.current.scrollLeft;
+    const startScrollTop = contentTimelineRef.current.scrollTop;
     const startClientX = e.clientX;
+    const startClientY = e.clientY;
     dragDistanceRef.current = 0;
 
     // ドラッグ中のマウスムーブを処理
     const handleDragMove = (moveEvent: MouseEvent) => {
       if (!contentTimelineRef.current) return;
 
-      const distance = Math.abs(moveEvent.clientX - startClientX);
+      const distanceX = Math.abs(moveEvent.clientX - startClientX);
+      const distanceY = Math.abs(moveEvent.clientY - startClientY);
+      const distance = Math.max(distanceX, distanceY);
       dragDistanceRef.current = distance;
 
       // 5px以上の移動でドラッグと判定
@@ -146,12 +132,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
       }
 
       const deltaX = moveEvent.clientX - startClientX;
-      const newScrollLeft = startScrollLeft - deltaX;
-
-      contentTimelineRef.current.scrollLeft = newScrollLeft;
-      if (headerTimelineRef.current) {
-        headerTimelineRef.current.scrollLeft = newScrollLeft;
-      }
+      const deltaY = moveEvent.clientY - startClientY;
+      
+      contentTimelineRef.current.scrollLeft = startScrollLeft - deltaX;
+      contentTimelineRef.current.scrollTop = startScrollTop - deltaY;
     };
 
     // ドラッグ終了
@@ -344,10 +328,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const cellWidth = 14; // Cell width
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative z-0">
-      <div className="flex w-full h-full">
+    <div 
+      className="w-full h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-auto relative z-0 custom-scrollbar select-none"
+      ref={contentTimelineRef}
+      onMouseDown={handleMouseDown}
+      style={{ cursor: 'default' }}
+    >
+      <div className="flex min-w-max">
         {/* Left Column (Therapists) */}
-        <div style={{ width: 'fit-content', minWidth: 'fit-content' }} className="flex-shrink-0 border-r border-slate-200 bg-white z-20 flex flex-col relative">
+        <div style={{ width: 'fit-content', minWidth: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)]">
           {/* Header (Date) */}
           <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-3">
             <div className="font-bold text-slate-800 text-sm tracking-tight">
@@ -365,7 +354,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           </div>
 
           {/* Therapist List */}
-          <div className="flex-1 overflow-y-hidden">
+          <div className="flex-1">
             {therapists.map((therapist) => {
               const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
                 s =>
@@ -509,13 +498,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
         </div>
 
         {/* Right timeline area */}
-        <div
-          className="flex-1 overflow-x-auto overflow-y-hidden select-none relative custom-scrollbar bg-slate-50"
-          ref={contentTimelineRef}
-          onScroll={handleTimelineScroll}
-          onMouseDown={handleMouseDown}
-          style={{ cursor: 'default' }}
-        >
+        <div className="flex-1 relative bg-slate-50">
           {/* Header timeline */}
           <div
             className="flex relative sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm"
