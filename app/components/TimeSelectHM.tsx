@@ -12,6 +12,8 @@ interface TimeSelectHMProps {
   placeholder?: boolean;        // 「時」「分」の空選択肢を表示するか
 }
 
+import MobileTimePicker from './MobileTimePicker';
+
 export default function TimeSelectHM({
   value,
   onChange,
@@ -40,35 +42,48 @@ export default function TimeSelectHM({
   };
 
   return (
-    <div className={wrapperClassName}>
-      <select
-        value={hourStr}
-        onChange={e => handleHourChange(e.target.value)}
-        disabled={disabled}
-        required={required}
-        className={selectClassName}
-      >
-        {placeholder && <option value="">時</option>}
-        {Array.from({ length: maxHour - minHour + 1 }, (_, i) => {
-          const h = minHour + i;
-          const hs = String(h).padStart(2, '0');
-          return <option key={h} value={hs}>{hs}時</option>;
-        })}
-      </select>
-      <select
-        value={minuteStr}
-        onChange={e => handleMinuteChange(e.target.value)}
-        disabled={disabled}
-        required={required}
-        className={selectClassName}
-      >
-        {placeholder && <option value="">分</option>}
-        {Array.from({ length: 12 }, (_, i) => {
-          const m = i * 5;
-          const ms = String(m).padStart(2, '0');
-          return <option key={m} value={ms}>{ms}分</option>;
-        })}
-      </select>
-    </div>
+    <>
+      <div className={`${wrapperClassName} hidden sm:flex`}>
+        <select
+          value={hourStr}
+          onChange={e => handleHourChange(e.target.value)}
+          disabled={disabled}
+          required={required}
+          className={selectClassName}
+        >
+          {placeholder && <option value="">時</option>}
+          {Array.from({ length: maxHour - minHour + 1 }, (_, i) => {
+            const h = minHour + i;
+            const hs = String(h).padStart(2, '0');
+            return <option key={h} value={hs}>{hs}時</option>;
+          })}
+        </select>
+        <select
+          value={minuteStr}
+          onChange={e => handleMinuteChange(e.target.value)}
+          disabled={disabled}
+          required={required}
+          className={selectClassName}
+        >
+          {placeholder && <option value="">分</option>}
+          {Array.from({ length: 12 }, (_, i) => {
+            const m = i * 5;
+            const ms = String(m).padStart(2, '0');
+            return <option key={m} value={ms}>{ms}分</option>;
+          })}
+        </select>
+      </div>
+      
+      {/* スマホ用: カスタムドラムロール */}
+      <div className={`${wrapperClassName} sm:hidden`}>
+        <MobileTimePicker
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          minHour={minHour}
+          maxHour={maxHour}
+        />
+      </div>
+    </>
   );
 }
