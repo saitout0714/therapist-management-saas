@@ -296,7 +296,8 @@ export default function ReservationPreviewPage() {
     text += `合計：${reservation.total_price.toLocaleString()}円\n`
 
     if (reservation.payment_method === 'credit') {
-      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0)
+      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
       if (reservation.credit_fee_amount > 0) {
         text += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
       }

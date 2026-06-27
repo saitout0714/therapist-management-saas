@@ -483,6 +483,11 @@ export default function NewReservationPage() {
       creditBase += optionsPrice
     }
     if (creditBase > 0) {
+      const subtotalForRatio = basePrice + optionsPrice + extensionPrice + nominationFee
+      const creditRatio = subtotalForRatio > 0 ? creditBase / subtotalForRatio : 1
+      const discountForCredit = Math.floor(dynamicDiscount * creditRatio)
+      
+      creditBase = Math.max(0, creditBase - discountForCredit)
       creditFeeAmount = Math.floor(creditBase * feeRate)
     }
 
