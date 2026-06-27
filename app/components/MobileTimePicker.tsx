@@ -12,16 +12,28 @@ function WheelPicker({
   onChange: (value: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isScrolling = useRef(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const itemHeight = 44; // px
 
   useEffect(() => {
     const index = items.findIndex((item) => item.value === value);
     if (index !== -1 && containerRef.current) {
-      containerRef.current.scrollTop = index * itemHeight;
+      const currentIndex = Math.round(containerRef.current.scrollTop / itemHeight);
+      if (currentIndex !== index && !isScrolling.current) {
+        // スクロール中でない場合のみ、外部からの値変更を反映する
+        containerRef.current.scrollTop = index * itemHeight;
+      }
     }
   }, [value, items]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    isScrolling.current = true;
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      isScrolling.current = false;
+    }, 150);
+
     const target = e.target as HTMLDivElement;
     const index = Math.round(target.scrollTop / itemHeight);
     if (items[index] && items[index].value !== value) {
@@ -33,7 +45,7 @@ function WheelPicker({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="h-[220px] overflow-y-scroll snap-y snap-mandatory relative w-full flex flex-col items-center [&::-webkit-scrollbar]:hidden"
+      className="h-[220px] overflow-x-hidden overflow-y-scroll overscroll-none touch-pan-y snap-y snap-mandatory relative w-full flex flex-col items-center [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
       <div style={{ minHeight: `${itemHeight * 2}px` }} className="w-full shrink-0" />
