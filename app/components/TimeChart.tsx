@@ -651,7 +651,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         border: '1.5px solid rgba(120,0,20,0.9)',
                         pointerEvents: 'auto',
                       }}
-                      title={`${schedule.startTime}～${schedule.endTime} 予約不可`}
+                      title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onBlockedClick && schedule.reservationId) {
@@ -671,7 +671,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         padding: '0 6px',
                         textShadow: '0 1px 2px rgba(80,0,10,0.7)',
                       }}>
-                        {schedule.startTime}～{schedule.endTime} 予約不可
+                        {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
                       </span>
                     </div>
                   );

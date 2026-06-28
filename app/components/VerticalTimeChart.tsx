@@ -630,7 +630,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           background: 'repeating-linear-gradient(45deg, rgba(153,0,30,0.75), rgba(153,0,30,0.75) 5px, rgba(180,20,50,0.55) 5px, rgba(180,20,50,0.55) 10px)',
                           border: '1px solid rgba(120,0,20,0.9)',
                         }}
-                        title={`${schedule.startTime}～${schedule.endTime} 予約不可`}
+                        title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDragging || dragDistanceRef.current > 5) return;
@@ -640,7 +640,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         }}
                       >
                         <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
-                          予約不可
+                          {schedule.customerName || schedule.title || '予約不可'}
                         </span>
                       </div>
                     );

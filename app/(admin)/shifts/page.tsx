@@ -960,9 +960,11 @@ function ShiftsContent() {
         therapistId: reservation.therapist_id || 'unassigned',
         startTime: toDisplayTime(reservation.start_time),
         endTime: toDisplayTime(reservation.end_time),
-        title: '予約不可',
+        title: reservation.customers?.name || '予約不可',
+        customerName: reservation.customers?.name || undefined,
         type: 'blocked' as const,
         reservationId: reservation.id,
+        notes: reservation.notes || undefined,
       })),
     ...reservations
       .filter((r: any) => r.status === 'confirmed' && r.therapist_id) // Skip intervals for unassigned bookings

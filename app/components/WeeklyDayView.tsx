@@ -656,7 +656,9 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           <div className="flex flex-col py-0.5 gap-1">
                                             <div className="text-[10px] font-bold text-rose-700 leading-none flex items-center justify-between gap-1">
                                               <span>{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
-                                              <span className="bg-rose-100 text-rose-700 text-[8px] font-extrabold px-1 rounded-sm">受付不可</span>
+                                              <span className="bg-rose-100 text-rose-700 text-[8px] font-extrabold px-1 rounded-sm">
+                                                {res.customers?.name || '受付不可'}
+                                              </span>
                                             </div>
                                             {res.notes && (
                                               <p className="text-[10px] font-bold leading-tight truncate mt-0.5 text-rose-600/90" title={res.notes}>
