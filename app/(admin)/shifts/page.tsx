@@ -97,6 +97,7 @@ interface Therapist {
   intervalMinutes?: number | null;
   notes?: string | null;
   unresolvedMemos?: TherapistMemo[];
+  linked_therapist_group_id?: string | null;
 }
 
 interface Schedule {
@@ -673,6 +674,7 @@ function ShiftsContent() {
           staffMemo: therapist.comment ?? null,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
+          linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
         };
       });
 
@@ -1134,6 +1136,7 @@ function ShiftsContent() {
     hip: t.hip,
     staffMemo: t.staffMemo,
     unresolvedMemos: t.unresolvedMemos,
+    linked_therapist_group_id: t.linked_therapist_group_id ?? null,
   }));
 
   return (

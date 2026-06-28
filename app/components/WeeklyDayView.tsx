@@ -21,6 +21,7 @@ interface Therapist {
   hip?: number | null
   staffMemo?: string | null
   unresolvedMemos?: { id: string; date: string; content: string; amount: number }[]
+  linked_therapist_group_id?: string | null
 }
 
 interface Room {
@@ -493,7 +494,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               {/* 名前 */}
                               <div className="min-w-0 flex items-center justify-between gap-1">
                                 <p
-                                  className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate
+                                  className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
                                     ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                                   onMouseEnter={(e) => {
                                     if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
@@ -504,7 +505,10 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150)
                                   }}
                                 >
-                                  {therapist.name}
+                                  <span>{therapist.name}</span>
+                                  {therapist.linked_therapist_group_id && (
+                                    <span className="text-sky-500 font-bold text-xs" title="他店舗とリンクされています">🔗</span>
+                                  )}
                                 </p>
                                 {isOff && (
                                   <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
@@ -769,6 +773,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           onMouseLeave={() => setTherapistPopup(null)}
         >
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
+            {therapistPopup.therapist.linked_therapist_group_id && (
+              <div className="text-[10px] text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5 font-bold flex items-center gap-1 justify-center">
+                <span>🔗 他店舗連携（リンク中）</span>
+              </div>
+            )}
             {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
               <div className="flex gap-1.5 flex-wrap">
                 {therapistPopup.therapist.age && (

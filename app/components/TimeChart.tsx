@@ -23,6 +23,7 @@ interface Therapist {
   intervalMinutes?: number | null;
   notes?: string | null;
   unresolvedMemos?: { id: string; date: string; content: string; amount: number }[];
+  linked_therapist_group_id?: string | null;
 }
 
 interface Schedule {
@@ -397,7 +398,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     {/* 名前 */}
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <p
-                        className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate
+                        className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
                           ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                         onMouseEnter={(e) => {
                           if (therapist.id === 'unassigned') return;
@@ -410,7 +411,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
                         }}
                       >
-                        {therapist.name}
+                        <span>{therapist.name}</span>
+                        {therapist.linked_therapist_group_id && (
+                          <span className="text-sky-500 font-bold text-xs" title="他店舗とリンクされています">🔗</span>
+                        )}
                       </p>
                       {isOff && (
                         <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
@@ -903,6 +907,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
           onMouseLeave={() => setTherapistPopup(null)}
         >
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
+            {therapistPopup.therapist.linked_therapist_group_id && (
+              <div className="text-[10px] text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5 font-bold flex items-center gap-1 justify-center">
+                <span>🔗 他店舗連携（リンク中）</span>
+              </div>
+            )}
             {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
               <div className="flex gap-1.5 flex-wrap">
                 {therapistPopup.therapist.age && (

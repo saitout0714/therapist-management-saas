@@ -22,6 +22,7 @@ type TherapistItem = {
   comment: string | null;
   rank_id: string | null;
   therapist_ranks: { name: string } | null;
+  linked_therapist_group_id: string | null;
 };
 
 export default function TherapistsPage() {
@@ -44,7 +45,7 @@ export default function TherapistsPage() {
     const [therapistsRes, memosRes] = await Promise.all([
       supabase
         .from("therapists")
-        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name)")
+        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id")
         .eq("shop_id", selectedShop.id)
         .order("order", { ascending: true, nullsFirst: false }),
       supabase
@@ -246,6 +247,11 @@ export default function TherapistsPage() {
             {rankName && (
               <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
                 {rankName}
+              </span>
+            )}
+            {therapist.linked_therapist_group_id && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗とスケジュール・精算が相互同期されています">
+                🔗 リンク中
               </span>
             )}
             {(unresolvedMemoCounts.get(therapist.id) ?? 0) > 0 && (
