@@ -49,6 +49,7 @@ interface Reservation {
 interface Room {
   id: string;
   name: string;
+  linked_room_group_id?: string | null;
 }
 
 interface TherapistRow {
@@ -62,6 +63,7 @@ interface TherapistRow {
   waist?: number | null;
   hip?: number | null;
   comment?: string | null;
+  linked_therapist_group_id?: string | null;
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -539,14 +541,14 @@ function ShiftsContent() {
     if (!selectedShop || authLoading || !user) return;
     supabase
       .from('rooms')
-      .select('id, name, order')
+      .select('id, name, order, linked_room_group_id')
       .eq('shop_id', selectedShop.id)
       .order('order', { ascending: true, nullsFirst: false })
       .then(({ data }) => {
         const map = new Map<string, number>();
         (data || []).forEach((r: any, i: number) => map.set(r.id, r.order ?? i));
         setRoomOrderMap(map);
-        setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name })));
+        setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name, linked_room_group_id: r.linked_room_group_id })));
       });
   }, [selectedShop, refreshCounter, authLoading, user]);
 
@@ -607,14 +609,14 @@ function ShiftsContent() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
         const { data: basicData } = await supabase
           .from('therapists')
-          .select('id, name')
+          .select('id, name, linked_therapist_group_id')
           .eq('shop_id', selectedShop.id)
           .order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
@@ -769,6 +771,29 @@ function ShiftsContent() {
   const fetchReservations = async () => {
     if (!selectedShop) return;
     try {
+      // レースコンディションを避けるため、自店舗のセラピスト・部屋の紐付けグループ情報および店舗連携情報を直接取得
+      const [ownTherapistsRes, ownRoomsRes, linksRes] = await Promise.all([
+        supabase
+          .from('therapists')
+          .select('id, linked_therapist_group_id')
+          .eq('shop_id', selectedShop.id)
+          .eq('is_active', true),
+        supabase
+          .from('rooms')
+          .select('id, linked_room_group_id')
+          .eq('shop_id', selectedShop.id),
+        supabase
+          .from('shop_links')
+          .select('shop_id_1, shop_id_2')
+          .eq('is_active', true)
+          .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`)
+      ]);
+      const ownTherapists = ownTherapistsRes.data || [];
+      const ownRooms = ownRoomsRes.data || [];
+      const linkedShopIds = (linksRes.data || []).map((l: any) => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
+      const targetShopIds = [selectedShop.id, ...linkedShopIds];
+
+      // 連携店舗に限定して該当日の予約を取得
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -790,15 +815,71 @@ function ShiftsContent() {
           customer_notified,
           therapist_notified,
           extension_count,
+          shop_id,
+          room_id,
           customers(name, created_at),
-          courses(name, duration)
+          courses(name, duration),
+          therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
+          room:rooms!reservations_room_id_fkey(name, linked_room_group_id),
+          shop:shops!reservations_shop_id_fkey(name, short_name)
         `)
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', targetShopIds)
         .or(`business_date.eq.${filterDate},and(business_date.is.null,date.eq.${filterDate})`)
         .in('status', ['confirmed', 'blocked', 'pending']);
 
       if (error) throw error;
-      setReservations((data as unknown as Reservation[]) || []);
+
+      const allRes = (data || []) as any[];
+      const processed: any[] = [];
+
+      allRes.forEach((res) => {
+        if (res.shop_id === selectedShop.id) {
+          // 自店舗の予約はそのまま追加
+          processed.push(res);
+        } else {
+          // 他店舗の予約：リンクされているものがあるか判定
+          let isLinked = false;
+          let mappedTherapistId = res.therapist_id;
+          let mappedRoomId = res.room_id;
+
+          // セラピストの紐付け
+          if (res.therapist?.linked_therapist_group_id) {
+            const targetTherapist = ownTherapists.find((t: any) => t.linked_therapist_group_id === res.therapist.linked_therapist_group_id);
+            if (targetTherapist) {
+              mappedTherapistId = targetTherapist.id;
+              isLinked = true;
+            }
+          }
+
+          // ルーム（部屋）の紐付け
+          if (res.room?.linked_room_group_id) {
+            const targetRoom = ownRooms.find((r: any) => r.linked_room_group_id === res.room.linked_room_group_id);
+            if (targetRoom) {
+              mappedRoomId = targetRoom.id;
+              isLinked = true;
+            }
+          }
+
+          if (isLinked) {
+            // 他店舗で予約が入っている時間を自店舗のスケジュール上でブロックする
+            const otherShopName = res.shop?.short_name || res.shop?.name || '他店舗';
+            processed.push({
+              ...res,
+              therapist_id: mappedTherapistId,
+              room_id: mappedRoomId,
+              status: 'blocked', // スケジュール上で「予約不可（ブロック）」として描画させる
+              customers: {
+                name: `${otherShopName}予約`,
+                created_at: null
+              },
+              courses: null,
+              notes: '他店舗（' + otherShopName + '）での予約が入っているためブロックされています。',
+            });
+          }
+        }
+      });
+
+      setReservations(processed);
     } catch (error) {
       console.error('予約の取得に失敗:', error);
     }

@@ -77,6 +77,12 @@ export default function EditShopPage() {
     role: 'agency_client_owner' as 'agency_client_owner' | 'simple_client_owner',
   })
 
+  // 店舗連携設定用状態
+  const [otherShops, setOtherShops] = useState<{ id: string; name: string }[]>([])
+  const [links, setLinks] = useState<any[]>([])
+  const [linksLoading, setLinksLoading] = useState(true)
+  const [linksError, setLinksError] = useState('')
+
   useEffect(() => {
     const fetchShop = async () => {
       const [shopRes, codeRes, ownerRes] = await Promise.all([
@@ -142,7 +148,51 @@ export default function EditShopPage() {
     }
 
     void fetchShop()
+    void fetchLinks()
   }, [id])
+
+  const fetchLinks = async () => {
+    setLinksLoading(true)
+    setLinksError('')
+    try {
+      const [otherShopsRes, linksRes] = await Promise.all([
+        supabase.from('shops').select('id, name').neq('id', id).order('name'),
+        supabase.from('shop_links').select('*').or(`shop_id_1.eq.${id},shop_id_2.eq.${id}`).eq('is_active', true)
+      ])
+      if (otherShopsRes.error) throw otherShopsRes.error
+      if (linksRes.error) throw linksRes.error
+
+      setOtherShops(otherShopsRes.data || [])
+      setLinks(linksRes.data || [])
+    } catch (err: any) {
+      setLinksError('連携データの取得に失敗しました: ' + err.message)
+    } finally {
+      setLinksLoading(false)
+    }
+  }
+
+  const handleToggleLink = async (targetShopId: string, isCurrentlyLinked: boolean) => {
+    setLinksError('')
+    const [id1, id2] = id < targetShopId ? [id, targetShopId] : [targetShopId, id]
+    try {
+      if (isCurrentlyLinked) {
+        const { error: deleteError } = await supabase
+          .from('shop_links')
+          .delete()
+          .eq('shop_id_1', id1)
+          .eq('shop_id_2', id2)
+        if (deleteError) throw deleteError
+      } else {
+        const { error: insertError } = await supabase
+          .from('shop_links')
+          .insert([{ shop_id_1: id1, shop_id_2: id2, is_active: true }])
+        if (insertError) throw insertError
+      }
+      await fetchLinks()
+    } catch (err: any) {
+      setLinksError('連携状態の更新に失敗しました: ' + err.message)
+    }
+  }
 
   const handleSaveCode = async () => {
     setCodeSaving(true)
@@ -488,6 +538,57 @@ export default function EditShopPage() {
               {codeSaving ? '保存中...' : 'URLコードを保存'}
             </button>
           </div>
+        </div>
+
+        {/* 店舗連携設定 */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 mt-4">
+          <h2 className="text-base font-bold text-slate-800 mb-1">🤝 店舗連携（相互リンク）設定</h2>
+          <p className="text-xs text-slate-500 mb-4 font-normal leading-relaxed">
+            この店舗と他店舗との相互連携を設定します。連携をオンにした店舗間でのみ、セラピストの共有や部屋の共有、スケジュールの自動同期、精算の合算が許可されます。
+            未連携の店舗間ではお互いの情報が完全に遮断されます。
+          </p>
+
+          {linksError && (
+            <div className="mb-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600 font-medium">{linksError}</div>
+          )}
+
+          {linksLoading ? (
+            <div className="flex justify-center items-center py-6 text-indigo-600">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+            </div>
+          ) : otherShops.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-6 font-medium">連携可能な他の店舗がありません。</p>
+          ) : (
+            <div className="space-y-3">
+              {otherShops.map(shop => {
+                const isLinked = links.some(l => 
+                  (l.shop_id_1 === id && l.shop_id_2 === shop.id) || 
+                  (l.shop_id_1 === shop.id && l.shop_id_2 === id)
+                )
+                return (
+                  <div 
+                    key={shop.id} 
+                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                      isLinked ? 'border-indigo-150 bg-indigo-50/10' : 'border-slate-200 bg-white hover:bg-slate-50/40'
+                    }`}
+                  >
+                    <div>
+                      <span className="text-sm font-bold text-slate-800">{shop.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleLink(shop.id, isLinked)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-sm ${
+                        isLinked ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      }`}
+                    >
+                      {isLinked ? '連携を解除' : '連携する'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

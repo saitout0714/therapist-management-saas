@@ -27,6 +27,12 @@ export default function EditRoomPage() {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 多店舗ルームリンク用
+  const [allOtherRooms, setAllOtherRooms] = useState<any[]>([]);
+  const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
+  const [originalGroupId, setOriginalGroupId] = useState<string | null>(null);
+  const [roomShopId, setRoomShopId] = useState<string>("");
+
   useEffect(() => {
     const fetchRoom = async () => {
       if (!roomId) return;
@@ -34,7 +40,7 @@ export default function EditRoomPage() {
         setInitializing(true);
         const { data, error: fetchError } = await supabase
           .from('rooms')
-          .select('shop_id, name, display_name, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer')
+          .select('shop_id, name, display_name, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer, linked_room_group_id')
           .eq('id', roomId)
           .single();
 
@@ -52,15 +58,47 @@ export default function EditRoomPage() {
             template_web_new_customer: data.template_web_new_customer || '',
           });
 
+          setRoomShopId(data.shop_id || "");
+          setOriginalGroupId(data.linked_room_group_id || null);
+
           if (data.shop_id) {
-            const { data: shopData } = await supabase
-              .from('shops')
-              .select('sms_address_mode, web_reserve_address_mode')
-              .eq('id', data.shop_id)
-              .single();
+            // 相互リンクが許可されている店舗IDリストを取得
+            const { data: linksData } = await supabase
+              .from('shop_links')
+              .select('shop_id_1, shop_id_2')
+              .eq('is_active', true)
+              .or(`shop_id_1.eq.${data.shop_id},shop_id_2.eq.${data.shop_id}`);
+            const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === data.shop_id ? l.shop_id_2 : l.shop_id_1);
+
+            const [shopRes, otherRoomsRes] = await Promise.all([
+              supabase
+                .from('shops')
+                .select('sms_address_mode, web_reserve_address_mode')
+                .eq('id', data.shop_id)
+                .single(),
+              linkedShopIds.length > 0
+                ? supabase
+                    .from('rooms')
+                    .select('id, name, shop_id, shops(name), linked_room_group_id')
+                    .in('shop_id', linkedShopIds)
+                    .order('name', { ascending: true })
+                : Promise.resolve({ data: [] })
+            ]);
+
+            const shopData = shopRes.data;
             if (shopData) {
               setSmsAddressMode(shopData.sms_address_mode || 'unified');
               setWebReserveAddressMode(shopData.web_reserve_address_mode || 'unified');
+            }
+
+            const otherRooms = (otherRoomsRes.data || []) as any[];
+            setAllOtherRooms(otherRooms);
+
+            if (data.linked_room_group_id) {
+              const initialSelected = otherRooms
+                .filter((r: any) => r.linked_room_group_id === data.linked_room_group_id)
+                .map((r: any) => r.id);
+              setSelectedLinkIds(initialSelected);
             }
           }
         }
@@ -110,9 +148,80 @@ export default function EditRoomPage() {
     if (updateError) {
       setError('更新に失敗しました: ' + updateError.message);
       setLoading(false);
-    } else {
-      router.push('/rooms');
+      return;
     }
+
+    // === 多店舗ルームリンク同期 ===
+    const newLinkIds = selectedLinkIds;
+
+    if (newLinkIds.length > 0) {
+      // リンクあり：グループIDを決定（既存のものを使用するか、新規に生成）
+      let groupId = originalGroupId;
+      if (!groupId) {
+        groupId = crypto.randomUUID();
+      }
+
+      // 自分と選択された他店舗ルーム全員のグループIDを更新
+      const targetIds = [roomId, ...newLinkIds];
+      await supabase
+        .from("rooms")
+        .update({ linked_room_group_id: groupId })
+        .in("id", targetIds);
+
+      // それ以外の、以前同じグループだったが選択解除されたルームのグループIDをクリア（NULLに）
+      if (originalGroupId) {
+        const { data: oldMembers } = await supabase
+          .from("rooms")
+          .select("id")
+          .eq("linked_room_group_id", originalGroupId)
+          .not("id", "in", `(${targetIds.join(",")})`);
+        
+        if (oldMembers && oldMembers.length > 0) {
+          const oldMemberIds = oldMembers.map(m => m.id);
+          await supabase
+            .from("rooms")
+            .update({ linked_room_group_id: null })
+            .in("id", oldMemberIds);
+          
+          // 古いグループに残ったメンバーが1人以下になったら、そのグループを解体
+          const { data: remainingMembers } = await supabase
+            .from("rooms")
+            .select("id")
+            .eq("linked_room_group_id", originalGroupId);
+          if (remainingMembers && remainingMembers.length <= 1) {
+            await supabase
+              .from("rooms")
+              .update({ linked_room_group_id: null })
+              .eq("linked_room_group_id", originalGroupId);
+          }
+        }
+      }
+    } else {
+      // リンクなし：自分のグループIDをクリア
+      await supabase
+        .from("rooms")
+        .update({ linked_room_group_id: null })
+        .eq("id", roomId);
+
+      // 以前のグループメンバーの整理
+      if (originalGroupId) {
+        const { data: remainingMembers } = await supabase
+          .from("rooms")
+          .select("id")
+          .eq("linked_room_group_id", originalGroupId);
+        
+        if (remainingMembers && remainingMembers.length <= 1) {
+          // 残ったメンバーが1人以下ならグループ解体
+          await supabase
+            .from("rooms")
+            .update({ linked_room_group_id: null })
+            .eq("linked_room_group_id", originalGroupId);
+        }
+      }
+    }
+
+    setLoading(false);
+    router.push('/rooms');
   };
 
   if (initializing) {
@@ -207,6 +316,51 @@ export default function EditRoomPage() {
                   rows={2}
                 />
               </div>
+
+              {/* 多店舗リンク設定 */}
+              {allOtherRooms.length > 0 && (
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <label className="block text-sm font-medium text-slate-700">🔗 多店舗リンク設定</label>
+                  <p className="text-xs text-slate-400">
+                    他の連携店舗に登録されている「同一のルーム（部屋）」を選択してください。
+                    選択すると、その部屋での予約スケジュールが相互に自動同期（ブロック）されます。
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
+                    {allOtherRooms.map((r) => {
+                      const isChecked = selectedLinkIds.includes(r.id);
+                      return (
+                        <label
+                          key={r.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isChecked
+                              ? "bg-indigo-50 border-indigo-200"
+                              : "bg-white border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedLinkIds([...selectedLinkIds, r.id]);
+                              } else {
+                                setSelectedLinkIds(selectedLinkIds.filter((id) => id !== r.id));
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <div className="text-xs md:text-sm">
+                            <span className="font-bold text-slate-800">{r.name}</span>
+                            <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                              {r.shops?.name || "他店舗"}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <h3 className="text-sm font-bold text-indigo-600 border-l-4 border-indigo-500 pl-2 flex items-center gap-2">

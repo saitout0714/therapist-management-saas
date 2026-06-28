@@ -36,7 +36,7 @@ export default function EditTherapistPage() {
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
   const [nominationFees, setNominationFees] = useState<{ id: string, name: string }[]>([]);
   const [feeOverrides, setFeeOverrides] = useState<Record<string, string>>({});
-  const [therapistShopId, setTherapistShopId] = useState<string | null>(null);
+  const [therapistShopId, setTherapistShopId] = useState<string>("");
   const [optionCategories, setOptionCategories] = useState<string[]>([]);
   const [designationTypes, setDesignationTypes] = useState<{ slug: string; display_name: string }[]>([]);
   // Matrix key: `${category}||${desig_slug}` where desig_slug = '__all__' for 全種別共通
@@ -142,6 +142,11 @@ export default function EditTherapistPage() {
     await fetchMemos();
   };
 
+  // 多店舗リンク用
+  const [allOtherTherapists, setAllOtherTherapists] = useState<any[]>([]);
+  const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
+  const [originalGroupId, setOriginalGroupId] = useState<string | null>(null);
+
   useEffect(() => {
     if (therapistId) void fetchMemos();
   }, [therapistId]);
@@ -162,19 +167,41 @@ export default function EditTherapistPage() {
         if (therapistError) throw therapistError;
 
         setTherapistShopId(therapist.shop_id);
+        setOriginalGroupId(therapist.linked_therapist_group_id || null);
+
+        // 相互リンクが許可されている店舗IDリストを取得
+        const { data: linksData } = await supabase
+          .from('shop_links')
+          .select('shop_id_1, shop_id_2')
+          .eq('is_active', true)
+          .or(`shop_id_1.eq.${therapist.shop_id},shop_id_2.eq.${therapist.shop_id}`);
+        const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === therapist.shop_id ? l.shop_id_2 : l.shop_id_1);
 
         // Fetch ranks, fees, option data in parallel
-        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes] = await Promise.all([
+        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes] = await Promise.all([
           supabase.from("therapist_ranks").select("id, name").eq("shop_id", therapist.shop_id).order("display_order"),
           supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
           supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
           supabase.from("options").select("back_category").eq("shop_id", therapist.shop_id).eq("is_active", true),
           supabase.from("designation_types").select("slug, display_name").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order"),
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
+          linkedShopIds.length > 0
+            ? supabase.from("therapists").select("id, name, shop_id, shops(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
+            : Promise.resolve({ data: [] })
         ]);
 
         setRanks(ranksRes.data || []);
         setNominationFees(feesRes.data || []);
+
+        const otherTherapists = (otherTherapistsRes.data || []) as any[];
+        setAllOtherTherapists(otherTherapists);
+
+        if (therapist.linked_therapist_group_id) {
+          const initialSelectedIds = otherTherapists
+            .filter((t: any) => t.linked_therapist_group_id === therapist.linked_therapist_group_id)
+            .map((t: any) => t.id);
+          setSelectedLinkIds(initialSelectedIds);
+        }
 
         const overridesObj: Record<string, string> = {};
         if (overridesRes.data) {
@@ -406,6 +433,76 @@ export default function EditTherapistPage() {
         setError("オプションバック設定の保存に失敗しました: " + optBackError.message);
         setLoading(false);
         return;
+      }
+    }
+
+    // === 多店舗セラピストリンク同期 ===
+    const newLinkIds = selectedLinkIds;
+
+    if (newLinkIds.length > 0) {
+      // リンクあり：グループIDを決定（既存のものを使用するか、新規に生成）
+      let groupId = originalGroupId;
+      if (!groupId) {
+        // 新規にグループIDを生成
+        groupId = crypto.randomUUID();
+      }
+
+      // 自分と選択された他店舗セラピスト全員のグループIDを更新
+      const targetIds = [therapistId, ...newLinkIds];
+      await supabase
+        .from("therapists")
+        .update({ linked_therapist_group_id: groupId })
+        .in("id", targetIds);
+
+      // それ以外の、以前同じグループだったが選択解除されたセラピストのグループIDをクリア（NULLに）
+      if (originalGroupId) {
+        const { data: oldMembers } = await supabase
+          .from("therapists")
+          .select("id")
+          .eq("linked_therapist_group_id", originalGroupId)
+          .not("id", "in", `(${targetIds.join(",")})`);
+        
+        if (oldMembers && oldMembers.length > 0) {
+          const oldMemberIds = oldMembers.map(m => m.id);
+          await supabase
+            .from("therapists")
+            .update({ linked_therapist_group_id: null })
+            .in("id", oldMemberIds);
+          
+          // 古いグループに残ったメンバーが1人以下になったら、そのグループを解体
+          const { data: remainingMembers } = await supabase
+            .from("therapists")
+            .select("id")
+            .eq("linked_therapist_group_id", originalGroupId);
+          if (remainingMembers && remainingMembers.length <= 1) {
+            await supabase
+              .from("therapists")
+              .update({ linked_therapist_group_id: null })
+              .eq("linked_therapist_group_id", originalGroupId);
+          }
+        }
+      }
+    } else {
+      // リンクなし：自分のグループIDをクリア
+      await supabase
+        .from("therapists")
+        .update({ linked_therapist_group_id: null })
+        .eq("id", therapistId);
+
+      // 以前のグループメンバーの整理
+      if (originalGroupId) {
+        const { data: remainingMembers } = await supabase
+          .from("therapists")
+          .select("id")
+          .eq("linked_therapist_group_id", originalGroupId);
+        
+        if (remainingMembers && remainingMembers.length <= 1) {
+          // 残ったメンバーが1人以下ならグループ解体
+          await supabase
+            .from("therapists")
+            .update({ linked_therapist_group_id: null })
+            .eq("linked_therapist_group_id", originalGroupId);
+        }
       }
     }
 
@@ -642,6 +739,51 @@ export default function EditTherapistPage() {
                     placeholder="注意事項、引き継ぎ情報など"
                   />
                 </div>
+
+                {/* 多店舗リンク設定 */}
+                {allOtherTherapists.length > 0 && (
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2">🔗 多店舗リンク設定</h3>
+                    <p className="text-xs text-slate-400">
+                      他の連携店舗に登録されている「同一人物のセラピスト」を選択してください。
+                      選択すると、スケジュール（予約ブロック）や精算が相互に自動的に同期されます。
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
+                      {allOtherTherapists.map((t) => {
+                        const isChecked = selectedLinkIds.includes(t.id);
+                        return (
+                          <label
+                            key={t.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              isChecked
+                                ? "bg-indigo-50 border-indigo-200"
+                                : "bg-white border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedLinkIds([...selectedLinkIds, t.id]);
+                                } else {
+                                  setSelectedLinkIds(selectedLinkIds.filter((id) => id !== t.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                            />
+                            <div className="text-xs md:text-sm">
+                              <span className="font-bold text-slate-800">{t.name}</span>
+                              <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                                {t.shops?.name || "他店舗"}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
               </div>
 
