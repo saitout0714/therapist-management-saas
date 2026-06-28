@@ -31,6 +31,7 @@ export default function TherapistsPage() {
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
   const [photosMap, setPhotosMap] = useState<Map<string, string>>(new Map());
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
+  const [linkedShopsMap, setLinkedShopsMap] = useState<Map<string, string[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
@@ -61,6 +62,32 @@ export default function TherapistsPage() {
       const list = (therapistsRes.data as unknown as TherapistItem[]) || [];
       setTherapists(list);
       setError(null);
+
+      // 他店舗連携先店舗名のフェッチ
+      const groupIds = list.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
+      if (groupIds.length > 0) {
+        const { data: linkedData } = await supabase
+          .from("therapists")
+          .select("linked_therapist_group_id, shops(name)")
+          .in("linked_therapist_group_id", groupIds)
+          .neq("shop_id", selectedShop.id);
+        
+        const linkedMap = new Map<string, string[]>();
+        (linkedData || []).forEach((row: any) => {
+          const groupId = row.linked_therapist_group_id;
+          const shopName = row.shops?.name;
+          if (groupId && shopName) {
+            const arr = linkedMap.get(groupId) || [];
+            if (!arr.includes(shopName)) {
+              arr.push(shopName);
+            }
+            linkedMap.set(groupId, arr);
+          }
+        });
+        setLinkedShopsMap(linkedMap);
+      } else {
+        setLinkedShopsMap(new Map());
+      }
 
       // 各セラピストの先頭写真を取得
       if (list.length > 0) {
@@ -249,11 +276,15 @@ export default function TherapistsPage() {
                 {rankName}
               </span>
             )}
-            {therapist.linked_therapist_group_id && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗とスケジュール・精算が相互同期されています">
-                🔗 リンク中
-              </span>
-            )}
+            {therapist.linked_therapist_group_id && (() => {
+              const shopNames = linkedShopsMap.get(therapist.linked_therapist_group_id);
+              const label = shopNames && shopNames.length > 0 ? shopNames.join('・') : 'リンク中';
+              return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗とスケジュール・精算が相互同期されています">
+                  🔗 {label}
+                </span>
+              );
+            })()}
             {(unresolvedMemoCounts.get(therapist.id) ?? 0) > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

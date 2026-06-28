@@ -24,6 +24,7 @@ interface Therapist {
   notes?: string | null;
   unresolvedMemos?: { id: string; date: string; content: string; amount: number }[];
   linked_therapist_group_id?: string | null;
+  linked_shop_names?: string[];
 }
 
 interface Schedule {
@@ -413,7 +414,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       >
                         <span>{therapist.name}</span>
                         {therapist.linked_therapist_group_id && (
-                          <span className="text-sky-500 font-bold text-xs" title="他店舗とリンクされています">🔗</span>
+                          <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                         )}
                       </p>
                       {isOff && (
@@ -907,11 +908,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
           onMouseLeave={() => setTherapistPopup(null)}
         >
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
-            {therapistPopup.therapist.linked_therapist_group_id && (
-              <div className="text-[10px] text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5 font-bold flex items-center gap-1 justify-center">
-                <span>🔗 他店舗連携（リンク中）</span>
-              </div>
-            )}
+            {therapistPopup.therapist.linked_therapist_group_id && (() => {
+              const shopNames = therapistPopup.therapist.linked_shop_names;
+              const label = shopNames && shopNames.length > 0 ? `連携: ${shopNames.join('・')}` : '他店舗連携中';
+              return (
+                <div className="text-[10px] text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5 font-bold flex items-center gap-1 justify-center">
+                  <span>🔗 {label}</span>
+                </div>
+              );
+            })()}
             {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
               <div className="flex gap-1.5 flex-wrap">
                 {therapistPopup.therapist.age && (

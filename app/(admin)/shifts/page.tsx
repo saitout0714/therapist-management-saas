@@ -98,6 +98,7 @@ interface Therapist {
   notes?: string | null;
   unresolvedMemos?: TherapistMemo[];
   linked_therapist_group_id?: string | null;
+  linked_shop_names?: string[];
 }
 
 interface Schedule {
@@ -634,6 +635,29 @@ function ShiftsContent() {
       setShopIntervalMinutes(shopInterval);
       setExtensionUnitMinutes(settingsData?.[0]?.extension_unit_minutes ?? 30);
 
+      // 他店舗連携先店舗名のフェッチ
+      const groupIds = allTherapists.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
+      const linkedMap = new Map<string, string[]>();
+      if (groupIds.length > 0) {
+        const { data: linkedData } = await supabase
+          .from("therapists")
+          .select("linked_therapist_group_id, shops(name)")
+          .in("linked_therapist_group_id", groupIds)
+          .neq("shop_id", selectedShop.id);
+        
+        (linkedData || []).forEach((row: any) => {
+          const groupId = row.linked_therapist_group_id;
+          const shopName = row.shops?.name;
+          if (groupId && shopName) {
+            const arr = linkedMap.get(groupId) || [];
+            if (!arr.includes(shopName)) {
+              arr.push(shopName);
+            }
+            linkedMap.set(groupId, arr);
+          }
+        });
+      }
+
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
         .select('therapist_id, room_id, rooms(name, memo, google_map_url), start_time, end_time, notes')
@@ -675,6 +699,7 @@ function ShiftsContent() {
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
           linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
+          linked_shop_names: therapist.linked_therapist_group_id ? (linkedMap.get(therapist.linked_therapist_group_id) || []) : [],
         };
       });
 
@@ -1137,6 +1162,7 @@ function ShiftsContent() {
     staffMemo: t.staffMemo,
     unresolvedMemos: t.unresolvedMemos,
     linked_therapist_group_id: t.linked_therapist_group_id ?? null,
+    linked_shop_names: t.linked_shop_names || [],
   }));
 
   return (
