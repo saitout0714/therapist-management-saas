@@ -57,6 +57,10 @@ export default function WebReservationNotifier() {
   // 通知許可リクエスト
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) return;
+
     if ('Notification' in window && Notification.permission === 'default') {
       void Notification.requestPermission()
     }
@@ -65,6 +69,14 @@ export default function WebReservationNotifier() {
   // Realtime 購読（ログイン完了後に確立）
   useEffect(() => {
     if (shops.length === 0 || authLoading || !user) return
+
+    // モバイル端末の場合は通知機能を完全に無効化する
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) {
+      console.log('Mobile device detected. Skipping reservation subscription.')
+      return
+    }
 
     // 既存の接続があれば一度クリーンアップ
     if (channelRef.current) {

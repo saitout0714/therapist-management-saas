@@ -954,7 +954,7 @@ function ShiftsContent() {
     if (filtered.length === 0) return [];
 
     const formatMinToHHMM = (m: number) => {
-      const h = Math.floor(m / 60) % 24;
+      const h = Math.floor(m / 60);
       const min = m % 60;
       return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
     };
@@ -1026,7 +1026,7 @@ function ShiftsContent() {
     }
 
     const formatMinToHHMM = (m: number) => {
-      const h = Math.floor(m / 60) % 24;
+      const h = Math.floor(m / 60);
       const min = m % 60;
       return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
     };
