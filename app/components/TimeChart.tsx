@@ -578,50 +578,62 @@ const TimeChart: React.FC<TimeChartProps> = ({
               />
             )}
 
-            <div className="grid gap-0" style={{
-              gridTemplateColumns: `repeat(${timeSlots.length}, minmax(${cellWidth}px, 1fr))`,
-              minWidth: 'fit-content',
-            }}>
-              {therapists.map((therapist, tIdx) =>
-                timeSlots.map((timeSlot, idx) => {
-                  const inShift = isCellInShift(therapist, idx);
-                  const cellStyle = getCellBackgroundStyle(inShift);
-
-                  const handleCellClick = () => {
-                    if (isDragging || dragDistanceRef.current > 5) return;
-                    if (!date) return;
-                    router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
-                  };
-
-                  let borderClass = 'border-r border-slate-100';
-                  if (idx % 12 === 11) {
-                    borderClass = 'border-r border-slate-300';
-                  } else if (idx % 12 === 5) {
-                    borderClass = 'border-r border-slate-200';
-                  }
-
-                  return (
+            <div className="flex flex-col min-w-max">
+              {therapists.map((therapist, tIdx) => (
+                <div
+                  key={therapist.id}
+                  style={{ height: `${rowHeight}px` }}
+                  className={`flex ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''}`}
+                >
+                  {hourLabels.map((_, hIdx) => (
                     <div
-                      key={`${therapist.id}-${idx}`}
-                      className={`${borderClass} ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
-                      style={{ ...cellStyle, height: `${rowHeight}px`, cursor: 'pointer' }}
-                      onClick={handleCellClick}
-                      onMouseDown={() => { dragDistanceRef.current = 0; }}
-                      onMouseEnter={(e) => {
-                        if (isDragging || dragDistanceRef.current > 5) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setHoverData({
-                          x: rect.left + rect.width / 2,
-                          y: rect.top, // Cell top
-                          time: timeSlot
-                        });
-                      }}
-                      onMouseLeave={() => setHoverData(null)}
+                      key={`hour-group-${hIdx}`}
+                      className="flex border-r border-slate-300 flex-shrink-0"
+                      style={{ width: `${cellWidth * 12}px` }}
                     >
+                      {Array.from({ length: 12 }).map((_, i) => {
+                        const idx = hIdx * 12 + i;
+                        const timeSlot = timeSlots[idx];
+                        const inShift = isCellInShift(therapist, idx);
+                        const cellStyle = getCellBackgroundStyle(inShift);
+
+                        const handleCellClick = () => {
+                          if (isDragging || dragDistanceRef.current > 5) return;
+                          if (!date) return;
+                          router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
+                        };
+
+                        let borderClass = 'border-r border-slate-100';
+                        if (i === 5) {
+                          borderClass = 'border-r border-slate-200';
+                        } else if (i === 11) {
+                          borderClass = 'border-r-0';
+                        }
+
+                        return (
+                          <div
+                            key={`${therapist.id}-${idx}`}
+                            className={`flex-1 ${borderClass} hover:bg-indigo-50/50 transition-colors`}
+                            style={{ ...cellStyle, height: '100%', cursor: 'pointer' }}
+                            onClick={handleCellClick}
+                            onMouseDown={() => { dragDistanceRef.current = 0; }}
+                            onMouseEnter={(e) => {
+                              if (isDragging || dragDistanceRef.current > 5) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setHoverData({
+                                x: rect.left + rect.width / 2,
+                                y: rect.top, // Cell top
+                                time: timeSlot
+                              });
+                            }}
+                            onMouseLeave={() => setHoverData(null)}
+                          />
+                        );
+                      })}
                     </div>
-                  );
-                })
-              )}
+                  ))}
+                </div>
+              ))}
             </div>
 
             {/* Schedules Layer */}
