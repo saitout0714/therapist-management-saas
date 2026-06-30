@@ -867,11 +867,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
                     >
                       <span style={{
-                        fontSize: '9px',
+                        fontSize: '8px',
                         fontWeight: 600,
-                        whiteSpace: 'nowrap',
+                        whiteSpace: 'pre-line',
+                        lineHeight: '1.1',
                         letterSpacing: '0.01em',
-                        padding: '0 4px',
+                        padding: '2px 4px',
+                        textAlign: 'center',
                       }}>
                         {schedule.title}
                       </span>

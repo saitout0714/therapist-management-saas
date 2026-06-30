@@ -800,7 +800,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         }}
                         title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
                       >
-                        <span className="text-[8px] font-semibold leading-none truncate px-1 text-center">
+                        <span className="text-[8px] font-semibold leading-tight px-1 text-center" style={{ whiteSpace: 'pre-line' }}>
                           {schedule.title}
                         </span>
                       </div>

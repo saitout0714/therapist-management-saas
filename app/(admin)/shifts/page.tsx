@@ -1138,7 +1138,7 @@ function ShiftsContent() {
             therapistId: therapist.id,
             startTime: minutesToHHMM(shiftStartMin),
             endTime: minutesToHHMM(firstPreStart),
-            title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `時間不足 (${totalAvail}分)`,
+            title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `不足\n${totalAvail}分`,
             type: (isAvail ? 'available' : 'unavailable') as any,
             availableCourses: isAvail ? getAvailableCourses(shiftStartMin, firstPreStart) : undefined,
           });
@@ -1192,7 +1192,7 @@ function ShiftsContent() {
                 therapistId: therapist.id,
                 startTime: minutesToHHMM(availStart),
                 endTime: minutesToHHMM(availEnd),
-                title: isAvail ? getAvailableText(availStart, availEnd) : `時間不足 (${totalAvail}分)`,
+                title: isAvail ? getAvailableText(availStart, availEnd) : `不足\n${totalAvail}分`,
                 type: (isAvail ? 'available' : 'unavailable') as any,
                 availableCourses: isAvail ? getAvailableCourses(availStart, availEnd) : undefined,
               });
@@ -1227,7 +1227,7 @@ function ShiftsContent() {
             therapistId: therapist.id,
             startTime: minutesToHHMM(lastPostEnd),
             endTime: minutesToHHMM(shiftEndAdjusted),
-            title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `時間不足 (${totalAvail}分)`,
+            title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `不足\n${totalAvail}分`,
             type: (isAvail ? 'available' : 'unavailable') as any,
             availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
           });
