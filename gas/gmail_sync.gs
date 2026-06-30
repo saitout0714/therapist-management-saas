@@ -16,7 +16,7 @@ const MAIL_SYNC_API_KEY = "your-mail-sync-api-key";
 const DEFAULT_SHOP_ID = "your-shop-id";
 
 // Gmailの検索条件 (未読かつ特定の媒体からの予約通知タイトルに合致するもののみ、直近2日以内)
-const GMAIL_SEARCH_QUERY = 'is:unread (subject:"【エステ魂】ご予約を受け付けました" OR subject:"[Grow] 新しいWeb予約を受け付けました" OR subject:"【全国メンズエステランキング】仮予約を受け付けました" OR subject:"エステラブ") newer_than:2d';
+const GMAIL_SEARCH_QUERY = 'is:unread (subject:"【エステ魂】ご予約を受け付けました" OR subject:"[Grow] 新しいWeb予約を受け付けました" OR subject:"[Grow] 新しい店舗予約を受け付けました" OR subject:"【全国メンズエステランキング】仮予約を受け付けました" OR subject:"エステラブ") newer_than:2d';
 // ====================================================
 
 function syncGmailReservations() {

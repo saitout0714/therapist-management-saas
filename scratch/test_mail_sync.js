@@ -81,6 +81,27 @@ const growMail = {
 Grow`
 };
 
+const tigerLillyMail = {
+  subject: "[Grow] 新しい店舗予約を受け付けました",
+  body: `以下の内容で、新しい店舗予約を受け付けました。
+
+店舗：Tiger Lilly 武蔵浦和
+予約日時：2026年06月30日(火)16:20
+担当セラピスト：藤崎かな(26)【期間限定】初回指名料無料
+指名：本指名
+メニュー：120min　23,000yen
+クーポン：
+料金：0円
+お客様名：ヨシダ　トモエ
+電話番号：08095422829
+メールアドレス：
+備考：
+
+---------
+Grow`
+};
+
+
 const rankingMail = {
   subject: "【全国メンズエステランキング】仮予約を受け付けました",
   body: `以下の内容にて仮予約を受付ました。
@@ -226,6 +247,28 @@ async function runTest() {
       createdReservationIds.push(json4.reservation.id);
       console.log(`Status Result: ${json4.reservation.status} (Expected: pending)`);
       console.log(`Is Handled: ${json4.reservation.is_handled} (Expected: false)`);
+    }
+    // 5. Tiger Lilly（Grow 店舗予約）メールの送信 (即時 confirmed, is_handled=true になるはず)
+    console.log(`\n--- [Test 5] Sending Tiger Lilly Mail (Should be confirmed) ---`);
+    const res5 = await fetch('http://localhost:3000/api/reserve/mail-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Yoyakl-API-Key': apiKey },
+      body: JSON.stringify({
+        subject: tigerLillyMail.subject,
+        body: tigerLillyMail.body,
+        shop_id: defaultShopId
+      })
+    });
+    const json5 = await res5.json();
+    console.log(`Status: ${res5.status}`);
+    if (json5.success && json5.reservation) {
+      createdReservationIds.push(json5.reservation.id);
+      console.log(`Status Result: ${json5.reservation.status} (Expected: confirmed)`);
+      console.log(`Is Handled: ${json5.reservation.is_handled} (Expected: true)`);
+      console.log(`Shop ID: ${json5.reservation.shop_id} (Expected: Tiger Lilly '4808aee9-9940-410c-aa5b-dd1364e2da2c')`);
+      console.log(`Therapist ID: ${json5.reservation.therapist_id} (Expected: '4001bc45-499e-4c89-8482-734cf123f571')`);
+    } else {
+      console.error("Test 5 failed:", json5);
     }
 
   } catch (e) {

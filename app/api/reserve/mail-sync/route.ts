@@ -348,10 +348,11 @@ export async function POST(req: NextRequest) {
         .eq('is_active', true)
       
       if (therapists) {
-        const matched = therapists.find(t => 
-          t.name.toLowerCase().includes(parsed.therapistName.toLowerCase()) ||
-          parsed.therapistName.toLowerCase().includes(t.name.toLowerCase())
-        )
+        const matched = therapists.find(t => {
+          const dbNameClean = t.name.replace(/\s+/g, '').toLowerCase()
+          const parsedNameClean = parsed.therapistName.replace(/\s+/g, '').toLowerCase()
+          return dbNameClean.includes(parsedNameClean) || parsedNameClean.includes(dbNameClean)
+        })
         if (matched) {
           therapistId = matched.id
           console.log(`[MailSync] Matched therapist: ${matched.name} (${therapistId})`)
