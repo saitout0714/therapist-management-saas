@@ -31,6 +31,7 @@ interface AvailableCourse {
   duration: number;
   startTime: string;
   endTime: string;
+  latestStartTime: string;
   color: string;
   borderColor: string;
   textColor: string;
@@ -768,7 +769,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                         const handleCourseClick = () => {
                           if (isDragging || dragDistanceRef.current > 5) return;
-                          router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${c.startTime}`);
+                          router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
                         };
 
                         return (

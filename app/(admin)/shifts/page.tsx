@@ -105,6 +105,7 @@ interface AvailableCourse {
   duration: number;
   startTime: string;
   endTime: string;
+  latestStartTime: string;
   color: string;
   borderColor: string;
   textColor: string;
@@ -1002,10 +1003,11 @@ function ShiftsContent() {
         duration: d,
         startTime: latestStartStr,
         endTime: formatMinToHHMM(endMin),
+        latestStartTime: latestStartStr,
         color: colors.bg,
         borderColor: colors.border,
         textColor: colors.text,
-        label: `${d}分 (最終案内 ${latestStartStr})`,
+        label: `${latestStartStr} ${d}分 (最終案内)`,
       };
     });
   };

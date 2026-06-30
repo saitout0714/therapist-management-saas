@@ -43,6 +43,7 @@ interface AvailableCourse {
   duration: number;
   startTime: string;
   endTime: string;
+  latestStartTime: string;
   color: string;
   borderColor: string;
   textColor: string;
@@ -709,13 +710,13 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                           const handleCourseClick = () => {
                             if (isDragging || dragDistanceRef.current > 5) return;
-                            router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.startTime}`);
+                             router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
                           };
 
                           return (
                             <div
                               key={`course-${idx}-${cIdx}`}
-                              className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-0.5"
+                              className="absolute flex flex-col items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-1"
                               style={{
                                 top: `${barTop + 1}px`,
                                 left: `${barLeft}px`,
@@ -738,11 +739,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                                 display: 'block',
                                 wordBreak: 'break-all',
                               }}>
+                                {c.latestStartTime}
+                                <br />
                                 {c.duration}分
                                 <br />
                                 最終
-                                <br />
-                                {c.startTime}
                               </span>
                             </div>
                           );
