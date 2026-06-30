@@ -45,7 +45,7 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -621,6 +621,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   const isReservation = schedule.type === 'reservation';
                   const isInterval = schedule.type === 'interval';
                   const isBlocked = schedule.type === 'blocked';
+                  const isAvailable = schedule.type === 'available';
+                  const isUnavailable = schedule.type === 'unavailable';
 
                   // 1. Blocked slot
                   if (isBlocked) {
@@ -672,6 +674,62 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       >
                         <span className="text-[8px] font-bold text-slate-400 leading-none">
                           INT
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  // 予約可能ブロック（薄いグリーン）
+                  if (isAvailable) {
+                    const handleAvailableClick = () => {
+                      if (isDragging || dragDistanceRef.current > 5) return;
+                      router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${schedule.startTime}`);
+                    };
+
+                    return (
+                      <div
+                        key={`schedule-${idx}`}
+                        className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:bg-emerald-100/80"
+                        style={{
+                          top: `${top + 1}px`,
+                          left: `${left}px`,
+                          width: `${width}px`,
+                          height: `${height - 2}px`,
+                          borderRadius: '6px',
+                          backgroundColor: 'rgba(209, 250, 229, 0.55)',
+                          border: '1.5px dashed rgba(16, 185, 129, 0.7)',
+                          color: 'rgb(6, 95, 70)',
+                        }}
+                        title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                        onClick={handleAvailableClick}
+                      >
+                        <span className="text-[8px] font-bold leading-tight px-1 text-center" style={{ whiteSpace: 'pre-line' }}>
+                          {schedule.title}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  // 予約不可ブロック（時間不足、薄いグレー）
+                  if (isUnavailable) {
+                    return (
+                      <div
+                        key={`schedule-${idx}`}
+                        className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+                        style={{
+                          top: `${top + 1}px`,
+                          left: `${left}px`,
+                          width: `${width}px`,
+                          height: `${height - 2}px`,
+                          borderRadius: '6px',
+                          backgroundColor: '#f1f5f9',
+                          border: '1.5px dashed #cbd5e1',
+                          color: '#64748b',
+                        }}
+                        title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                      >
+                        <span className="text-[8px] font-semibold leading-none truncate px-1 text-center">
+                          {schedule.title}
                         </span>
                       </div>
                     );

@@ -107,7 +107,7 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -118,6 +118,8 @@ interface Schedule {
   isNewCustomer?: boolean;
   isHime?: boolean;
   isPending?: boolean;
+  isHandled?: boolean;
+  source?: string;
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
@@ -928,6 +930,31 @@ function ShiftsContent() {
     return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
   };
 
+  const getAvailableText = (startMin: number, endMin: number) => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return '';
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) {
+      return `空き ${totalAvail}分`;
+    }
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60) % 24;
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const sortedFiltered = [...filtered].sort((a, b) => b - a);
+    return sortedFiltered
+      .map(d => `${d}分 (最終案内 ${formatMinToHHMM(endMin - d)})`)
+      .join('\n');
+  };
+
   const schedules: Schedule[] = [
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
@@ -1019,6 +1046,22 @@ function ShiftsContent() {
             type: 'interval' as const,
           });
         }
+        if (shiftStartMin !== undefined && shiftStartMin < firstPreStart) {
+          const totalAvail = firstPreStart - shiftStartMin;
+          const menuDurations = shopCourses && shopCourses.length > 0
+            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+            : [30, 45, 60, 90, 120, 150, 180];
+          const filtered = menuDurations.filter(d => d <= totalAvail);
+          const isAvail = filtered.length > 0;
+
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(shiftStartMin),
+            endTime: minutesToHHMM(firstPreStart),
+            title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `時間不足 (${totalAvail}分)`,
+            type: (isAvail ? 'available' : 'unavailable') as any,
+          });
+        }
 
         // 2. 予約間の Gap
         for (let i = 0; i < sortedRes.length - 1; i++) {
@@ -1053,24 +1096,58 @@ function ShiftsContent() {
               title: `インターバル ${interval}分`,
               type: 'interval' as const,
             });
+
+            const availStart = cur.endMin + interval;
+            const availEnd = next.startMin - interval;
+            if (availStart < availEnd) {
+              const totalAvail = availEnd - availStart;
+              const menuDurations = shopCourses && shopCourses.length > 0
+                ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+                : [30, 45, 60, 90, 120, 150, 180];
+              const filtered = menuDurations.filter(d => d <= totalAvail);
+              const isAvail = filtered.length > 0;
+
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(availStart),
+                endTime: minutesToHHMM(availEnd),
+                title: isAvail ? getAvailableText(availStart, availEnd) : `時間不足 (${totalAvail}分)`,
+                type: (isAvail ? 'available' : 'unavailable') as any,
+              });
+            }
           }
         }
 
         // 3. 最後の予約からシフト終了までの Gap
         const lastRes = sortedRes[sortedRes.length - 1];
-        if (shiftEndAdjusted === undefined || lastRes.endMin < shiftEndAdjusted) {
-          const lastPostEnd = shiftEndAdjusted !== undefined
-            ? Math.min(shiftEndAdjusted, lastRes.endMin + interval)
-            : lastRes.endMin + interval;
-          if (lastRes.endMin < lastPostEnd) {
-            intervalSchedules.push({
-              therapistId: therapist.id,
-              startTime: lastRes.endTimeStr,
-              endTime: minutesToHHMM(lastPostEnd),
-              title: `インターバル ${interval}分`,
-              type: 'interval' as const,
-            });
-          }
+        let lastPostEnd = lastRes.endMin + interval;
+        if (shiftEndAdjusted !== undefined) {
+          lastPostEnd = Math.min(shiftEndAdjusted, lastRes.endMin + interval);
+        }
+        if (lastRes.endMin < lastPostEnd) {
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: lastRes.endTimeStr,
+            endTime: minutesToHHMM(lastPostEnd),
+            title: `インターバル ${interval}分`,
+            type: 'interval' as const,
+          });
+        }
+        if (shiftEndAdjusted !== undefined && lastPostEnd < shiftEndAdjusted) {
+          const totalAvail = shiftEndAdjusted - lastPostEnd;
+          const menuDurations = shopCourses && shopCourses.length > 0
+            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+            : [30, 45, 60, 90, 120, 150, 180];
+          const filtered = menuDurations.filter(d => d <= totalAvail);
+          const isAvail = filtered.length > 0;
+
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(lastPostEnd),
+            endTime: minutesToHHMM(shiftEndAdjusted),
+            title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `時間不足 (${totalAvail}分)`,
+            type: (isAvail ? 'available' : 'unavailable') as any,
+          });
         }
       });
 

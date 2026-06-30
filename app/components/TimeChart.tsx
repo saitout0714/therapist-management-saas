@@ -33,7 +33,7 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -661,6 +661,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const isReservation = schedule.type === 'reservation';
                 const isInterval = schedule.type === 'interval';
                 const isBlocked = schedule.type === 'blocked';
+                const isAvailable = schedule.type === 'available';
+                const isUnavailable = schedule.type === 'unavailable';
 
                 // 予約不可ブロック（えんじ色）
                 if (isBlocked) {
@@ -730,6 +732,76 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         padding: '0 4px',
                       }}>
                         INT
+                      </span>
+                    </div>
+                  );
+                }
+
+                // 予約可能ブロック（薄いグリーン）
+                if (isAvailable) {
+                  const handleAvailableClick = () => {
+                    if (isDragging || dragDistanceRef.current > 5) return;
+                    router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${schedule.startTime}`);
+                  };
+
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:bg-emerald-100/80"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(209, 250, 229, 0.55)',
+                        border: '1.5px dashed rgba(16, 185, 129, 0.7)',
+                        color: 'rgb(6, 95, 70)',
+                      }}
+                      title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                      onClick={handleAvailableClick}
+                    >
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        whiteSpace: 'pre-line',
+                        lineHeight: '1.2',
+                        letterSpacing: '0.01em',
+                        padding: '2px 4px',
+                        textAlign: 'center',
+                      }}>
+                        {schedule.title}
+                      </span>
+                    </div>
+                  );
+                }
+
+                // 予約不可ブロック（時間不足、薄いグレー）
+                if (isUnavailable) {
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        backgroundColor: '#f1f5f9',
+                        border: '1.5px dashed #cbd5e1',
+                        color: '#64748b',
+                      }}
+                      title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                    >
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.01em',
+                        padding: '0 4px',
+                      }}>
+                        {schedule.title}
                       </span>
                     </div>
                   );
