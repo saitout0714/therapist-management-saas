@@ -15,6 +15,7 @@ interface NotifItem {
   endTime: string
   courseName: string
   receivedAt: Date
+  source: string
 }
 
 function playBeep() {
@@ -81,7 +82,7 @@ export default function WebReservationNotifier() {
         async (payload) => {
           try {
             const row = payload.new as Record<string, unknown>
-            if (row.source !== 'web') return
+            if (row.source !== 'web' && row.source !== 'mail_sync') return
 
             // 自分の店舗の予約かチェック
             const shop = shopsRef.current.find(s => s.id === row.shop_id)
@@ -109,13 +110,15 @@ export default function WebReservationNotifier() {
               endTime: (row.end_time as string)?.slice(0, 5) ?? '',
               courseName: (courseRes.data as { name: string } | null)?.name ?? '',
               receivedAt: new Date(),
+              source: row.source as string,
             }
 
             setItems(prev => [notif, ...prev])
             playBeep()
 
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(`【${shop.name}】新規Web予約！`, {
+              const isMail = notif.source === 'mail_sync'
+              new Notification(`【${shop.name}】新規${isMail ? 'メール' : 'Web'}予約！`, {
                 body: `${notif.customerName} 様 ／ ${notif.therapistName} ／ ${notif.date} ${notif.startTime}〜${notif.endTime}`,
                 icon: '/favicon.ico',
                 requireInteraction: true,
@@ -174,7 +177,7 @@ export default function WebReservationNotifier() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-black text-lg leading-tight tracking-tight">
-                      🔔 新規Web予約が入りました！
+                      🔔 新規{notif.source === 'mail_sync' ? 'メール' : 'Web'}予約が入りました！
                     </p>
                     <p className="text-red-200 text-xs font-medium mt-0.5">
                       {notif.receivedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 受信
