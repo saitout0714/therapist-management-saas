@@ -1084,25 +1084,6 @@ function ShiftsContent() {
           : shopIntervalMinutes;
         if (interval <= 0) return;
 
-        const therapistReservations = reservations.filter(
-          (r: any) => r.status === 'confirmed' && r.therapist_id === therapist.id
-        );
-        if (therapistReservations.length === 0) return;
-
-        const sortedRes = therapistReservations
-          .map((r: any) => {
-            const startMin = hhmToMinutes(toDisplayTime(r.start_time));
-            let endMin = hhmToMinutes(toDisplayTime(r.end_time));
-            if (endMin <= startMin) endMin += 24 * 60;
-            return {
-              startMin,
-              endMin,
-              startTimeStr: toDisplayTime(r.start_time),
-              endTimeStr: toDisplayTime(r.end_time),
-            };
-          })
-          .sort((a, b) => a.startMin - b.startMin);
-
         let shiftStartMin: number | undefined;
         let shiftEndAdjusted: number | undefined;
         if (therapist.shiftStart) {
@@ -1114,21 +1095,46 @@ function ShiftsContent() {
           }
         }
 
-        // 1. シフト開始から最初の予約までの Gap
-        const firstRes = sortedRes[0];
-        const firstPreStart = shiftStartMin !== undefined
-          ? Math.max(shiftStartMin, firstRes.startMin - interval)
-          : firstRes.startMin - interval;
-        if (firstPreStart < firstRes.startMin) {
+        // シフト範囲が定義されていない（非出勤）の場合はスキップ
+        if (shiftStartMin === undefined || shiftEndAdjusted === undefined) return;
+
+        // 予約とブロックの両方を「境界（boundaries）」として抽出
+        const boundaries = reservations
+          .filter((r: any) => r.therapist_id === therapist.id)
+          .map((r: any) => {
+            const startMin = hhmToMinutes(toDisplayTime(r.start_time));
+            let endMin = hhmToMinutes(toDisplayTime(r.end_time));
+            if (endMin <= startMin) endMin += 24 * 60;
+            return {
+              startMin,
+              endMin,
+              startTimeStr: toDisplayTime(r.start_time),
+              endTimeStr: toDisplayTime(r.end_time),
+              type: r.status === 'blocked' ? ('blocked' as const) : ('reservation' as const),
+            };
+          })
+          .sort((a, b) => a.startMin - b.startMin);
+
+        // 1. シフト開始から最初の境界までの Gap
+        const firstBound = boundaries[0];
+        const firstLimit = firstBound ? firstBound.startMin : shiftEndAdjusted;
+        
+        // 最初の予定が確定予約(reservation)の場合のみ事前インターバルが必要
+        const needPreInterval = firstBound && firstBound.type === 'reservation';
+        const firstPreStart = needPreInterval 
+          ? Math.max(shiftStartMin, firstLimit - interval)
+          : firstLimit;
+
+        if (needPreInterval && firstPreStart < firstLimit) {
           intervalSchedules.push({
             therapistId: therapist.id,
             startTime: minutesToHHMM(firstPreStart),
-            endTime: firstRes.startTimeStr,
+            endTime: firstBound.startTimeStr,
             title: `インターバル ${interval}分`,
             type: 'interval' as const,
           });
         }
-        if (shiftStartMin !== undefined && shiftStartMin < firstPreStart) {
+        if (shiftStartMin < firstPreStart) {
           const totalAvail = firstPreStart - shiftStartMin;
           const menuDurations = shopCourses && shopCourses.length > 0
             ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
@@ -1146,42 +1152,51 @@ function ShiftsContent() {
           });
         }
 
-        // 2. 予約間の Gap
-        for (let i = 0; i < sortedRes.length - 1; i++) {
-          const cur = sortedRes[i];
-          const next = sortedRes[i + 1];
+        // 2. 境界間の Gap
+        for (let i = 0; i < boundaries.length - 1; i++) {
+          const cur = boundaries[i];
+          const next = boundaries[i + 1];
+          
+          const curInterval = cur.type === 'reservation' ? interval : 0;
+          const nextInterval = next.type === 'reservation' ? interval : 0;
+          
           const gap = next.startMin - cur.endMin;
-
           if (gap <= 0) continue;
 
-          if (gap <= 2 * interval) {
-            // 重複または隣接する場合は、Gap全体を1つのインターバルとしてマージ
-            intervalSchedules.push({
-              therapistId: therapist.id,
-              startTime: minutesToHHMM(cur.endMin),
-              endTime: minutesToHHMM(next.startMin),
-              title: `インターバル ${gap}分`,
-              type: 'interval' as const,
-            });
-          } else {
-            // 十分な空きがある場合は、前後のインターバルを別々に配置
-            intervalSchedules.push({
-              therapistId: therapist.id,
-              startTime: minutesToHHMM(cur.endMin),
-              endTime: minutesToHHMM(cur.endMin + interval),
-              title: `インターバル ${interval}分`,
-              type: 'interval' as const,
-            });
-            intervalSchedules.push({
-              therapistId: therapist.id,
-              startTime: minutesToHHMM(next.startMin - interval),
-              endTime: minutesToHHMM(next.startMin),
-              title: `インターバル ${interval}分`,
-              type: 'interval' as const,
-            });
+          const totalInterval = curInterval + nextInterval;
 
-            const availStart = cur.endMin + interval;
-            const availEnd = next.startMin - interval;
+          if (gap <= totalInterval) {
+            if (gap > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${gap}分`,
+                type: 'interval' as const,
+              });
+            }
+          } else {
+            if (curInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(cur.endMin + curInterval),
+                title: `インターバル ${curInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+            if (nextInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(next.startMin - nextInterval),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${nextInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+
+            const availStart = cur.endMin + curInterval;
+            const availEnd = next.startMin - nextInterval;
             if (availStart < availEnd) {
               const totalAvail = availEnd - availStart;
               const menuDurations = shopCourses && shopCourses.length > 0
@@ -1202,37 +1217,42 @@ function ShiftsContent() {
           }
         }
 
-        // 3. 最後の予約からシフト終了までの Gap
-        const lastRes = sortedRes[sortedRes.length - 1];
-        let lastPostEnd = lastRes.endMin + interval;
-        if (shiftEndAdjusted !== undefined) {
-          lastPostEnd = Math.min(shiftEndAdjusted, lastRes.endMin + interval);
-        }
-        if (lastRes.endMin < lastPostEnd) {
-          intervalSchedules.push({
-            therapistId: therapist.id,
-            startTime: lastRes.endTimeStr,
-            endTime: minutesToHHMM(lastPostEnd),
-            title: `インターバル ${interval}分`,
-            type: 'interval' as const,
-          });
-        }
-        if (shiftEndAdjusted !== undefined && lastPostEnd < shiftEndAdjusted) {
-          const totalAvail = shiftEndAdjusted - lastPostEnd;
-          const menuDurations = shopCourses && shopCourses.length > 0
-            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
-            : [30, 45, 60, 90, 120, 150, 180];
-          const filtered = menuDurations.filter(d => d <= totalAvail);
-          const isAvail = filtered.length > 0;
+        // 3. 最後の境界からシフト終了までの Gap
+        if (boundaries.length > 0) {
+          const lastBound = boundaries[boundaries.length - 1];
+          const needPostInterval = lastBound.type === 'reservation';
+          let lastPostEnd = needPostInterval ? lastBound.endMin + interval : lastBound.endMin;
+          if (shiftEndAdjusted !== undefined) {
+            lastPostEnd = Math.min(shiftEndAdjusted, lastPostEnd);
+          }
 
-          intervalSchedules.push({
-            therapistId: therapist.id,
-            startTime: minutesToHHMM(lastPostEnd),
-            endTime: minutesToHHMM(shiftEndAdjusted),
-            title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `不足\n${totalAvail}分`,
-            type: (isAvail ? 'available' : 'unavailable') as any,
-            availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
-          });
+          if (needPostInterval && lastBound.endMin < lastPostEnd) {
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: lastBound.endTimeStr,
+              endTime: minutesToHHMM(lastPostEnd),
+              title: `インターバル ${interval}分`,
+              type: 'interval' as const,
+            });
+          }
+
+          if (lastPostEnd < shiftEndAdjusted) {
+            const totalAvail = shiftEndAdjusted - lastPostEnd;
+            const menuDurations = shopCourses && shopCourses.length > 0
+              ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+              : [30, 45, 60, 90, 120, 150, 180];
+            const filtered = menuDurations.filter(d => d <= totalAvail);
+            const isAvail = filtered.length > 0;
+
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: minutesToHHMM(lastPostEnd),
+              endTime: minutesToHHMM(shiftEndAdjusted),
+              title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `不足\n${totalAvail}分`,
+              type: (isAvail ? 'available' : 'unavailable') as any,
+              availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
+            });
+          }
         }
       });
 
