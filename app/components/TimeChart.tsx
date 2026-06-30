@@ -513,22 +513,30 @@ const TimeChart: React.FC<TimeChartProps> = ({
             {hourLabels.map((label, idx) => (
               <div
                 key={`hour-${idx}`}
-                className="flex flex-col border-r border-slate-200"
+                className="flex flex-col border-r border-slate-300"
                 style={{ width: `${(cellWidth * 12)}px` }}
               >
                 <div className="h-8 flex items-center px-2 text-xs font-bold text-slate-700 tracking-wide">
                   {label}
                 </div>
                 <div className="h-6 flex text-[9px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div key={i} className="flex-1 flex justify-center items-center border-r border-slate-100 last:border-0 relative">
-                      {i === 0 || i === 6 ? (
-                        <span>{String(i * 5).padStart(2, '0')}</span>
-                      ) : (
-                        <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
-                      )}
-                    </div>
-                  ))}
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    let borderClass = 'border-r border-slate-100';
+                    if (i === 5) {
+                      borderClass = 'border-r border-slate-200';
+                    } else if (i === 11) {
+                      borderClass = 'border-r-0';
+                    }
+                    return (
+                      <div key={i} className={`flex-1 flex justify-center items-center ${borderClass} relative`}>
+                        {i === 0 || i === 6 ? (
+                          <span>{String(i * 5).padStart(2, '0')}</span>
+                        ) : (
+                          <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -585,10 +593,17 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                   };
 
+                  let borderClass = 'border-r border-slate-100';
+                  if (idx % 12 === 11) {
+                    borderClass = 'border-r border-slate-300';
+                  } else if (idx % 12 === 5) {
+                    borderClass = 'border-r border-slate-200';
+                  }
+
                   return (
                     <div
                       key={`${therapist.id}-${idx}`}
-                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
+                      className={`${borderClass} ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
                       style={{ ...cellStyle, height: `${rowHeight}px`, cursor: 'pointer' }}
                       onClick={handleCellClick}
                       onMouseDown={() => { dragDistanceRef.current = 0; }}

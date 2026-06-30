@@ -515,7 +515,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               {hourLabels.map((label, idx) => (
                 <div
                   key={`hour-label-${idx}`}
-                  className="border-b border-slate-200/80 relative bg-slate-100 flex items-start p-1.5"
+                  className="border-b border-slate-300 relative bg-slate-100 flex items-start p-1.5"
                   style={{ height: `${cellHeight * 12}px` }}
                 >
                   <span className="text-[11px] font-bold text-slate-500 leading-none">
@@ -564,10 +564,17 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       router.push(`/reservations/new?from=vertical&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                     };
 
+                    let borderClass = 'border-b border-slate-100/50';
+                    if (idx % 12 === 11) {
+                      borderClass = 'border-b border-slate-300';
+                    } else if (idx % 12 === 5) {
+                      borderClass = 'border-b border-slate-200';
+                    }
+
                     return (
                       <div
                         key={`${therapist.id}-${idx}`}
-                        className={`border-b border-slate-100/50 hover:bg-indigo-50/40 transition-colors`}
+                        className={`${borderClass} hover:bg-indigo-50/40 transition-colors`}
                         style={{ ...cellStyle, height: `${cellHeight}px`, cursor: 'pointer' }}
                         onClick={handleCellClick}
                         onMouseEnter={(e) => {

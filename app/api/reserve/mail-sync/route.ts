@@ -290,21 +290,43 @@ export async function POST(req: NextRequest) {
     // 1. 店舗の特定
     let shopId = defaultShopId || null
     if (parsed.shopNameRaw) {
-      const { data: shops } = await supabaseAdmin
-        .from('shops')
-        .select('id, name, short_name')
-        .eq('is_active', true)
+      const rawLower = parsed.shopNameRaw.toLowerCase()
       
-      if (shops) {
-        const rawLower = parsed.shopNameRaw.toLowerCase()
-        const matched = shops.find(s => {
-          const name = s.name.toLowerCase()
-          const shortName = (s.short_name || '').toLowerCase()
-          return rawLower.includes(name) || (shortName && rawLower.includes(shortName)) || name.includes(rawLower)
-        })
-        if (matched) {
-          shopId = matched.id
-          console.log(`[MailSync] Matched shop: ${matched.name} (${shopId})`)
+      // 特殊ルール：同じオーナーで同じメールを利用している「レジェンド」と「タイガーリリー」の振り分け
+      if (
+        rawLower.includes('legend') || 
+        rawLower.includes('レジェンド') || 
+        rawLower.includes('三鷹') || 
+        rawLower.includes('府中') || 
+        rawLower.includes('ひばり')
+      ) {
+        shopId = '36949671-c90c-4cf9-9d88-51bd71a2b352' // レジェンド の店舗ID
+        console.log(`[MailSync] Custom matched shop: レジェンド (${shopId})`)
+      } else if (
+        rawLower.includes('tiger') || 
+        rawLower.includes('lily') || 
+        rawLower.includes('タイガー') || 
+        rawLower.includes('タイガ')
+      ) {
+        shopId = '4808aee9-9940-410c-aa5b-dd1364e2da2c' // タイガーリリー の店舗ID
+        console.log(`[MailSync] Custom matched shop: タイガーリリー (${shopId})`)
+      } else {
+        // 通常の部分一致マッチング
+        const { data: shops } = await supabaseAdmin
+          .from('shops')
+          .select('id, name, short_name')
+          .eq('is_active', true)
+        
+        if (shops) {
+          const matched = shops.find(s => {
+            const name = s.name.toLowerCase()
+            const shortName = (s.short_name || '').toLowerCase()
+            return rawLower.includes(name) || (shortName && rawLower.includes(shortName)) || name.includes(rawLower)
+          })
+          if (matched) {
+            shopId = matched.id
+            console.log(`[MailSync] Matched shop: ${matched.name} (${shopId})`)
+          }
         }
       }
     }
