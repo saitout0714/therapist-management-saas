@@ -715,7 +715,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           return (
                             <div
                               key={`course-${idx}-${cIdx}`}
-                              className="absolute flex flex-col items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-0.5"
+                              className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-0.5"
                               style={{
                                 top: `${barTop + 1}px`,
                                 left: `${barLeft}px`,
@@ -733,13 +733,16 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                               <span style={{
                                 fontSize: '7px',
                                 fontWeight: 800,
-                                lineHeight: 1,
-                                writingMode: 'vertical-rl',
-                                textOrientation: 'mixed',
+                                lineHeight: 1.1,
+                                textAlign: 'center',
                                 display: 'block',
-                                height: '100%',
+                                wordBreak: 'break-all',
                               }}>
                                 {c.duration}分
+                                <br />
+                                最終
+                                <br />
+                                {c.startTime}
                               </span>
                             </div>
                           );
