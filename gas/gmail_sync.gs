@@ -15,8 +15,8 @@ const MAIL_SYNC_API_KEY = "your-mail-sync-api-key";
 // このGmailが紐づく店舗のID (yoyaklの店舗ID)
 const DEFAULT_SHOP_ID = "your-shop-id";
 
-// Gmailの検索条件 (未読かつ特定のキーワードを含むメール)
-const GMAIL_SEARCH_QUERY = 'is:unread ("ご予約を受け付けました" OR "仮予約を受け付けました" OR "新しいWeb予約を受け付けました")';
+// Gmailの検索条件 (未読かつ特定の媒体からの予約通知タイトルに合致するもののみ)
+const GMAIL_SEARCH_QUERY = 'is:unread (subject:"【エステ魂】ご予約を受け付けました" OR subject:"[Grow] 新しいWeb予約を受け付けました" OR subject:"【全国メンズエステランキング】仮予約を受け付けました" OR subject:"エステラブ")';
 // ====================================================
 
 function syncGmailReservations() {

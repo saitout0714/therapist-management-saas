@@ -278,10 +278,13 @@ export async function POST(req: NextRequest) {
     console.log('[MailSync] Parsed data:', parsed)
 
     if (!parsed.date || !parsed.startTime) {
+      console.log('[MailSync] Could not parse date/time. Treating as non-reservation mail. Skipping silently.')
       return NextResponse.json({
-        error: '予約の日時をパースできませんでした。',
+        success: true,
+        skipped: true,
+        message: '予約メールではないため、登録および通知をスキップしました。',
         parsedData: parsed
-      }, { status: 422 })
+      })
     }
 
     // 1. 店舗の特定
@@ -458,7 +461,7 @@ export async function POST(req: NextRequest) {
       start_time: parsed.startTime,
       end_time: parsed.endTime,
       status: status,
-      source: 'mail_sync',
+      source: 'web',
       is_handled: isHandled,
       base_price: basePrice,
       total_price: basePrice,

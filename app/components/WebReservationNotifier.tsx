@@ -82,7 +82,7 @@ export default function WebReservationNotifier() {
         async (payload) => {
           try {
             const row = payload.new as Record<string, unknown>
-            if (row.source !== 'web' && row.source !== 'mail_sync') return
+            if (row.source !== 'web') return
 
             // 自分の店舗の予約かチェック
             const shop = shopsRef.current.find(s => s.id === row.shop_id)
@@ -100,6 +100,7 @@ export default function WebReservationNotifier() {
                 : Promise.resolve({ data: null, error: null }),
             ])
 
+            const isMail = (row.notes as string)?.includes('【メール同期自動登録】')
             const notif: NotifItem = {
               id: row.id as string,
               shopName: shop.name,
@@ -110,7 +111,7 @@ export default function WebReservationNotifier() {
               endTime: (row.end_time as string)?.slice(0, 5) ?? '',
               courseName: (courseRes.data as { name: string } | null)?.name ?? '',
               receivedAt: new Date(),
-              source: row.source as string,
+              source: isMail ? 'mail_sync' : (row.source as string),
             }
 
             setItems(prev => [notif, ...prev])
