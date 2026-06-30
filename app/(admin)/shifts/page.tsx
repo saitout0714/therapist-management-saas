@@ -962,38 +962,41 @@ function ShiftsContent() {
     const getCourseColors = (duration: number) => {
       if (duration >= 150) {
         return {
-          bg: 'rgba(253, 242, 248, 0.95)', // pink-50
-          border: 'rgba(244, 114, 182, 0.8)', // pink-400
-          text: 'rgb(157, 23, 77)', // pink-800
+          bg: '#fbcfe8', // pink-200
+          border: '#ec4899', // pink-500
+          text: '#831843', // pink-900
         };
       } else if (duration >= 120) {
         return {
-          bg: 'rgba(250, 245, 255, 0.95)', // purple-50
-          border: 'rgba(192, 132, 252, 0.8)', // purple-400
-          text: 'rgb(107, 33, 168)', // purple-800
+          bg: '#e9d5ff', // purple-200
+          border: '#a855f7', // purple-500
+          text: '#581c87', // purple-900
         };
       } else if (duration >= 90) {
         return {
-          bg: 'rgba(240, 249, 255, 0.95)', // sky-50
-          border: 'rgba(125, 211, 252, 0.8)', // sky-300
-          text: 'rgb(7, 89, 133)', // sky-800
+          bg: '#bae6fd', // sky-200
+          border: '#0ea5e9', // sky-500
+          text: '#0c4a6e', // sky-900
         };
       } else if (duration >= 60) {
         return {
-          bg: 'rgba(240, 253, 250, 0.95)', // teal-50
-          border: 'rgba(94, 234, 212, 0.8)', // teal-300
-          text: 'rgb(13, 148, 136)', // teal-800
+          bg: '#a7f3d0', // emerald-200
+          border: '#10b981', // emerald-500
+          text: '#064e3b', // emerald-900
         };
       } else {
         return {
-          bg: 'rgba(254, 252, 232, 0.95)', // yellow-50
-          border: 'rgba(253, 224, 71, 0.8)', // yellow-300
-          text: 'rgb(133, 77, 14)', // yellow-800
+          bg: '#fef08a', // yellow-200
+          border: '#eab308', // yellow-500
+          text: '#713f12', // yellow-900
         };
       }
     };
 
-    const sorted = [...filtered].sort((a, b) => b - a);
+    // 表示用コースを選択（短い順に最大4本）
+    const selectedDurations = filtered.slice(0, 4);
+
+    const sorted = [...selectedDurations].sort((a, b) => b - a);
 
     return sorted.map(d => {
       const latestStartMin = endMin - d;

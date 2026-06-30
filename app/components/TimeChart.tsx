@@ -787,7 +787,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                               color: c.textColor,
                               zIndex: 15,
                             }}
-                            title={c.label}
+                            title={`${c.label}\n\n【全コースの最終案内】\n${schedule.title}`}
                             onClick={handleCourseClick}
                           >
                             <span style={{
