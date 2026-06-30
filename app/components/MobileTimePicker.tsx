@@ -32,13 +32,15 @@ function WheelPicker({
     if (items.length === 0) return;
     const index = items.findIndex((item) => item.value === value);
     if (index !== -1 && containerRef.current) {
-      const currentIndex = Math.round(containerRef.current.scrollTop / itemHeight);
+      // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+      const currentIndex = Math.round(containerRef.current.scrollTop / itemHeight) + 2;
       const targetIndex = middleLoop * items.length + index;
 
       // 現在のスクロール位置が中央ループの正しい位置と一致しない、かつスクロール中でない場合のみ同期する
       if (currentIndex !== targetIndex && !isScrolling.current) {
         isWarping.current = true;
-        containerRef.current.scrollTop = targetIndex * itemHeight;
+        // targetIndex の要素を中央に配置するため、-2 のオフセットを考慮
+        containerRef.current.scrollTop = (targetIndex - 2) * itemHeight;
       }
     }
   }, [value, items, middleLoop]);
@@ -53,7 +55,8 @@ function WheelPicker({
     if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
 
     const target = e.target as HTMLDivElement;
-    const index = Math.round(target.scrollTop / itemHeight);
+    // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+    const index = Math.round(target.scrollTop / itemHeight) + 2;
     const originalIndex = index % items.length;
     const selectedItem = items[originalIndex];
 
@@ -66,13 +69,15 @@ function WheelPicker({
 
       // スクロール停止時に、中央のループ位置に補正する
       if (containerRef.current && items.length > 0) {
-        const currIndex = Math.round(containerRef.current.scrollTop / itemHeight);
+        // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+        const currIndex = Math.round(containerRef.current.scrollTop / itemHeight) + 2;
         const origIdx = currIndex % items.length;
         const targetIdx = middleLoop * items.length + origIdx;
 
         if (currIndex !== targetIdx) {
           isWarping.current = true;
-          containerRef.current.scrollTop = targetIdx * itemHeight;
+          // targetIdx の要素を中央に配置するため、-2 のオフセットを考慮
+          containerRef.current.scrollTop = (targetIdx - 2) * itemHeight;
         }
       }
     }, 150);

@@ -15,8 +15,8 @@ const MAIL_SYNC_API_KEY = "your-mail-sync-api-key";
 // このGmailが紐づく店舗のID (yoyaklの店舗ID)
 const DEFAULT_SHOP_ID = "your-shop-id";
 
-// Gmailの検索条件 (未読かつ特定の媒体からの予約通知タイトルに合致するもののみ)
-const GMAIL_SEARCH_QUERY = 'is:unread (subject:"【エステ魂】ご予約を受け付けました" OR subject:"[Grow] 新しいWeb予約を受け付けました" OR subject:"【全国メンズエステランキング】仮予約を受け付けました" OR subject:"エステラブ")';
+// Gmailの検索条件 (未読かつ特定の媒体からの予約通知タイトルに合致するもののみ、直近2日以内)
+const GMAIL_SEARCH_QUERY = 'is:unread (subject:"【エステ魂】ご予約を受け付けました" OR subject:"[Grow] 新しいWeb予約を受け付けました" OR subject:"【全国メンズエステランキング】仮予約を受け付けました" OR subject:"エステラブ") newer_than:2d';
 // ====================================================
 
 function syncGmailReservations() {
@@ -48,6 +48,18 @@ function syncGmailReservations() {
       const date = message.getDate();
 
       Logger.log(`処理中: ${subject} (${date})`);
+
+      // 昨日の 00:00:00 より古いメールは処理せず既読にしてスキップ
+      const now = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0); // 昨日の 00:00
+
+      if (date < yesterday) {
+        Logger.log(`古い未読メールのためスキップ（既読化）: ${subject} (${date})`);
+        message.markRead(); // 既読にして次回からスキャン対象外にする
+        return;
+      }
 
       const payload = {
         subject: subject,
