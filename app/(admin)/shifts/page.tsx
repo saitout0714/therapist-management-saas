@@ -101,6 +101,16 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
@@ -124,6 +134,7 @@ interface Schedule {
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
 }
 
 type ViewMode = 'day' | 'vertical' | 'week';
@@ -930,6 +941,75 @@ function ShiftsContent() {
     return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
   };
 
+  const getAvailableCourses = (startMin: number, endMin: number): AvailableCourse[] => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return [];
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) return [];
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60) % 24;
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const getCourseColors = (duration: number) => {
+      if (duration >= 150) {
+        return {
+          bg: 'rgba(253, 242, 248, 0.95)', // pink-50
+          border: 'rgba(244, 114, 182, 0.8)', // pink-400
+          text: 'rgb(157, 23, 77)', // pink-800
+        };
+      } else if (duration >= 120) {
+        return {
+          bg: 'rgba(250, 245, 255, 0.95)', // purple-50
+          border: 'rgba(192, 132, 252, 0.8)', // purple-400
+          text: 'rgb(107, 33, 168)', // purple-800
+        };
+      } else if (duration >= 90) {
+        return {
+          bg: 'rgba(240, 249, 255, 0.95)', // sky-50
+          border: 'rgba(125, 211, 252, 0.8)', // sky-300
+          text: 'rgb(7, 89, 133)', // sky-800
+        };
+      } else if (duration >= 60) {
+        return {
+          bg: 'rgba(240, 253, 250, 0.95)', // teal-50
+          border: 'rgba(94, 234, 212, 0.8)', // teal-300
+          text: 'rgb(13, 148, 136)', // teal-800
+        };
+      } else {
+        return {
+          bg: 'rgba(254, 252, 232, 0.95)', // yellow-50
+          border: 'rgba(253, 224, 71, 0.8)', // yellow-300
+          text: 'rgb(133, 77, 14)', // yellow-800
+        };
+      }
+    };
+
+    const sorted = [...filtered].sort((a, b) => b - a);
+
+    return sorted.map(d => {
+      const latestStartMin = endMin - d;
+      const latestStartStr = formatMinToHHMM(latestStartMin);
+      const colors = getCourseColors(d);
+      return {
+        duration: d,
+        startTime: latestStartStr,
+        endTime: formatMinToHHMM(endMin),
+        color: colors.bg,
+        borderColor: colors.border,
+        textColor: colors.text,
+        label: `${d}分 (最終案内 ${latestStartStr})`,
+      };
+    });
+  };
+
   const getAvailableText = (startMin: number, endMin: number) => {
     const totalAvail = endMin - startMin;
     if (totalAvail <= 0) return '';
@@ -1060,6 +1140,7 @@ function ShiftsContent() {
             endTime: minutesToHHMM(firstPreStart),
             title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `時間不足 (${totalAvail}分)`,
             type: (isAvail ? 'available' : 'unavailable') as any,
+            availableCourses: isAvail ? getAvailableCourses(shiftStartMin, firstPreStart) : undefined,
           });
         }
 
@@ -1113,6 +1194,7 @@ function ShiftsContent() {
                 endTime: minutesToHHMM(availEnd),
                 title: isAvail ? getAvailableText(availStart, availEnd) : `時間不足 (${totalAvail}分)`,
                 type: (isAvail ? 'available' : 'unavailable') as any,
+                availableCourses: isAvail ? getAvailableCourses(availStart, availEnd) : undefined,
               });
             }
           }
@@ -1147,6 +1229,7 @@ function ShiftsContent() {
             endTime: minutesToHHMM(shiftEndAdjusted),
             title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `時間不足 (${totalAvail}分)`,
             type: (isAvail ? 'available' : 'unavailable') as any,
+            availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
           });
         }
       });

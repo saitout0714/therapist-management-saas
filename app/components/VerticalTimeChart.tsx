@@ -39,6 +39,16 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
@@ -62,6 +72,7 @@ interface Schedule {
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
 }
 
 interface VerticalTimeChartProps {
@@ -679,7 +690,65 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     );
                   }
 
-                  // 予約可能ブロック（薄いグリーン）
+                  // 予約可能ブロック（マルチカラー・コース別バー）
+                  if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
+                    const coursesCount = schedule.availableCourses.length;
+                    const barWidth = Math.min(30, Math.floor((width - 2) / coursesCount) - 2);
+                    const startX = 2 + Math.max(0, Math.floor((width - 2 - (barWidth + 2) * coursesCount) / 2));
+
+                    return (
+                      <React.Fragment key={`schedule-avail-group-${idx}`}>
+                        {schedule.availableCourses.map((c, cIdx) => {
+                          const cStartMinutes = timeToMinutes(c.startTime);
+                          const cEndMinutes = timeToMinutes(c.endTime);
+                          const cDuration = cEndMinutes - cStartMinutes;
+
+                          const barTop = cStartMinutes * (cellHeight / 5);
+                          const barHeight = cDuration * (cellHeight / 5);
+                          const barLeft = left + startX + cIdx * (barWidth + 2);
+
+                          const handleCourseClick = () => {
+                            if (isDragging || dragDistanceRef.current > 5) return;
+                            router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.startTime}`);
+                          };
+
+                          return (
+                            <div
+                              key={`course-${idx}-${cIdx}`}
+                              className="absolute flex flex-col items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-0.5"
+                              style={{
+                                top: `${barTop + 1}px`,
+                                left: `${barLeft}px`,
+                                width: `${barWidth}px`,
+                                height: `${barHeight - 2}px`,
+                                borderRadius: '4px',
+                                backgroundColor: c.color,
+                                borderColor: c.borderColor,
+                                color: c.textColor,
+                                zIndex: 15,
+                              }}
+                              title={c.label}
+                              onClick={handleCourseClick}
+                            >
+                              <span style={{
+                                fontSize: '7px',
+                                fontWeight: 800,
+                                lineHeight: 1,
+                                writingMode: 'vertical-rl',
+                                textOrientation: 'mixed',
+                                display: 'block',
+                                height: '100%',
+                              }}>
+                                {c.duration}分
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  }
+
+                  // 予約可能ブロック（通常）
                   if (isAvailable) {
                     const handleAvailableClick = () => {
                       if (isDragging || dragDistanceRef.current > 5) return;

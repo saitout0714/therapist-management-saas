@@ -27,6 +27,16 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
@@ -50,6 +60,7 @@ interface Schedule {
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
 }
 
 interface TimeChartProps {
@@ -737,7 +748,68 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   );
                 }
 
-                // 予約可能ブロック（薄いグリーン）
+                // 予約可能ブロック（マルチカラー・コース別バー）
+                if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
+                  const coursesCount = schedule.availableCourses.length;
+                  const barHeight = Math.min(14, Math.floor((height - 4) / coursesCount) - 2);
+                  const startY = 4 + Math.max(0, Math.floor((height - 4 - (barHeight + 2) * coursesCount) / 2));
+
+                  return (
+                    <React.Fragment key={`schedule-avail-group-${idx}`}>
+                      {schedule.availableCourses.map((c, cIdx) => {
+                        const cStartMinutes = timeToMinutes(c.startTime);
+                        const cEndMinutes = timeToMinutes(c.endTime);
+                        const cDuration = cEndMinutes - cStartMinutes;
+
+                        const cStartPixels = (cStartMinutes / 5) * cellWidth;
+                        const cWidthPixels = (cDuration / 5) * cellWidth;
+
+                        const barTop = top + startY + cIdx * (barHeight + 2);
+
+                        const handleCourseClick = () => {
+                          if (isDragging || dragDistanceRef.current > 5) return;
+                          router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${c.startTime}`);
+                        };
+
+                        return (
+                          <div
+                            key={`course-${idx}-${cIdx}`}
+                            className="absolute flex items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm"
+                            style={{
+                              top: `${barTop}px`,
+                              left: `${cStartPixels + 2}px`,
+                              width: `${cWidthPixels - 4}px`,
+                              height: `${barHeight}px`,
+                              borderRadius: '4px',
+                              backgroundColor: c.color,
+                              borderColor: c.borderColor,
+                              color: c.textColor,
+                              zIndex: 15,
+                            }}
+                            title={c.label}
+                            onClick={handleCourseClick}
+                          >
+                            <span style={{
+                              fontSize: '8px',
+                              fontWeight: 800,
+                              whiteSpace: 'nowrap',
+                              padding: '0 4px',
+                              lineHeight: 1,
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '100%',
+                            }}>
+                              {c.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                }
+
+                // 予約可能ブロック（通常）
                 if (isAvailable) {
                   const handleAvailableClick = () => {
                     if (isDragging || dragDistanceRef.current > 5) return;
