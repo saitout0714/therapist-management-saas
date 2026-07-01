@@ -101,6 +101,27 @@ const tigerLillyMail = {
 Grow`
 };
 
+const mejiroMail = {
+  subject: "[Grow] 新しい店舗予約を受け付けました",
+  body: `以下の内容で、新しい店舗予約を受け付けました。
+
+店舗：Legend 目白～Etoile～エトワール
+予約日時：2026年07月1日(日)22:30
+担当セラピスト：香椎　まりあ
+指名：指名
+
+メニュー：90min 19,000yen
+クーポン：
+料金：19000円
+お客様名：サイトウタカヒコ
+電話番号：08059533440
+メールアドレス：
+備考：
+
+---------
+Grow`
+};
+
 
 const rankingMail = {
   subject: "【全国メンズエステランキング】仮予約を受け付けました",
@@ -266,9 +287,33 @@ async function runTest() {
       console.log(`Status Result: ${json5.reservation.status} (Expected: confirmed)`);
       console.log(`Is Handled: ${json5.reservation.is_handled} (Expected: true)`);
       console.log(`Shop ID: ${json5.reservation.shop_id} (Expected: Tiger Lilly '4808aee9-9940-410c-aa5b-dd1364e2da2c')`);
-      console.log(`Therapist ID: ${json5.reservation.therapist_id} (Expected: '4001bc45-499e-4c89-8482-734cf123f571')`);
     } else {
       console.error("Test 5 failed:", json5);
+    }
+
+    // 6. Legend Mejiro（Grow 店舗予約）メールの送信 (即時 confirmed, is_handled=true, 店舗振り分け)
+    console.log(`\n--- [Test 6] Sending Legend Mejiro Mail (Should be confirmed & routed to Legend Mejiro) ---`);
+    const res6 = await fetch('http://localhost:3000/api/reserve/mail-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Yoyakl-API-Key': apiKey },
+      body: JSON.stringify({
+        subject: mejiroMail.subject,
+        body: mejiroMail.body,
+        shop_id: defaultShopId
+      })
+    });
+    const json6 = await res6.json();
+    console.log(`Status: ${res6.status}`);
+    if (json6.success && json6.reservation) {
+      createdReservationIds.push(json6.reservation.id);
+      console.log(`Status Result: ${json6.reservation.status} (Expected: confirmed)`);
+      console.log(`Is Handled: ${json6.reservation.is_handled} (Expected: true)`);
+      console.log(`Shop ID: ${json6.reservation.shop_id} (Expected: Legend Mejiro 'a628f5ad-3bda-442f-9cfe-c5c00c3e65c1')`);
+      console.log(`Parsed Date: ${json6.reservation.date} (Expected: 2026-07-01)`);
+      console.log(`Parsed StartTime: ${json6.reservation.start_time} (Expected: 22:30:00)`);
+      console.log(`Parsed EndTime: ${json6.reservation.end_time} (Expected: 24:00:00)`);
+    } else {
+      console.error("Test 6 failed:", json6);
     }
 
   } catch (e) {

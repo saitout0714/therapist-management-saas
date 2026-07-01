@@ -109,14 +109,17 @@ function parseGrow(body: string): ParsedReservation {
   let startTime = ''
   let endTime = ''
   
-  const dtMatch = dateTimeStr.match(/(\d{4})年(\d{2})月(\d{2})日\([^)]+\)(\d{2}):(\d{2})/)
+  const dtMatch = dateTimeStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\([^)]+\)(\d{1,2}):(\d{2})/)
   if (dtMatch) {
-    date = `${dtMatch[1]}-${dtMatch[2]}-${dtMatch[3]}`
-    startTime = `${dtMatch[4]}:${dtMatch[5]}`
+    const month = dtMatch[2].padStart(2, '0')
+    const day = dtMatch[3].padStart(2, '0')
+    const hour = dtMatch[4].padStart(2, '0')
+    date = `${dtMatch[1]}-${month}-${day}`
+    startTime = `${hour}:${dtMatch[5]}`
   }
   
   const therapistLine = body.match(/担当セラピスト：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const therapistName = therapistLine.split(/[\s(（]/)[0] || ''
+  const therapistName = therapistLine.split(/[(（]/)[0].trim()
   
   const courseName = body.match(/メニュー：\s*([^\n\r]+)/)?.[1]?.trim() || ''
   
