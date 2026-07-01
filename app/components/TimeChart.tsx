@@ -117,7 +117,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const dragDistanceRef = useRef(0);
 
 
-
   // ドラッグ開始
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!contentTimelineRef.current) return;
@@ -751,68 +750,77 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                 // 予約可能ブロック（マルチカラー・コース別バー）
                 if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
-                  // 横方向にテキストが重ならないように、近接衝突を検知して段数(step)を決定する
-                  let prevX = -9999;
-                  let prevStep = 0;
-                  const textWidth = 52; // テキストの想定表示幅
-                  const steps = schedule.availableCourses.map((c) => {
+                  const courses = schedule.availableCourses;
+
+                  // 3つの段 (0, 1, 2) それぞれにおける直近の右端X座標
+                  const lastXPerStep = [-9999, -9999, -9999];
+                  let lastChosenStep = 0;
+                  const textWidth = 36; // コンパクトテキストの想定表示幅(px)
+
+                  const steps = courses.map((c) => {
                     const cStartMinutes = timeToMinutes(c.startTime);
                     const cStartPixels = (cStartMinutes / 5) * cellWidth;
 
-                    let step = 0;
-                    if (cStartPixels < prevX + textWidth) {
-                      step = prevStep + 1;
-                      if (step > 2) step = 0; // 最大3段 (0, 1, 2)
-                    } else {
-                      step = 0;
+                    let chosenStep = 0;
+                    let found = false;
+                    for (let s = 0; s < 3; s++) {
+                      // その段の直近配置テキストと重ならない場合
+                      if (cStartPixels >= lastXPerStep[s] + textWidth) {
+                        chosenStep = s;
+                        found = true;
+                        break;
+                      }
                     }
-                    prevX = cStartPixels;
-                    prevStep = step;
-                    return step;
+                    if (!found) {
+                      // どの段も重なる場合は、交互に逃げる
+                      chosenStep = (lastChosenStep + 1) % 3;
+                    }
+                    lastXPerStep[chosenStep] = cStartPixels;
+                    lastChosenStep = chosenStep;
+                    return chosenStep;
                   });
 
                   return (
-                    <React.Fragment key={`schedule-avail-group-${idx}`}>
-                      {schedule.availableCourses.map((c, cIdx) => {
+                    <div
+                      key={`schedule-avail-group-${idx}`}
+                      className="absolute overflow-visible transition-all select-none border border-slate-200/40 bg-slate-50/50"
+                      style={{
+                        top: `${top + height - 32}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: '28px',
+                        borderRadius: '14px',
+                        zIndex: 14,
+                      }}
+                    >
+                      {courses.map((c, cIdx) => {
                         const cStartMinutes = timeToMinutes(c.startTime);
                         const cStartPixels = (cStartMinutes / 5) * cellWidth;
-
+                        
+                        // 親コンテナ（startPixels）からの相対X座標を計算し、時間軸目盛りと完璧に一致させる
+                        const relativeLeft = cStartPixels - startPixels;
+                        
                         const step = steps[cIdx];
-                        // step (0, 1, 2) に応じて18pxずつ上にずらす
-                        const barTop = top + height - 28 - step * 18;
-
-                        const handleCourseClick = (e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          if (isDragging || dragDistanceRef.current > 5) return;
-                          router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
-                        };
+                        // 帯の高さ（28px）の内部で、下段（2px）、中段（10px）、上段（18px）で配置
+                        const bottomOffset = 2 + step * 8;
 
                         return (
                           <div
                             key={`course-badge-${idx}-${cIdx}`}
-                            className="absolute flex items-end justify-start cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
+                            className="absolute pointer-events-none text-slate-400 select-none text-[8.5px] font-extrabold leading-none"
                             style={{
-                              top: `${barTop}px`,
-                              left: `${cStartPixels + 2}px`,
-                              height: '24px',
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              whiteSpace: 'pre-wrap',
-                              lineHeight: 1.1,
-                              zIndex: 14 + step,
+                              bottom: `${bottomOffset}px`,
+                              left: `${relativeLeft}px`,
+                              whiteSpace: 'nowrap',
+                              zIndex: 15 + step,
                             }}
-                            title={`${c.label}\nクリックで予約`}
-                            onClick={handleCourseClick}
+                            title={c.label}
                           >
-                            <span>
-                              {c.latestStartTime}～
-                              <br />
-                              {c.duration}分
-                            </span>
+                            {c.latestStartTime}({c.duration})
                           </div>
                         );
                       })}
-                    </React.Fragment>
+                    </div>
                   );
                 }
 
@@ -1193,6 +1201,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           </div>
         );
       })()}
+
     </div>
   );
 };

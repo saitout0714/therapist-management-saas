@@ -126,6 +126,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag with left click
     if (e.button !== 0) return;
@@ -693,16 +694,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                   // 予約可能ブロック（マルチカラー・コース別バー）
                   if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
-                    const cStartMinutes = timeToMinutes(schedule.startTime);
-                    const cEndMinutes = timeToMinutes(schedule.endTime);
-                    const cDuration = cEndMinutes - cStartMinutes;
-
-                    const barTop = cStartMinutes * (cellHeight / 5);
-                    const barHeight = cDuration * (cellHeight / 5);
+                    const courses = schedule.availableCourses;
 
                     return (
                       <React.Fragment key={`schedule-avail-group-${idx}`}>
-                        {schedule.availableCourses.map((c, cIdx) => {
+                        {courses.map((c, cIdx) => {
                           const cStartMinutes = timeToMinutes(c.startTime);
                           const barTop = cStartMinutes * (cellHeight / 5);
 
@@ -1072,6 +1068,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           </div>
         );
       })()}
+
 
       {/* Styles */}
       <style dangerouslySetInnerHTML={{
