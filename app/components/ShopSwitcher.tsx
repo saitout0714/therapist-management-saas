@@ -14,26 +14,11 @@ export default function ShopSwitcher() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [pinnedShopIds, setPinnedShopIds] = useState<string[]>([])
 
   const userMenuRef = useRef<HTMLDivElement>(null)
   const shopMenuRef = useRef<HTMLDivElement>(null)
 
   const isEditingPage = /\/(edit|new)(\/|$)/.test(pathname ?? '')
-
-  // Load pinned shops from localStorage after mount to avoid SSR hydration mismatch
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pinnedShopIds')
-      if (saved) {
-        try {
-          setPinnedShopIds(JSON.parse(saved))
-        } catch (e) {
-          console.error('Failed to parse pinnedShopIds:', e)
-        }
-      }
-    }
-  }, [])
 
   // Reset search query when popup closes
   useEffect(() => {
@@ -41,17 +26,6 @@ export default function ShopSwitcher() {
       setSearchQuery('')
     }
   }, [isShopMenuOpen])
-
-  const togglePin = (shopId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setPinnedShopIds((prev) => {
-      const next = prev.includes(shopId)
-        ? prev.filter((id) => id !== shopId)
-        : [...prev, shopId]
-      localStorage.setItem('pinnedShopIds', JSON.stringify(next))
-      return next
-    })
-  }
 
   const getAvatarGradient = (id: string) => {
     const gradients = [
@@ -113,7 +87,6 @@ export default function ShopSwitcher() {
   const renderShopButton = (shop: typeof selectedShop) => {
     if (!shop || !selectedShop) return null
     const isActive = shop.id === selectedShop.id
-    const isPinned = pinnedShopIds.includes(shop.id)
     const gradient = getAvatarGradient(shop.id)
     const initials = getInitials(shop.name)
 
@@ -146,32 +119,8 @@ export default function ShopSwitcher() {
           </div>
         </div>
 
-        {/* Action Buttons: Checkmark and Pin Star */}
+        {/* Action Buttons: Checkmark */}
         <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-          <button
-            onClick={(e) => togglePin(shop.id, e)}
-            className={`p-1 rounded-lg transition-all focus:outline-none ${
-              isPinned
-                ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-50'
-                : 'text-slate-300 hover:text-amber-400 hover:bg-slate-50 opacity-40 group-hover:opacity-100'
-            }`}
-            title={isPinned ? 'ピン留め解除' : 'ピン留めする'}
-          >
-            <svg
-              className="w-4 h-4"
-              fill={isPinned ? 'currentColor' : 'none'}
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.961 0 1.36 1.253.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.175 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.98 10.117c-.773-.558-.375-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z"
-              />
-            </svg>
-          </button>
-
           {isActive && (
             <svg className="w-4 h-4 text-indigo-600 flex-shrink-0 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -191,13 +140,6 @@ export default function ShopSwitcher() {
     return shop.name.toLowerCase().includes(query)
   })
 
-  const sortedShops = [...filteredShops].sort((a, b) => {
-    const aPinned = pinnedShopIds.includes(a.id)
-    const bPinned = pinnedShopIds.includes(b.id)
-    if (aPinned && !bPinned) return -1
-    if (!aPinned && bPinned) return 1
-    return 0
-  })
 
   return (
     <div className="flex items-center gap-2 z-50 relative">
@@ -230,14 +172,9 @@ export default function ShopSwitcher() {
           </button>
 
           {isShopMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 rounded-2xl shadow-2xl bg-white/95 backdrop-blur-md border border-slate-100/80 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 w-64 sm:w-72">
+            <div className="absolute right-0 top-full mt-2 rounded-2xl shadow-2xl bg-white/95 backdrop-blur-md border border-slate-100/80 focus:outline-none z-50 transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 overflow-hidden py-1.5 w-48 sm:w-56">
               <div className="px-4 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                 <span>店舗の切り替え</span>
-                {pinnedShopIds.length > 0 && (
-                  <span className="text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    ★ ピン留め優先
-                  </span>
-                )}
               </div>
 
               {/* 検索バー */}
@@ -270,12 +207,12 @@ export default function ShopSwitcher() {
 
               {/* 店舗リスト */}
               <div className="max-h-[calc(100vh-180px)] sm:max-h-[600px] overflow-y-auto overscroll-behavior-contain py-1.5 px-1.5 flex flex-col gap-0.5">
-                {sortedShops.length === 0 ? (
+                {filteredShops.length === 0 ? (
                   <div className="py-8 text-center text-xs font-semibold text-slate-400">
                     一致する店舗が見つかりません
                   </div>
                 ) : (
-                  sortedShops.map((shop) => renderShopButton(shop))
+                  filteredShops.map((shop) => renderShopButton(shop))
                 )}
               </div>
             </div>
@@ -287,14 +224,14 @@ export default function ShopSwitcher() {
       <div ref={userMenuRef} className="relative inline-block text-left z-50">
         <button
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-xl text-sm font-bold transition-all focus:outline-none ${
+          className={`inline-flex items-center gap-1 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-1.5 border rounded-xl text-[10px] sm:text-sm font-bold transition-all focus:outline-none ${
             isUserMenuOpen
               ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
           }`}
           title="アカウントメニュー"
         >
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-inner transition-colors flex-shrink-0 ${
+          <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded flex items-center justify-center text-[7px] sm:text-[10px] font-bold shadow-inner transition-colors flex-shrink-0 ${
             isUserMenuOpen
               ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white'
               : 'bg-slate-100 text-slate-600 border border-slate-200'
