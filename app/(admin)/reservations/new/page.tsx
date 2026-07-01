@@ -136,7 +136,7 @@ export default function NewReservationPage() {
     discount_reason: '',
     manual_therapist_burden: 0,
     notes: '',
-    reception_source: 'staff' as 'staff' | 'client' | 'therapist',
+    reception_source: 'staff' as 'staff' | 'client' | 'therapist' | 'owner',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
     extension_payment_method: 'cash' as 'cash' | 'credit',
@@ -245,6 +245,16 @@ export default function NewReservationPage() {
       })
     }
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      const isOwner = user.role === 'agency_client_owner' || user.role === 'simple_client_owner';
+      setFormData(prev => ({
+        ...prev,
+        reception_source: isOwner ? 'owner' : 'staff'
+      }));
+    }
+  }, [user])
 
   useEffect(() => {
     fetchInitialData()
@@ -1610,9 +1620,9 @@ export default function NewReservationPage() {
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
                     className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >
-                    <option value="staff">スタッフ受付</option>
-                    <option value="client">顧客直接 (WEB等)</option>
-                    <option value="therapist">セラピスト直接</option>
+                    <option value="staff">mts</option>
+                    <option value="owner">オーナー</option>
+                    <option value="therapist">姫予約</option>
                   </select>
                 </div>
                 <div className="flex items-end justify-end pb-1">
