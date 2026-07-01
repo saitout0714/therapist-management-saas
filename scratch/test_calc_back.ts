@@ -34,9 +34,15 @@ async function test() {
     console.log("Option Back (Expected: 2000):", result.optionBack);
     console.log("Nomination Back (Expected: 0):", result.nominationBack);
     console.log("Total Back (Expected: 15000):", result.totalBack);
+    console.log("Option Details (Expected: length 2, values [500, 1500]):", result.optionDetails);
 
     // アサーション
-    if (result.courseBack === 13000 && result.optionBack === 2000 && result.nominationBack === 0 && result.totalBack === 15000) {
+    const optDetailsOk = result.optionDetails && 
+                          result.optionDetails.length === 2 && 
+                          result.optionDetails.find(d => d.option_id === '8ebb244e-53e8-41ee-9141-743e72cd5e4a')?.back === 500 &&
+                          result.optionDetails.find(d => d.option_id === 'a898ec25-d472-4a05-b494-07e3abaa1a26')?.back === 1500;
+
+    if (result.courseBack === 13000 && result.optionBack === 2000 && result.nominationBack === 0 && result.totalBack === 15000 && optDetailsOk) {
       console.log("✅ SUCCESS: Calculations are correct!");
       process.exit(0);
     } else {

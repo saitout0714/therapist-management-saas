@@ -125,6 +125,7 @@ export type BackCalculationResult = {
   businessDate: string
   appliedRate: number | null
   calcMethod: string
+  optionDetails?: { option_id: string | null; price: number; back: number }[]
 }
 
 // ============================================================
@@ -437,10 +438,16 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 3: オプションバック額の算出
+  const optionDetails: { option_id: string | null; price: number; back: number }[] = []
+
   for (const opt of input.options) {
+    let currentOptBack = 0
+
     // カスタムオプション（手入力）: option_id がない場合は custom_back_amount をそのまま使用
     if (!opt.option_id) {
-      optionBack += opt.custom_back_amount || 0
+      currentOptBack = opt.custom_back_amount || 0
+      optionBack += currentOptBack
+      optionDetails.push({ option_id: null, price: opt.price, back: currentOptBack })
       continue
     }
 
@@ -450,7 +457,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       const optCat = optCategoryMap.get(opt.option_id) ?? 'その他'
       const therapistRate = resolveTherapistOptionRate(therapistOptBacks, optCat, input.designationType)
       if (therapistRate !== null) {
-        optionBack += applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        currentOptBack = applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        optionBack += currentOptBack
+        optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
         continue
       }
     }
@@ -461,35 +470,38 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     if (optRule) {
       switch (optRule.calc_type) {
         case 'full_back':
-          optionBack += opt.price
+          currentOptBack = opt.price
           break
         case 'percentage':
-          optionBack += applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
+          currentOptBack = applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
           break
         case 'fixed':
-          optionBack += optRule.back_amount || 0
+          currentOptBack = optRule.back_amount || 0
           break
       }
     } else {
       // 店舗デフォルト設定で計算
       if (shopRule.option_calc_type === 'fixed') {
         const itemBackAmount = optBackAmountMap.get(opt.option_id) ?? 0
-        optionBack += itemBackAmount
+        currentOptBack = itemBackAmount
       } else if (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null) {
-        optionBack += shopRule.option_back_amount
+        currentOptBack = shopRule.option_back_amount
       } else {
         switch (shopRule.option_calc_type) {
           case 'full_back':
-            optionBack += opt.price
+            currentOptBack = opt.price
             break
           case 'percentage':
-            optionBack += applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
+            currentOptBack = applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
             break
           default:
-            optionBack += opt.price // フルバックにフォールバック
+            currentOptBack = opt.price // フルバックにフォールバック
         }
       }
     }
+
+    optionBack += currentOptBack
+    optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
   }
 
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
@@ -581,6 +593,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     businessDate,
     appliedRate: resolved.calcType === 'percentage' ? resolved.courseRate : null,
     calcMethod,
+    optionDetails,
   }
 }
 
