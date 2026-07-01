@@ -766,9 +766,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         return (
                           <div
                             key={`course-badge-${idx}-${cIdx}`}
-                            className="absolute flex items-start justify-start cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
+                            className="absolute flex items-end justify-start cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
                             style={{
-                              top: `${top + 4}px`,
+                              top: `${top + height - 28}px`,
                               left: `${cStartPixels + 2}px`,
                               height: '24px',
                               fontSize: '10px',

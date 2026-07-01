@@ -725,7 +725,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                                 whiteSpace: 'nowrap',
                                 textOverflow: 'ellipsis',
                                 overflow: 'hidden',
-                                textAlign: 'left',
+                                textAlign: 'right',
+                                paddingRight: '4px',
                                 zIndex: 14,
                               }}
                               title={`${c.label}\nクリックで予約`}
