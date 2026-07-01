@@ -94,7 +94,7 @@ export default function ShopSwitcher() {
       <div
         key={shop.id}
         onClick={() => handleShopSelect(shop)}
-        className={`group w-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
+        className={`group w-full px-2 py-2 sm:px-3 sm:py-1 text-[10px] sm:text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
           isActive
             ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border-indigo-100/50'
             : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
