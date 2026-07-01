@@ -751,11 +751,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                 // 予約可能ブロック（マルチカラー・コース別バー）
                 if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
+                  // 横方向にテキストが重ならないように、近接衝突を検知して段数(step)を決定する
+                  let prevX = -9999;
+                  let prevStep = 0;
+                  const textWidth = 52; // テキストの想定表示幅
+                  const steps = schedule.availableCourses.map((c) => {
+                    const cStartMinutes = timeToMinutes(c.startTime);
+                    const cStartPixels = (cStartMinutes / 5) * cellWidth;
+
+                    let step = 0;
+                    if (cStartPixels < prevX + textWidth) {
+                      step = prevStep + 1;
+                      if (step > 2) step = 0; // 最大3段 (0, 1, 2)
+                    } else {
+                      step = 0;
+                    }
+                    prevX = cStartPixels;
+                    prevStep = step;
+                    return step;
+                  });
+
                   return (
                     <React.Fragment key={`schedule-avail-group-${idx}`}>
                       {schedule.availableCourses.map((c, cIdx) => {
                         const cStartMinutes = timeToMinutes(c.startTime);
                         const cStartPixels = (cStartMinutes / 5) * cellWidth;
+
+                        const step = steps[cIdx];
+                        // step (0, 1, 2) に応じて18pxずつ上にずらす
+                        const barTop = top + height - 28 - step * 18;
 
                         const handleCourseClick = (e: React.MouseEvent) => {
                           e.stopPropagation();
@@ -768,14 +792,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             key={`course-badge-${idx}-${cIdx}`}
                             className="absolute flex items-end justify-start cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
                             style={{
-                              top: `${top + height - 28}px`,
+                              top: `${barTop}px`,
                               left: `${cStartPixels + 2}px`,
                               height: '24px',
                               fontSize: '10px',
                               fontWeight: 700,
                               whiteSpace: 'pre-wrap',
                               lineHeight: 1.1,
-                              zIndex: 14,
+                              zIndex: 14 + step,
                             }}
                             title={`${c.label}\nクリックで予約`}
                             onClick={handleCourseClick}
