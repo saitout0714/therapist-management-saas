@@ -121,7 +121,7 @@ export default function ShopSwitcher() {
       <div
         key={shop.id}
         onClick={() => handleShopSelect(shop)}
-        className={`group w-full px-3 py-1 text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
+        className={`group w-full px-3 py-1 text-[10px] sm:text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
           isActive
             ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border-indigo-100/50'
             : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
@@ -129,14 +129,14 @@ export default function ShopSwitcher() {
       >
         <div className="flex items-center min-w-0 flex-1 mr-2">
           {/* Avatar */}
-          <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-[10px] font-bold mr-2 shadow-sm`}>
+          <div className={`w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-[8px] sm:text-[10px] font-bold mr-2 shadow-sm`}>
             {initials}
           </div>
           
           {/* Name & Active Status Indicator */}
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="truncate text-slate-800 group-hover:text-indigo-600 font-bold transition-colors">
+              <span className="truncate text-slate-800 group-hover:text-indigo-600 font-bold transition-colors text-[9.5px] sm:text-sm">
                 {shop.name}
               </span>
               {isActive && (
@@ -269,7 +269,7 @@ export default function ShopSwitcher() {
               </div>
 
               {/* 店舗リスト */}
-              <div className="max-h-[700px] overflow-y-auto py-1.5 px-1.5 flex flex-col gap-0.5">
+              <div className="max-h-[calc(100vh-180px)] sm:max-h-[600px] overflow-y-auto overscroll-behavior-contain py-1.5 px-1.5 flex flex-col gap-0.5">
                 {sortedShops.length === 0 ? (
                   <div className="py-8 text-center text-xs font-semibold text-slate-400">
                     一致する店舗が見つかりません
