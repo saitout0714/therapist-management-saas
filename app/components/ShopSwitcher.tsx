@@ -121,7 +121,7 @@ export default function ShopSwitcher() {
       <div
         key={shop.id}
         onClick={() => handleShopSelect(shop)}
-        className={`group w-full px-3 py-2 text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
+        className={`group w-full px-3 py-1 text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
           isActive
             ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border-indigo-100/50'
             : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
@@ -129,7 +129,7 @@ export default function ShopSwitcher() {
       >
         <div className="flex items-center min-w-0 flex-1 mr-2">
           {/* Avatar */}
-          <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-[11px] font-bold mr-2.5 shadow-sm`}>
+          <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-[10px] font-bold mr-2 shadow-sm`}>
             {initials}
           </div>
           
@@ -200,7 +200,7 @@ export default function ShopSwitcher() {
   })
 
   return (
-    <div className="flex items-center gap-3 z-50 relative">
+    <div className="flex items-center gap-2 z-50 relative">
       {/* 店舗切り替えメニュー（店舗数が2つ以上の場合のみ表示） */}
       {shops.length > 1 && selectedShop && (
         <div ref={shopMenuRef} className="inline-block text-left z-50">

@@ -334,7 +334,7 @@ export default function ShopTabBar() {
                 onClick={() => handleShopSelect(shop)}
                 title={shop.name}
                 className={`
-                  relative flex-shrink-0 flex items-center gap-1.5 px-3 h-full rounded-full text-xs
+                  relative flex-shrink-0 flex items-center gap-1 px-2.5 h-full rounded-full text-xs
                   transition-all duration-200 focus:outline-none whitespace-nowrap
                   ${isActive
                     ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20 scale-102'
