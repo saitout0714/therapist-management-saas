@@ -121,21 +121,21 @@ export default function ShopSwitcher() {
       <div
         key={shop.id}
         onClick={() => handleShopSelect(shop)}
-        className={`group w-full px-3 py-1 text-[10px] sm:text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
+        className={`group w-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-sm font-semibold transition-all flex items-center justify-between rounded-xl cursor-pointer select-none border border-transparent ${
           isActive
             ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border-indigo-100/50'
             : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
         }`}
       >
-        <div className="flex items-center min-w-0 flex-1 mr-2">
+        <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-2">
           {/* Avatar */}
-          <div className={`w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-[8px] sm:text-[10px] font-bold mr-2 shadow-sm`}>
+          <div className={`w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center rounded bg-gradient-to-br ${gradient} text-[7.5px] sm:text-[10px] font-bold mr-1.5 sm:mr-2 shadow-sm`}>
             {initials}
           </div>
           
           {/* Name & Active Status Indicator */}
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <span className="truncate text-slate-800 group-hover:text-indigo-600 font-bold transition-colors text-[9.5px] sm:text-sm">
                 {shop.name}
               </span>
@@ -147,7 +147,7 @@ export default function ShopSwitcher() {
         </div>
 
         {/* Action Buttons: Checkmark and Pin Star */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           <button
             onClick={(e) => togglePin(shop.id, e)}
             className={`p-1 rounded-lg transition-all focus:outline-none ${
@@ -206,21 +206,21 @@ export default function ShopSwitcher() {
         <div ref={shopMenuRef} className="inline-block text-left z-50">
           <button
             onClick={() => setIsShopMenuOpen(!isShopMenuOpen)}
-            className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-xl text-sm font-bold transition-all focus:outline-none ${
+            className={`inline-flex items-center gap-1 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-1.5 border rounded-xl text-[10px] sm:text-sm font-bold transition-all focus:outline-none ${
               isShopMenuOpen
                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
             }`}
             title="店舗切り替え"
           >
-            <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg bg-gradient-to-br ${getAvatarGradient(selectedShop.id)} text-[9px] font-bold shadow-sm`}>
+            <div className={`w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0 flex items-center justify-center rounded bg-gradient-to-br ${getAvatarGradient(selectedShop.id)} text-[7px] sm:text-[9px] font-bold shadow-sm`}>
               {getInitials(selectedShop.name)}
             </div>
             <span className="truncate max-w-[100px] sm:max-w-[160px]">
               {selectedShop.name}
             </span>
             <svg
-              className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isShopMenuOpen ? '-rotate-180 text-indigo-600' : ''}`}
+              className={`h-3 w-3 sm:h-4 sm:w-4 text-slate-400 transition-transform duration-200 ${isShopMenuOpen ? '-rotate-180 text-indigo-600' : ''}`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
               fill="currentColor"
