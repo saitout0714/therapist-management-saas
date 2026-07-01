@@ -292,8 +292,11 @@ export async function POST(req: NextRequest) {
     if (parsed.shopNameRaw) {
       const rawLower = parsed.shopNameRaw.toLowerCase()
       
-      // 特殊ルール：同じオーナーで同じメールを利用している「レジェンド」と「タイガーリリー」の振り分け
-      if (
+      // 特殊ルール：同じオーナーで同じメールを利用している「レジェンド」「タイガーリリー」「レジェンド目白」の振り分け
+      if (rawLower.includes('目白')) {
+        shopId = 'a628f5ad-3bda-442f-9cfe-c5c00c3e65c1' // レジェンド目白 の店舗ID
+        console.log(`[MailSync] Custom matched shop: レジェンド目白 (${shopId})`)
+      } else if (
         rawLower.includes('legend') || 
         rawLower.includes('レジェンド') || 
         rawLower.includes('三鷹') || 

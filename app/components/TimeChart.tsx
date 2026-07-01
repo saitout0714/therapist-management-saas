@@ -783,13 +783,12 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   return (
                     <div
                       key={`schedule-avail-group-${idx}`}
-                      className="absolute overflow-visible transition-all select-none border border-slate-200/40 bg-slate-50/50"
+                      className="absolute overflow-visible transition-all select-none bg-transparent"
                       style={{
                         top: `${top + height - 32}px`,
                         left: `${startPixels + 2}px`,
                         width: `${widthPixels - 4}px`,
                         height: '28px',
-                        borderRadius: '14px',
                         zIndex: 14,
                       }}
                     >
