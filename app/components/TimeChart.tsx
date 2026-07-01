@@ -751,57 +751,39 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                 // 予約可能ブロック（マルチカラー・コース別バー）
                 if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
-                  const coursesCount = schedule.availableCourses.length;
-                  const barHeight = Math.min(14, Math.floor((height - 4) / coursesCount) - 2);
-                  const startY = 4 + Math.max(0, Math.floor((height - 4 - (barHeight + 2) * coursesCount) / 2));
-
                   return (
                     <React.Fragment key={`schedule-avail-group-${idx}`}>
                       {schedule.availableCourses.map((c, cIdx) => {
                         const cStartMinutes = timeToMinutes(c.startTime);
-                        const cEndMinutes = timeToMinutes(c.endTime);
-                        const cDuration = cEndMinutes - cStartMinutes;
-
                         const cStartPixels = (cStartMinutes / 5) * cellWidth;
-                        const cWidthPixels = (cDuration / 5) * cellWidth;
 
-                        const barTop = top + startY + cIdx * (barHeight + 2);
-
-                        const handleCourseClick = () => {
+                        const handleCourseClick = (e: React.MouseEvent) => {
+                          e.stopPropagation();
                           if (isDragging || dragDistanceRef.current > 5) return;
                           router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
                         };
 
                         return (
                           <div
-                            key={`course-${idx}-${cIdx}`}
-                            className="absolute flex items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm"
+                            key={`course-badge-${idx}-${cIdx}`}
+                            className="absolute flex items-start justify-start cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
                             style={{
-                              top: `${barTop}px`,
+                              top: `${top + 4}px`,
                               left: `${cStartPixels + 2}px`,
-                              width: `${cWidthPixels - 4}px`,
-                              height: `${barHeight}px`,
-                              borderRadius: '4px',
-                              backgroundColor: c.color,
-                              borderColor: c.borderColor,
-                              color: c.textColor,
-                              zIndex: 15,
+                              height: '24px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              whiteSpace: 'pre-wrap',
+                              lineHeight: 1.1,
+                              zIndex: 14,
                             }}
-                            title={`${c.label}\n\n【全コースの最終案内】\n${schedule.title}`}
+                            title={`${c.label}\nクリックで予約`}
                             onClick={handleCourseClick}
                           >
-                            <span style={{
-                              fontSize: '8px',
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap',
-                              padding: '0 4px',
-                              lineHeight: 1,
-                              display: 'block',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              maxWidth: '100%',
-                            }}>
-                              {c.label}
+                            <span>
+                              {c.latestStartTime}～
+                              <br />
+                              {c.duration}分
                             </span>
                           </div>
                         );

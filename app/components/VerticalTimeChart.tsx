@@ -693,58 +693,45 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                   // 予約可能ブロック（マルチカラー・コース別バー）
                   if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
-                    const coursesCount = schedule.availableCourses.length;
-                    const barWidth = Math.min(30, Math.floor((width - 2) / coursesCount) - 2);
-                    const startX = 2 + Math.max(0, Math.floor((width - 2 - (barWidth + 2) * coursesCount) / 2));
+                    const cStartMinutes = timeToMinutes(schedule.startTime);
+                    const cEndMinutes = timeToMinutes(schedule.endTime);
+                    const cDuration = cEndMinutes - cStartMinutes;
+
+                    const barTop = cStartMinutes * (cellHeight / 5);
+                    const barHeight = cDuration * (cellHeight / 5);
 
                     return (
                       <React.Fragment key={`schedule-avail-group-${idx}`}>
                         {schedule.availableCourses.map((c, cIdx) => {
                           const cStartMinutes = timeToMinutes(c.startTime);
-                          const cEndMinutes = timeToMinutes(c.endTime);
-                          const cDuration = cEndMinutes - cStartMinutes;
-
                           const barTop = cStartMinutes * (cellHeight / 5);
-                          const barHeight = cDuration * (cellHeight / 5);
-                          const barLeft = left + startX + cIdx * (barWidth + 2);
 
-                          const handleCourseClick = () => {
+                          const handleCourseClick = (e: React.MouseEvent) => {
+                            e.stopPropagation();
                             if (isDragging || dragDistanceRef.current > 5) return;
-                             router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
+                            router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
                           };
 
                           return (
                             <div
-                              key={`course-${idx}-${cIdx}`}
-                              className="absolute flex flex-col items-center justify-start overflow-hidden cursor-pointer pointer-events-auto transition-all hover:brightness-95 active:scale-[0.98] border border-solid shadow-sm p-1"
+                              key={`course-badge-${idx}-${cIdx}`}
+                              className="absolute cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
                               style={{
                                 top: `${barTop + 1}px`,
-                                left: `${barLeft}px`,
-                                width: `${barWidth}px`,
-                                height: `${barHeight - 2}px`,
-                                borderRadius: '4px',
-                                backgroundColor: c.color,
-                                borderColor: c.borderColor,
-                                color: c.textColor,
-                                zIndex: 15,
+                                left: `${left + 4}px`,
+                                width: `${width - 8}px`,
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                textAlign: 'left',
+                                zIndex: 14,
                               }}
-                              title={`${c.label}\n\n【全コースの最終案内】\n${schedule.title}`}
+                              title={`${c.label}\nクリックで予約`}
                               onClick={handleCourseClick}
                             >
-                              <span style={{
-                                fontSize: '7px',
-                                fontWeight: 800,
-                                lineHeight: 1.1,
-                                textAlign: 'center',
-                                display: 'block',
-                                wordBreak: 'break-all',
-                              }}>
-                                {c.latestStartTime}
-                                <br />
-                                {c.duration}分
-                                <br />
-                                最終
-                              </span>
+                              {c.latestStartTime}～{c.duration}分
                             </div>
                           );
                         })}

@@ -1010,7 +1010,7 @@ function ShiftsContent() {
         color: colors.bg,
         borderColor: colors.border,
         textColor: colors.text,
-        label: `${latestStartStr} ${d}分 (最終案内)`,
+        label: `${latestStartStr} ${d}分`,
       };
     });
   };
