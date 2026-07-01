@@ -250,11 +250,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const [therapistOptBacksRes, optCategoriesRes] = await Promise.all([
     client.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
     optionIds.length > 0
-      ? client.from('options').select('id, back_category').in('id', optionIds)
-      : Promise.resolve({ data: [] as { id: string; back_category: string }[] }),
+      ? client.from('options').select('id, back_category, back_amount').in('id', optionIds)
+      : Promise.resolve({ data: [] as { id: string; back_category: string; back_amount?: number }[] }),
   ])
   const therapistOptBacks = (therapistOptBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]
   const optCategoryMap = new Map<string, string>((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
+  const optBackAmountMap = new Map<string, number>((optCategoriesRes.data || []).map((o: { id: string; back_amount?: number }) => [o.id, o.back_amount ?? 0]))
 
   const businessDate = resolveBusinessDate(
     input.date,
@@ -471,8 +472,11 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       }
     } else {
       // 店舗デフォルト設定で計算
-      if (shopRule.option_calc_type === 'fixed' || (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null)) {
-        optionBack += shopRule.option_back_amount ?? 0
+      if (shopRule.option_calc_type === 'fixed') {
+        const itemBackAmount = optBackAmountMap.get(opt.option_id) ?? 0
+        optionBack += itemBackAmount
+      } else if (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null) {
+        optionBack += shopRule.option_back_amount
       } else {
         switch (shopRule.option_calc_type) {
           case 'full_back':

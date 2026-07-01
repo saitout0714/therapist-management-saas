@@ -31,12 +31,12 @@ async function test() {
 
     console.log("=== TEST RESULT ===");
     console.log("Course Back (Expected: 13000):", result.courseBack);
-    console.log("Option Back (Expected: 0):", result.optionBack);
+    console.log("Option Back (Expected: 2000):", result.optionBack);
     console.log("Nomination Back (Expected: 0):", result.nominationBack);
-    console.log("Total Back (Expected: 13000):", result.totalBack);
+    console.log("Total Back (Expected: 15000):", result.totalBack);
 
     // アサーション
-    if (result.courseBack === 13000 && result.optionBack === 0 && result.nominationBack === 0 && result.totalBack === 13000) {
+    if (result.courseBack === 13000 && result.optionBack === 2000 && result.nominationBack === 0 && result.totalBack === 15000) {
       console.log("✅ SUCCESS: Calculations are correct!");
       process.exit(0);
     } else {
