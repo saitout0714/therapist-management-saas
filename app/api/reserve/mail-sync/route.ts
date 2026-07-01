@@ -60,11 +60,11 @@ function determineSourceType(subject: string, body: string): 'esthe_damashii' | 
 
 // A. エステ魂パーサー
 function parseEstheDamashii(body: string): ParsedReservation {
-  const name = body.match(/■お名前：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const email = body.match(/■メールアドレス：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const phone = body.match(/■電話番号：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const name = body.match(/■お名前：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
+  const email = body.match(/■メールアドレス：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
+  const phone = body.match(/■電話番号：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   
-  const dateTimeStr = body.match(/■ご希望日時：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const dateTimeStr = body.match(/■ご希望日時：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   let date = ''
   let startTime = ''
   let endTime = ''
@@ -78,8 +78,8 @@ function parseEstheDamashii(body: string): ParsedReservation {
     startTime = `${dtMatch[3].padStart(2, '0')}:${dtMatch[4].padStart(2, '0')}`
   }
   
-  const therapistName = body.match(/■ご希望セラピスト：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const courseName = body.match(/■ご希望コース：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const therapistName = body.match(/■ご希望セラピスト：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
+  const courseName = body.match(/■ご希望コース：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   
   let duration = 60
   const durMatch = courseName.match(/(\d+)分/)
@@ -92,19 +92,19 @@ function parseEstheDamashii(body: string): ParsedReservation {
     startTime = formatTimeToDb(startTime)
   }
   
-  const priceStr = body.match(/合計金額：\s*([\d,]+)円/)?.[1] || '0'
+  const priceStr = body.match(/合計金額：[ \t]*([\d,]+)円/)?.[1] || '0'
   const price = parseInt(priceStr.replace(/,/g, ''), 10)
   
-  const shopNameRaw = body.match(/お店番号：\d+\]\s*([^\n\r]+様)/)?.[1]?.replace(/様$/, '')?.trim() || ''
+  const shopNameRaw = body.match(/お店番号：\d+\][ \t]*([^\n\r]*様)/)?.[1]?.replace(/様$/, '')?.trim() || ''
 
   return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw }
 }
 
 // B. growパーサー
 function parseGrow(body: string): ParsedReservation {
-  const shopNameRaw = body.match(/店舗：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const shopNameRaw = body.match(/店舗：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   
-  const dateTimeStr = body.match(/予約日時：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const dateTimeStr = body.match(/予約日時：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   let date = ''
   let startTime = ''
   let endTime = ''
@@ -118,10 +118,10 @@ function parseGrow(body: string): ParsedReservation {
     startTime = `${hour}:${dtMatch[5]}`
   }
   
-  const therapistLine = body.match(/担当セラピスト：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const therapistLine = body.match(/担当セラピスト：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   const therapistName = therapistLine.split(/[(（]/)[0].trim()
   
-  const courseName = body.match(/メニュー：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const courseName = body.match(/メニュー：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   
   let duration = 60
   const durMatch = courseName.match(/(\d+)(?:min|分)/i)
@@ -134,9 +134,9 @@ function parseGrow(body: string): ParsedReservation {
     startTime = formatTimeToDb(startTime)
   }
   
-  const name = body.match(/お客様名：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const phone = body.match(/電話番号：\s*([^\n\r]+)/)?.[1]?.trim() || ''
-  const email = body.match(/メールアドレス：\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const name = body.match(/お客様名：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
+  const phone = body.match(/電話番号：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
+  const email = body.match(/メールアドレス：[ \t]*([^\n\r]*)/)?.[1]?.trim() || ''
   
   // 料金：0円 もしくはメニューから抽出
   const priceStr = courseName.match(/([\d,]+)\s*yen/i)?.[1] || '0'
@@ -148,8 +148,16 @@ function parseGrow(body: string): ParsedReservation {
 // C. 全国メンズエステランキングパーサー
 function parseEstheRanking(body: string): ParsedReservation {
   const getValueAfterKey = (key: string): string => {
-    const regex = new RegExp(`${key}\\s*\\n\\s*([^\\n\\r]+)`)
-    return body.match(regex)?.[1]?.trim() || ''
+    const lines = body.split(/\r?\n/)
+    const keyIndex = lines.findIndex(l => l.includes(key))
+    if (keyIndex !== -1 && keyIndex + 1 < lines.length) {
+      const nextLine = lines[keyIndex + 1].trim()
+      if (nextLine === '' || nextLine.startsWith('【')) {
+        return ''
+      }
+      return nextLine
+    }
+    return ''
   }
   
   const nameRaw = getValueAfterKey('【お名前】')
