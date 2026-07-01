@@ -380,15 +380,32 @@ export async function POST(req: NextRequest) {
     if (parsed.courseName) {
       const { data: courses } = await supabaseAdmin
         .from('courses')
-        .select('id, name, base_price')
+        .select('id, name, base_price, duration')
         .eq('shop_id', shopId)
         .eq('is_active', true)
       
       if (courses) {
-        const matched = courses.find(c => 
+        let matched = courses.find(c => 
           c.name.toLowerCase().includes(parsed.courseName.toLowerCase()) ||
           parsed.courseName.toLowerCase().includes(c.name.toLowerCase())
         )
+        
+        // 部分一致しなかった場合、数字（分数）の抽出によるマッチングを試みる
+        if (!matched) {
+          const parsedMinutesMatch = parsed.courseName.match(/(\d+)\s*(?:min|分)/i)
+          if (parsedMinutesMatch) {
+            const parsedMinutes = parseInt(parsedMinutesMatch[1], 10)
+            matched = courses.find(c => {
+              const dbMinutesMatch = c.name.match(/(\d+)/)
+              if (dbMinutesMatch) {
+                const dbMinutes = parseInt(dbMinutesMatch[1], 10)
+                return dbMinutes === parsedMinutes
+              }
+              return Math.abs(c.duration - parsedMinutes) <= 10
+            })
+          }
+        }
+
         if (matched) {
           courseId = matched.id
           if (basePrice === 0) {

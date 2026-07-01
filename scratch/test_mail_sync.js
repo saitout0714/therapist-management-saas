@@ -287,6 +287,7 @@ async function runTest() {
       console.log(`Status Result: ${json5.reservation.status} (Expected: confirmed)`);
       console.log(`Is Handled: ${json5.reservation.is_handled} (Expected: true)`);
       console.log(`Shop ID: ${json5.reservation.shop_id} (Expected: Tiger Lilly '4808aee9-9940-410c-aa5b-dd1364e2da2c')`);
+      console.log(`Course ID: ${json5.reservation.course_id} (Should not be null)`);
     } else {
       console.error("Test 5 failed:", json5);
     }

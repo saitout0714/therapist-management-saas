@@ -393,6 +393,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     } else if (input.courseBackAmount && input.courseBackAmount > 0) {
       courseBack = input.courseBackAmount
       calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
+    } else if (shopRule.course_back_amount != null && shopRule.course_back_amount > 0) {
+      courseBack = shopRule.course_back_amount
+      calcMethod = `店舗デフォルト固定額（¥${courseBack.toLocaleString()}）`
     } else {
       calcMethod = '固定額（未設定 → 0円）'
     }
@@ -468,15 +471,19 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       }
     } else {
       // 店舗デフォルト設定で計算
-      switch (shopRule.option_calc_type) {
-        case 'full_back':
-          optionBack += opt.price
-          break
-        case 'percentage':
-          optionBack += applyRounding(opt.price * shopRule.option_back_rate / 100, shopRule.rounding_method)
-          break
-        default:
-          optionBack += opt.price // フルバックにフォールバック
+      if (shopRule.option_calc_type === 'fixed' || (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null)) {
+        optionBack += shopRule.option_back_amount ?? 0
+      } else {
+        switch (shopRule.option_calc_type) {
+          case 'full_back':
+            optionBack += opt.price
+            break
+          case 'percentage':
+            optionBack += applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
+            break
+          default:
+            optionBack += opt.price // フルバックにフォールバック
+        }
       }
     }
   }
@@ -491,6 +498,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       switch (shopRule.nomination_calc_type) {
         case 'full_back':
           nominationBack = nominationFeeForBack
+          break
+        case 'fixed':
+          nominationBack = shopRule.nomination_back_amount ?? 0
           break
         case 'percentage':
           const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
@@ -756,11 +766,11 @@ async function fetchShopBackRule(shopId: string, client?: any): Promise<ShopBack
     course_calc_type: 'fixed' as const,
     course_back_rate: 0,
     course_back_amount: 0,
-    option_calc_type: 'full_back' as const,
-    option_back_rate: 100,
+    option_calc_type: 'fixed' as const,
+    option_back_rate: 0,
     option_back_amount: 0,
-    nomination_calc_type: 'full_back' as const,
-    nomination_back_rate: 100,
+    nomination_calc_type: 'fixed' as const,
+    nomination_back_rate: 0,
     nomination_back_amount: 0,
     rounding_method: 'floor' as const,
     business_day_cutoff: '06:00',
