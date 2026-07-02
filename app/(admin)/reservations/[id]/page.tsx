@@ -73,6 +73,7 @@ type Reservation = {
   source?: string
   customer_notified?: boolean
   therapist_notified?: boolean
+  customer_type_override?: 'new' | 'member' | null
 }
 
 type RoomInfo = {
@@ -493,6 +494,36 @@ export default function ReservationPreviewPage() {
   const [showCustomerPreview, setShowCustomerPreview] = useState(false)
   const [showTherapistPreview, setShowTherapistPreview] = useState(false)
 
+  useEffect(() => {
+    if (reservation) {
+      if (reservation.customer_type_override === 'new') {
+        setCustomerTypeOverride('new')
+      } else if (reservation.customer_type_override === 'member') {
+        setCustomerTypeOverride('member')
+      } else {
+        setCustomerTypeOverride('auto')
+      }
+    }
+  }, [reservation])
+
+  const handleCustomerTypeOverrideChange = async (value: 'auto' | 'new' | 'member') => {
+    if (!reservation) return
+    const overrideValue = value === 'auto' ? null : value
+    
+    const { error } = await supabase
+      .from('reservations')
+      .update({ customer_type_override: overrideValue })
+      .eq('id', reservation.id)
+      
+    if (error) {
+      alert('お客様区分の保存に失敗しました: ' + error.message)
+      return
+    }
+    
+    setCustomerTypeOverride(value)
+    setReservation(prev => prev ? { ...prev, customer_type_override: overrideValue } : null)
+  }
+
   const activeIsNewCustomer = 
     customerTypeOverride === 'new' ? true :
     customerTypeOverride === 'member' ? false :
@@ -783,7 +814,7 @@ export default function ReservationPreviewPage() {
           </div>
           <div className="bg-slate-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl flex gap-0.5 sm:gap-1 select-none">
             <button
-              onClick={() => setCustomerTypeOverride('auto')}
+              onClick={() => handleCustomerTypeOverrideChange('auto')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'auto'
                   ? 'bg-white text-primary-600 shadow-sm border border-slate-200/50'
@@ -793,7 +824,7 @@ export default function ReservationPreviewPage() {
               自動判定 ({isNewCustomer ? '新規' : '会員'})
             </button>
             <button
-              onClick={() => setCustomerTypeOverride('new')}
+              onClick={() => handleCustomerTypeOverrideChange('new')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'new'
                   ? 'bg-accent-500 text-white shadow-sm'
@@ -803,7 +834,7 @@ export default function ReservationPreviewPage() {
               新規用
             </button>
             <button
-              onClick={() => setCustomerTypeOverride('member')}
+              onClick={() => handleCustomerTypeOverrideChange('member')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'member'
                   ? 'bg-primary-600 text-white shadow-sm'

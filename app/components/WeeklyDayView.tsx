@@ -65,6 +65,7 @@ interface Reservation {
   business_date?: string | null
   customer_id?: string | null
   isNewCustomer?: boolean
+  customer_type_override?: 'new' | 'member' | null
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -209,7 +210,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
@@ -256,6 +257,9 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     })
 
     const processedReservations = rawReservations.map((res) => {
+      if (res.customer_type_override) {
+        return { ...res, isNewCustomer: res.customer_type_override === 'new' }
+      }
       if (!res.customer_id) {
         return { ...res, isNewCustomer: false }
       }

@@ -860,6 +860,7 @@ function ShiftsContent() {
           extension_count,
           shop_id,
           room_id,
+          customer_type_override,
           customers(name, created_at),
           courses(name, duration),
           therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
@@ -895,9 +896,13 @@ function ShiftsContent() {
       allRes.forEach((res) => {
         if (res.shop_id === selectedShop.id) {
           // 自店舗の予約はそのまま追加
+          const isNew = res.customer_type_override
+            ? res.customer_type_override === 'new'
+            : !pastCustomerIds.has(res.customer_id)
+
           processed.push({
             ...res,
-            isNewCustomer: !pastCustomerIds.has(res.customer_id)
+            isNewCustomer: isNew
           });
         } else {
           // 他店舗の予約：リンクされているものがあるか判定
