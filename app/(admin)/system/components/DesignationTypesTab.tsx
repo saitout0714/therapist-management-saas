@@ -285,16 +285,7 @@ export function DesignationTypesTab() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-600">表示順</label>
-                <input
-                  type="number"
-                  value={form.display_order}
-                  onChange={e => setForm({ ...form, display_order: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                />
-              </div>
-              <div className="flex items-center pt-6">
+              <div className="flex items-center">
                 <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -342,7 +333,7 @@ export function DesignationTypesTab() {
               <table className="w-full text-left border-collapse min-w-[650px]">
                 <thead className="bg-slate-50">
                   <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                    <th className="p-4 w-16">順序</th>
+                    <th className="p-4 w-10"></th>
                     <th className="p-4">種別名</th>
                     <th className="p-4 w-32">デフォルト料金</th>
                     <th className="p-4 w-32 text-indigo-600">デフォルトバック</th>
@@ -361,8 +352,7 @@ export function DesignationTypesTab() {
                       onDragEnd={handleDragEnd}
                     >
                       <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
-                        <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
-                        {item.display_order}
+                        <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
                       </td>
                       <td className="p-4 text-sm font-bold text-slate-800">{item.display_name}</td>
                       <td className="p-4 text-sm font-bold text-slate-700">¥{(item.default_fee || 0).toLocaleString()}</td>

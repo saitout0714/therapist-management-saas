@@ -200,29 +200,16 @@ export function CourseManagementTab() {
                             💡 コース×ランク×指名種別ごとの特別バック額は「固定額バック表」タブで設定でき、そちらが優先されます。
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="block text-xs font-semibold text-slate-600">表示順</label>
+                        <div className="flex items-center">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
-                                    type="number"
-                                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                                    placeholder="表示順（小さい順）"
-                                    value={formData.display_order}
-                                    onChange={(e) => setFormData({ ...formData, display_order: Number(e.target.value) })}
-                                    min={0}
+                                    type="checkbox"
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={formData.is_active}
+                                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                                 />
-                            </div>
-                            <div className="flex items-center pt-6">
-                                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                        checked={formData.is_active}
-                                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                    />
-                                    有効にする
-                                </label>
-                            </div>
+                                有効にする
+                            </label>
                         </div>
 
                         <div className="space-y-1">
@@ -271,7 +258,7 @@ export function CourseManagementTab() {
                             <table className="w-full text-left border-collapse min-w-[700px]">
                                 <thead className="bg-slate-50">
                                     <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                                        <th className="p-4 w-14">順序</th>
+                                        <th className="p-4 w-10"></th>
                                         <th className="p-4">コース名</th>
                                         <th className="p-4 w-20">時間</th>
                                         <th className="p-4 w-28">料金</th>
@@ -291,8 +278,7 @@ export function CourseManagementTab() {
                                             onDragEnd={handleDragEnd}
                                         >
                                             <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
-                                                <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
-                                                {course.display_order}
+                                                <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
                                             </td>
                                             <td className="p-4 text-sm font-bold text-slate-800">{course.name}</td>
                                             <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
