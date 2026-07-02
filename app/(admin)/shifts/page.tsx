@@ -914,7 +914,7 @@ function ShiftsContent() {
                 created_at: null
               },
               courses: null,
-              notes: '他店舗（' + otherShopName + '）での予約が入っているためブロックされています。',
+              notes: null,
             });
           }
         }
@@ -1113,7 +1113,7 @@ function ShiftsContent() {
               endMin,
               startTimeStr: toDisplayTime(r.start_time),
               endTimeStr: toDisplayTime(r.end_time),
-              type: r.status === 'blocked' ? ('blocked' as const) : ('reservation' as const),
+              type: (r.status === 'blocked' && r.shop_id === selectedShop?.id) ? ('blocked' as const) : ('reservation' as const),
             };
           })
           .sort((a, b) => a.startMin - b.startMin);
@@ -1339,7 +1339,7 @@ function ShiftsContent() {
           let blockStart = resStart;
           let blockEnd = resEnd;
 
-          if (r.status === 'confirmed') {
+          if (r.status === 'confirmed' || r.shop_id !== selectedShop?.id) {
             blockStart = Math.max(shiftStartMins, resStart - interval);
             blockEnd = resEnd + interval;
           }
@@ -1390,7 +1390,7 @@ function ShiftsContent() {
       });
     }
     return [unassignedTherapist, ...sortedOthers];
-  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
+  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop]);
 
   // 週間表示用：全セラピストを詳細な形式にマップ
   const therapistsForWeekly = therapists.map(t => ({
