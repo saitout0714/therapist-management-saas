@@ -45,6 +45,7 @@ interface Reservation {
   therapist_notified?: boolean;
   extension_count?: number;
   shop_id?: string;
+  isNewCustomer?: boolean;
 }
 
 interface Room {
@@ -872,12 +873,32 @@ function ShiftsContent() {
       if (error) throw error;
 
       const allRes = (data || []) as any[];
+
+      // 過去に予約がある顧客を特定する処理を追加
+      const customerIds = Array.from(new Set(allRes.map((r) => r.customer_id).filter(Boolean)));
+      const pastCustomerIds = new Set<string>();
+      if (customerIds.length > 0) {
+        const { data: pastRes } = await supabase
+          .from('reservations')
+          .select('customer_id')
+          .in('customer_id', customerIds)
+          .eq('shop_id', selectedShop.id)
+          .lt('date', filterDate)
+          .in('status', ['confirmed', 'blocked', 'pending']);
+        if (pastRes) {
+          pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id));
+        }
+      }
+
       const processed: any[] = [];
 
       allRes.forEach((res) => {
         if (res.shop_id === selectedShop.id) {
           // 自店舗の予約はそのまま追加
-          processed.push(res);
+          processed.push({
+            ...res,
+            isNewCustomer: !pastCustomerIds.has(res.customer_id)
+          });
         } else {
           // 他店舗の予約：リンクされているものがあるか判定
           let isLinked = false;
@@ -1057,7 +1078,7 @@ function ShiftsContent() {
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
         discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
-        isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
+        isNewCustomer: reservation.isNewCustomer,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,

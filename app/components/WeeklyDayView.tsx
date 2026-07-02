@@ -63,6 +63,8 @@ interface Reservation {
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
   business_date?: string | null
+  customer_id?: string | null
+  isNewCustomer?: boolean
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -207,14 +209,65 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
     ])
 
+    const rawReservations = (reservationsRes.data as any[]) || []
+
+    // 過去に予約がある顧客を特定する処理を追加
+    const customerIds = Array.from(new Set(rawReservations.map((r) => r.customer_id).filter(Boolean)))
+    const pastCustomerIds = new Set<string>()
+    if (customerIds.length > 0) {
+      const { data: pastRes } = await supabase
+        .from('reservations')
+        .select('customer_id')
+        .in('customer_id', customerIds)
+        .eq('shop_id', selectedShop.id)
+        .lt('date', startDate)
+        .in('status', ['confirmed', 'blocked'])
+      if (pastRes) {
+        pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id))
+      }
+    }
+
+    // 同週内の予約を顧客ごとにソートし、最初の予約のみを新規判定する
+    const customerFirstResMap = new Map<string, string>()
+    const customerResMap = new Map<string, any[]>()
+    rawReservations.forEach((res) => {
+      if (!res.customer_id) return
+      if (!customerResMap.has(res.customer_id)) {
+        customerResMap.set(res.customer_id, [])
+      }
+      customerResMap.get(res.customer_id)!.push(res)
+    })
+
+    customerResMap.forEach((resList, cid) => {
+      resList.sort((a, b) => {
+        const dateDiff = a.date.localeCompare(b.date)
+        if (dateDiff !== 0) return dateDiff
+        return a.start_time.localeCompare(b.start_time)
+      })
+      if (resList.length > 0) {
+        customerFirstResMap.set(cid, resList[0].id)
+      }
+    })
+
+    const processedReservations = rawReservations.map((res) => {
+      if (!res.customer_id) {
+        return { ...res, isNewCustomer: false }
+      }
+      if (pastCustomerIds.has(res.customer_id)) {
+        return { ...res, isNewCustomer: false }
+      }
+      const isFirstInWeek = customerFirstResMap.get(res.customer_id) === res.id
+      return { ...res, isNewCustomer: isFirstInWeek }
+    })
+
     setShifts((shiftsRes.data as Shift[]) || [])
-    setReservations((reservationsRes.data as unknown as Reservation[]) || [])
+    setReservations(processedReservations)
   }
 
   useEffect(() => {
@@ -670,7 +723,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       )
                                     }
 
-                                    const isNewCustomer = res.customers?.created_at?.split('T')[0] === res.date
+                                    const isNewCustomer = res.isNewCustomer
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
                                     const isWeb = res.source === 'web'
                                     const cardBgClass = (res.is_hime || res.designation_type === 'princess')
