@@ -24,6 +24,35 @@ const formatShortDate = (dateStr: string) => {
   return dateStr
 }
 
+const formatKanjiDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const match = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (match) {
+    const month = parseInt(match[2], 10)
+    const day = parseInt(match[3], 10)
+    return `${month}月${day}日`
+  }
+  const match2 = dateStr.match(/^(\d{1,2})[-/](\d{1,2})/)
+  if (match2) {
+    const month = parseInt(match2[1], 10)
+    const day = parseInt(match2[2], 10)
+    return `${month}月${day}日`
+  }
+  return dateStr
+}
+
+const toKanjiTime = (timeStr: string) => {
+  if (!timeStr) return ''
+  const display = toDisplayTime(timeStr)
+  const parts = display.split(':')
+  if (parts.length === 2) {
+    const hour = parseInt(parts[0], 10)
+    const minute = parseInt(parts[1], 10)
+    return `${hour}時${minute.toString().padStart(2, '0')}分`
+  }
+  return timeStr
+}
+
 type CustomOption = {
   option_id: string | null
   price: number
@@ -246,8 +275,11 @@ export default function ReservationPreviewPage() {
 
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+    const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
     const startTimeVal = toDisplayTime(reservation.start_time)
+    const startTimeKanjiVal = toKanjiTime(reservation.start_time)
     const endTimeVal = toDisplayTime(reservation.end_time)
+    const endTimeKanjiVal = toKanjiTime(reservation.end_time)
     const roomVal = roomInfo?.name || '未定'
     const custNameVal = reservation.customers?.name || '未設定'
     const therapistNameVal = reservation.therapists?.name || 'フリー'
@@ -341,8 +373,11 @@ export default function ReservationPreviewPage() {
     if (customerTemplate) {
       let finalTemplate = customerTemplate
         .replace(/\[日付\]/g, dateVal)
+        .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
         .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
         .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
         .replace(/\[ルーム\]/g, roomVal)
         .replace(/\[お客様区分\]/g, customerPrefix)
         .replace(/\[お客様名\]/g, custNameVal)
@@ -500,8 +535,11 @@ export default function ReservationPreviewPage() {
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
     if (therapistTemplate) {
       const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+      const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
       const startTimeVal = toDisplayTime(reservation.start_time)
+      const startTimeKanjiVal = toKanjiTime(reservation.start_time)
       const endTimeVal = toDisplayTime(reservation.end_time)
+      const endTimeKanjiVal = toKanjiTime(reservation.end_time)
       const roomVal = roomInfo?.name || '未定'
       const custNameVal = reservation.customers?.name || '未設定'
       const therapistNameVal = reservation.therapists?.name || 'フリー'
@@ -514,8 +552,11 @@ export default function ReservationPreviewPage() {
 
       let finalTemplate = therapistTemplate
         .replace(/\[日付\]/g, dateVal)
+        .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
         .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
         .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
         .replace(/\[ルーム\]/g, roomVal)
         .replace(/\[お客様区分\]/g, customerPrefix)
         .replace(/\[お客様名\]/g, custNameVal)
