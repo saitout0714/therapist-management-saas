@@ -250,6 +250,7 @@ export default function ReservationPreviewPage() {
     const endTimeVal = toDisplayTime(reservation.end_time)
     const roomVal = roomInfo?.name || '未定'
     const custNameVal = reservation.customers?.name || '未設定'
+    const therapistNameVal = reservation.therapists?.name || 'フリー'
     const courseNameVal = reservation.courses?.name || '未設定'
     const courseDurationVal = `${reservation.courses?.duration || 0}分`
     const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
@@ -345,6 +346,7 @@ export default function ReservationPreviewPage() {
         .replace(/\[ルーム\]/g, roomVal)
         .replace(/\[お客様区分\]/g, customerPrefix)
         .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[セラピスト名\]/g, therapistNameVal)
         .replace(/\[コース\]/g, courseNameVal)
         .replace(/\[コース時間\]/g, courseDurationVal)
         .replace(/\[コース料金\]/g, coursePriceVal)
@@ -502,6 +504,7 @@ export default function ReservationPreviewPage() {
       const endTimeVal = toDisplayTime(reservation.end_time)
       const roomVal = roomInfo?.name || '未定'
       const custNameVal = reservation.customers?.name || '未設定'
+      const therapistNameVal = reservation.therapists?.name || 'フリー'
       const courseNameVal = reservation.courses?.name || '未設定'
       const courseDurationVal = `${reservation.courses?.duration || 0}分`
       const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
@@ -516,6 +519,7 @@ export default function ReservationPreviewPage() {
         .replace(/\[ルーム\]/g, roomVal)
         .replace(/\[お客様区分\]/g, customerPrefix)
         .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[セラピスト名\]/g, therapistNameVal)
         .replace(/\[コース\]/g, courseNameVal)
         .replace(/\[コース時間\]/g, courseDurationVal)
         .replace(/\[コース料金\]/g, coursePriceVal)
