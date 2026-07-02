@@ -481,22 +481,28 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       }
     } else {
       // 店舗デフォルト設定で計算
-      if (shopRule.option_calc_type === 'fixed') {
-        const itemBackAmount = optBackAmountMap.get(opt.option_id) ?? 0
-        currentOptBack = itemBackAmount
-      } else if (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null) {
-        currentOptBack = shopRule.option_back_amount
-      } else {
-        switch (shopRule.option_calc_type) {
-          case 'full_back':
-            currentOptBack = opt.price
-            break
-          case 'percentage':
-            currentOptBack = applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
-            break
-          default:
-            currentOptBack = opt.price // フルバックにフォールバック
-        }
+      switch (shopRule.option_calc_type) {
+        case 'fixed':
+          // オプションごとの個別固定額設定 (options.back_amount) があれば優先
+          const itemBackAmount = optBackAmountMap.get(opt.option_id)
+          if (itemBackAmount !== undefined && itemBackAmount !== null && itemBackAmount > 0) {
+            currentOptBack = itemBackAmount
+          } else {
+            // なければ店舗デフォルトの固定額を使用
+            currentOptBack = shopRule.option_back_amount ?? 0
+          }
+          break
+        case 'per_item':
+          currentOptBack = optBackAmountMap.get(opt.option_id) ?? 0
+          break
+        case 'percentage':
+          currentOptBack = applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
+          break
+        case 'full_back':
+          currentOptBack = opt.price
+          break
+        default:
+          currentOptBack = opt.price // フルバックにフォールバック
       }
     }
 
