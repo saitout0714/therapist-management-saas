@@ -443,11 +443,21 @@ async function scrapeQueenHiroshima(site: SiteConfig, dateStr: string): Promise<
 }
 
 async function scrapeCarezza(site: SiteConfig, dateStr: string): Promise<any[]> {
-  // Get JST today
-  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
-  const todayStr = today.toISOString().split('T')[0]
+  // Get JST today date string YYYY-MM-DD
+  const todayStr = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()).replace(/\//g, '-')
   
-  const diffTime = new Date(dateStr).getTime() - new Date(todayStr).getTime()
+  // Parse in local components to calculate difference safely
+  const partsT = todayStr.split('-').map(Number)
+  const partsD = dateStr.split('-').map(Number)
+  const dToday = new Date(partsT[0], partsT[1] - 1, partsT[2])
+  const dTarget = new Date(partsD[0], partsD[1] - 1, partsD[2])
+  
+  const diffTime = dTarget.getTime() - dToday.getTime()
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
   const dayNum = diffDays + 1
   
@@ -519,9 +529,13 @@ export async function syncScraperSite(
     return
   }
 
-  // Get current JST date (UTC + 9 hours)
-  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
-  const todayStr = today.toISOString().split('T')[0]
+  // Get current JST date (YYYY-MM-DD)
+  const todayStr = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()).replace(/\//g, '-')
 
   const parsedStart = new Date(dateStr)
   for (let offset = 0; offset < days; offset++) {
