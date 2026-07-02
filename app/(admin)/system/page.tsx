@@ -9,6 +9,7 @@ import { DeductionRulesTab } from './components/DeductionRulesTab'
 import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
 import { DesignationTypesTab } from './components/DesignationTypesTab'
 import { TherapistTemplateTab } from './components/TherapistTemplateTab'
+import { CustomerTemplateTab } from './components/CustomerTemplateTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -38,7 +39,7 @@ type SystemSettings = {
   gas_calendar_sync_url: string | null
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
@@ -190,6 +191,7 @@ export default function SystemPage() {
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'pricing_defaults', label: '基本設定' },
     { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
+    { key: 'customer_template', label: 'お客様連絡テンプレート' },
     { key: 'courses', label: 'コース管理' },
     { key: 'designation_types', label: '指名種別' },
     { key: 'options', label: 'オプション管理' },
@@ -232,6 +234,7 @@ export default function SystemPage() {
         {activeTab === 'discounts' && <DiscountPoliciesTab />}
         {activeTab === 'deductions' && <DeductionRulesTab />}
         {activeTab === 'therapist_template' && <TherapistTemplateTab />}
+        {activeTab === 'customer_template' && <CustomerTemplateTab />}
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
