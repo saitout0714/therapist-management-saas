@@ -1,23 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/'
+
   const { login, isAuthenticated, loading: authLoading } = useAuth()
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 既にログイン済みの場合はホームへリダイレクト
+  // 既にログイン済みの場合はリダイレクト先へ
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      router.replace('/')
+      router.replace(redirect)
     }
-  }, [isAuthenticated, authLoading, router])
+  }, [isAuthenticated, authLoading, router, redirect])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,7 +29,7 @@ export default function LoginPage() {
 
     try {
       await login(loginId, password)
-      window.location.href = '/'
+      window.location.href = redirect
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'ログインに失敗しました'
       setError(message)
@@ -114,5 +117,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-full bg-gradient-to-br from-slate-50 to-primary-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }

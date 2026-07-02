@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setUser(userObj)
         localStorage.setItem('auth_user', JSON.stringify(userObj))
-        document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=86400; SameSite=Lax`
+        document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax; Secure`
       } else {
         clearUserSession()
       }
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const finalUser = roleChanged ? { ...userData, role: userData.role } : userData;
               if (roleChanged) {
                 localStorage.setItem('auth_user', JSON.stringify(finalUser))
-                document.cookie = `auth_user=${JSON.stringify(finalUser)}; path=/; max-age=86400; SameSite=Lax`
+                document.cookie = `auth_user=${JSON.stringify(finalUser)}; path=/; max-age=2592000; SameSite=Lax; Secure`
               }
               setUser(finalUser)
             }
@@ -161,7 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void syncUserWithSession(session.user)
         }
       } else if (event === 'SIGNED_OUT') {
-        clearUserSession()
+        // 明示的なログアウト（logout() の呼び出し）以外で、
+        // localStorage にキャッシュが残っている場合は、一時的なセッション未検出による誤消去を防ぐためクリアをスキップする。
+        const storedUser = localStorage.getItem('auth_user')
+        if (!storedUser) {
+          clearUserSession()
+        }
       }
       setLoading(false)
     })
@@ -243,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('auth_user', JSON.stringify(userObj))
 
       // クッキーにも保存（middleware用）
-      document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=86400`
+      document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax; Secure`
     } catch (error: unknown) {
       console.error('ログイン失敗:', error)
       if (error instanceof Error) {

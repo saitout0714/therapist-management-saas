@@ -531,21 +531,7 @@ export default function ReservationPreviewPage() {
     }
   }
 
-  const handleSendSMS = () => {
-    const phone = reservation?.customers?.phone
-    if (!phone) {
-      alert('この顧客には電話番号が登録されていません')
-      return
-    }
-    const text = generateCustomerLineText()
-    
-    // 自動的に「送信済」にマークする
-    void updateNotifiedStatus('customer', true)
 
-    // iOS は &body=、Android は ?body= → ?& で両対応
-    const smsUrl = `sms:${phone}?&body=${encodeURIComponent(text)}`
-    window.location.href = smsUrl
-  }
 
   const goBack = () => {
     const targetDate = reservation?.business_date || reservation?.date
@@ -852,20 +838,28 @@ export default function ReservationPreviewPage() {
                   </>
                 )}
               </button>
-              <button
-                onClick={handleSendSMS}
-                disabled={!reservation?.customers?.phone}
-                className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
-              >
-                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                {reservation?.customers?.phone ? (
+              {reservation?.customers?.phone ? (
+                <a
+                  href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomerLineText())}`}
+                  onClick={() => void updateNotifiedStatus('customer', true)}
+                  className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-center"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
                   <span>SMS送信<span className="hidden md:inline"> ({reservation.customers.phone})</span></span>
-                ) : (
-                  'SMS不可'
-                )}
-              </button>
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-2 sm:py-3 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-lg sm:rounded-xl shadow-sm flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  SMS不可
+                </button>
+              )}
             </div>
             
             <div className="flex flex-col">
