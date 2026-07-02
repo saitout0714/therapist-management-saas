@@ -459,10 +459,10 @@ async function scrapeCarezza(site: SiteConfig, dateStr: string): Promise<any[]> 
   
   const diffTime = dTarget.getTime() - dToday.getTime()
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-  const dayNum = diffDays + 1
+  const dayNum = diffDays
   
-  if (dayNum < 1 || dayNum > 7) {
-    // Carezza scheduleAll.html only supports 7 days from today
+  if (dayNum < 0 || dayNum > 6) {
+    // Carezza scheduleAll.html only supports 7 days from today (dayNum 0 to 6)
     return []
   }
 
