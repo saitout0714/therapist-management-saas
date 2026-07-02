@@ -20,6 +20,7 @@ export function CourseManagementTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [formData, setFormData] = useState({
         name: '',
         duration: 60,
@@ -42,6 +43,43 @@ export function CourseManagementTab() {
         if (error) alert('コースの取得に失敗しました')
         else setCourses((data as Course[]) || [])
         setLoading(false)
+    }
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index)
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault()
+        if (draggedIndex === null || draggedIndex === index) return
+
+        const newCourses = [...courses]
+        const draggedItem = newCourses[draggedIndex]
+        newCourses.splice(draggedIndex, 1)
+        newCourses.splice(index, 0, draggedItem)
+
+        setDraggedIndex(index)
+        setCourses(newCourses)
+    }
+
+    const handleDragEnd = async () => {
+        setDraggedIndex(null)
+        if (!selectedShop) return
+
+        // Optimistically update display_order in local state
+        const updated = courses.map((course, idx) => ({ ...course, display_order: idx }))
+        setCourses(updated)
+
+        const promises = courses.map((course, idx) =>
+            supabase.from('courses').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', course.id)
+        )
+        const results = await Promise.all(promises)
+        const hasError = results.some(r => r.error)
+        if (hasError) {
+            alert('並び替え順の保存に失敗しました')
+            void fetchCourses()
+        }
     }
 
     const resetForm = () => {
@@ -243,12 +281,19 @@ export function CourseManagementTab() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {courses.map((course) => (
+                                    {courses.map((course, index) => (
                                         <tr
                                             key={course.id}
-                                            className="hover:bg-slate-50/50 transition-colors"
+                                            className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, index)}
+                                            onDragOver={(e) => handleDragOver(e, index)}
+                                            onDragEnd={handleDragEnd}
                                         >
-                                            <td className="p-4 text-sm text-slate-600 font-medium">{course.display_order}</td>
+                                            <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                                                <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                                                {course.display_order}
+                                            </td>
                                             <td className="p-4 text-sm font-bold text-slate-800">{course.name}</td>
                                             <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
                                             <td className="p-4 text-sm font-bold text-slate-800">¥{course.base_price.toLocaleString()}</td>

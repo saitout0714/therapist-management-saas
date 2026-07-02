@@ -21,6 +21,7 @@ export function OptionManagementTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [editingOption, setEditingOption] = useState<Option | null>(null)
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [formData, setFormData] = useState({
         name: '', price: 0, back_amount: 0, description: '', is_active: true,
         display_order: 0, option_type: 'extension' as 'extension' | 'item' | 'treatment', duration_minutes_added: 0,
@@ -34,6 +35,43 @@ export function OptionManagementTab() {
         if (error) alert('オプションの取得に失敗しました')
         else setOptions((data as Option[]) || [])
         setLoading(false)
+    }
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index)
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault()
+        if (draggedIndex === null || draggedIndex === index) return
+
+        const newOptions = [...options]
+        const draggedItem = newOptions[draggedIndex]
+        newOptions.splice(draggedIndex, 1)
+        newOptions.splice(index, 0, draggedItem)
+
+        setDraggedIndex(index)
+        setOptions(newOptions)
+    }
+
+    const handleDragEnd = async () => {
+        setDraggedIndex(null)
+        if (!selectedShop) return
+
+        // Optimistically update display_order in local state
+        const updated = options.map((option, idx) => ({ ...option, display_order: idx }))
+        setOptions(updated)
+
+        const promises = options.map((option, idx) =>
+            supabase.from('options').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', option.id)
+        )
+        const results = await Promise.all(promises)
+        const hasError = results.some(r => r.error)
+        if (hasError) {
+            alert('並び替え順の保存に失敗しました')
+            void fetchOptions()
+        }
     }
 
     const resetForm = () => {
@@ -265,12 +303,19 @@ export function OptionManagementTab() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {options.map((option) => (
+                                    {options.map((option, index) => (
                                         <tr
                                             key={option.id}
-                                            className="hover:bg-slate-50/50 transition-colors"
+                                            className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, index)}
+                                            onDragOver={(e) => handleDragOver(e, index)}
+                                            onDragEnd={handleDragEnd}
                                         >
-                                            <td className="p-4 text-sm text-slate-600 font-medium">{option.display_order}</td>
+                                            <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                                                <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                                                {option.display_order}
+                                            </td>
                                             <td className="p-4 text-sm font-bold text-slate-800">
                                                 <div className="flex items-center gap-2">
                                                     {option.option_type === 'extension'

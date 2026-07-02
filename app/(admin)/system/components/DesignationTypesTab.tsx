@@ -28,6 +28,7 @@ export function DesignationTypesTab() {
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const [form, setForm] = useState({
     slug: '',
@@ -109,6 +110,43 @@ export function DesignationTypesTab() {
       setItems((data || []) as DesignationType[])
     }
     setLoading(false)
+  }
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newItems = [...items]
+    const draggedItem = newItems[draggedIndex]
+    newItems.splice(draggedIndex, 1)
+    newItems.splice(index, 0, draggedItem)
+
+    setDraggedIndex(index)
+    setItems(newItems)
+  }
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null)
+    if (!selectedShop) return
+
+    // Optimistically update display_order in local state
+    const updated = items.map((item, idx) => ({ ...item, display_order: idx }))
+    setItems(updated)
+
+    const promises = items.map((item, idx) =>
+      supabase.from('designation_types').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', item.id)
+    )
+    const results = await Promise.all(promises)
+    const hasError = results.some(r => r.error)
+    if (hasError) {
+      alert('並び替え順の保存に失敗しました')
+      void fetchItems()
+    }
   }
 
   useEffect(() => { void fetchItems() }, [selectedShop])
@@ -313,12 +351,19 @@ export function DesignationTypesTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map(item => (
+                  {items.map((item, index) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
                     >
-                      <td className="p-4 text-sm text-slate-600 font-medium">{item.display_order}</td>
+                      <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                        <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                        {item.display_order}
+                      </td>
                       <td className="p-4 text-sm font-bold text-slate-800">{item.display_name}</td>
                       <td className="p-4 text-sm font-bold text-slate-700">¥{(item.default_fee || 0).toLocaleString()}</td>
                       <td className="p-4 text-sm font-bold text-indigo-600">¥{(item.default_back_amount || 0).toLocaleString()}</td>

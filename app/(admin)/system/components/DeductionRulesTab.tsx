@@ -12,6 +12,7 @@ type DeductionRule = {
   amount: number
   min_duration: number
   is_active: boolean
+  display_order: number
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -39,6 +40,7 @@ export function DeductionRulesTab() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<DeductionRule | null>(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [form, setForm] = useState({
     name: '',
     category: 'deduction' as 'deduction' | 'allowance' | 'penalty',
@@ -46,6 +48,7 @@ export function DeductionRulesTab() {
     amount: 800,
     min_duration: 0,
     is_active: true,
+    display_order: 0,
   })
 
   async function fetchRules() {
@@ -55,14 +58,51 @@ export function DeductionRulesTab() {
       .from('deduction_rules')
       .select('*')
       .eq('shop_id', selectedShop.id)
-      .order('category', { ascending: true })
+      .order('display_order', { ascending: true })
 
     if (!error) setRules((data as DeductionRule[]) || [])
     setLoading(false)
   }
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newRules = [...rules]
+    const draggedItem = newRules[draggedIndex]
+    newRules.splice(draggedIndex, 1)
+    newRules.splice(index, 0, draggedItem)
+
+    setDraggedIndex(index)
+    setRules(newRules)
+  }
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null)
+    if (!selectedShop) return
+
+    // Optimistically update display_order in local state
+    const updated = rules.map((rule, idx) => ({ ...rule, display_order: idx }))
+    setRules(updated)
+
+    const promises = rules.map((rule, idx) =>
+      supabase.from('deduction_rules').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', rule.id)
+    )
+    const results = await Promise.all(promises)
+    const hasError = results.some(r => r.error)
+    if (hasError) {
+      alert('並び替え順の保存に失敗しました')
+      void fetchRules()
+    }
+  }
+
   const resetForm = () => {
-    setForm({ name: '', category: 'deduction', calc_timing: 'per_reservation', amount: 800, min_duration: 0, is_active: true })
+    setForm({ name: '', category: 'deduction', calc_timing: 'per_reservation', amount: 800, min_duration: 0, is_active: true, display_order: rules.length })
     setEditing(null)
     setShowForm(false)
   }
@@ -157,11 +197,22 @@ export function DeductionRulesTab() {
               </div>
             )}
 
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" className="rounded text-indigo-600 w-4 h-4" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
-                有効にする
-              </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-600">表示順</label>
+                <input
+                  type="number"
+                  value={form.display_order}
+                  onChange={e => setForm({ ...form, display_order: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-4 pt-6">
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input type="checkbox" className="rounded text-indigo-600 w-4 h-4" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
+                  有効にする
+                </label>
+              </div>
             </div>
           </div>
 
@@ -199,6 +250,7 @@ export function DeductionRulesTab() {
               <table className="w-full text-left border-collapse min-w-[650px]">
                 <thead className="bg-slate-50">
                   <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
+                    <th className="p-4 w-16">順序</th>
                     <th className="p-4">項目名</th>
                     <th className="p-4 w-32">区分</th>
                     <th className="p-4 w-28">タイミング</th>
@@ -209,11 +261,19 @@ export function DeductionRulesTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {rules.map((r) => (
+                  {rules.map((r, index) => (
                     <tr
                       key={r.id}
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
                     >
+                      <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                        <span className="inline-block mr-2 cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                        {r.display_order}
+                      </td>
                       <td className="p-4 text-sm font-bold text-slate-800">{r.name}</td>
                       <td className="p-4 text-sm">
                         <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${CATEGORY_COLORS[r.category]}`}>
@@ -233,7 +293,7 @@ export function DeductionRulesTab() {
                           className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle"
                           onClick={() => {
                             setEditing(r)
-                            setForm({ name: r.name, category: r.category, calc_timing: r.calc_timing, amount: r.amount, min_duration: r.min_duration, is_active: r.is_active })
+                            setForm({ name: r.name, category: r.category, calc_timing: r.calc_timing, amount: r.amount, min_duration: r.min_duration, is_active: r.is_active, display_order: r.display_order })
                             setShowForm(true)
                           }}
                         >編集</button>
