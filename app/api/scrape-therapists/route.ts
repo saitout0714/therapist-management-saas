@@ -150,6 +150,50 @@ function parseLegend(html: string, baseUrl: string): any[] {
   return results
 }
 
+function parseEstheHp(html: string, baseUrl: string): any[] {
+  const results: any[] = []
+  const pattern = /<a[^>]+href=["']([^"']*(?:item_\d+\.html|\/item\/\d+))["'][^>]*>([\s\S]*?)<\/a>/gi
+  const seen = new Set<string>()
+  
+  let match
+  while ((match = pattern.exec(html)) !== null) {
+    const href = match[1]
+    const innerHtml = match[2]
+    
+    const profileUrl = resolveUrl(baseUrl, href)
+    if (!profileUrl || seen.has(profileUrl)) continue
+    
+    const text = innerHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    
+    let name = text
+    let age: number | null = null
+    const m = text.match(/[\(（](\d+)(?:歳)?[\)）]/)
+    if (m) {
+      name = text.split(/[\(（]/)[0].trim()
+      age = parseInt(m[1], 10)
+    }
+    
+    if (!name || name.length <= 1 || name.length > 10) continue
+    if (/トップ|出勤|料金|案内|システム|予約|求人|アクセス|ブログ|日記|掲示板/i.test(name)) continue
+    
+    seen.add(profileUrl)
+    results.push({
+      name,
+      age,
+      profile_url: profileUrl,
+      photo_url: null,
+      height: null,
+      bust: null,
+      bust_cup: null,
+      waist: null,
+      hip: null,
+      comment: null,
+      rank: null
+    })
+  }
+  return results
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -182,6 +226,12 @@ export async function POST(req: NextRequest) {
     
     if (isCgiTemplate) {
       const enriched = parseLegend(html, url)
+      return NextResponse.json({ therapists: enriched })
+    }
+
+    const isEstheHp = url.toLowerCase().includes('esthe-hp.com') || html.includes('esthe-hp.com') || html.includes('/r/css/fdcStyle_p.css')
+    if (isEstheHp) {
+      const enriched = parseEstheHp(html, url)
       return NextResponse.json({ therapists: enriched })
     }
 
