@@ -39,13 +39,24 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  latestStartTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -62,6 +73,8 @@ interface Schedule {
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
+  isOtherShop?: boolean;
 }
 
 interface VerticalTimeChartProps {
@@ -113,6 +126,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag with left click
@@ -515,7 +529,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               {hourLabels.map((label, idx) => (
                 <div
                   key={`hour-label-${idx}`}
-                  className="border-b border-slate-200/80 relative bg-slate-100 flex items-start p-1.5"
+                  className="border-b border-slate-300 relative bg-slate-100 flex items-start p-1.5"
                   style={{ height: `${cellHeight * 12}px` }}
                 >
                   <span className="text-[11px] font-bold text-slate-500 leading-none">
@@ -564,10 +578,17 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       router.push(`/reservations/new?from=vertical&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
                     };
 
+                    let borderClass = 'border-b border-slate-100/50';
+                    if (idx % 12 === 11) {
+                      borderClass = 'border-b border-slate-300';
+                    } else if (idx % 12 === 5) {
+                      borderClass = 'border-b border-slate-200';
+                    }
+
                     return (
                       <div
                         key={`${therapist.id}-${idx}`}
-                        className={`border-b border-slate-100/50 hover:bg-indigo-50/40 transition-colors`}
+                        className={`${borderClass} hover:bg-indigo-50/40 transition-colors`}
                         style={{ ...cellStyle, height: `${cellHeight}px`, cursor: 'pointer' }}
                         onClick={handleCellClick}
                         onMouseEnter={(e) => {
@@ -614,13 +635,18 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   const isReservation = schedule.type === 'reservation';
                   const isInterval = schedule.type === 'interval';
                   const isBlocked = schedule.type === 'blocked';
+                  const isAvailable = schedule.type === 'available';
+                  const isUnavailable = schedule.type === 'unavailable';
 
-                  // 1. Blocked slot
                   if (isBlocked) {
                     return (
                       <div
                         key={`schedule-${idx}`}
-                        className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto shadow-sm hover:shadow-md hover:z-20 transition-all"
+                        className={`absolute overflow-hidden cursor-pointer pointer-events-auto shadow-sm hover:shadow-md hover:z-20 transition-all ${
+                          schedule.isOtherShop
+                            ? 'rounded-lg px-2 flex flex-col justify-start'
+                            : 'flex items-center justify-center'
+                        }`}
                         style={{
                           top: `${top + 1}px`,
                           left: `${left}px`,
@@ -629,6 +655,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           borderRadius: '6px',
                           background: 'repeating-linear-gradient(45deg, rgba(153,0,30,0.75), rgba(153,0,30,0.75) 5px, rgba(180,20,50,0.55) 5px, rgba(180,20,50,0.55) 10px)',
                           border: '1px solid rgba(120,0,20,0.9)',
+                          color: 'white',
                         }}
                         title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                         onClick={(e) => {
@@ -639,9 +666,24 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           }
                         }}
                       >
-                        <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
-                          {schedule.customerName || schedule.title || '予約不可'}
-                        </span>
+                        {schedule.isOtherShop ? (
+                          <div className="w-full h-full flex flex-col justify-start gap-1 overflow-hidden py-1.5 text-left">
+                            {/* Row 1: Time */}
+                            <div className="text-[10px] font-medium text-rose-100/90 leading-none">
+                              <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                            </div>
+                            {/* Row 2: Name */}
+                            <div className="flex items-start justify-start gap-1 min-w-0">
+                              <span className="font-bold text-[13px] text-white leading-tight break-all drop-shadow-sm">
+                                {schedule.customerName || schedule.title}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
+                            {schedule.customerName || schedule.title || '予約不可'}
+                          </span>
+                        )}
                       </div>
                     );
                   }
@@ -665,6 +707,106 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       >
                         <span className="text-[8px] font-bold text-slate-400 leading-none">
                           INT
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  // 予約可能ブロック（マルチカラー・コース別バー）
+                  if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
+                    const courses = schedule.availableCourses;
+
+                    return (
+                      <React.Fragment key={`schedule-avail-group-${idx}`}>
+                        {courses.map((c, cIdx) => {
+                          const cStartMinutes = timeToMinutes(c.startTime);
+                          const barTop = cStartMinutes * (cellHeight / 5);
+
+                          const handleCourseClick = (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            if (isDragging || dragDistanceRef.current > 5) return;
+                            router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${c.latestStartTime}`);
+                          };
+
+                          return (
+                            <div
+                              key={`course-badge-${idx}-${cIdx}`}
+                              className="absolute cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
+                              style={{
+                                top: `${barTop + 1}px`,
+                                left: `${left + 4}px`,
+                                width: `${width - 8}px`,
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                textAlign: 'right',
+                                paddingRight: '4px',
+                                zIndex: 14,
+                              }}
+                              title={`${c.label}\nクリックで予約`}
+                              onClick={handleCourseClick}
+                            >
+                              {c.latestStartTime}～{c.duration}分
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  }
+
+                  // 予約可能ブロック（通常）
+                  if (isAvailable) {
+                    const handleAvailableClick = () => {
+                      if (isDragging || dragDistanceRef.current > 5) return;
+                      router.push(`/reservations/new?from=vertical&therapist_id=${schedule.therapistId}&date=${date}&time=${schedule.startTime}`);
+                    };
+
+                    return (
+                      <div
+                        key={`schedule-${idx}`}
+                        className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:bg-emerald-100/80"
+                        style={{
+                          top: `${top + 1}px`,
+                          left: `${left}px`,
+                          width: `${width}px`,
+                          height: `${height - 2}px`,
+                          borderRadius: '6px',
+                          backgroundColor: 'rgba(209, 250, 229, 0.55)',
+                          border: '1.5px dashed rgba(16, 185, 129, 0.7)',
+                          color: 'rgb(6, 95, 70)',
+                        }}
+                        title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                        onClick={handleAvailableClick}
+                      >
+                        <span className="text-[8px] font-bold leading-tight px-1 text-center" style={{ whiteSpace: 'pre-line' }}>
+                          {schedule.title}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  // 予約不可ブロック（時間不足、薄いグレー）
+                  if (isUnavailable) {
+                    return (
+                      <div
+                        key={`schedule-${idx}`}
+                        className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+                        style={{
+                          top: `${top + 1}px`,
+                          left: `${left}px`,
+                          width: `${width}px`,
+                          height: `${height - 2}px`,
+                          borderRadius: '6px',
+                          backgroundColor: '#f1f5f9',
+                          border: '1.5px dashed #cbd5e1',
+                          color: '#64748b',
+                        }}
+                        title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                      >
+                        <span className="text-[8px] font-semibold leading-tight px-1 text-center" style={{ whiteSpace: 'pre-line' }}>
+                          {schedule.title}
                         </span>
                       </div>
                     );
@@ -946,6 +1088,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           </div>
         );
       })()}
+
 
       {/* Styles */}
       <style dangerouslySetInnerHTML={{

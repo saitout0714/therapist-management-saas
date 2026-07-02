@@ -13,6 +13,8 @@ interface Therapist {
   room?: string; // ルーム名
   roomMemo?: string | null;
   roomMapUrl?: string | null;
+  roomDisplayName?: string | null;
+  roomAddress?: string | null;
   age?: number | null;
   height?: number | null;
   bust?: number | null;
@@ -27,13 +29,24 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  latestStartTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -50,6 +63,8 @@ interface Schedule {
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
+  isOtherShop?: boolean;
 }
 
 interface TimeChartProps {
@@ -98,12 +113,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
   const [hoverData, setHoverData] = useState<{ x: number, y: number, time: string } | null>(null);
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null);
-  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; memo: string; mapUrl: string | null; x: number; y: number } | null>(null);
+  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; displayName: string | null; address: string | null; memo: string; mapUrl: string | null; x: number; y: number } | null>(null);
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null);
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragDistanceRef = useRef(0);
-
 
 
   // ドラッグ開始
@@ -459,7 +473,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           onMouseEnter={(e) => {
                             if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setRoomMemoPopup({ roomName: therapist.room ?? '', memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
+                            setRoomMemoPopup({
+                              roomName: therapist.room ?? '',
+                              displayName: therapist.roomDisplayName ?? null,
+                              address: therapist.roomAddress ?? null,
+                              memo: therapist.roomMemo ?? '',
+                              mapUrl: therapist.roomMapUrl ?? null,
+                              x: rect.left,
+                              y: rect.bottom + 4
+                            });
                           }}
                           onMouseLeave={() => {
                             roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
@@ -513,22 +535,30 @@ const TimeChart: React.FC<TimeChartProps> = ({
             {hourLabels.map((label, idx) => (
               <div
                 key={`hour-${idx}`}
-                className="flex flex-col border-r border-slate-200"
+                className="flex flex-col border-r border-slate-300"
                 style={{ width: `${(cellWidth * 12)}px` }}
               >
                 <div className="h-8 flex items-center px-2 text-xs font-bold text-slate-700 tracking-wide">
                   {label}
                 </div>
                 <div className="h-6 flex text-[9px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div key={i} className="flex-1 flex justify-center items-center border-r border-slate-100 last:border-0 relative">
-                      {i === 0 || i === 6 ? (
-                        <span>{String(i * 5).padStart(2, '0')}</span>
-                      ) : (
-                        <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
-                      )}
-                    </div>
-                  ))}
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    let borderClass = 'border-r border-slate-100';
+                    if (i === 5) {
+                      borderClass = 'border-r border-slate-200';
+                    } else if (i === 11) {
+                      borderClass = 'border-r-0';
+                    }
+                    return (
+                      <div key={i} className={`flex-1 flex justify-center items-center ${borderClass} relative`}>
+                        {i === 0 || i === 6 ? (
+                          <span>{String(i * 5).padStart(2, '0')}</span>
+                        ) : (
+                          <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -570,43 +600,62 @@ const TimeChart: React.FC<TimeChartProps> = ({
               />
             )}
 
-            <div className="grid gap-0" style={{
-              gridTemplateColumns: `repeat(${timeSlots.length}, minmax(${cellWidth}px, 1fr))`,
-              minWidth: 'fit-content',
-            }}>
-              {therapists.map((therapist, tIdx) =>
-                timeSlots.map((timeSlot, idx) => {
-                  const inShift = isCellInShift(therapist, idx);
-                  const cellStyle = getCellBackgroundStyle(inShift);
-
-                  const handleCellClick = () => {
-                    if (isDragging || dragDistanceRef.current > 5) return;
-                    if (!date) return;
-                    router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
-                  };
-
-                  return (
+            <div className="flex flex-col min-w-max">
+              {therapists.map((therapist, tIdx) => (
+                <div
+                  key={therapist.id}
+                  style={{ height: `${rowHeight}px` }}
+                  className={`flex ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''}`}
+                >
+                  {hourLabels.map((_, hIdx) => (
                     <div
-                      key={`${therapist.id}-${idx}`}
-                      className={`border-r border-slate-100 ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-indigo-50/50 transition-colors`}
-                      style={{ ...cellStyle, height: `${rowHeight}px`, cursor: 'pointer' }}
-                      onClick={handleCellClick}
-                      onMouseDown={() => { dragDistanceRef.current = 0; }}
-                      onMouseEnter={(e) => {
-                        if (isDragging || dragDistanceRef.current > 5) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setHoverData({
-                          x: rect.left + rect.width / 2,
-                          y: rect.top, // Cell top
-                          time: timeSlot
-                        });
-                      }}
-                      onMouseLeave={() => setHoverData(null)}
+                      key={`hour-group-${hIdx}`}
+                      className="flex border-r border-slate-300 flex-shrink-0"
+                      style={{ width: `${cellWidth * 12}px` }}
                     >
+                      {Array.from({ length: 12 }).map((_, i) => {
+                        const idx = hIdx * 12 + i;
+                        const timeSlot = timeSlots[idx];
+                        const inShift = isCellInShift(therapist, idx);
+                        const cellStyle = getCellBackgroundStyle(inShift);
+
+                        const handleCellClick = () => {
+                          if (isDragging || dragDistanceRef.current > 5) return;
+                          if (!date) return;
+                          router.push(`/reservations/new?from=shifts&therapist_id=${therapist.id}&date=${date}&time=${timeSlot}`);
+                        };
+
+                        let borderClass = 'border-r border-slate-100';
+                        if (i === 5) {
+                          borderClass = 'border-r border-slate-200';
+                        } else if (i === 11) {
+                          borderClass = 'border-r-0';
+                        }
+
+                        return (
+                          <div
+                            key={`${therapist.id}-${idx}`}
+                            className={`flex-1 ${borderClass} hover:bg-indigo-50/50 transition-colors`}
+                            style={{ ...cellStyle, height: '100%', cursor: 'pointer' }}
+                            onClick={handleCellClick}
+                            onMouseDown={() => { dragDistanceRef.current = 0; }}
+                            onMouseEnter={(e) => {
+                              if (isDragging || dragDistanceRef.current > 5) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setHoverData({
+                                x: rect.left + rect.width / 2,
+                                y: rect.top, // Cell top
+                                time: timeSlot
+                              });
+                            }}
+                            onMouseLeave={() => setHoverData(null)}
+                          />
+                        );
+                      })}
                     </div>
-                  );
-                })
-              )}
+                  ))}
+                </div>
+              ))}
             </div>
 
             {/* Schedules Layer */}
@@ -634,13 +683,18 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const isReservation = schedule.type === 'reservation';
                 const isInterval = schedule.type === 'interval';
                 const isBlocked = schedule.type === 'blocked';
+                const isAvailable = schedule.type === 'available';
+                const isUnavailable = schedule.type === 'unavailable';
 
-                // 予約不可ブロック（えんじ色）
                 if (isBlocked) {
                   return (
                     <div
                       key={`schedule-${idx}`}
-                      className="absolute flex items-center justify-center overflow-hidden cursor-pointer"
+                      className={`absolute overflow-hidden cursor-pointer pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${
+                        schedule.isOtherShop
+                          ? 'rounded-lg px-2 flex flex-col justify-center'
+                          : 'flex items-center justify-center'
+                      }`}
                       style={{
                         top: `${top}px`,
                         left: `${startPixels + 2}px`,
@@ -649,7 +703,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         borderRadius: '10px',
                         background: 'repeating-linear-gradient(45deg, rgba(153,0,30,0.75), rgba(153,0,30,0.75) 5px, rgba(180,20,50,0.55) 5px, rgba(180,20,50,0.55) 10px)',
                         border: '1.5px solid rgba(120,0,20,0.9)',
-                        pointerEvents: 'auto',
+                        color: 'white',
                       }}
                       title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                       onClick={(e) => {
@@ -659,20 +713,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         }
                       }}
                     >
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        color: 'rgba(255,230,230,0.95)',
-                        whiteSpace: 'nowrap',
-                        letterSpacing: '0.02em',
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        padding: '0 6px',
-                        textShadow: '0 1px 2px rgba(80,0,10,0.7)',
-                      }}>
-                        {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
-                      </span>
+                      {schedule.isOtherShop ? (
+                        <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5 text-left">
+                          {/* Row 1: Time */}
+                          <div className="text-[10px] font-medium text-rose-100/90 leading-none">
+                            <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                          </div>
+                          {/* Row 2: Name */}
+                          <div className="flex items-center justify-start gap-1 min-w-0">
+                            <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
+                              {schedule.customerName || schedule.title}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: 'rgba(255,230,230,0.95)',
+                          whiteSpace: 'nowrap',
+                          letterSpacing: '0.02em',
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          padding: '0 6px',
+                          textShadow: '0 1px 2px rgba(80,0,10,0.7)',
+                        }}>
+                          {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
+                        </span>
+                      )}
                     </div>
                   );
                 }
@@ -703,6 +772,153 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         padding: '0 4px',
                       }}>
                         INT
+                      </span>
+                    </div>
+                  );
+                }
+
+                // 予約可能ブロック（マルチカラー・コース別バー）
+                if (isAvailable && schedule.availableCourses && schedule.availableCourses.length > 0) {
+                  const courses = schedule.availableCourses;
+
+                  // 3つの段 (0, 1, 2) それぞれにおける直近の右端X座標
+                  const lastXPerStep = [-9999, -9999, -9999];
+                  let lastChosenStep = 0;
+                  const textWidth = 36; // コンパクトテキストの想定表示幅(px)
+
+                  const steps = courses.map((c) => {
+                    const cStartMinutes = timeToMinutes(c.startTime);
+                    const cStartPixels = (cStartMinutes / 5) * cellWidth;
+
+                    let chosenStep = 0;
+                    let found = false;
+                    for (let s = 0; s < 3; s++) {
+                      // その段の直近配置テキストと重ならない場合
+                      if (cStartPixels >= lastXPerStep[s] + textWidth) {
+                        chosenStep = s;
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found) {
+                      // どの段も重なる場合は、交互に逃げる
+                      chosenStep = (lastChosenStep + 1) % 3;
+                    }
+                    lastXPerStep[chosenStep] = cStartPixels;
+                    lastChosenStep = chosenStep;
+                    return chosenStep;
+                  });
+
+                  return (
+                    <div
+                      key={`schedule-avail-group-${idx}`}
+                      className="absolute overflow-visible transition-all select-none bg-transparent"
+                      style={{
+                        top: `${top + height - 32}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: '28px',
+                        zIndex: 14,
+                      }}
+                    >
+                      {courses.map((c, cIdx) => {
+                        const cStartMinutes = timeToMinutes(c.startTime);
+                        const cStartPixels = (cStartMinutes / 5) * cellWidth;
+                        
+                        // 親コンテナ（startPixels）からの相対X座標を計算し、時間軸目盛りと完璧に一致させる
+                        const relativeLeft = cStartPixels - startPixels;
+                        
+                        const step = steps[cIdx];
+                        // 帯の高さ（28px）の内部で、下段（2px）、中段（10px）、上段（18px）で配置
+                        const bottomOffset = 2 + step * 8;
+
+                        return (
+                          <div
+                            key={`course-badge-${idx}-${cIdx}`}
+                            className="absolute pointer-events-none text-slate-400 select-none text-[8.5px] font-extrabold leading-none"
+                            style={{
+                              bottom: `${bottomOffset}px`,
+                              left: `${relativeLeft}px`,
+                              whiteSpace: 'nowrap',
+                              zIndex: 15 + step,
+                            }}
+                            title={c.label}
+                          >
+                            {c.latestStartTime}({c.duration})
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // 予約可能ブロック（通常）
+                if (isAvailable) {
+                  const handleAvailableClick = () => {
+                    if (isDragging || dragDistanceRef.current > 5) return;
+                    router.push(`/reservations/new?from=shifts&therapist_id=${schedule.therapistId}&date=${date}&time=${schedule.startTime}`);
+                  };
+
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto transition-all hover:bg-emerald-100/80"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(209, 250, 229, 0.55)',
+                        border: '1.5px dashed rgba(16, 185, 129, 0.7)',
+                        color: 'rgb(6, 95, 70)',
+                      }}
+                      title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                      onClick={handleAvailableClick}
+                    >
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        whiteSpace: 'pre-line',
+                        lineHeight: '1.2',
+                        letterSpacing: '0.01em',
+                        padding: '2px 4px',
+                        textAlign: 'center',
+                      }}>
+                        {schedule.title}
+                      </span>
+                    </div>
+                  );
+                }
+
+                // 予約不可ブロック（時間不足、薄いグレー）
+                if (isUnavailable) {
+                  return (
+                    <div
+                      key={`schedule-${idx}`}
+                      className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+                      style={{
+                        top: `${top}px`,
+                        left: `${startPixels + 2}px`,
+                        width: `${widthPixels - 4}px`,
+                        height: `${height}px`,
+                        borderRadius: '10px',
+                        backgroundColor: '#f1f5f9',
+                        border: '1.5px dashed #cbd5e1',
+                        color: '#64748b',
+                      }}
+                      title={`${schedule.startTime}〜${schedule.endTime} ${schedule.title}`}
+                    >
+                      <span style={{
+                        fontSize: '8px',
+                        fontWeight: 600,
+                        whiteSpace: 'pre-line',
+                        lineHeight: '1.1',
+                        letterSpacing: '0.01em',
+                        padding: '2px 4px',
+                        textAlign: 'center',
+                      }}>
+                        {schedule.title}
                       </span>
                     </div>
                   );
@@ -957,24 +1173,49 @@ const TimeChart: React.FC<TimeChartProps> = ({
           onMouseEnter={() => { if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current); }}
           onMouseLeave={() => setRoomMemoPopup(null)}
         >
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
-            {roomMemoPopup.memo ? (
-              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
-            ) : (
-              !roomMemoPopup.mapUrl && (
-                <p className="text-xs text-slate-400 italic">メモはありません</p>
-              )
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 space-y-3 min-w-[240px] max-w-sm">
+            {/* ルームヘッダー */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">ルーム情報</h4>
+              <div className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                <span>{roomMemoPopup.roomName}</span>
+                {roomMemoPopup.displayName && (
+                  <span className="text-xs text-slate-500 font-medium">({roomMemoPopup.displayName})</span>
+                )}
+              </div>
+            </div>
+            
+            {/* 住所 */}
+            {roomMemoPopup.address && (
+              <div className="pt-2 border-t border-slate-50 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 block">住所</span>
+                <p className="text-xs text-slate-700 leading-normal">{roomMemoPopup.address}</p>
+              </div>
             )}
+
+            {/* メモ */}
+            <div className="pt-2 border-t border-slate-50 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 block">メモ</span>
+              {roomMemoPopup.memo ? (
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
+              ) : (
+                <p className="text-xs text-slate-400 italic">メモはありません</p>
+              )}
+            </div>
+
+            {/* Googleマップリンク */}
             {roomMemoPopup.mapUrl && (
-              <a
-                href={roomMemoPopup.mapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-lg px-3 py-2 w-full text-xs"
-              >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Googleマップを開く
-              </a>
+              <div className="pt-1">
+                <a
+                  href={roomMemoPopup.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] transition-all text-white font-bold rounded-xl px-3 py-2 w-full text-xs shadow-sm shadow-emerald-500/10"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Googleマップを開く
+                </a>
+              </div>
             )}
           </div>
         </div>
@@ -1013,6 +1254,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
           </div>
         );
       })()}
+
     </div>
   );
 };

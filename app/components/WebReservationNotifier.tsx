@@ -15,6 +15,7 @@ interface NotifItem {
   endTime: string
   courseName: string
   receivedAt: Date
+  source: string
 }
 
 function playBeep() {
@@ -56,6 +57,10 @@ export default function WebReservationNotifier() {
   // 通知許可リクエスト
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) return;
+
     if ('Notification' in window && Notification.permission === 'default') {
       void Notification.requestPermission()
     }
@@ -64,6 +69,14 @@ export default function WebReservationNotifier() {
   // Realtime 購読（ログイン完了後に確立）
   useEffect(() => {
     if (shops.length === 0 || authLoading || !user) return
+
+    // モバイル端末の場合は通知機能を完全に無効化する
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) {
+      console.log('Mobile device detected. Skipping reservation subscription.')
+      return
+    }
 
     // 既存の接続があれば一度クリーンアップ
     if (channelRef.current) {
@@ -99,6 +112,7 @@ export default function WebReservationNotifier() {
                 : Promise.resolve({ data: null, error: null }),
             ])
 
+            const isMail = (row.notes as string)?.includes('【メール同期自動登録】')
             const notif: NotifItem = {
               id: row.id as string,
               shopName: shop.name,
@@ -109,13 +123,15 @@ export default function WebReservationNotifier() {
               endTime: (row.end_time as string)?.slice(0, 5) ?? '',
               courseName: (courseRes.data as { name: string } | null)?.name ?? '',
               receivedAt: new Date(),
+              source: isMail ? 'mail_sync' : (row.source as string),
             }
 
             setItems(prev => [notif, ...prev])
             playBeep()
 
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(`【${shop.name}】新規Web予約！`, {
+              const isMail = notif.source === 'mail_sync'
+              new Notification(`【${shop.name}】新規${isMail ? 'メール' : 'Web'}予約！`, {
                 body: `${notif.customerName} 様 ／ ${notif.therapistName} ／ ${notif.date} ${notif.startTime}〜${notif.endTime}`,
                 icon: '/favicon.ico',
                 requireInteraction: true,
@@ -174,7 +190,7 @@ export default function WebReservationNotifier() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-black text-lg leading-tight tracking-tight">
-                      🔔 新規Web予約が入りました！
+                      🔔 新規{notif.source === 'mail_sync' ? 'メール' : 'Web'}予約が入りました！
                     </p>
                     <p className="text-red-200 text-xs font-medium mt-0.5">
                       {notif.receivedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 受信

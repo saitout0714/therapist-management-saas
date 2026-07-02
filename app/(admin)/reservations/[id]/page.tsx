@@ -24,6 +24,35 @@ const formatShortDate = (dateStr: string) => {
   return dateStr
 }
 
+const formatKanjiDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const match = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (match) {
+    const month = parseInt(match[2], 10)
+    const day = parseInt(match[3], 10)
+    return `${month}月${day}日`
+  }
+  const match2 = dateStr.match(/^(\d{1,2})[-/](\d{1,2})/)
+  if (match2) {
+    const month = parseInt(match2[1], 10)
+    const day = parseInt(match2[2], 10)
+    return `${month}月${day}日`
+  }
+  return dateStr
+}
+
+const toKanjiTime = (timeStr: string) => {
+  if (!timeStr) return ''
+  const display = toDisplayTime(timeStr)
+  const parts = display.split(':')
+  if (parts.length === 2) {
+    const hour = parseInt(parts[0], 10)
+    const minute = parseInt(parts[1], 10)
+    return `${hour}時${minute.toString().padStart(2, '0')}分`
+  }
+  return timeStr
+}
+
 type CustomOption = {
   option_id: string | null
   price: number
@@ -73,6 +102,7 @@ type Reservation = {
   source?: string
   customer_notified?: boolean
   therapist_notified?: boolean
+  customer_type_override?: 'new' | 'member' | null
 }
 
 type RoomInfo = {
@@ -98,6 +128,7 @@ export default function ReservationPreviewPage() {
   const [creditPaymentUrl, setCreditPaymentUrl] = useState<string | null>(null)
   const [googleCalendarId, setGoogleCalendarId] = useState<string | null>(null)
   const [therapistTemplate, setTherapistTemplate] = useState<string | null>(null)
+  const [customerTemplate, setCustomerTemplate] = useState<string | null>(null)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -183,12 +214,13 @@ export default function ReservationPreviewPage() {
       // 5. Fetch credit_payment_url from system_settings
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('credit_payment_url, google_calendar_id, therapist_template')
+        .select('credit_payment_url, google_calendar_id, therapist_template, customer_template')
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
       setCreditPaymentUrl(settingsData?.credit_payment_url || null)
       setGoogleCalendarId(settingsData?.google_calendar_id || null)
       setTherapistTemplate(settingsData?.therapist_template || null)
+      setCustomerTemplate(settingsData?.customer_template || null)
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -241,23 +273,173 @@ export default function ReservationPreviewPage() {
       displayBasePrice = originalCoursePrice
     }
 
+    const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
+    const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+    const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
+    const startTimeVal = toDisplayTime(reservation.start_time)
+    const startTimeKanjiVal = toKanjiTime(reservation.start_time)
+    const endTimeVal = toDisplayTime(reservation.end_time)
+    const endTimeKanjiVal = toKanjiTime(reservation.end_time)
+    const roomVal = roomInfo?.name || '未定'
+    const custNameVal = reservation.customers?.name || '未設定'
+    const therapistNameVal = reservation.therapists?.name || 'フリー'
+    const courseNameVal = reservation.courses?.name || '未設定'
+    const courseDurationVal = `${reservation.courses?.duration || 0}分`
+    const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
+    const designationVal = designationLabel(reservation.designation_type)
+    const nominationFeeVal = displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円'
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    const totalVal = `${reservation.total_price.toLocaleString()}円`
+
+    // オプション一覧の生成
+    let optionsText = ''
+    reservation.reservation_options?.forEach(ro => {
+      if (ro.option_id && ro.options) {
+        optionsText += `${ro.options.name} ${ro.options.price.toLocaleString()}円\n`
+      } else if (!ro.option_id && ro.custom_name) {
+        optionsText += `${ro.custom_name} ${ro.price.toLocaleString()}円\n`
+      }
+    })
+    if (optionsText) {
+      optionsText = `■ オプション\n` + optionsText.trim()
+    }
+
+    // 割引一覧の生成
+    let discountsText = ''
+    if (reservation.discount_amount > 0) {
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      if (discounts.length > 0) {
+        discounts.forEach((d, idx) => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '割引') : (d.policy?.name || '割引')
+          discountsText += `${discountName}：-${d.applied_amount.toLocaleString()}円`
+          if (idx < discounts.length - 1) {
+            discountsText += '\n'
+          }
+        })
+      } else {
+        discountsText += `割引：-${reservation.discount_amount.toLocaleString()}円`
+      }
+    }
+    if (discountsText) {
+      discountsText = discountsText.trim()
+    }
+
+    // 備考の生成
+    let notesText = ''
+    if (reservation.notes) {
+      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
+      notesText = `■ ${label}\n${reservation.notes}`
+    }
+
+    // 決済情報の生成
+    let paymentInfoText = ''
+    if (reservation.payment_method === 'credit') {
+      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
+      
+      let creditText = ''
+      if (reservation.credit_fee_amount > 0) {
+        creditText += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
+      }
+      creditText += `クレジット決済額：${creditTotal.toLocaleString()}円\n`
+      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+        creditText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+      }
+      if (creditPaymentUrl) {
+        creditText += `\n`
+        creditText += `下記のサイトから決済手数料10%込みの金額`
+        creditText += ` ${creditTotal.toLocaleString()}円\n`
+        creditText += `でご決済をご入室前までにお願い致します\n\n`
+        creditText += `${creditPaymentUrl}\n`
+      }
+      paymentInfoText = creditText.trim()
+    } else {
+      if (reservation.credit_fee_amount > 0) {
+        let cashText = `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
+        cashText += `💳 クレジット請求額：${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}円\n`
+        if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+          cashText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+        }
+        paymentInfoText = cashText.trim()
+      }
+    }
+
+    // 道案内の生成 (ルームテンプレート)
+    const roomTemplate = activeIsNewCustomer
+      ? (roomInfo?.template_new_customer || roomInfo?.template_member)
+      : (roomInfo?.template_member || roomInfo?.template_new_customer)
+    const directionsText = roomTemplate ? roomTemplate.trim() : ''
+
+    if (customerTemplate) {
+      let finalTemplate = customerTemplate
+        .replace(/\[日付\]/g, dateVal)
+        .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
+        .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
+        .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
+        .replace(/\[ルーム\]/g, roomVal)
+        .replace(/\[お客様区分\]/g, customerPrefix)
+        .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[セラピスト名\]/g, therapistNameVal)
+        .replace(/\[コース\]/g, courseNameVal)
+        .replace(/\[コース時間\]/g, courseDurationVal)
+        .replace(/\[コース料金\]/g, coursePriceVal)
+        .replace(/\[指名区分\]/g, designationVal)
+        .replace(/\[指名料金\]/g, nominationFeeVal)
+        .replace(/\[支払方法\]/g, paymentText)
+        .replace(/\[合計料金\]/g, totalVal)
+
+      // 割引がない場合は、[割引]タグが含まれる行全体を削除する
+      if (!discountsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[割引\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
+      }
+
+      // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
+      if (!optionsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+      }
+
+      // 備考がない場合は、[備考]タグが含まれる行全体を削除する
+      if (!notesText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[備考\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[備考\]/g, notesText)
+      }
+
+      // 決済情報がない場合は、[決済情報]タグが含まれる行全体を削除する
+      if (!paymentInfoText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[決済情報\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[決済情報\]/g, paymentInfoText)
+      }
+
+      // 道案内がない場合は、[道案内]タグが含まれる行全体を削除する
+      if (!directionsText) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[道案内\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[道案内\]/g, directionsText)
+      }
+
+      return finalTemplate
+    }
+
+    // デフォルトのフォールバックテンプレート
     let text = `【ご予約内容のご確認】\n\n`
 
     // 日時（日付と時間を別行）
-    text += `■ 日時\n${formatShortDate(reservation.business_date || reservation.date)}\n${toDisplayTime(reservation.start_time)} ～ ${toDisplayTime(reservation.end_time)}\n\n`
+    text += `■ 日時\n${dateVal}\n${startTimeVal} ～ ${endTimeVal}\n\n`
 
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
-    text += `${reservation.courses?.name || ''} ${displayBasePrice.toLocaleString()}円\n`
-    reservation.reservation_options?.forEach(ro => {
-      if (ro.option_id && ro.options) {
-        // 通常オプション
-        text += `${ro.options.name} ${ro.options.price.toLocaleString()}円\n`
-      } else if (!ro.option_id && ro.custom_name) {
-        // 手入力オプション
-        text += `${ro.custom_name} ${ro.price.toLocaleString()}円\n`
-      }
-    })
+    text += `${courseNameVal} ${coursePriceVal}\n`
+    if (optionsText) {
+      text += optionsText.replace('■ オプション\n', '') + '\n'
+    }
 
     // 指名
     text += `\n■ 指名\n`
@@ -265,70 +447,33 @@ export default function ReservationPreviewPage() {
     if (isNominated && reservation.therapists?.name) {
       text += `${reservation.therapists.name}さん `
     }
-    text += `${designationLabel(reservation.designation_type)}`
+    text += `${designationVal}`
     if (displayNominationFee > 0) {
-      text += ` ${displayNominationFee.toLocaleString()}円`
+      text += ` ${nominationFeeVal}`
     }
     text += `\n`
 
-
     // お支払い予定金額
     text += `\n■ お支払い予定金額\n`
-    text += `基本料金：${displayBasePrice.toLocaleString()}円\n`
+    text += `基本料金：${coursePriceVal}\n`
     if (reservation.options_price > 0) {
       text += `オプション：${reservation.options_price.toLocaleString()}円\n`
     }
     if (displayNominationFee > 0) {
-      text += `指名料：${displayNominationFee.toLocaleString()}円\n`
+      text += `指名料：${nominationFeeVal}\n`
     }
-    if (reservation.discount_amount > 0) {
-      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
-      if (discounts.length > 0) {
-        discounts.forEach(d => {
-          const discountName = d.is_adhoc ? (d.adhoc_name || '割引') : (d.policy?.name || '割引')
-          text += `${discountName}：-${d.applied_amount.toLocaleString()}円\n`
-        })
-      } else {
-        text += `割引：-${reservation.discount_amount.toLocaleString()}円\n`
-      }
+    if (discountsText) {
+      text += discountsText + '\n'
     }
     text += `------------------------\n`
-    text += `合計：${reservation.total_price.toLocaleString()}円\n`
+    text += `合計：${totalVal}\n`
 
-    if (reservation.payment_method === 'credit') {
-      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
-      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
-      if (reservation.credit_fee_amount > 0) {
-        text += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
-      }
-      text += `クレジット決済額：${creditTotal.toLocaleString()}円\n`
-      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
-        text += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
-      }
-      if (creditPaymentUrl) {
-        text += `\n`
-        text += `下記のサイトから決済手数料10%込みの金額`
-        text += ` ${creditTotal.toLocaleString()}円\n`
-        text += `でご決済をご入室前までにお願い致します\n\n`
-        text += `${creditPaymentUrl}\n`
-      }
-    } else {
-      if (reservation.credit_fee_amount > 0) {
-        text += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
-        text += `💳 クレジット請求額：${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}円\n`
-        if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
-          text += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
-        }
-      }
+    if (paymentInfoText) {
+      text += '\n' + paymentInfoText + '\n'
     }
 
-    // ルームテンプレート（新規・会員で切替）
-    const roomTemplate = activeIsNewCustomer
-      ? (roomInfo?.template_new_customer || roomInfo?.template_member)
-      : (roomInfo?.template_member || roomInfo?.template_new_customer)
-
-    if (roomTemplate) {
-      text += `\n${roomTemplate}`
+    if (directionsText) {
+      text += `\n${directionsText}`
     }
 
     return text
@@ -390,10 +535,14 @@ export default function ReservationPreviewPage() {
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
     if (therapistTemplate) {
       const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+      const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
       const startTimeVal = toDisplayTime(reservation.start_time)
+      const startTimeKanjiVal = toKanjiTime(reservation.start_time)
       const endTimeVal = toDisplayTime(reservation.end_time)
+      const endTimeKanjiVal = toKanjiTime(reservation.end_time)
       const roomVal = roomInfo?.name || '未定'
       const custNameVal = reservation.customers?.name || '未設定'
+      const therapistNameVal = reservation.therapists?.name || 'フリー'
       const courseNameVal = reservation.courses?.name || '未設定'
       const courseDurationVal = `${reservation.courses?.duration || 0}分`
       const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
@@ -403,11 +552,15 @@ export default function ReservationPreviewPage() {
 
       let finalTemplate = therapistTemplate
         .replace(/\[日付\]/g, dateVal)
+        .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
         .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
         .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
         .replace(/\[ルーム\]/g, roomVal)
         .replace(/\[お客様区分\]/g, customerPrefix)
         .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[セラピスト名\]/g, therapistNameVal)
         .replace(/\[コース\]/g, courseNameVal)
         .replace(/\[コース時間\]/g, courseDurationVal)
         .replace(/\[コース料金\]/g, coursePriceVal)
@@ -493,6 +646,36 @@ export default function ReservationPreviewPage() {
   const [showCustomerPreview, setShowCustomerPreview] = useState(false)
   const [showTherapistPreview, setShowTherapistPreview] = useState(false)
 
+  useEffect(() => {
+    if (reservation) {
+      if (reservation.customer_type_override === 'new') {
+        setCustomerTypeOverride('new')
+      } else if (reservation.customer_type_override === 'member') {
+        setCustomerTypeOverride('member')
+      } else {
+        setCustomerTypeOverride('auto')
+      }
+    }
+  }, [reservation])
+
+  const handleCustomerTypeOverrideChange = async (value: 'auto' | 'new' | 'member') => {
+    if (!reservation) return
+    const overrideValue = value === 'auto' ? null : value
+    
+    const { error } = await supabase
+      .from('reservations')
+      .update({ customer_type_override: overrideValue })
+      .eq('id', reservation.id)
+      
+    if (error) {
+      alert('お客様区分の保存に失敗しました: ' + error.message)
+      return
+    }
+    
+    setCustomerTypeOverride(value)
+    setReservation(prev => prev ? { ...prev, customer_type_override: overrideValue } : null)
+  }
+
   const activeIsNewCustomer = 
     customerTypeOverride === 'new' ? true :
     customerTypeOverride === 'member' ? false :
@@ -531,21 +714,7 @@ export default function ReservationPreviewPage() {
     }
   }
 
-  const handleSendSMS = () => {
-    const phone = reservation?.customers?.phone
-    if (!phone) {
-      alert('この顧客には電話番号が登録されていません')
-      return
-    }
-    const text = generateCustomerLineText()
-    
-    // 自動的に「送信済」にマークする
-    void updateNotifiedStatus('customer', true)
 
-    // iOS は &body=、Android は ?body= → ?& で両対応
-    const smsUrl = `sms:${phone}?&body=${encodeURIComponent(text)}`
-    window.location.href = smsUrl
-  }
 
   const goBack = () => {
     const targetDate = reservation?.business_date || reservation?.date
@@ -797,7 +966,7 @@ export default function ReservationPreviewPage() {
           </div>
           <div className="bg-slate-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl flex gap-0.5 sm:gap-1 select-none">
             <button
-              onClick={() => setCustomerTypeOverride('auto')}
+              onClick={() => handleCustomerTypeOverrideChange('auto')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'auto'
                   ? 'bg-white text-primary-600 shadow-sm border border-slate-200/50'
@@ -807,7 +976,7 @@ export default function ReservationPreviewPage() {
               自動判定 ({isNewCustomer ? '新規' : '会員'})
             </button>
             <button
-              onClick={() => setCustomerTypeOverride('new')}
+              onClick={() => handleCustomerTypeOverrideChange('new')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'new'
                   ? 'bg-accent-500 text-white shadow-sm'
@@ -817,7 +986,7 @@ export default function ReservationPreviewPage() {
               新規用
             </button>
             <button
-              onClick={() => setCustomerTypeOverride('member')}
+              onClick={() => handleCustomerTypeOverrideChange('member')}
               className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 customerTypeOverride === 'member'
                   ? 'bg-primary-600 text-white shadow-sm'
@@ -852,20 +1021,28 @@ export default function ReservationPreviewPage() {
                   </>
                 )}
               </button>
-              <button
-                onClick={handleSendSMS}
-                disabled={!reservation?.customers?.phone}
-                className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
-              >
-                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                {reservation?.customers?.phone ? (
+              {reservation?.customers?.phone ? (
+                <a
+                  href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomerLineText())}`}
+                  onClick={() => void updateNotifiedStatus('customer', true)}
+                  className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-center"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
                   <span>SMS送信<span className="hidden md:inline"> ({reservation.customers.phone})</span></span>
-                ) : (
-                  'SMS不可'
-                )}
-              </button>
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-2 sm:py-3 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-lg sm:rounded-xl shadow-sm flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  SMS不可
+                </button>
+              )}
             </div>
             
             <div className="flex flex-col">

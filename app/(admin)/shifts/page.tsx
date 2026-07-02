@@ -44,6 +44,8 @@ interface Reservation {
   customer_notified?: boolean;
   therapist_notified?: boolean;
   extension_count?: number;
+  shop_id?: string;
+  isNewCustomer?: boolean;
 }
 
 interface Room {
@@ -87,6 +89,8 @@ interface Therapist {
   room?: string;
   roomMemo?: string | null;
   roomMapUrl?: string | null;
+  roomDisplayName?: string | null;
+  roomAddress?: string | null;
   age?: number | null;
   height?: number | null;
   bust?: number | null;
@@ -101,13 +105,24 @@ interface Therapist {
   linked_shop_names?: string[];
 }
 
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  latestStartTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
+}
+
 interface Schedule {
   therapistId: string;
   startTime: string; // "HH:mm" format
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -118,10 +133,13 @@ interface Schedule {
   isNewCustomer?: boolean;
   isHime?: boolean;
   isPending?: boolean;
+  isHandled?: boolean;
+  source?: string;
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
   extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
 }
 
 type ViewMode = 'day' | 'vertical' | 'week';
@@ -660,7 +678,7 @@ function ShiftsContent() {
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, room_id, rooms(name, memo, google_map_url), start_time, end_time, notes')
+        .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
@@ -669,7 +687,7 @@ function ShiftsContent() {
         return;
       }
 
-      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; memo?: string | null; google_map_url?: string | null } | null }>();
+      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; display_name?: string | null; address?: string | null; memo?: string | null; google_map_url?: string | null } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
@@ -689,6 +707,8 @@ function ShiftsContent() {
           room: shift?.rooms?.name,
           roomMemo: shift?.rooms?.memo ?? null,
           roomMapUrl: shift?.rooms?.google_map_url ?? null,
+          roomDisplayName: shift?.rooms?.display_name ?? null,
+          roomAddress: shift?.rooms?.address ?? null,
           age: therapist.age ?? null,
           height: therapist.height ?? null,
           bust: therapist.bust ?? null,
@@ -844,6 +864,7 @@ function ShiftsContent() {
           extension_count,
           shop_id,
           room_id,
+          customer_type_override,
           customers(name, created_at),
           courses(name, duration),
           therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
@@ -857,12 +878,36 @@ function ShiftsContent() {
       if (error) throw error;
 
       const allRes = (data || []) as any[];
+
+      // 過去に予約がある顧客を特定する処理を追加
+      const customerIds = Array.from(new Set(allRes.map((r) => r.customer_id).filter(Boolean)));
+      const pastCustomerIds = new Set<string>();
+      if (customerIds.length > 0) {
+        const { data: pastRes } = await supabase
+          .from('reservations')
+          .select('customer_id')
+          .in('customer_id', customerIds)
+          .eq('shop_id', selectedShop.id)
+          .lt('date', filterDate)
+          .in('status', ['confirmed', 'blocked', 'pending']);
+        if (pastRes) {
+          pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id));
+        }
+      }
+
       const processed: any[] = [];
 
       allRes.forEach((res) => {
         if (res.shop_id === selectedShop.id) {
           // 自店舗の予約はそのまま追加
-          processed.push(res);
+          const isNew = res.customer_type_override
+            ? res.customer_type_override === 'new'
+            : !pastCustomerIds.has(res.customer_id)
+
+          processed.push({
+            ...res,
+            isNewCustomer: isNew
+          });
         } else {
           // 他店舗の予約：リンクされているものがあるか判定
           let isLinked = false;
@@ -900,7 +945,7 @@ function ShiftsContent() {
                 created_at: null
               },
               courses: null,
-              notes: '他店舗（' + otherShopName + '）での予約が入っているためブロックされています。',
+              notes: null,
             });
           }
         }
@@ -928,6 +973,104 @@ function ShiftsContent() {
     return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
   };
 
+  const getAvailableCourses = (startMin: number, endMin: number): AvailableCourse[] => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return [];
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) return [];
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const getCourseColors = (duration: number) => {
+      if (duration >= 150) {
+        return {
+          bg: '#fbcfe8', // pink-200
+          border: '#ec4899', // pink-500
+          text: '#831843', // pink-900
+        };
+      } else if (duration >= 120) {
+        return {
+          bg: '#e9d5ff', // purple-200
+          border: '#a855f7', // purple-500
+          text: '#581c87', // purple-900
+        };
+      } else if (duration >= 90) {
+        return {
+          bg: '#bae6fd', // sky-200
+          border: '#0ea5e9', // sky-500
+          text: '#0c4a6e', // sky-900
+        };
+      } else if (duration >= 60) {
+        return {
+          bg: '#a7f3d0', // emerald-200
+          border: '#10b981', // emerald-500
+          text: '#064e3b', // emerald-900
+        };
+      } else {
+        return {
+          bg: '#fef08a', // yellow-200
+          border: '#eab308', // yellow-500
+          text: '#713f12', // yellow-900
+        };
+      }
+    };
+
+    // 表示用コースを選択（短い順に最大4本）
+    const selectedDurations = filtered.slice(0, 4);
+
+    const sorted = [...selectedDurations].sort((a, b) => b - a);
+
+    return sorted.map(d => {
+      const latestStartMin = endMin - d;
+      const latestStartStr = formatMinToHHMM(latestStartMin);
+      const colors = getCourseColors(d);
+      return {
+        duration: d,
+        startTime: latestStartStr,
+        endTime: formatMinToHHMM(endMin),
+        latestStartTime: latestStartStr,
+        color: colors.bg,
+        borderColor: colors.border,
+        textColor: colors.text,
+        label: `${latestStartStr} ${d}分`,
+      };
+    });
+  };
+
+  const getAvailableText = (startMin: number, endMin: number) => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return '';
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) {
+      return `空き ${totalAvail}分`;
+    }
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const sortedFiltered = [...filtered].sort((a, b) => b - a);
+    return sortedFiltered
+      .map(d => `${d}分 (最終案内 ${formatMinToHHMM(endMin - d)})`)
+      .join('\n');
+  };
+
   const schedules: Schedule[] = [
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
@@ -944,7 +1087,7 @@ function ShiftsContent() {
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
         discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
-        isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
+        isNewCustomer: reservation.isNewCustomer,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,
@@ -965,22 +1108,20 @@ function ShiftsContent() {
         type: 'blocked' as const,
         reservationId: reservation.id,
         notes: reservation.notes || undefined,
+        isOtherShop: reservation.shop_id !== selectedShop?.id,
       })),
-    ...reservations
-      .filter((r: any) => r.status === 'confirmed' && r.therapist_id) // Skip intervals for unassigned bookings
-      .flatMap((reservation) => {
-        const therapist = therapists.find(t => t.id === reservation.therapist_id);
-        const interval = therapist?.intervalMinutes != null
+    ...(() => {
+      const intervalSchedules: Schedule[] = [];
+      
+      therapists.forEach((therapist) => {
+        const interval = therapist.intervalMinutes != null
           ? therapist.intervalMinutes
           : shopIntervalMinutes;
-        if (interval <= 0) return [];
-
-        const startMin = hhmToMinutes(toDisplayTime(reservation.start_time));
-        const endMin = hhmToMinutes(toDisplayTime(reservation.end_time));
+        if (interval <= 0) return;
 
         let shiftStartMin: number | undefined;
         let shiftEndAdjusted: number | undefined;
-        if (therapist?.shiftStart) {
+        if (therapist.shiftStart) {
           shiftStartMin = hhmToMinutes(therapist.shiftStart);
           if (therapist.shiftEnd) {
             let shiftEndMin = hhmToMinutes(therapist.shiftEnd);
@@ -989,35 +1130,169 @@ function ShiftsContent() {
           }
         }
 
-        const result: { therapistId: string; startTime: string; endTime: string; title: string; type: 'interval' }[] = [];
+        // シフト範囲が定義されていない（非出勤）の場合はスキップ
+        if (shiftStartMin === undefined || shiftEndAdjusted === undefined) return;
 
-        // 事前インターバル: 予約開始の interval 分前 ～ 予約開始
-        const preStart = shiftStartMin !== undefined
-          ? Math.max(shiftStartMin, startMin - interval)
-          : startMin - interval;
-        if (preStart < startMin) {
-          result.push({
-            therapistId: reservation.therapist_id,
-            startTime: minutesToHHMM(preStart),
-            endTime: toDisplayTime(reservation.start_time),
+        // 予約とブロックの両方を「境界（boundaries）」として抽出
+        const boundaries = reservations
+          .filter((r: any) => r.therapist_id === therapist.id)
+          .map((r: any) => {
+            const startMin = hhmToMinutes(toDisplayTime(r.start_time));
+            let endMin = hhmToMinutes(toDisplayTime(r.end_time));
+            if (endMin <= startMin) endMin += 24 * 60;
+            return {
+              startMin,
+              endMin,
+              startTimeStr: toDisplayTime(r.start_time),
+              endTimeStr: toDisplayTime(r.end_time),
+              type: (r.status === 'blocked' && r.shop_id === selectedShop?.id) ? ('blocked' as const) : ('reservation' as const),
+            };
+          })
+          .sort((a, b) => a.startMin - b.startMin);
+
+        // 1. シフト開始から最初の境界までの Gap
+        const firstBound = boundaries[0];
+        const firstLimit = firstBound ? firstBound.startMin : shiftEndAdjusted;
+        
+        // 最初の予定が確定予約(reservation)の場合のみ事前インターバルが必要
+        const needPreInterval = firstBound && firstBound.type === 'reservation';
+        const firstPreStart = needPreInterval 
+          ? Math.max(shiftStartMin, firstLimit - interval)
+          : firstLimit;
+
+        if (needPreInterval && firstPreStart < firstLimit) {
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(firstPreStart),
+            endTime: firstBound.startTimeStr,
             title: `インターバル ${interval}分`,
             type: 'interval' as const,
           });
         }
+        if (shiftStartMin < firstPreStart) {
+          const totalAvail = firstPreStart - shiftStartMin;
+          const menuDurations = shopCourses && shopCourses.length > 0
+            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+            : [30, 45, 60, 90, 120, 150, 180];
+          const filtered = menuDurations.filter(d => d <= totalAvail);
+          const isAvail = filtered.length > 0;
 
-        // 事後インターバル: 予約終了 ～ 予約終了 + interval（シフト終了以降なら非表示）
-        if (shiftEndAdjusted === undefined || endMin < shiftEndAdjusted) {
-          result.push({
-            therapistId: reservation.therapist_id,
-            startTime: toDisplayTime(reservation.end_time),
-            endTime: minutesToHHMM(endMin + interval),
-            title: `インターバル ${interval}分`,
-            type: 'interval' as const,
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(shiftStartMin),
+            endTime: minutesToHHMM(firstPreStart),
+            title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `不足\n${totalAvail}分`,
+            type: (isAvail ? 'available' : 'unavailable') as any,
+            availableCourses: isAvail ? getAvailableCourses(shiftStartMin, firstPreStart) : undefined,
           });
         }
 
-        return result;
-      }),
+        // 2. 境界間の Gap
+        for (let i = 0; i < boundaries.length - 1; i++) {
+          const cur = boundaries[i];
+          const next = boundaries[i + 1];
+          
+          const curInterval = cur.type === 'reservation' ? interval : 0;
+          const nextInterval = next.type === 'reservation' ? interval : 0;
+          
+          const gap = next.startMin - cur.endMin;
+          if (gap <= 0) continue;
+
+          const totalInterval = curInterval + nextInterval;
+
+          if (gap <= totalInterval) {
+            if (gap > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${gap}分`,
+                type: 'interval' as const,
+              });
+            }
+          } else {
+            if (curInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(cur.endMin + curInterval),
+                title: `インターバル ${curInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+            if (nextInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(next.startMin - nextInterval),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${nextInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+
+            const availStart = cur.endMin + curInterval;
+            const availEnd = next.startMin - nextInterval;
+            if (availStart < availEnd) {
+              const totalAvail = availEnd - availStart;
+              const menuDurations = shopCourses && shopCourses.length > 0
+                ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+                : [30, 45, 60, 90, 120, 150, 180];
+              const filtered = menuDurations.filter(d => d <= totalAvail);
+              const isAvail = filtered.length > 0;
+
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(availStart),
+                endTime: minutesToHHMM(availEnd),
+                title: isAvail ? getAvailableText(availStart, availEnd) : `不足\n${totalAvail}分`,
+                type: (isAvail ? 'available' : 'unavailable') as any,
+                availableCourses: isAvail ? getAvailableCourses(availStart, availEnd) : undefined,
+              });
+            }
+          }
+        }
+
+        // 3. 最後の境界からシフト終了までの Gap
+        if (boundaries.length > 0) {
+          const lastBound = boundaries[boundaries.length - 1];
+          const needPostInterval = lastBound.type === 'reservation';
+          let lastPostEnd = needPostInterval ? lastBound.endMin + interval : lastBound.endMin;
+          if (shiftEndAdjusted !== undefined) {
+            lastPostEnd = Math.min(shiftEndAdjusted, lastPostEnd);
+          }
+
+          if (needPostInterval && lastBound.endMin < lastPostEnd) {
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: lastBound.endTimeStr,
+              endTime: minutesToHHMM(lastPostEnd),
+              title: `インターバル ${interval}分`,
+              type: 'interval' as const,
+            });
+          }
+
+          if (lastPostEnd < shiftEndAdjusted) {
+            const totalAvail = shiftEndAdjusted - lastPostEnd;
+            const menuDurations = shopCourses && shopCourses.length > 0
+              ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+              : [30, 45, 60, 90, 120, 150, 180];
+            const filtered = menuDurations.filter(d => d <= totalAvail);
+            const isAvail = filtered.length > 0;
+
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: minutesToHHMM(lastPostEnd),
+              endTime: minutesToHHMM(shiftEndAdjusted),
+              title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `不足\n${totalAvail}分`,
+              type: (isAvail ? 'available' : 'unavailable') as any,
+              availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
+            });
+          }
+        }
+      });
+
+      return intervalSchedules;
+    })(),
   ];
 
   const sortedTherapistsWithShift = useMemo(() => {
@@ -1096,7 +1371,7 @@ function ShiftsContent() {
           let blockStart = resStart;
           let blockEnd = resEnd;
 
-          if (r.status === 'confirmed') {
+          if (r.status === 'confirmed' || r.shop_id !== selectedShop?.id) {
             blockStart = Math.max(shiftStartMins, resStart - interval);
             blockEnd = resEnd + interval;
           }
@@ -1147,7 +1422,7 @@ function ShiftsContent() {
       });
     }
     return [unassignedTherapist, ...sortedOthers];
-  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
+  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop]);
 
   // 週間表示用：全セラピストを詳細な形式にマップ
   const therapistsForWeekly = therapists.map(t => ({

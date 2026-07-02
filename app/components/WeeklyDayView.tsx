@@ -28,6 +28,8 @@ interface Therapist {
 interface Room {
   id: string
   name: string
+  display_name?: string | null
+  address?: string | null
   memo?: string | null
   google_map_url?: string | null
 }
@@ -63,6 +65,9 @@ interface Reservation {
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
   business_date?: string | null
+  customer_id?: string | null
+  isNewCustomer?: boolean
+  customer_type_override?: 'new' | 'member' | null
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -124,7 +129,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
 
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null)
-  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
+  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; displayName: string | null; address: string | null; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null)
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -207,14 +212,68 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
     ])
 
+    const rawReservations = (reservationsRes.data as any[]) || []
+
+    // 過去に予約がある顧客を特定する処理を追加
+    const customerIds = Array.from(new Set(rawReservations.map((r) => r.customer_id).filter(Boolean)))
+    const pastCustomerIds = new Set<string>()
+    if (customerIds.length > 0) {
+      const { data: pastRes } = await supabase
+        .from('reservations')
+        .select('customer_id')
+        .in('customer_id', customerIds)
+        .eq('shop_id', selectedShop.id)
+        .lt('date', startDate)
+        .in('status', ['confirmed', 'blocked'])
+      if (pastRes) {
+        pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id))
+      }
+    }
+
+    // 同週内の予約を顧客ごとにソートし、最初の予約のみを新規判定する
+    const customerFirstResMap = new Map<string, string>()
+    const customerResMap = new Map<string, any[]>()
+    rawReservations.forEach((res) => {
+      if (!res.customer_id) return
+      if (!customerResMap.has(res.customer_id)) {
+        customerResMap.set(res.customer_id, [])
+      }
+      customerResMap.get(res.customer_id)!.push(res)
+    })
+
+    customerResMap.forEach((resList, cid) => {
+      resList.sort((a, b) => {
+        const dateDiff = a.date.localeCompare(b.date)
+        if (dateDiff !== 0) return dateDiff
+        return a.start_time.localeCompare(b.start_time)
+      })
+      if (resList.length > 0) {
+        customerFirstResMap.set(cid, resList[0].id)
+      }
+    })
+
+    const processedReservations = rawReservations.map((res) => {
+      if (res.customer_type_override) {
+        return { ...res, isNewCustomer: res.customer_type_override === 'new' }
+      }
+      if (!res.customer_id) {
+        return { ...res, isNewCustomer: false }
+      }
+      if (pastCustomerIds.has(res.customer_id)) {
+        return { ...res, isNewCustomer: false }
+      }
+      const isFirstInWeek = customerFirstResMap.get(res.customer_id) === res.id
+      return { ...res, isNewCustomer: isFirstInWeek }
+    })
+
     setShifts((shiftsRes.data as Shift[]) || [])
-    setReservations((reservationsRes.data as unknown as Reservation[]) || [])
+    setReservations(processedReservations)
   }
 
   useEffect(() => {
@@ -557,6 +616,8 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       const activeRoom = rooms.find(r => r.id === shift.room_id)
                                       setRoomMemoPopup({
                                         roomName: roomName,
+                                        displayName: activeRoom?.display_name ?? null,
+                                        address: activeRoom?.address ?? null,
                                         memo: activeRoom?.memo ?? '',
                                         mapUrl: activeRoom?.google_map_url ?? null,
                                         x: rect.left,
@@ -670,7 +731,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       )
                                     }
 
-                                    const isNewCustomer = res.customers?.created_at?.split('T')[0] === res.date
+                                    const isNewCustomer = res.isNewCustomer
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
                                     const isWeb = res.source === 'web'
                                     const cardBgClass = (res.is_hime || res.designation_type === 'princess')
@@ -825,24 +886,49 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           onMouseEnter={() => { if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current); }}
           onMouseLeave={() => setRoomMemoPopup(null)}
         >
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
-            {roomMemoPopup.memo ? (
-              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
-            ) : (
-              !roomMemoPopup.mapUrl && (
-                <p className="text-xs text-slate-400 italic">メモはありません</p>
-              )
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 space-y-3 min-w-[240px] max-w-sm">
+            {/* ルームヘッダー */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">ルーム情報</h4>
+              <div className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                <span>{roomMemoPopup.roomName}</span>
+                {roomMemoPopup.displayName && (
+                  <span className="text-xs text-slate-500 font-medium">({roomMemoPopup.displayName})</span>
+                )}
+              </div>
+            </div>
+            
+            {/* 住所 */}
+            {roomMemoPopup.address && (
+              <div className="pt-2 border-t border-slate-50 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 block">住所</span>
+                <p className="text-xs text-slate-700 leading-normal">{roomMemoPopup.address}</p>
+              </div>
             )}
+
+            {/* メモ */}
+            <div className="pt-2 border-t border-slate-50 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 block">メモ</span>
+              {roomMemoPopup.memo ? (
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
+              ) : (
+                <p className="text-xs text-slate-400 italic">メモはありません</p>
+              )}
+            </div>
+
+            {/* Googleマップリンク */}
             {roomMemoPopup.mapUrl && (
-              <a
-                href={roomMemoPopup.mapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-lg px-3 py-2 w-full text-xs"
-              >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Googleマップを開く
-              </a>
+              <div className="pt-1">
+                <a
+                  href={roomMemoPopup.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] transition-all text-white font-bold rounded-xl px-3 py-2 w-full text-xs shadow-sm shadow-emerald-500/10"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Googleマップを開く
+                </a>
+              </div>
             )}
           </div>
         </div>

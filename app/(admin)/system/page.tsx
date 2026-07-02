@@ -9,6 +9,7 @@ import { DeductionRulesTab } from './components/DeductionRulesTab'
 import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
 import { DesignationTypesTab } from './components/DesignationTypesTab'
 import { TherapistTemplateTab } from './components/TherapistTemplateTab'
+import { CustomerTemplateTab } from './components/CustomerTemplateTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -38,7 +39,7 @@ type SystemSettings = {
   gas_calendar_sync_url: string | null
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
@@ -190,6 +191,7 @@ export default function SystemPage() {
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'pricing_defaults', label: '基本設定' },
     { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
+    { key: 'customer_template', label: 'お客様連絡テンプレート' },
     { key: 'courses', label: 'コース管理' },
     { key: 'designation_types', label: '指名種別' },
     { key: 'options', label: 'オプション管理' },
@@ -232,6 +234,7 @@ export default function SystemPage() {
         {activeTab === 'discounts' && <DiscountPoliciesTab />}
         {activeTab === 'deductions' && <DeductionRulesTab />}
         {activeTab === 'therapist_template' && <TherapistTemplateTab />}
+        {activeTab === 'customer_template' && <CustomerTemplateTab />}
 
         {activeTab === 'pricing_defaults' && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
@@ -330,16 +333,16 @@ export default function SystemPage() {
             <div className="border-b border-slate-100 pb-6 space-y-5">
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
-                <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜12%の範囲で設定できます。</p>
+                <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜100%の範囲で設定できます。</p>
                 <div className="flex items-center gap-3 max-w-xs">
                   <div className="relative flex-1">
                     <input
                       type="number"
                       min={0}
-                      max={12}
+                      max={100}
                       step={0.5}
                       value={form.credit_card_fee_rate}
-                      onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(12, Math.max(0, Number(e.target.value))) })}
+                      onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(100, Math.max(0, Number(e.target.value))) })}
                       className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>

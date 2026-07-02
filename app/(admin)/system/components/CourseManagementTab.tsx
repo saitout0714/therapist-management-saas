@@ -20,6 +20,7 @@ export function CourseManagementTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [formData, setFormData] = useState({
         name: '',
         duration: 60,
@@ -42,6 +43,43 @@ export function CourseManagementTab() {
         if (error) alert('コースの取得に失敗しました')
         else setCourses((data as Course[]) || [])
         setLoading(false)
+    }
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index)
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault()
+        if (draggedIndex === null || draggedIndex === index) return
+
+        const newCourses = [...courses]
+        const draggedItem = newCourses[draggedIndex]
+        newCourses.splice(draggedIndex, 1)
+        newCourses.splice(index, 0, draggedItem)
+
+        setDraggedIndex(index)
+        setCourses(newCourses)
+    }
+
+    const handleDragEnd = async () => {
+        setDraggedIndex(null)
+        if (!selectedShop) return
+
+        // Optimistically update display_order in local state
+        const updated = courses.map((course, idx) => ({ ...course, display_order: idx }))
+        setCourses(updated)
+
+        const promises = courses.map((course, idx) =>
+            supabase.from('courses').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', course.id)
+        )
+        const results = await Promise.all(promises)
+        const hasError = results.some(r => r.error)
+        if (hasError) {
+            alert('並び替え順の保存に失敗しました')
+            void fetchCourses()
+        }
     }
 
     const resetForm = () => {
@@ -162,29 +200,16 @@ export function CourseManagementTab() {
                             💡 コース×ランク×指名種別ごとの特別バック額は「固定額バック表」タブで設定でき、そちらが優先されます。
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="block text-xs font-semibold text-slate-600">表示順</label>
+                        <div className="flex items-center">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
-                                    type="number"
-                                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                                    placeholder="表示順（小さい順）"
-                                    value={formData.display_order}
-                                    onChange={(e) => setFormData({ ...formData, display_order: Number(e.target.value) })}
-                                    min={0}
+                                    type="checkbox"
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={formData.is_active}
+                                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                                 />
-                            </div>
-                            <div className="flex items-center pt-6">
-                                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                        checked={formData.is_active}
-                                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                    />
-                                    有効にする
-                                </label>
-                            </div>
+                                有効にする
+                            </label>
                         </div>
 
                         <div className="space-y-1">
@@ -233,7 +258,7 @@ export function CourseManagementTab() {
                             <table className="w-full text-left border-collapse min-w-[700px]">
                                 <thead className="bg-slate-50">
                                     <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                                        <th className="p-4 w-14">順序</th>
+                                        <th className="p-4 w-10"></th>
                                         <th className="p-4">コース名</th>
                                         <th className="p-4 w-20">時間</th>
                                         <th className="p-4 w-28">料金</th>
@@ -243,12 +268,18 @@ export function CourseManagementTab() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {courses.map((course) => (
+                                    {courses.map((course, index) => (
                                         <tr
                                             key={course.id}
-                                            className="hover:bg-slate-50/50 transition-colors"
+                                            className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, index)}
+                                            onDragOver={(e) => handleDragOver(e, index)}
+                                            onDragEnd={handleDragEnd}
                                         >
-                                            <td className="p-4 text-sm text-slate-600 font-medium">{course.display_order}</td>
+                                            <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                                                <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                                            </td>
                                             <td className="p-4 text-sm font-bold text-slate-800">{course.name}</td>
                                             <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
                                             <td className="p-4 text-sm font-bold text-slate-800">¥{course.base_price.toLocaleString()}</td>

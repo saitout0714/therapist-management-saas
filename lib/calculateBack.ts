@@ -125,6 +125,7 @@ export type BackCalculationResult = {
   businessDate: string
   appliedRate: number | null
   calcMethod: string
+  optionDetails?: { option_id: string | null; price: number; back: number }[]
 }
 
 // ============================================================
@@ -250,11 +251,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const [therapistOptBacksRes, optCategoriesRes] = await Promise.all([
     client.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
     optionIds.length > 0
-      ? client.from('options').select('id, back_category').in('id', optionIds)
-      : Promise.resolve({ data: [] as { id: string; back_category: string }[] }),
+      ? client.from('options').select('id, back_category, back_amount').in('id', optionIds)
+      : Promise.resolve({ data: [] as { id: string; back_category: string; back_amount?: number }[] }),
   ])
   const therapistOptBacks = (therapistOptBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]
   const optCategoryMap = new Map<string, string>((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
+  const optBackAmountMap = new Map<string, number>((optCategoriesRes.data || []).map((o: { id: string; back_amount?: number }) => [o.id, o.back_amount ?? 0]))
 
   const businessDate = resolveBusinessDate(
     input.date,
@@ -393,6 +395,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     } else if (input.courseBackAmount && input.courseBackAmount > 0) {
       courseBack = input.courseBackAmount
       calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
+    } else if (shopRule.course_back_amount != null && shopRule.course_back_amount > 0) {
+      courseBack = shopRule.course_back_amount
+      calcMethod = `店舗デフォルト固定額（¥${courseBack.toLocaleString()}）`
     } else {
       calcMethod = '固定額（未設定 → 0円）'
     }
@@ -433,10 +438,16 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 3: オプションバック額の算出
+  const optionDetails: { option_id: string | null; price: number; back: number }[] = []
+
   for (const opt of input.options) {
+    let currentOptBack = 0
+
     // カスタムオプション（手入力）: option_id がない場合は custom_back_amount をそのまま使用
     if (!opt.option_id) {
-      optionBack += opt.custom_back_amount || 0
+      currentOptBack = opt.custom_back_amount || 0
+      optionBack += currentOptBack
+      optionDetails.push({ option_id: null, price: opt.price, back: currentOptBack })
       continue
     }
 
@@ -446,7 +457,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       const optCat = optCategoryMap.get(opt.option_id) ?? 'その他'
       const therapistRate = resolveTherapistOptionRate(therapistOptBacks, optCat, input.designationType)
       if (therapistRate !== null) {
-        optionBack += applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        currentOptBack = applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        optionBack += currentOptBack
+        optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
         continue
       }
     }
@@ -457,28 +470,38 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     if (optRule) {
       switch (optRule.calc_type) {
         case 'full_back':
-          optionBack += opt.price
+          currentOptBack = opt.price
           break
         case 'percentage':
-          optionBack += applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
+          currentOptBack = applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
           break
         case 'fixed':
-          optionBack += optRule.back_amount || 0
+          currentOptBack = optRule.back_amount || 0
           break
       }
     } else {
       // 店舗デフォルト設定で計算
-      switch (shopRule.option_calc_type) {
-        case 'full_back':
-          optionBack += opt.price
-          break
-        case 'percentage':
-          optionBack += applyRounding(opt.price * shopRule.option_back_rate / 100, shopRule.rounding_method)
-          break
-        default:
-          optionBack += opt.price // フルバックにフォールバック
+      if (shopRule.option_calc_type === 'fixed') {
+        const itemBackAmount = optBackAmountMap.get(opt.option_id) ?? 0
+        currentOptBack = itemBackAmount
+      } else if (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null) {
+        currentOptBack = shopRule.option_back_amount
+      } else {
+        switch (shopRule.option_calc_type) {
+          case 'full_back':
+            currentOptBack = opt.price
+            break
+          case 'percentage':
+            currentOptBack = applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
+            break
+          default:
+            currentOptBack = opt.price // フルバックにフォールバック
+        }
       }
     }
+
+    optionBack += currentOptBack
+    optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
   }
 
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
@@ -491,6 +514,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       switch (shopRule.nomination_calc_type) {
         case 'full_back':
           nominationBack = nominationFeeForBack
+          break
+        case 'fixed':
+          nominationBack = shopRule.nomination_back_amount ?? 0
           break
         case 'percentage':
           const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
@@ -567,6 +593,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     businessDate,
     appliedRate: resolved.calcType === 'percentage' ? resolved.courseRate : null,
     calcMethod,
+    optionDetails,
   }
 }
 
@@ -756,11 +783,11 @@ async function fetchShopBackRule(shopId: string, client?: any): Promise<ShopBack
     course_calc_type: 'fixed' as const,
     course_back_rate: 0,
     course_back_amount: 0,
-    option_calc_type: 'full_back' as const,
-    option_back_rate: 100,
+    option_calc_type: 'fixed' as const,
+    option_back_rate: 0,
     option_back_amount: 0,
-    nomination_calc_type: 'full_back' as const,
-    nomination_back_rate: 100,
+    nomination_calc_type: 'fixed' as const,
+    nomination_back_rate: 0,
     nomination_back_amount: 0,
     rounding_method: 'floor' as const,
     business_day_cutoff: '06:00',

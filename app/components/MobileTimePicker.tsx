@@ -13,32 +13,74 @@ function WheelPicker({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrolling = useRef(false);
+  const isWarping = useRef(false);
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const itemHeight = 44; // px
+  const loops = 9; // 無限ループ用クローン数
+  const middleLoop = Math.floor(loops / 2);
+
+  // items を loops 回繰り返した配列を作成
+  // key が重複しないようにインデックスを付与する
+  const extendedItems = Array.from({ length: loops }, (_, loopIdx) =>
+    items.map((item) => ({
+      ...item,
+      key: `${loopIdx}-${item.value}`,
+    }))
+  ).flat();
 
   useEffect(() => {
+    if (items.length === 0) return;
     const index = items.findIndex((item) => item.value === value);
     if (index !== -1 && containerRef.current) {
-      const currentIndex = Math.round(containerRef.current.scrollTop / itemHeight);
-      if (currentIndex !== index && !isScrolling.current) {
-        // スクロール中でない場合のみ、外部からの値変更を反映する
-        containerRef.current.scrollTop = index * itemHeight;
+      // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+      const currentIndex = Math.round(containerRef.current.scrollTop / itemHeight) + 2;
+      const targetIndex = middleLoop * items.length + index;
+
+      // 現在のスクロール位置が中央ループの正しい位置と一致しない、かつスクロール中でない場合のみ同期する
+      if (currentIndex !== targetIndex && !isScrolling.current) {
+        isWarping.current = true;
+        // targetIndex の要素を中央に配置するため、-2 のオフセットを考慮
+        containerRef.current.scrollTop = (targetIndex - 2) * itemHeight;
       }
     }
-  }, [value, items]);
+  }, [value, items, middleLoop]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isWarping.current) {
+      isWarping.current = false;
+      return;
+    }
+
     isScrolling.current = true;
     if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      isScrolling.current = false;
-    }, 150);
 
     const target = e.target as HTMLDivElement;
-    const index = Math.round(target.scrollTop / itemHeight);
-    if (items[index] && items[index].value !== value) {
-      onChange(items[index].value);
+    // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+    const index = Math.round(target.scrollTop / itemHeight) + 2;
+    const originalIndex = index % items.length;
+    const selectedItem = items[originalIndex];
+
+    if (selectedItem && selectedItem.value !== value) {
+      onChange(selectedItem.value);
     }
+
+    scrollTimeout.current = setTimeout(() => {
+      isScrolling.current = false;
+
+      // スクロール停止時に、中央のループ位置に補正する
+      if (containerRef.current && items.length > 0) {
+        // 中央（3行目）に表示される項目のインデックスを計算するため、+2 のオフセットを考慮
+        const currIndex = Math.round(containerRef.current.scrollTop / itemHeight) + 2;
+        const origIdx = currIndex % items.length;
+        const targetIdx = middleLoop * items.length + origIdx;
+
+        if (currIndex !== targetIdx) {
+          isWarping.current = true;
+          // targetIdx の要素を中央に配置するため、-2 のオフセットを考慮
+          containerRef.current.scrollTop = (targetIdx - 2) * itemHeight;
+        }
+      }
+    }, 150);
   };
 
   return (
@@ -48,10 +90,9 @@ function WheelPicker({
       className="h-[220px] overflow-x-hidden overflow-y-scroll overscroll-none touch-pan-y snap-y snap-mandatory relative w-full flex flex-col items-center [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
-      <div style={{ minHeight: `${itemHeight * 2}px` }} className="w-full shrink-0" />
-      {items.map((item) => (
+      {extendedItems.map((item) => (
         <div
-          key={item.value}
+          key={item.key}
           style={{ height: `${itemHeight}px` }}
           className={`snap-center shrink-0 w-full flex items-center justify-center text-xl transition-all duration-200 select-none ${
             item.value === value ? 'text-slate-800 font-bold scale-110' : 'text-slate-300 font-medium'
@@ -60,7 +101,6 @@ function WheelPicker({
           {item.label}
         </div>
       ))}
-      <div style={{ minHeight: `${itemHeight * 2}px` }} className="w-full shrink-0" />
     </div>
   );
 }

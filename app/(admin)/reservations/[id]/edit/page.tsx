@@ -139,7 +139,7 @@ export default function EditReservationPage() {
     manual_therapist_burden: 0,
     notes: '',
     status: 'confirmed' as 'pending' | 'confirmed' | 'cancelled',
-    reception_source: 'staff' as 'staff' | 'client' | 'therapist',
+    reception_source: 'staff' as 'staff' | 'client' | 'therapist' | 'owner',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
     extension_payment_method: 'cash' as 'cash' | 'credit',
@@ -1390,9 +1390,12 @@ export default function EditReservationPage() {
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
                     className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >
-                    <option value="staff">スタッフ受付</option>
-                    <option value="client">顧客直接 (WEB等)</option>
-                    <option value="therapist">セラピスト直接</option>
+                    <option value="staff">mts</option>
+                    <option value="owner">オーナー</option>
+                    <option value="therapist">姫予約</option>
+                    {formData.reception_source === 'client' && (
+                      <option value="client">WEB予約</option>
+                    )}
                   </select>
                 </div>
                 <div className="flex items-end justify-end pb-1">

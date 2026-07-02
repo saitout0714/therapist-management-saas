@@ -15,6 +15,8 @@ export function middleware(request: NextRequest) {
   // 未認証の場合はログインページへリダイレクト
   if (!authUser) {
     const loginUrl = new URL('/login', request.url)
+    const redirectUrl = pathname + request.nextUrl.search
+    loginUrl.searchParams.set('redirect', redirectUrl)
     return NextResponse.redirect(loginUrl)
   }
 

@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../supabaseAdmin'
 export interface SiteConfig {
   name: string
   shopId: string
-  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima'
+  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima' | 'carezza'
   url_tpl: string
   container?: string
   box_selector?: string
@@ -56,6 +56,12 @@ export const SITES: SiteConfig[] = [
     shopId: '09807189-96f2-4ccc-b238-815bd9e579e7',
     type: 'queen_hiroshima',
     url_tpl: 'https://hiroshima-queen.com/schedule.php',
+  },
+  {
+    name: 'カレッツァ',
+    shopId: '75e69a2a-eaac-4d2f-91af-e7579c1a84ab',
+    type: 'carezza',
+    url_tpl: 'https://carezza.esthe-hp.com/scheduleAll.html',
   },
 ]
 
@@ -436,12 +442,75 @@ async function scrapeQueenHiroshima(site: SiteConfig, dateStr: string): Promise<
   return []
 }
 
+async function scrapeCarezza(site: SiteConfig, dateStr: string): Promise<any[]> {
+  // Get JST today date string YYYY-MM-DD
+  const todayStr = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()).replace(/\//g, '-')
+  
+  // Parse in local components to calculate difference safely
+  const partsT = todayStr.split('-').map(Number)
+  const partsD = dateStr.split('-').map(Number)
+  const dToday = new Date(partsT[0], partsT[1] - 1, partsT[2])
+  const dTarget = new Date(partsD[0], partsD[1] - 1, partsD[2])
+  
+  const diffTime = dTarget.getTime() - dToday.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const dayNum = diffDays
+  
+  if (dayNum < 0 || dayNum > 6) {
+    // Carezza scheduleAll.html only supports 7 days from today (dayNum 0 to 6)
+    return []
+  }
+
+  const url = `https://carezza.esthe-hp.com/ajax/getdayscheduleitemlist/dayNum/${dayNum}/nowPage/1/`
+  const $ = await fetchHtml(url)
+  
+  const results: any[] = []
+  let currentRoom = ''
+  
+  // Wrap the HTML inside a container div to safely iterate children
+  const container = cheerio.load(`<div>${$.html()}</div>`)('div').first()
+  
+  container.children().each((_, el) => {
+    const $el = $(el)
+    if ($el.hasClass('courseTitle')) {
+      currentRoom = $el.find('span').text().trim()
+    } else if ($el.is('ul')) {
+      $el.find('.scheduleData').each((_, li) => {
+        const $li = $(li)
+        const nameEl = $li.find('.itemName ruby')
+        if (!nameEl.length) return
+        const rawName = nameEl.text().trim()
+        
+        let timeText = ''
+        $li.find('.itmeTodaySchedule span').each((_, span) => {
+          timeText += $(span).text().trim() + ' '
+        })
+        timeText = timeText.trim()
+        
+        const timeRes = parseTime(timeText)
+        if (!timeRes) return
+        const [start, end] = timeRes
+        
+        results.push({ name: rawName, start, end, room: currentRoom })
+      })
+    }
+  })
+  
+  return results
+}
+
 const SCRAPERS: Record<string, (site: SiteConfig, dateStr: string) => Promise<any[]>> = {
   tsujido: scrapeTsujido,
   kokoro: scrapeKokoro,
   rosecafe: scrapeRosecafe,
   himitsuspa: scrapeHimitsuspa,
   queen_hiroshima: scrapeQueenHiroshima,
+  carezza: scrapeCarezza,
 }
 
 export async function syncScraperSite(
@@ -460,9 +529,13 @@ export async function syncScraperSite(
     return
   }
 
-  // Get current JST date (UTC + 9 hours)
-  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
-  const todayStr = today.toISOString().split('T')[0]
+  // Get current JST date (YYYY-MM-DD)
+  const todayStr = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()).replace(/\//g, '-')
 
   const parsedStart = new Date(dateStr)
   for (let offset = 0; offset < days; offset++) {

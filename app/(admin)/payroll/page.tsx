@@ -525,21 +525,32 @@ export default function PayrollPage() {
           if (res.reservation_options?.length > 0) {
             const customOpts = res.reservation_options.filter(o => !o.option_id)
             const systemOpts = res.reservation_options.filter(o => !!o.option_id)
-            const customBackTotal = customOpts.reduce((sum, o) => sum + (o.custom_back_amount || 0), 0)
-            const systemBackTotal = r.optionBack - customBackTotal
 
-            const systemOptsPrice = systemOpts.reduce((sum, o) => sum + o.price, 0)
-            systemOpts.forEach((o, i) => {
-              const isLast = i === systemOpts.length - 1
-              const optionBack = systemOptsPrice > 0
-                ? isLast
-                  ? systemBackTotal - systemOpts.slice(0, i).reduce((sum, prev) => sum + Math.round(prev.price / systemOptsPrice * systemBackTotal), 0)
-                  : Math.round(o.price / systemOptsPrice * systemBackTotal)
-                : 0
-              if (optionBack > 0) {
-                text += `  - ${o.option?.name || 'オプション'} ¥${optionBack.toLocaleString()}\n`
-              }
-            })
+            if (r.optionDetails && r.optionDetails.length > 0) {
+              systemOpts.forEach(o => {
+                const detail = r.optionDetails?.find(d => d.option_id === o.option_id)
+                const optionBack = detail ? detail.back : 0
+                if (optionBack > 0) {
+                  text += `  - ${o.option?.name || 'オプション'} ¥${optionBack.toLocaleString()}\n`
+                }
+              })
+            } else {
+              const customBackTotal = customOpts.reduce((sum, o) => sum + (o.custom_back_amount || 0), 0)
+              const systemBackTotal = r.optionBack - customBackTotal
+
+              const systemOptsPrice = systemOpts.reduce((sum, o) => sum + o.price, 0)
+              systemOpts.forEach((o, i) => {
+                const isLast = i === systemOpts.length - 1
+                const optionBack = systemOptsPrice > 0
+                  ? isLast
+                    ? systemBackTotal - systemOpts.slice(0, i).reduce((sum, prev) => sum + Math.round(prev.price / systemOptsPrice * systemBackTotal), 0)
+                    : Math.round(o.price / systemOptsPrice * systemBackTotal)
+                  : 0
+                if (optionBack > 0) {
+                  text += `  - ${o.option?.name || 'オプション'} ¥${optionBack.toLocaleString()}\n`
+                }
+              })
+            }
 
             customOpts.forEach(o => {
               const optionBack = o.custom_back_amount || 0

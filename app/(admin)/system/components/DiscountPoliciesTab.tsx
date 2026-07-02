@@ -12,6 +12,7 @@ type DiscountPolicy = {
   is_combinable: boolean
   max_per_reservation: number
   is_active: boolean
+  display_order: number
 }
 
 export function DiscountPoliciesTab() {
@@ -20,6 +21,7 @@ export function DiscountPoliciesTab() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<DiscountPolicy | null>(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [form, setForm] = useState({
     name: '',
     discount_value: 1000,
@@ -27,6 +29,7 @@ export function DiscountPoliciesTab() {
     is_combinable: false,
     max_per_reservation: 1,
     is_active: true,
+    display_order: 0,
   })
 
   async function fetchPolicies() {
@@ -36,13 +39,50 @@ export function DiscountPoliciesTab() {
       .from('discount_policies')
       .select('*')
       .eq('shop_id', selectedShop.id)
-      .order('created_at', { ascending: true })
+      .order('display_order', { ascending: true })
     if (!error) setPolicies((data as DiscountPolicy[]) || [])
     setLoading(false)
   }
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newPolicies = [...policies]
+    const draggedItem = newPolicies[draggedIndex]
+    newPolicies.splice(draggedIndex, 1)
+    newPolicies.splice(index, 0, draggedItem)
+
+    setDraggedIndex(index)
+    setPolicies(newPolicies)
+  }
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null)
+    if (!selectedShop) return
+
+    // Optimistically update display_order in local state
+    const updated = policies.map((policy, idx) => ({ ...policy, display_order: idx }))
+    setPolicies(updated)
+
+    const promises = policies.map((policy, idx) =>
+      supabase.from('discount_policies').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', policy.id)
+    )
+    const results = await Promise.all(promises)
+    const hasError = results.some(r => r.error)
+    if (hasError) {
+      alert('並び替え順の保存に失敗しました')
+      void fetchPolicies()
+    }
+  }
+
   const resetForm = () => {
-    setForm({ name: '', discount_value: 1000, therapist_burden_amount: 0, is_combinable: false, max_per_reservation: 1, is_active: true })
+    setForm({ name: '', discount_value: 1000, therapist_burden_amount: 0, is_combinable: false, max_per_reservation: 1, is_active: true, display_order: policies.length })
     setEditing(null)
     setShowForm(false)
   }
@@ -192,6 +232,7 @@ export function DiscountPoliciesTab() {
               <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead className="bg-slate-50">
                   <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
+                    <th className="p-4 w-10"></th>
                     <th className="p-4">割引名</th>
                     <th className="p-4 w-28">割引額</th>
                     <th className="p-4 w-32 text-indigo-600">デフォルト負担</th>
@@ -201,11 +242,18 @@ export function DiscountPoliciesTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {policies.map((p) => (
+                  {policies.map((p, index) => (
                     <tr
                       key={p.id}
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
                     >
+                      <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                        <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                      </td>
                       <td className="p-4 text-sm font-bold text-slate-800">{p.name}</td>
                       <td className="p-4 text-sm font-bold text-slate-800">¥{p.discount_value.toLocaleString()}</td>
                       <td className="p-4 text-sm font-bold text-indigo-700">
@@ -224,7 +272,7 @@ export function DiscountPoliciesTab() {
                           className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle"
                           onClick={() => {
                             setEditing(p)
-                            setForm({ name: p.name, discount_value: p.discount_value, therapist_burden_amount: p.therapist_burden_amount ?? 0, is_combinable: p.is_combinable, max_per_reservation: p.max_per_reservation, is_active: p.is_active })
+                            setForm({ name: p.name, discount_value: p.discount_value, therapist_burden_amount: p.therapist_burden_amount ?? 0, is_combinable: p.is_combinable, max_per_reservation: p.max_per_reservation, is_active: p.is_active, display_order: p.display_order })
                             setShowForm(true)
                           }}
                         >編集</button>

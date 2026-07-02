@@ -14,6 +14,7 @@ export function TherapistRankManagementTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [editingRank, setEditingRank] = useState<TherapistRank | null>(null)
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [formData, setFormData] = useState({ name: '', display_order: 0 })
 
     async function fetchRanks() {
@@ -27,6 +28,43 @@ export function TherapistRankManagementTab() {
         if (error) alert('データの取得に失敗しました')
         else setRanks((data as TherapistRank[]) || [])
         setLoading(false)
+    }
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index)
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault()
+        if (draggedIndex === null || draggedIndex === index) return
+
+        const newRanks = [...ranks]
+        const draggedItem = newRanks[draggedIndex]
+        newRanks.splice(draggedIndex, 1)
+        newRanks.splice(index, 0, draggedItem)
+
+        setDraggedIndex(index)
+        setRanks(newRanks)
+    }
+
+    const handleDragEnd = async () => {
+        setDraggedIndex(null)
+        if (!selectedShop) return
+
+        // Optimistically update display_order in local state
+        const updated = ranks.map((rank, idx) => ({ ...rank, display_order: idx }))
+        setRanks(updated)
+
+        const promises = ranks.map((rank, idx) =>
+            supabase.from('therapist_ranks').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', rank.id)
+        )
+        const results = await Promise.all(promises)
+        const hasError = results.some(r => r.error)
+        if (hasError) {
+            alert('並び替え順の保存に失敗しました')
+            void fetchRanks()
+        }
     }
 
     const resetForm = () => {
@@ -113,17 +151,7 @@ export function TherapistRankManagementTab() {
                             />
                         </div>
 
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-slate-600">表示順</label>
-                            <input
-                                type="number"
-                                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                                placeholder="表示順（小さい順）"
-                                value={formData.display_order}
-                                onChange={(e) => setFormData({ ...formData, display_order: Number(e.target.value) })}
-                                min={0}
-                            />
-                        </div>
+
                     </div>
 
                     {/* Footer Buttons */}
@@ -159,18 +187,24 @@ export function TherapistRankManagementTab() {
                         <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead className="bg-slate-50">
                                 <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                                    <th className="p-4 w-16 whitespace-nowrap">順序</th>
+                                    <th className="p-4 w-10 whitespace-nowrap"></th>
                                     <th className="p-4 whitespace-nowrap">ランク名</th>
                                     <th className="p-4 w-32 text-right whitespace-nowrap">操作</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {ranks.map((r) => (
+                                {ranks.map((r, index) => (
                                     <tr
                                         key={r.id}
-                                        className="hover:bg-slate-50/50 transition-colors"
+                                        className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, index)}
+                                        onDragOver={(e) => handleDragOver(e, index)}
+                                        onDragEnd={handleDragEnd}
                                     >
-                                        <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">{r.display_order}</td>
+                                        <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                                            <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                                        </td>
                                         <td className="p-4 text-sm font-bold text-slate-800 whitespace-nowrap">{r.name}</td>
                                         <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
                                             <button
