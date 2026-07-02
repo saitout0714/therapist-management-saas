@@ -62,6 +62,7 @@ interface Schedule {
   therapistNotified?: boolean;
   extensionMinutes?: number;
   availableCourses?: AvailableCourse[];
+  isOtherShop?: boolean;
 }
 
 interface TimeChartProps {
@@ -675,12 +676,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const isAvailable = schedule.type === 'available';
                 const isUnavailable = schedule.type === 'unavailable';
 
-                // 予約不可ブロック（えんじ色）
                 if (isBlocked) {
                   return (
                     <div
                       key={`schedule-${idx}`}
-                      className="absolute flex items-center justify-center overflow-hidden cursor-pointer"
+                      className={`absolute overflow-hidden cursor-pointer pointer-events-auto transition-transform hover:-translate-y-0.5 hover:z-20 hover:shadow-lg ${
+                        schedule.isOtherShop
+                          ? 'rounded-lg px-2 flex flex-col justify-center'
+                          : 'flex items-center justify-center'
+                      }`}
                       style={{
                         top: `${top}px`,
                         left: `${startPixels + 2}px`,
@@ -689,7 +693,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         borderRadius: '10px',
                         background: 'repeating-linear-gradient(45deg, rgba(153,0,30,0.75), rgba(153,0,30,0.75) 5px, rgba(180,20,50,0.55) 5px, rgba(180,20,50,0.55) 10px)',
                         border: '1.5px solid rgba(120,0,20,0.9)',
-                        pointerEvents: 'auto',
+                        color: 'white',
                       }}
                       title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                       onClick={(e) => {
@@ -699,20 +703,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         }
                       }}
                     >
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        color: 'rgba(255,230,230,0.95)',
-                        whiteSpace: 'nowrap',
-                        letterSpacing: '0.02em',
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        padding: '0 6px',
-                        textShadow: '0 1px 2px rgba(80,0,10,0.7)',
-                      }}>
-                        {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
-                      </span>
+                      {schedule.isOtherShop ? (
+                        <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5 text-left">
+                          {/* Row 1: Time */}
+                          <div className="text-[10px] font-medium text-rose-100/90 leading-none">
+                            <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                          </div>
+                          {/* Row 2: Name */}
+                          <div className="flex items-center justify-start gap-1 min-w-0">
+                            <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
+                              {schedule.customerName || schedule.title}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: 'rgba(255,230,230,0.95)',
+                          whiteSpace: 'nowrap',
+                          letterSpacing: '0.02em',
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          padding: '0 6px',
+                          textShadow: '0 1px 2px rgba(80,0,10,0.7)',
+                        }}>
+                          {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
+                        </span>
+                      )}
                     </div>
                   );
                 }

@@ -74,6 +74,7 @@ interface Schedule {
   therapistNotified?: boolean;
   extensionMinutes?: number;
   availableCourses?: AvailableCourse[];
+  isOtherShop?: boolean;
 }
 
 interface VerticalTimeChartProps {
@@ -637,12 +638,15 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   const isAvailable = schedule.type === 'available';
                   const isUnavailable = schedule.type === 'unavailable';
 
-                  // 1. Blocked slot
                   if (isBlocked) {
                     return (
                       <div
                         key={`schedule-${idx}`}
-                        className="absolute flex items-center justify-center overflow-hidden cursor-pointer pointer-events-auto shadow-sm hover:shadow-md hover:z-20 transition-all"
+                        className={`absolute overflow-hidden cursor-pointer pointer-events-auto shadow-sm hover:shadow-md hover:z-20 transition-all ${
+                          schedule.isOtherShop
+                            ? 'rounded-lg px-2 flex flex-col justify-start'
+                            : 'flex items-center justify-center'
+                        }`}
                         style={{
                           top: `${top + 1}px`,
                           left: `${left}px`,
@@ -651,6 +655,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           borderRadius: '6px',
                           background: 'repeating-linear-gradient(45deg, rgba(153,0,30,0.75), rgba(153,0,30,0.75) 5px, rgba(180,20,50,0.55) 5px, rgba(180,20,50,0.55) 10px)',
                           border: '1px solid rgba(120,0,20,0.9)',
+                          color: 'white',
                         }}
                         title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                         onClick={(e) => {
@@ -661,9 +666,24 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           }
                         }}
                       >
-                        <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
-                          {schedule.customerName || schedule.title || '予約不可'}
-                        </span>
+                        {schedule.isOtherShop ? (
+                          <div className="w-full h-full flex flex-col justify-start gap-1 overflow-hidden py-1.5 text-left">
+                            {/* Row 1: Time */}
+                            <div className="text-[10px] font-medium text-rose-100/90 leading-none">
+                              <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                            </div>
+                            {/* Row 2: Name */}
+                            <div className="flex items-start justify-start gap-1 min-w-0">
+                              <span className="font-bold text-[13px] text-white leading-tight break-all drop-shadow-sm">
+                                {schedule.customerName || schedule.title}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
+                            {schedule.customerName || schedule.title || '予約不可'}
+                          </span>
+                        )}
                       </div>
                     );
                   }

@@ -44,6 +44,7 @@ interface Reservation {
   customer_notified?: boolean;
   therapist_notified?: boolean;
   extension_count?: number;
+  shop_id?: string;
 }
 
 interface Room {
@@ -1077,6 +1078,7 @@ function ShiftsContent() {
         type: 'blocked' as const,
         reservationId: reservation.id,
         notes: reservation.notes || undefined,
+        isOtherShop: reservation.shop_id !== selectedShop?.id,
       })),
     ...(() => {
       const intervalSchedules: Schedule[] = [];
