@@ -18,6 +18,7 @@ const SITES: SiteConfig[] = [
   { name: 'アーバンスパ', label: 'アーバンスパ (urbanspa.jp)' },
   { name: '新宿秘密妻', label: '新宿秘密妻 (himitsuma.com)' },
   { name: 'クイーン広島', label: 'クイーン広島 (hiroshima-queen.com)' },
+  { name: 'カレッツァ', label: 'カレッツァ (carezza.esthe-hp.com)' },
 ]
 
 interface ShopConfig {

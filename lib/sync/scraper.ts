@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../supabaseAdmin'
 export interface SiteConfig {
   name: string
   shopId: string
-  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima'
+  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima' | 'carezza'
   url_tpl: string
   container?: string
   box_selector?: string
@@ -56,6 +56,12 @@ export const SITES: SiteConfig[] = [
     shopId: '09807189-96f2-4ccc-b238-815bd9e579e7',
     type: 'queen_hiroshima',
     url_tpl: 'https://hiroshima-queen.com/schedule.php',
+  },
+  {
+    name: 'カレッツァ',
+    shopId: '75e69a2a-eaac-4d2f-91af-e7579c1a84ab',
+    type: 'carezza',
+    url_tpl: 'https://carezza.esthe-hp.com/scheduleAll.html',
   },
 ]
 
@@ -436,12 +442,65 @@ async function scrapeQueenHiroshima(site: SiteConfig, dateStr: string): Promise<
   return []
 }
 
+async function scrapeCarezza(site: SiteConfig, dateStr: string): Promise<any[]> {
+  // Get JST today
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
+  const todayStr = today.toISOString().split('T')[0]
+  
+  const diffTime = new Date(dateStr).getTime() - new Date(todayStr).getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const dayNum = diffDays + 1
+  
+  if (dayNum < 1 || dayNum > 7) {
+    // Carezza scheduleAll.html only supports 7 days from today
+    return []
+  }
+
+  const url = `https://carezza.esthe-hp.com/ajax/getdayscheduleitemlist/dayNum/${dayNum}/nowPage/1/`
+  const $ = await fetchHtml(url)
+  
+  const results: any[] = []
+  let currentRoom = ''
+  
+  // Wrap the HTML inside a container div to safely iterate children
+  const container = cheerio.load(`<div>${$.html()}</div>`)('div').first()
+  
+  container.children().each((_, el) => {
+    const $el = $(el)
+    if ($el.hasClass('courseTitle')) {
+      currentRoom = $el.find('span').text().trim()
+    } else if ($el.is('ul')) {
+      $el.find('.scheduleData').each((_, li) => {
+        const $li = $(li)
+        const nameEl = $li.find('.itemName ruby')
+        if (!nameEl.length) return
+        const rawName = nameEl.text().trim()
+        
+        let timeText = ''
+        $li.find('.itmeTodaySchedule span').each((_, span) => {
+          timeText += $(span).text().trim() + ' '
+        })
+        timeText = timeText.trim()
+        
+        const timeRes = parseTime(timeText)
+        if (!timeRes) return
+        const [start, end] = timeRes
+        
+        results.push({ name: rawName, start, end, room: currentRoom })
+      })
+    }
+  })
+  
+  return results
+}
+
 const SCRAPERS: Record<string, (site: SiteConfig, dateStr: string) => Promise<any[]>> = {
   tsujido: scrapeTsujido,
   kokoro: scrapeKokoro,
   rosecafe: scrapeRosecafe,
   himitsuspa: scrapeHimitsuspa,
   queen_hiroshima: scrapeQueenHiroshima,
+  carezza: scrapeCarezza,
 }
 
 export async function syncScraperSite(
