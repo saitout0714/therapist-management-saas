@@ -32,6 +32,7 @@ export default function NewRoomPage() {
   const [formData, setFormData] = useState({
     name: '',
     display_name: '',
+    address: '',
     google_map_url: '',
     memo: '',
     template_member: '',
@@ -70,6 +71,7 @@ export default function NewRoomPage() {
       {
         name: formData.name,
         display_name: formData.display_name || null,
+        address: formData.address || null,
         google_map_url: formData.google_map_url || null,
         memo: formData.memo || null,
         template_member: formData.template_member || null,
@@ -145,18 +147,33 @@ export default function NewRoomPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  GoogleマップURL <span className="text-xs text-slate-400 font-normal">スタッフがスケジュール画面からワンクリックで開けます</span>
-                </label>
-                <input
-                  type="url"
-                  name="google_map_url"
-                  value={formData.google_map_url}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                  placeholder="https://maps.app.goo.gl/..."
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    住所
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 東京都新宿区新宿X-X-X"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    GoogleマップURL <span className="text-xs text-slate-400 font-normal">スタッフがワンクリックで開けます</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="google_map_url"
+                    value={formData.google_map_url}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="https://maps.app.goo.gl/..."
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">

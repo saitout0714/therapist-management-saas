@@ -89,6 +89,8 @@ interface Therapist {
   room?: string;
   roomMemo?: string | null;
   roomMapUrl?: string | null;
+  roomDisplayName?: string | null;
+  roomAddress?: string | null;
   age?: number | null;
   height?: number | null;
   bust?: number | null;
@@ -676,7 +678,7 @@ function ShiftsContent() {
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, room_id, rooms(name, memo, google_map_url), start_time, end_time, notes')
+        .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
@@ -685,7 +687,7 @@ function ShiftsContent() {
         return;
       }
 
-      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; memo?: string | null; google_map_url?: string | null } | null }>();
+      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; display_name?: string | null; address?: string | null; memo?: string | null; google_map_url?: string | null } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
@@ -705,6 +707,8 @@ function ShiftsContent() {
           room: shift?.rooms?.name,
           roomMemo: shift?.rooms?.memo ?? null,
           roomMapUrl: shift?.rooms?.google_map_url ?? null,
+          roomDisplayName: shift?.rooms?.display_name ?? null,
+          roomAddress: shift?.rooms?.address ?? null,
           age: therapist.age ?? null,
           height: therapist.height ?? null,
           bust: therapist.bust ?? null,
