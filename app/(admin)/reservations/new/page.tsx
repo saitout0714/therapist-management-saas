@@ -16,6 +16,7 @@ type Customer = {
   status?: string
   ng_reason?: string | null
   memo?: string | null
+  created_at?: string
 }
 
 type Course = {
@@ -143,6 +144,7 @@ export default function NewReservationPage() {
     extension_payment_method: 'cash' as 'cash' | 'credit',
     is_hime: false,
     hime_bonus: 0,
+    customer_type_override: 'new' as 'new' | 'member',
   })
 
   const [fromPage, setFromPage] = useState<string | null>(null)
@@ -330,7 +332,7 @@ export default function NewReservationPage() {
     if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
@@ -842,6 +844,7 @@ export default function NewReservationPage() {
           credit_fee_amount: calculatedPrice.creditFeeAmount,
           is_hime: formData.is_hime,
           hime_bonus: formData.is_hime ? formData.hime_bonus : 0,
+          customer_type_override: formData.customer_type_override,
         }])
         .select()
 
@@ -1060,7 +1063,8 @@ export default function NewReservationPage() {
                             type="button"
                             onClick={() => {
                               setSelectedCustomerObj(customer)
-                              setFormData({ ...formData, customer_id: customer.id })
+                              const isNew = new Date(customer.created_at || new Date()).toDateString() === new Date().toDateString()
+                              setFormData({ ...formData, customer_id: customer.id, customer_type_override: isNew ? 'new' : 'member' })
                               setCustomerSearch(customer.phone || '')
                             }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
@@ -1147,6 +1151,37 @@ export default function NewReservationPage() {
                   </div>
                 </div>
               )}
+
+              {/* 顧客区分（新規/会員）の選択 */}
+              <div className="mb-4 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">
+                  予約カード上の顧客区分表示
+                </label>
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customer_type_override"
+                      value="new"
+                      checked={formData.customer_type_override === 'new'}
+                      onChange={() => setFormData({ ...formData, customer_type_override: 'new' })}
+                      className="accent-emerald-600"
+                    />
+                    <span className="text-xs text-slate-700">新規</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customer_type_override"
+                      value="member"
+                      checked={formData.customer_type_override === 'member'}
+                      onChange={() => setFormData({ ...formData, customer_type_override: 'member' })}
+                      className="accent-emerald-600"
+                    />
+                    <span className="text-xs text-slate-700">会員</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </section>
 
