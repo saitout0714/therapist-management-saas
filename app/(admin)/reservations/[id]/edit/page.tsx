@@ -41,6 +41,7 @@ type Therapist = {
   rank_id: string | null
   back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
   therapist_ranks?: { name: string } | null
+  ng_course_ids?: string[]
 }
 
 type DesignationTypeItem = {
@@ -235,7 +236,7 @@ export default function EditReservationPage() {
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
@@ -1072,7 +1073,12 @@ export default function EditReservationPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 items-end">
                 <div className="flex-1">
-                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">コース <span className="text-rose-500">*</span></label>
+                  <div className="flex justify-between items-end mb-1">
+                    <label className="block text-[11px] sm:text-xs font-semibold text-slate-500">コース <span className="text-rose-500">*</span></label>
+                    {therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids && therapists.find(t => t.id === formData.therapist_id)!.ng_course_ids!.length > 0 && (
+                      <span className="text-[10px] text-rose-500 font-bold bg-rose-50 px-1.5 py-0.5 rounded">※対応不可(NG)コースあり</span>
+                    )}
+                  </div>
                   <select
                     value={formData.course_id}
                     onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
@@ -1080,11 +1086,14 @@ export default function EditReservationPage() {
                     required
                   >
                     <option value="">選択してください</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
-                      </option>
-                    ))}
+                    {courses.map(course => {
+                      const isNg = therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids?.includes(course.id)
+                      return (
+                        <option key={course.id} value={course.id} disabled={isNg} style={isNg ? { color: '#dc2626', backgroundColor: '#fef2f2' } : {}}>
+                          {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}{isNg ? ' (NG)' : ''}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
 

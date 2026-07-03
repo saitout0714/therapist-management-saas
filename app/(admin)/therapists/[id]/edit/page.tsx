@@ -28,6 +28,7 @@ export default function EditTherapistPage() {
     rank_id: "",
     reservation_interval_minutes: "",
     is_active: true,
+    ng_course_ids: [] as string[],
   });
   const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -41,6 +42,7 @@ export default function EditTherapistPage() {
   const [designationTypes, setDesignationTypes] = useState<{ slug: string; display_name: string }[]>([]);
   // Matrix key: `${category}||${desig_slug}` where desig_slug = '__all__' for 全種別共通
   const [optionBackMatrix, setOptionBackMatrix] = useState<Record<string, string>>({});
+  const [courses, setCourses] = useState<{ id: string, name: string, duration: number }[]>([]);
 
   // 引き継ぎメモ
   interface TherapistMemo {
@@ -177,8 +179,8 @@ export default function EditTherapistPage() {
           .or(`shop_id_1.eq.${therapist.shop_id},shop_id_2.eq.${therapist.shop_id}`);
         const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === therapist.shop_id ? l.shop_id_2 : l.shop_id_1);
 
-        // Fetch ranks, fees, option data in parallel
-        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes] = await Promise.all([
+        // Fetch ranks, fees, option data, courses in parallel
+        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes, coursesRes] = await Promise.all([
           supabase.from("therapist_ranks").select("id, name").eq("shop_id", therapist.shop_id).order("display_order"),
           supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
           supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
@@ -187,11 +189,13 @@ export default function EditTherapistPage() {
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
           linkedShopIds.length > 0
             ? supabase.from("therapists").select("id, name, shop_id, shops(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
-            : Promise.resolve({ data: [] })
+            : Promise.resolve({ data: [] }),
+          supabase.from("courses").select("id, name, duration").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order")
         ]);
 
         setRanks(ranksRes.data || []);
         setNominationFees(feesRes.data || []);
+        setCourses(coursesRes.data || []);
 
         const otherTherapists = (otherTherapistsRes.data || []) as any[];
         setAllOtherTherapists(otherTherapists);
@@ -241,6 +245,7 @@ export default function EditTherapistPage() {
             ? String(therapist.reservation_interval_minutes)
             : "",
           is_active: therapist.is_active !== false,
+          ng_course_ids: therapist.ng_course_ids || [],
         });
         // 写真一覧を取得
         const { data: photoData } = await supabase
@@ -380,6 +385,15 @@ export default function EditTherapistPage() {
       setError("保存に失敗しました: " + updateError.message);
       setLoading(false);
       return;
+    }
+
+    // ng_course_ids を別途保存（未マイグレーション対策）
+    const { error: ngCourseError } = await supabase
+      .from("therapists")
+      .update({ ng_course_ids: profile.ng_course_ids })
+      .eq("id", therapistId);
+    if (ngCourseError) {
+      console.warn("ng_course_idsの保存をスキップ（DBマイグレーション未適用の可能性）:", ngCourseError.message);
     }
 
     // インターバル列を別途保存（DB未マイグレーションでも他フィールドは守る）
@@ -896,6 +910,59 @@ export default function EditTherapistPage() {
                     <div className="text-sm text-slate-500 py-2">システム設定から指名料マスタを登録してください。</div>
                   )}
                 </div>
+              </div>
+
+              {/* NGコース設定 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  NGコース設定
+                </h3>
+                <p className="text-xs text-slate-400">
+                  このセラピストが対応できない（NG）コースを選択します。チェックを入れたコースは予約時に選択できなくなります。
+                </p>
+                {courses.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-2">有効なコースが登録されていません。</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {courses.map((course) => (
+                      <label
+                        key={course.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                          profile.ng_course_ids.includes(course.id)
+                            ? 'bg-red-50/50 border-red-200'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={profile.ng_course_ids.includes(course.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setProfile({ ...profile, ng_course_ids: [...profile.ng_course_ids, course.id] });
+                              } else {
+                                setProfile({ ...profile, ng_course_ids: profile.ng_course_ids.filter(id => id !== course.id) });
+                              }
+                            }}
+                            className="peer sr-only"
+                          />
+                          <div className="w-5 h-5 rounded border border-slate-300 bg-white peer-checked:bg-red-500 peer-checked:border-red-500 transition-colors flex items-center justify-center">
+                            <svg className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-medium ${profile.ng_course_ids.includes(course.id) ? 'text-red-700' : 'text-slate-700'}`}>
+                            {course.name}
+                          </span>
+                          <span className="text-xs text-slate-500">{course.duration}分</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* オプションバック設定 */}
