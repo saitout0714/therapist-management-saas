@@ -129,6 +129,7 @@ export default function ReservationPreviewPage() {
   const [googleCalendarId, setGoogleCalendarId] = useState<string | null>(null)
   const [therapistTemplate, setTherapistTemplate] = useState<string | null>(null)
   const [customerTemplate, setCustomerTemplate] = useState<string | null>(null)
+  const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -214,13 +215,14 @@ export default function ReservationPreviewPage() {
       // 5. Fetch credit_payment_url from system_settings
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('credit_payment_url, google_calendar_id, therapist_template, customer_template')
+        .select('credit_payment_url, google_calendar_id, therapist_template, customer_template, extension_unit_minutes')
         .eq('shop_id', selectedShop.id)
         .maybeSingle()
       setCreditPaymentUrl(settingsData?.credit_payment_url || null)
       setGoogleCalendarId(settingsData?.google_calendar_id || null)
       setTherapistTemplate(settingsData?.therapist_template || null)
       setCustomerTemplate(settingsData?.customer_template || null)
+      setExtensionUnitMinutes(settingsData?.extension_unit_minutes || 30)
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -370,6 +372,12 @@ export default function ReservationPreviewPage() {
       : (roomInfo?.template_member || roomInfo?.template_new_customer)
     const directionsText = roomTemplate ? roomTemplate.trim() : ''
 
+    const extensionPrice = reservation.extension_count > 0
+      ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
+      : 0
+    const extMinutesVal = reservation.extension_count > 0 ? `${reservation.extension_count * extensionUnitMinutes}分` : ''
+    const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
+
     if (customerTemplate) {
       let finalTemplate = customerTemplate
         .replace(/\[日付\]/g, dateVal)
@@ -389,6 +397,20 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      // 延長がない場合は、[延長時間]タグが含まれる行全体を削除する
+      if (!extMinutesVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[延長時間\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[延長時間\]/g, extMinutesVal)
+      }
+
+      // 延長料金がない場合は、[延長料金]タグが含まれる行全体を削除する
+      if (!extPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[延長料金\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[延長料金\]/g, extPriceVal)
+      }
 
       // 割引がない場合は、[割引]タグが含まれる行全体を削除する
       if (!discountsText) {
@@ -437,6 +459,9 @@ export default function ReservationPreviewPage() {
     // コース（コース名＋料金、オプションも各行）
     text += `■ コース\n`
     text += `${courseNameVal} ${coursePriceVal}\n`
+    if (reservation.extension_count > 0) {
+      text += `延長 +${reservation.extension_count * extensionUnitMinutes}分 (+${extensionPrice.toLocaleString()}円)\n`
+    }
     if (optionsText) {
       text += optionsText.replace('■ オプション\n', '') + '\n'
     }
@@ -456,6 +481,9 @@ export default function ReservationPreviewPage() {
     // お支払い予定金額
     text += `\n■ お支払い予定金額\n`
     text += `基本料金：${coursePriceVal}\n`
+    if (reservation.extension_count > 0) {
+      text += `延長料金：${extensionPrice.toLocaleString()}円\n`
+    }
     if (reservation.options_price > 0) {
       text += `オプション：${reservation.options_price.toLocaleString()}円\n`
     }
@@ -532,6 +560,12 @@ export default function ReservationPreviewPage() {
       notesText = `■ ${label}\n${reservation.notes}`
     }
 
+    const extensionPrice = reservation.extension_count > 0
+      ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
+      : 0
+    const extMinutesVal = reservation.extension_count > 0 ? `${reservation.extension_count * extensionUnitMinutes}分` : ''
+    const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
+
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
     if (therapistTemplate) {
       const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
@@ -568,6 +602,20 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      // 延長がない場合は、[延長時間]タグが含まれる行全体を削除する
+      if (!extMinutesVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[延長時間\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[延長時間\]/g, extMinutesVal)
+      }
+
+      // 延長料金がない場合は、[延長料金]タグが含まれる行全体を削除する
+      if (!extPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[延長料金\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[延長料金\]/g, extPriceVal)
+      }
 
       // 割引がない場合は、[割引]タグが含まれる行全体を削除する
       if (!discountsText) {
@@ -607,7 +655,11 @@ export default function ReservationPreviewPage() {
 
     // コース（時間 ￥料金）
     text += `■ コース\n`
-    text += `${reservation.courses?.duration || 0}分 ${displayBasePrice.toLocaleString()}円\n\n`
+    text += `${reservation.courses?.duration || 0}分 ${displayBasePrice.toLocaleString()}円\n`
+    if (reservation.extension_count > 0) {
+      text += `延長 +${reservation.extension_count * extensionUnitMinutes}分 (+${extensionPrice.toLocaleString()}円)\n`
+    }
+    text += `\n`
 
     // 指名（指名タイプ ￥指名料）
     text += `■ 指名\n`
