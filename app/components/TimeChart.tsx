@@ -835,12 +835,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         return (
                           <div
                             key={`course-badge-${idx}-${cIdx}`}
-                            className="absolute pointer-events-none text-slate-400 select-none text-[8.5px] font-extrabold leading-none"
+                            className="absolute pointer-events-none select-none text-[8.5px] font-extrabold leading-none px-1 py-0.5 rounded border"
                             style={{
                               bottom: `${bottomOffset}px`,
                               left: `${relativeLeft}px`,
                               whiteSpace: 'nowrap',
                               zIndex: 15 + step,
+                              backgroundColor: c.color || '#f1f5f9',
+                              borderColor: c.borderColor || '#cbd5e1',
+                              color: c.textColor || '#475569',
                             }}
                             title={c.label}
                           >
