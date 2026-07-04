@@ -731,7 +731,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           return (
                             <div
                               key={`course-badge-${idx}-${cIdx}`}
-                              className="absolute cursor-pointer pointer-events-auto transition-all select-none px-1 py-0.5 rounded border text-xs"
+                              className="absolute cursor-pointer pointer-events-auto text-slate-400 hover:text-slate-600 transition-all select-none"
                               style={{
                                 top: `${barTop + 1}px`,
                                 left: `${left + 4}px`,
@@ -741,10 +741,9 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                                 whiteSpace: 'nowrap',
                                 textOverflow: 'ellipsis',
                                 overflow: 'hidden',
-                                textAlign: 'center',
+                                textAlign: 'right',
+                                paddingRight: '4px',
                                 zIndex: 14,
-                                backgroundColor: c.color || '#f1f5f9',
-                                borderColor: c.borderColor || '#cbd5e1',
                                 color: c.textColor || '#475569',
                               }}
                               title={`${c.label}\nクリックで予約`}
