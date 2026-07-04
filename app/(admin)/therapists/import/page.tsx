@@ -69,6 +69,8 @@ function matchRank(extracted: string | null | undefined, ranks: ShopRank[]): str
   return partial?.id ?? null
 }
 
+const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '').replace(/　/g, '')
+
 export default function ImportTherapistsPage() {
   const router = useRouter()
   const { selectedShop } = useShop()
@@ -162,13 +164,13 @@ export default function ImportTherapistsPage() {
           supabase.from('therapists').select('name').eq('shop_id', selectedShop.id),
           supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
         ])
-        if (existingRes.data) existingNames = new Set(existingRes.data.map((t: { name: string }) => t.name.trim().toLowerCase()))
+        if (existingRes.data) existingNames = new Set(existingRes.data.map((t: { name: string }) => normalizeName(t.name)))
         ranks = (ranksRes.data || []) as ShopRank[]
         setShopRanks(ranks)
       }
 
       const filtered = list
-        .filter(t => !existingNames.has(t.name.trim().toLowerCase()))
+        .filter(t => !existingNames.has(normalizeName(t.name)))
         .map(t => ({ ...t, rank_id: matchRank(t.rank, ranks) }))
 
       setDuplicateCount(list.length - filtered.length)
@@ -301,9 +303,6 @@ export default function ImportTherapistsPage() {
   }
 
   // ===== 写真補完モード =====
-
-  // 名前正規化（スペース除去・小文字化）
-  const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '').replace(/　/g, '')
 
   const handlePhotoScrape = async () => {
     if (!selectedShop) { setPhotoScrapeError('店舗を選択してください'); return }
