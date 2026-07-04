@@ -1222,12 +1222,12 @@ export default function NewReservationPage() {
                     選択した日付に出勤セラピストがいません
                   </p>
                 )}
-                {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
+                 {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
                   <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
                     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
-                    <span className="font-bold">このセラピストはお客様のNGリストに登録されています。</span>
+                    <span className="font-bold">このお客様は{therapists.find(t => t.id === formData.therapist_id)?.name || ''}さんNGです！</span>
                   </div>
                 )}
               </div>
