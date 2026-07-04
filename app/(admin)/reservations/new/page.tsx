@@ -307,7 +307,7 @@ export default function NewReservationPage() {
       const normalized = q.replace(/-/g, '')
       const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason, memo')
+        .select('id, name, email, phone, status, ng_reason, memo, created_at')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')

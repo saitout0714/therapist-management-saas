@@ -200,7 +200,7 @@ export default function EditReservationPage() {
       const normalized = q.replace(/-/g, '')
       const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason, memo')
+        .select('id, name, email, phone, status, ng_reason, memo, created_at')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
@@ -292,7 +292,7 @@ export default function EditReservationPage() {
       if (reservation.customer_id) {
         const { data: customerData } = await supabase
           .from('customers')
-          .select('id, name, email, phone, status, ng_reason, memo')
+          .select('id, name, email, phone, status, ng_reason, memo, created_at')
           .eq('id', reservation.customer_id)
           .single()
         if (customerData) {
