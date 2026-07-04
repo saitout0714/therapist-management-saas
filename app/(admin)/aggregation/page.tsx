@@ -337,7 +337,7 @@ interface CalculatedReservation extends ReservationWithDetails {
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">店舗集計レポート</h1>
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight">集計レポート</h1>
             <div className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-mono text-slate-600 shadow-sm">
               {periodStr || '---'}
             </div>
