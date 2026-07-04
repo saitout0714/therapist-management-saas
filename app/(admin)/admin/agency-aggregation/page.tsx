@@ -137,38 +137,38 @@ export default function AgencyAggregationPage() {
   }, [shops, reservations, selectedMonth])
 
   return (
-    <div className="bg-slate-50 min-h-screen p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="bg-slate-50 min-h-screen p-1.5 md:p-3">
+      <div className="w-full max-w-full space-y-3">
         
         {/* ヘッダーセクション */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-row items-center justify-between gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200/60 shadow-sm">
+          <div className="flex items-center gap-2">
             <Link
               href="/admin"
-              className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all shadow-sm"
+              className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-100 transition-all"
               title="店舗管理に戻る"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">代行プラン集計</h1>
-              <p className="text-xs text-slate-500 mt-0.5">mtsが代理受付した予約（代行予約）を店舗ごとに日次集計します（20日締め固定）。</p>
+              <h1 className="text-base font-black text-slate-800 tracking-tight leading-none">代行プラン集計</h1>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">mts代理受付の予約（代行予約）日次集計（20日締め固定）</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <input 
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all text-sm font-bold text-slate-700 shadow-sm"
+              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all text-xs font-bold text-slate-700 cursor-pointer"
             />
             <button 
               onClick={fetchData}
               disabled={loading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 text-sm"
+              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-all shadow-sm active:scale-95 disabled:opacity-50 text-xs"
             >
               更新
             </button>
@@ -176,79 +176,71 @@ export default function AgencyAggregationPage() {
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
             {error}
           </div>
         )}
 
-        {/* 概要カード */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm">
-            <span className="text-[10px] text-slate-400 font-bold block mb-1 uppercase tracking-wider">総代行予約件数</span>
-            <span className="text-2xl font-bold text-indigo-600 font-mono">
-              {matrixData?.grandTotal || 0} <span className="text-xs font-bold text-slate-500">件</span>
-            </span>
+        {/* 概要インフォバー (省スペース化) */}
+        {matrixData && (
+          <div className="flex flex-wrap items-center gap-4 bg-white px-3 py-2 rounded-xl border border-slate-200/60 shadow-sm text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 font-bold">総代行予約数:</span>
+              <span className="font-bold text-indigo-600 font-mono text-sm">{matrixData.grandTotal} 件</span>
+            </div>
+            <div className="h-3 w-px bg-slate-200 hidden sm:block"></div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 font-bold">集計対象店舗数:</span>
+              <span className="font-bold text-slate-700 font-mono text-sm">{shops.length} 店舗</span>
+            </div>
+            <div className="h-3 w-px bg-slate-200 hidden md:block"></div>
+            <div className="text-[10px] font-mono font-bold text-slate-500 bg-slate-50 border border-slate-100 rounded px-2 py-0.5 ml-auto">
+              集計期間: {matrixData.periodStr}
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm">
-            <span className="text-[10px] text-slate-400 font-bold block mb-1 uppercase tracking-wider">集計対象店舗数</span>
-            <span className="text-2xl font-bold text-slate-700 font-mono">
-              {shops.length} <span className="text-xs font-bold text-slate-500">店舗</span>
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* 集計テーブル表示 */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm font-bold text-slate-500">集計しています...</span>
+          <div className="flex flex-col items-center justify-center py-16 gap-2">
+            <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs font-bold text-slate-500 animate-pulse">集計しています...</span>
           </div>
         ) : !matrixData ? (
-          <div className="bg-white p-12 text-center rounded-2xl border border-slate-200/60 shadow-sm text-slate-400 font-medium text-sm">
+          <div className="bg-white p-8 text-center rounded-xl border border-slate-200/60 shadow-sm text-slate-400 font-medium text-xs">
             集計データが存在しません。年月を変更してください。
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden animate-in fade-in duration-200">
             
-            {/* グループヘッダー */}
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-indigo-500"></span>
-                <h3 className="font-bold text-slate-800 text-sm">クライアント別件数表 (20日締め)</h3>
-              </div>
-              <div className="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-inner">
-                集計期間: {matrixData.periodStr}
-              </div>
-            </div>
-
             {/* スプレッドシートマトリクステーブル */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
+              <table className="w-full text-left border-collapse min-w-full">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="px-4 py-3 border-r border-slate-100/60 text-center w-28">日付</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-tight">
+                    <th className="px-2 py-1.5 border-r border-slate-200 text-center w-20 whitespace-nowrap bg-slate-50 font-bold sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">日付</th>
                     {shops.map(shop => (
-                      <th key={shop.id} className="px-3 py-3 border-r border-slate-100/60 text-center font-bold text-slate-700 min-w-[100px] truncate max-w-[150px]" title={shop.name}>
+                      <th key={shop.id} className="px-1.5 py-1.5 border-r border-slate-200 text-center font-bold text-slate-700 min-w-[65px] max-w-[120px] truncate" title={shop.name}>
                         {shop.name}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-center bg-indigo-50/30 text-indigo-700 font-bold w-24">合計</th>
+                    <th className="px-2 py-1.5 text-center bg-indigo-50/50 text-indigo-800 font-bold w-20 whitespace-nowrap">合計</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 text-[10px]">
                   {matrixData.dates.map((dateStr) => {
                     const dateObj = new Date(dateStr)
                     const isSunday = dateObj.getDay() === 0
                     const isSaturday = dateObj.getDay() === 6
                     
                     return (
-                      <tr key={dateStr} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={dateStr} className="hover:bg-slate-50/70 transition-colors">
                         {/* 日付列 */}
-                        <td className={`px-4 py-2 border-r border-slate-100/60 text-center font-semibold font-mono whitespace-nowrap ${
-                          isSunday ? 'text-rose-600 bg-rose-50/10' :
-                          isSaturday ? 'text-indigo-600 bg-indigo-50/10' : 'text-slate-500'
+                        <td className={`px-2 py-1 border-r border-slate-200 text-center font-bold font-mono whitespace-nowrap sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${
+                          isSunday ? 'text-rose-600 bg-rose-50/30' :
+                          isSaturday ? 'text-indigo-600 bg-indigo-50/30' : 'text-slate-500 bg-white'
                         }`}>
-                          <span className="mr-1">{dateStr.slice(5).replace('-', '/')}</span>
+                          <span className="mr-0.5">{dateStr.slice(5).replace('-', '/')}</span>
                           <span>({dateObj.toLocaleDateString('ja-JP', { weekday: 'short' })})</span>
                         </td>
 
@@ -256,8 +248,8 @@ export default function AgencyAggregationPage() {
                         {shops.map(shop => {
                           const count = matrixData.matrix[dateStr]?.[shop.id] || 0
                           return (
-                            <td key={shop.id} className={`px-3 py-2 border-r border-slate-100/60 text-center font-mono font-semibold ${
-                              count > 0 ? 'text-slate-800 font-bold bg-amber-50/20' : 'text-slate-300'
+                            <td key={shop.id} className={`px-1.5 py-1 border-r border-slate-200 text-center font-mono font-semibold ${
+                              count > 0 ? 'text-slate-900 font-bold bg-amber-50/30' : 'text-slate-300'
                             }`}>
                               {count > 0 ? count : '-'}
                             </td>
@@ -265,7 +257,7 @@ export default function AgencyAggregationPage() {
                         })}
 
                         {/* 日次合計 */}
-                        <td className="px-4 py-2 text-center font-mono font-bold text-indigo-600 bg-indigo-50/10 whitespace-nowrap">
+                        <td className="px-2 py-1 text-center font-mono font-black text-indigo-700 bg-indigo-50/30 whitespace-nowrap">
                           {matrixData.dateTotals[dateStr] || 0}
                         </td>
                       </tr>
@@ -273,14 +265,14 @@ export default function AgencyAggregationPage() {
                   })}
 
                   {/* 小計行 */}
-                  <tr className="bg-indigo-50/25 border-t-2 border-slate-200 text-xs font-bold">
-                    <td className="px-4 py-3 border-r border-slate-100/60 text-center text-slate-600 font-bold">小計</td>
+                  <tr className="bg-indigo-50/30 border-t-2 border-slate-200 text-[11px] font-black">
+                    <td className="px-2 py-2 border-r border-slate-200 text-center text-slate-600 font-bold sticky left-0 z-10 bg-indigo-50/30 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">小計</td>
                     {shops.map(shop => (
-                      <td key={shop.id} className="px-3 py-3 border-r border-slate-100/60 text-center font-mono text-slate-800 font-bold text-sm">
+                      <td key={shop.id} className="px-1.5 py-2 border-r border-slate-200 text-center font-mono text-slate-900 font-black text-xs">
                         {matrixData.shopTotals[shop.id] || 0}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-center font-mono text-indigo-700 bg-indigo-50/60 font-bold text-sm">
+                    <td className="px-2 py-2 text-center font-mono text-indigo-800 bg-indigo-100/50 font-black text-xs">
                       {matrixData.grandTotal}
                     </td>
                   </tr>
