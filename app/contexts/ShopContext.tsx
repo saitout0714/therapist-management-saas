@@ -13,6 +13,7 @@ type Shop = {
   is_active: boolean
   created_at: string
   order: number | null
+  closing_date: number
 }
 
 type ShopContextType = {

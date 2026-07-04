@@ -36,6 +36,7 @@ interface ReservationWithDetails {
   reservation_options: { option_id: string | null; price: number; custom_name?: string | null; option?: { name: string } | null }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
   customer?: { name: string } | null
+  reception_source?: string | null
 }
 
 interface CalculatedReservation extends ReservationWithDetails {
@@ -43,18 +44,11 @@ interface CalculatedReservation extends ReservationWithDetails {
   calculatedTotalPrice: number
   calculatedNetBack: number
   calculatedShopProfit: number
-}
-
-export default function AggregationPage() {
-  const { selectedShop } = useShop()
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    const now = new Date()
-    // 21日以降は翌月の集計期間に入るため、デフォルトで翌月を選択
-    if (now.getDate() >= 21) {
-      now.setMonth(now.getMonth() + 1)
-    }
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
+}export default function AggregationPage() {
+  const { selectedShop, refreshShops } = useShop()
+  const [closingDate, setClosingDate] = useState<number>(20)
+  const [savingClosingDate, setSavingClosingDate] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,7 +56,20 @@ export default function AggregationPage() {
   const [calculatedReservations, setCalculatedReservations] = useState<CalculatedReservation[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [periodStr, setPeriodStr] = useState('')
-  const [staffOnly, setStaffOnly] = useState(false)
+
+  // Update closingDate and selectedMonth when selectedShop loads/changes
+  useEffect(() => {
+    if (selectedShop) {
+      const dbClosingDate = (selectedShop as any).closing_date ?? 20
+      setClosingDate(dbClosingDate)
+      
+      const now = new Date()
+      if (dbClosingDate !== 31 && now.getDate() > dbClosingDate) {
+        now.setMonth(now.getMonth() + 1)
+      }
+      setSelectedMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    }
+  }, [selectedShop])
 
   // 時間文字列を営業日の時系列順ソート用の数値に変換（朝6:00以降を翌日5:59まで並べる）
   const timeToSortValue = (timeStr: string): number => {
@@ -70,6 +77,28 @@ export default function AggregationPage() {
     const [h, m] = timeStr.split(':').map(Number)
     const adjustedH = h < 6 ? h + 24 : h
     return adjustedH * 60 + (m || 0)
+  }
+
+  const handleClosingDateChange = async (newVal: number) => {
+    if (!selectedShop) return
+    setClosingDate(newVal)
+    setSavingClosingDate(true)
+    try {
+      const { error } = await supabase
+        .from('shops')
+        .update({ closing_date: newVal })
+        .eq('id', selectedShop.id)
+      
+      if (error) throw error
+      if (refreshShops) {
+        await refreshShops()
+      }
+    } catch (err: any) {
+      console.error('締め日の保存に失敗しました:', err)
+      alert('締め日の保存に失敗しました: ' + err.message)
+    } finally {
+      setSavingClosingDate(false)
+    }
   }
 
   const handleCalculate = async () => {
@@ -81,13 +110,26 @@ export default function AggregationPage() {
     try {
       const [year, month] = selectedMonth.split('-').map(Number)
       
-      const start = new Date(year, month - 2, 21)
-      const end = new Date(year, month - 1, 20)
-      
-      const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-21`
-      const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-20`
-      
-      setPeriodStr(`${startStr.replace(/-/g, '/')} 〜 ${endStr.replace(/-/g, '/')} (20日締め)`)
+      let start: Date
+      let end: Date
+      let startStr = ''
+      let endStr = ''
+
+      if (closingDate === 31) {
+        // 月末締め: 対象月の 1日 〜 末日
+        start = new Date(year, month - 1, 1)
+        end = new Date(year, month, 0)
+        startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`
+        endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+        setPeriodStr(`${startStr.replace(/-/g, '/')} 〜 ${endStr.replace(/-/g, '/')} (月末締め)`)
+      } else {
+        // 通常締め (1〜30)
+        start = new Date(year, month - 2, closingDate + 1)
+        end = new Date(year, month - 1, closingDate)
+        startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+        endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+        setPeriodStr(`${startStr.replace(/-/g, '/')} 〜 ${endStr.replace(/-/g, '/')} (${closingDate}日締め)`)
+      }
 
       const [{ data: resData, error: resError }, { data: therapists, error: therapistError }] = await Promise.all([
         supabase
@@ -113,14 +155,8 @@ export default function AggregationPage() {
       if (resError) throw resError
       if (therapistError) throw therapistError
 
-      let reservations = (resData as unknown) as (ReservationWithDetails & { reception_source?: string })[]
+      const reservations = (resData as unknown) as (ReservationWithDetails & { reception_source?: string })[]
       
-      if (staffOnly) {
-        reservations = reservations.filter(
-          r => r.reception_source === 'staff' || r.reception_source === 'owner'
-        )
-      }
-
       const dailyMap: Record<string, ReservationWithDetails[]> = {}
       reservations.forEach(res => {
         const targetDate = res.business_date || res.date
@@ -193,18 +229,51 @@ export default function AggregationPage() {
 
   useEffect(() => {
     handleCalculate()
-  }, [selectedShop, selectedMonth, staffOnly])
+  }, [selectedShop, selectedMonth, closingDate])
 
   const totals = useMemo(() => {
-    return dailySummaries.reduce((acc, cur) => ({
-      sales: acc.sales + cur.totalSales,
-      back: acc.back + cur.totalBack,
-      profit: acc.profit + cur.shopProfit,
-      count: acc.count + cur.reservationCount,
-      creditFee: acc.creditFee + cur.totalCreditFee,
-    }), { sales: 0, back: 0, profit: 0, count: 0, creditFee: 0 })
-  }, [dailySummaries])
+    let sales = 0
+    let back = 0
+    let profit = 0
+    let count = 0
+    let creditFee = 0
+    let mtsCount = 0
+    let ownerCount = 0
+    let therapistCount = 0
+    let clientCount = 0
 
+    dailySummaries.forEach(cur => {
+      sales += cur.totalSales
+      back += cur.totalBack
+      profit += cur.shopProfit
+      count += cur.reservationCount
+      creditFee += cur.totalCreditFee
+    })
+
+    calculatedReservations.forEach(res => {
+      if (res.reception_source === 'staff') {
+        mtsCount++
+      } else if (res.reception_source === 'owner') {
+        ownerCount++
+      } else if (res.reception_source === 'therapist') {
+        therapistCount++
+      } else {
+        clientCount++
+      }
+    })
+
+    return {
+      sales,
+      back,
+      profit,
+      count,
+      creditFee,
+      mtsCount,
+      ownerCount,
+      therapistCount,
+      clientCount
+    }
+  }, [dailySummaries, calculatedReservations])
   // 前半・後半への分割
   const half = Math.ceil(dailySummaries.length / 2)
   const leftHalf = dailySummaries.slice(0, half)
@@ -292,25 +361,34 @@ export default function AggregationPage() {
 
         <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/60 transition-all">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative inline-flex items-center">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer"
-                    checked={staffOnly}
-                    onChange={(e) => setStaffOnly(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">締め日の設定</label>
+              <div className="relative">
+                <select
+                  value={closingDate}
+                  onChange={(e) => handleClosingDateChange(Number(e.target.value))}
+                  disabled={savingClosingDate || !selectedShop}
+                  className="pl-3 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all text-xs font-bold text-slate-700 disabled:opacity-50 appearance-none cursor-pointer animate-none"
+                >
+                  <option value={5}>5日締め</option>
+                  <option value={10}>10日締め</option>
+                  <option value={15}>15日締め</option>
+                  <option value={20}>20日締め</option>
+                  <option value={25}>25日締め</option>
+                  <option value={31}>月末締め</option>
+                </select>
+                <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-slate-400">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
-                <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">代行予約のみを集計</span>
-              </label>
-              <div className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                Accountability Filter
               </div>
+              {savingClosingDate && (
+                <span className="text-[10px] text-indigo-600 font-medium animate-pulse">保存中...</span>
+              )}
             </div>
             <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
-              ※姫予約やWEB予約（顧客直接）を除外して、代行予約（mts・オーナー受付）の貢献度を可視化します
+              ※締め日を変更すると、その店舗（クライアント）の集計期間が自動で更新され、データベースに保存されます。
             </div>
           </div>
         </div>
@@ -342,6 +420,24 @@ export default function AggregationPage() {
             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総予約数</div>
             <div className="text-lg font-bold text-slate-600 font-mono tracking-tight">
               {totals.count} <span className="text-xs">件</span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 font-medium">
+              <div className="flex justify-between">
+                <span>代行(mts):</span>
+                <span className="font-bold text-slate-700 font-mono">{totals.mtsCount}件</span>
+              </div>
+              <div className="flex justify-between">
+                <span>オーナー:</span>
+                <span className="font-bold text-slate-700 font-mono">{totals.ownerCount}件</span>
+              </div>
+              <div className="flex justify-between">
+                <span>姫予約:</span>
+                <span className="font-bold text-slate-700 font-mono">{totals.therapistCount}件</span>
+              </div>
+              <div className="flex justify-between">
+                <span>WEB/その他:</span>
+                <span className="font-bold text-slate-700 font-mono">{totals.clientCount}件</span>
+              </div>
             </div>
           </div>
         </div>
