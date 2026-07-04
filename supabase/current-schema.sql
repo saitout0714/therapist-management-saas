@@ -586,6 +586,7 @@ CREATE TABLE IF NOT EXISTS "public"."therapists" (
   "comment" text,
   "hp_url" text,
   "photo_url" text,
+  "ng_course_ids" uuid[] DEFAULT '{}',
   CONSTRAINT "therapists_pkey" PRIMARY KEY ("id")
 );
 

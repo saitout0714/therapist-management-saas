@@ -658,22 +658,8 @@ export default function ReservationPreviewPage() {
     }
   }, [reservation])
 
-  const handleCustomerTypeOverrideChange = async (value: 'auto' | 'new' | 'member') => {
-    if (!reservation) return
-    const overrideValue = value === 'auto' ? null : value
-    
-    const { error } = await supabase
-      .from('reservations')
-      .update({ customer_type_override: overrideValue })
-      .eq('id', reservation.id)
-      
-    if (error) {
-      alert('お客様区分の保存に失敗しました: ' + error.message)
-      return
-    }
-    
+  const handleCustomerTypeOverrideChange = (value: 'auto' | 'new' | 'member') => {
     setCustomerTypeOverride(value)
-    setReservation(prev => prev ? { ...prev, customer_type_override: overrideValue } : null)
   }
 
   const activeIsNewCustomer = 
