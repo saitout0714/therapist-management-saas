@@ -36,28 +36,6 @@ export const SITES: SiteConfig[] = [
     url_tpl: 'https://himitsuspa.com/schedule/index.php?day={date_compact}',
   },
   {
-    name: 'アーバンスパ',
-    shopId: '7d430288-8aed-4381-b3bf-f35fad962d2f',
-    type: 'kokoro',
-    url_tpl: 'https://urbanspa.jp/schedule/?works={date}',
-    name_sel: '.therapist_name',
-    time_sel: '.startend',
-  },
-  {
-    name: '新宿秘密妻',
-    shopId: '774101be-d8c5-4ca5-ba4a-fc61c039fbaa',
-    type: 'kokoro',
-    url_tpl: 'https://himitsuma.com/schedule/?works={date}',
-    name_sel: '.therapist_name',
-    time_sel: '.startend',
-  },
-  {
-    name: 'クイーン広島',
-    shopId: '09807189-96f2-4ccc-b238-815bd9e579e7',
-    type: 'queen_hiroshima',
-    url_tpl: 'https://hiroshima-queen.com/schedule.php',
-  },
-  {
     name: 'カレッツァ',
     shopId: '75e69a2a-eaac-4d2f-91af-e7579c1a84ab',
     type: 'carezza',

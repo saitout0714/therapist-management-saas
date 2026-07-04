@@ -40,9 +40,6 @@ HEADERS = {
 SHOP_ID_TSUJIDO    = "92c51e51-339b-48ce-8535-0f45c859b195"
 SHOP_ID_ROSECAFE   = "a0000001-0000-0000-0000-000000000005"
 SHOP_ID_HIMITSUSPA = "3464ed8c-44e8-46f1-b701-9b6ae0f465a8"
-SHOP_ID_URBAN      = "7d430288-8aed-4381-b3bf-f35fad962d2f"
-SHOP_ID_HIMITSUMA  = "774101be-d8c5-4ca5-ba4a-fc61c039fbaa"
-SHOP_ID_QUEEN_HIROSHIMA = "09807189-96f2-4ccc-b238-815bd9e579e7"
 
 # ── サイト定義 ───────────────────────────────────────────────────
 SITES = [
@@ -67,28 +64,6 @@ SITES = [
         "shop_id": SHOP_ID_HIMITSUSPA,
         "type": "himitsuspa",
         "url_tpl": "https://himitsuspa.com/schedule/index.php?day={date_compact}",
-    },
-    {
-        "name": "アーバンスパ",
-        "shop_id": SHOP_ID_URBAN,
-        "type": "kokoro",
-        "url_tpl": "https://urbanspa.jp/schedule/?works={date}",
-        "name_sel": ".therapist_name",
-        "time_sel": ".startend",
-    },
-    {
-        "name": "新宿秘密妻",
-        "shop_id": SHOP_ID_HIMITSUMA,
-        "type": "kokoro",
-        "url_tpl": "https://himitsuma.com/schedule/?works={date}",
-        "name_sel": ".therapist_name",
-        "time_sel": ".startend",
-    },
-    {
-        "name": "クイーン広島",
-        "shop_id": SHOP_ID_QUEEN_HIROSHIMA,
-        "type": "queen_hiroshima",
-        "url_tpl": "https://hiroshima-queen.com/schedule.php",
     },
 ]
 

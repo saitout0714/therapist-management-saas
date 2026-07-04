@@ -34,8 +34,18 @@
   - **デフォルトフォールバック**: テンプレートが設定されていない場合でも、姫予約があれば件名に `（姫予約）` を付与し、かつセラピスト用テンプレートのお客情報行に `【姫予約】` が自動挿入されます。
 - [CustomerTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/CustomerTemplateTab.tsx) および [TherapistTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/TherapistTemplateTab.tsx) の設定画面に、利用可能なタグとして `[姫予約]` の説明を追加しました。
 
+### 5. 外部シフト同期対象サイトの整理
+- 外部シフト同期画面（およびスクレイピング・ライブラリ）の同期対象一覧から、**「クイーン広島」「アーバンスパ」「新宿秘密妻」を除外**し、同期処理が走らないように整理しました。
+
+### 6. 顧客の新規/会員自動判定のバグ修正
+- 新規予約・編集画面にて顧客検索の際に、お客様の作成日時（`created_at`）のカラム取得が欠落しており自動判定が機能していなかったバグを解決しました。
+
 ---
 
-## 検証結果
+## 動作確認・検証方法
 
+### 1. 外部シフト同期の確認
+- 外部シフト同期画面 `/shifts/sync` にアクセスし、同期対象サイトの選択肢に「クイーン広島」「アーバンスパ」「新宿秘密妻」が表示されないことを確認します。
+
+### 2. テンプレート案内文の確認
 - **コンパイルチェック**: `npx tsc --noEmit` コマンドにより、型チェックがエラーなしで正常に完了することを確認しました。

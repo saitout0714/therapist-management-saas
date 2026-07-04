@@ -15,9 +15,6 @@ const SITES: SiteConfig[] = [
   { name: '辻堂茅ヶ崎', label: '辻堂茅ヶ崎 (mens-esthe-tsujido.com)' },
   { name: 'ローズカフェ', label: 'ローズカフェ (rosecafe.men-este.com)' },
   { name: '淑女の秘密スパ', label: '淑女の秘密スパ (himitsuspa.com)' },
-  { name: 'アーバンスパ', label: 'アーバンスパ (urbanspa.jp)' },
-  { name: '新宿秘密妻', label: '新宿秘密妻 (himitsuma.com)' },
-  { name: 'クイーン広島', label: 'クイーン広島 (hiroshima-queen.com)' },
   { name: 'カレッツァ', label: 'カレッツァ (carezza.esthe-hp.com)' },
 ]
 
