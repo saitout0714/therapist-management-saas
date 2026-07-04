@@ -801,7 +801,7 @@ export default function EditReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
               <div className="grid grid-cols-2 gap-2.5">
                 {/* 電話番号フィールド */}
-                <div>
+                <div className="relative">
                   <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">電話番号</label>
                   <input
                     type="text"

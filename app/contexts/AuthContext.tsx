@@ -134,18 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await syncUserWithSession(session.user)
         } else {
-          // キャッシュもセッションも両方無い場合のみクリアする（自爆を防ぐ）
-          const storedUser = localStorage.getItem('auth_user')
-          if (!storedUser) {
-            clearUserSession()
-          }
+          // セッションが無い場合はキャッシュも含めて完全にクリアし、未認証状態にする
+          clearUserSession()
         }
       } catch (err) {
         console.error('セッション取得失敗:', err)
-        const storedUser = localStorage.getItem('auth_user')
-        if (!storedUser) {
-          clearUserSession()
-        }
+        // エラー時は既存キャッシュを維持し、即時ログアウトは避ける（ネットワーク一時エラー等の対策）
       } finally {
         setLoading(false)
       }
@@ -161,12 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void syncUserWithSession(session.user)
         }
       } else if (event === 'SIGNED_OUT') {
-        // 明示的なログアウト（logout() の呼び出し）以外で、
-        // localStorage にキャッシュが残っている場合は、一時的なセッション未検出による誤消去を防ぐためクリアをスキップする。
-        const storedUser = localStorage.getItem('auth_user')
-        if (!storedUser) {
-          clearUserSession()
-        }
+        // 明示的なログアウト、またはセッション無効化のイベント発生時は確実にクリアする
+        clearUserSession()
       }
       setLoading(false)
     })
