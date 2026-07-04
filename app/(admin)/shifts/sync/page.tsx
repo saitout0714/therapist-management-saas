@@ -43,7 +43,7 @@ export default function SyncPage() {
   const [selectedSites, setSelectedSites] = useState<string[]>(SITES.map((s) => s.name))
   const [selectedShops, setSelectedShops] = useState<string[]>(CAS_SHOPS.map((s) => s.name))
   const [dryRun, setDryRun] = useState<boolean>(true)
-  const [update, setUpdate] = useState<boolean>(true)
+  const [update, setUpdate] = useState<boolean>(false)
   const [delShifts, setDelShifts] = useState<boolean>(false)
   const [force, setForce] = useState<boolean>(false)
 
