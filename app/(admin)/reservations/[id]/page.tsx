@@ -375,7 +375,7 @@ export default function ReservationPreviewPage() {
     const extensionPrice = reservation.extension_count > 0
       ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
       : 0
-    const extMinutesVal = reservation.extension_count > 0 ? `${reservation.extension_count * extensionUnitMinutes}分` : ''
+    const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
 
     if (customerTemplate) {
@@ -563,7 +563,7 @@ export default function ReservationPreviewPage() {
     const extensionPrice = reservation.extension_count > 0
       ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
       : 0
-    const extMinutesVal = reservation.extension_count > 0 ? `${reservation.extension_count * extensionUnitMinutes}分` : ''
+    const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
 
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
