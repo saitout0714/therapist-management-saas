@@ -554,8 +554,8 @@ export default function EditReservationPage() {
       return
     }
 
-    // NGセラピストチェック
-    if (formData.customer_id && formData.therapist_id) {
+    // NGセラピストチェック（キャンセル時はパス、それ以外は確認ダイアログを表示して強制保存可能にする）
+    if (formData.customer_id && formData.therapist_id && formData.status !== 'cancelled') {
       try {
         const { data: ngData, error: ngError } = await supabase
           .from('customer_therapist_ng')
@@ -566,8 +566,10 @@ export default function EditReservationPage() {
 
         if (ngError) throw ngError
         if (ngData && ngData.length > 0) {
-          alert('このセラピストはこのお客様に対してNG登録されています。予約を登録できません。')
-          return
+          const proceed = window.confirm('【警告】このセラピストはこのお客様に対してNG登録されています。本当にこのまま保存しますか？')
+          if (!proceed) {
+            return
+          }
         }
       } catch (err: any) {
         console.error('NGチェックエラー:', err)

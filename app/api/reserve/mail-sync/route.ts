@@ -14,6 +14,7 @@ interface ParsedReservation {
   courseName: string;
   price: number;
   shopNameRaw: string;
+  designationRaw?: string;
 }
 
 // 深夜帯（00:00〜05:59）を 24:00〜29:59 に補正する終了時間計算ヘルパー
@@ -41,6 +42,20 @@ function formatTimeToDb(t: string): string {
   const h = String(parseInt(parts[0], 10)).padStart(2, '0')
   const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0')
   return `${h}:${m}:00`
+}
+
+function getDesignationSlug(text: string): string {
+  const cleanText = text.trim()
+  if (cleanText.includes('本指名') || cleanText.includes('本指') || cleanText === '指名') {
+    return 'confirmed'
+  }
+  if (cleanText.includes('初回指名') || cleanText.includes('初回')) {
+    return 'first_nomination'
+  }
+  if (cleanText.includes('フリー') || cleanText.includes('指名なし') || cleanText.includes('なし')) {
+    return 'free'
+  }
+  return 'free' // デフォルトはフリー
 }
 
 // 媒体の自動判別
@@ -97,7 +112,9 @@ function parseEstheDamashii(body: string): ParsedReservation {
   
   const shopNameRaw = body.match(/お店番号：\d+\][ \t]*([^\n\r]*様)/)?.[1]?.replace(/様$/, '')?.trim() || ''
 
-  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw }
+  const designationRaw = body.match(/(?:指名|指名区分|■ご希望指名区分|■指名)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
+
+  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
 }
 
 // B. growパーサー
@@ -142,7 +159,9 @@ function parseGrow(body: string): ParsedReservation {
   const priceStr = courseName.match(/([\d,]+)\s*yen/i)?.[1] || '0'
   const price = parseInt(priceStr.replace(/,/g, ''), 10)
   
-  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw }
+  const designationRaw = body.match(/(?:指名|指名区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
+
+  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
 }
 
 // C. 全国メンズエステランキングパーサー
@@ -197,7 +216,9 @@ function parseEstheRanking(body: string): ParsedReservation {
   const priceStr = body.match(/合計：\s*([\d,]+)円/)?.[1] || '0'
   const price = parseInt(priceStr.replace(/,/g, ''), 10)
   
-  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price, shopNameRaw }
+  const designationRaw = getValueAfterKey('【指名区分】') || getValueAfterKey('【指名】') || body.match(/(?:指名|指名区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
+
+  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
 }
 
 // D. フォールバックパーサー
@@ -245,8 +266,9 @@ function parseFallback(body: string): ParsedReservation {
     endTime = calcEndTime(startTime, duration)
     startTime = formatTimeToDb(startTime)
   }
-  
-  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw: '' }
+  const designationRaw = body.match(/(?:指名|指名区分|選考|区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
+
+  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw: '', designationRaw }
 }
 
 export async function POST(req: NextRequest) {
@@ -505,6 +527,29 @@ export async function POST(req: NextRequest) {
       warningNotes = `【⚠️警告: 予約重複（ダブルブッキング）の可能性あり】\n${conflictDetails}\nこの時間は既にセラピストの確定予約が入っています。お客様への連絡と時間調整の交渉を行ってください。\n\n`
     }
 
+    // 5.5. 指名区分の特定
+    let designationTypeId = null
+    let dbDesignationType = 'free'
+
+    if (parsed.designationRaw) {
+      dbDesignationType = getDesignationSlug(parsed.designationRaw)
+    }
+
+    if (shopId) {
+      const { data: destTypes } = await supabaseAdmin
+        .from('designation_types')
+        .select('id, slug')
+        .eq('shop_id', shopId)
+        .eq('is_active', true)
+
+      if (destTypes) {
+        const matchedType = destTypes.find(dt => dt.slug === dbDesignationType)
+        if (matchedType) {
+          designationTypeId = matchedType.id
+        }
+      }
+    }
+
     // 6. 予約の挿入
     const reservationData = {
       shop_id: shopId,
@@ -519,6 +564,8 @@ export async function POST(req: NextRequest) {
       is_handled: isHandled,
       base_price: basePrice,
       total_price: basePrice,
+      designation_type: dbDesignationType,
+      designation_type_id: designationTypeId,
       notes: `${warningNotes}【メール同期自動登録】\n媒体: ${sourceType}\n元のメール本文:\n${body}`
     }
 
