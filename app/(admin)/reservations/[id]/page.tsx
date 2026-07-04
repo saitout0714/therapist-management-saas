@@ -103,6 +103,7 @@ type Reservation = {
   customer_notified?: boolean
   therapist_notified?: boolean
   customer_type_override?: 'new' | 'member' | null
+  is_hime?: boolean
 }
 
 type RoomInfo = {
@@ -377,6 +378,7 @@ export default function ReservationPreviewPage() {
       : 0
     const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
+    const himeVal = reservation.is_hime ? '姫予約' : ''
 
     if (customerTemplate) {
       let finalTemplate = customerTemplate
@@ -397,6 +399,13 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
+      if (!himeVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[姫予約\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[姫予約\]/g, himeVal)
+      }
 
       // 延長がない場合は、[延長時間]タグが含まれる行全体を削除する
       if (!extMinutesVal) {
@@ -451,7 +460,11 @@ export default function ReservationPreviewPage() {
     }
 
     // デフォルトのフォールバックテンプレート
-    let text = `【ご予約内容のご確認】\n\n`
+    let text = `【ご予約内容のご確認】`
+    if (reservation.is_hime) {
+      text += `（姫予約）`
+    }
+    text += `\n\n`
 
     // 日時（日付と時間を別行）
     text += `■ 日時\n${dateVal}\n${startTimeVal} ～ ${endTimeVal}\n\n`
@@ -565,6 +578,7 @@ export default function ReservationPreviewPage() {
       : 0
     const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
+    const himeVal = reservation.is_hime ? '姫予約' : ''
 
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
     if (therapistTemplate) {
@@ -602,6 +616,13 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
+      if (!himeVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[姫予約\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[姫予約\]/g, himeVal)
+      }
 
       // 延長がない場合は、[延長時間]タグが含まれる行全体を削除する
       if (!extMinutesVal) {
@@ -642,7 +663,11 @@ export default function ReservationPreviewPage() {
     }
 
     // デフォルトのフォールバックテンプレート
-    let text = `【${formatShortDate(reservation.business_date || reservation.date)} ご予約詳細】\n\n`
+    let text = `【${formatShortDate(reservation.business_date || reservation.date)} ご予約詳細`
+    if (reservation.is_hime) {
+      text += `（姫予約）`
+    }
+    text += `】\n\n`
 
     // 時間
     text += `■ 時間\n${toDisplayTime(reservation.start_time)}-${toDisplayTime(reservation.end_time)}\n\n`
@@ -651,7 +676,11 @@ export default function ReservationPreviewPage() {
     text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
 
     // お客様（新規/会員 + 氏名）
-    text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様\n\n`
+    text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様`
+    if (reservation.is_hime) {
+      text += ` 【姫予約】`
+    }
+    text += `\n\n`
 
     // コース（時間 ￥料金）
     text += `■ コース\n`

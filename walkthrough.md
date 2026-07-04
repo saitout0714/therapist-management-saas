@@ -28,6 +28,12 @@
   - セラピスト用テキストコピーについて、カスタムテンプレートが設定されている場合は、各種タグ（`[日付]`、`[開始時刻]`、`[合計料金]` など）を置換し、データがない項目（`[割引]`、`[オプション]`、`[備考]`）は行ごと詰める処理を追加しました。
   - テンプレートが未設定の店舗の場合は、自動的に従来のデフォルト形式（日付は西暦なしの形式、金額は「`円`」表記）で生成されるフォールバック処理を維持しています。
 
+### 4. 送信案内テンプレート（顧客用・セラピスト用）の延長・姫予約対応
+- [page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/reservations/[id]/page.tsx) の案内テキスト自動生成（`generateCustomerLineText`, `generateTherapistLineText`）を拡張しました：
+  - **カスタムテンプレート（置換）**: 新たに `[延長時間]` (例: 延長+30分)、`[延長料金]` (例: 3,000円)、および **`[姫予約]`** タグをサポートしました。姫予約が有効な場合は「`姫予約`」と置換され、無効な場合は他の不要項目と同様に「該当行ごと自動で非表示（詰める）」の処理が作動します。
+  - **デフォルトフォールバック**: テンプレートが設定されていない場合でも、姫予約があれば件名に `（姫予約）` を付与し、かつセラピスト用テンプレートのお客情報行に `【姫予約】` が自動挿入されます。
+- [CustomerTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/CustomerTemplateTab.tsx) および [TherapistTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/TherapistTemplateTab.tsx) の設定画面に、利用可能なタグとして `[姫予約]` の説明を追加しました。
+
 ---
 
 ## 検証結果
