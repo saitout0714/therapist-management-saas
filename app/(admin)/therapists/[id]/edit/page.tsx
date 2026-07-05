@@ -897,7 +897,7 @@ export default function EditTherapistPage() {
                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                   />
                   <label htmlFor="is_rookie" className="text-sm font-medium text-slate-700 cursor-pointer select-none">
-                    新人として扱う（タイムチャートに新人マーク 🔰 を表示し、新人割の対象にします）
+                    新人 🔰
                   </label>
                 </div>
 
