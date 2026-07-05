@@ -427,12 +427,12 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
                         }}
                       >
-                        <span>{therapist.name}</span>
                         {therapist.isRookie && (
                           <span className="text-[10px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
                         )}
+                        <span>{therapist.name}</span>
                         {therapist.rankName && (
-                          <span className="text-[8px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold leading-none border border-slate-200 flex-shrink-0">
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
                             {therapist.rankName}
                           </span>
                         )}
