@@ -68,6 +68,7 @@ export default function SystemPage() {
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
     web_reserve_address_mode: 'unified' | 'split_by_membership'
+    therapist_line_mode: 'official_line' | 'line'
     special_rules: string
     credit_payment_url: string
     google_calendar_id: string
@@ -92,6 +93,7 @@ export default function SystemPage() {
     smtp_from: '',
     sms_address_mode: 'unified',
     web_reserve_address_mode: 'unified',
+    therapist_line_mode: 'official_line',
     special_rules: '',
     credit_payment_url: '',
     google_calendar_id: '',
@@ -103,7 +105,7 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode').eq('id', selectedShop.id).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
@@ -111,6 +113,7 @@ export default function SystemPage() {
     const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
     const smsMode = shopRes.data?.sms_address_mode || 'unified'
     const webMode = shopRes.data?.web_reserve_address_mode || 'unified'
+    const lineMode = shopRes.data?.therapist_line_mode || 'official_line'
 
     setSettings(row)
     setForm({
@@ -133,6 +136,7 @@ export default function SystemPage() {
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
       web_reserve_address_mode: webMode,
+      therapist_line_mode: lineMode,
       special_rules: shopRes.data?.special_rules ?? '',
       credit_payment_url: row?.credit_payment_url ?? '',
       google_calendar_id: row?.google_calendar_id ?? '',
@@ -146,7 +150,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, web_reserve_address_mode, special_rules, ...systemSettingsPayload } = form
+    const { sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -163,7 +167,7 @@ export default function SystemPage() {
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ special_rules, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ special_rules, therapist_line_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
@@ -269,6 +273,38 @@ export default function SystemPage() {
                 ))}
               </select>
               <p className="text-xs text-slate-400 mt-1.5">セラピスト個別設定がある場合はそちらが優先されます。</p>
+            </div>
+
+            {/* セラピスト連絡用LINEモード */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">セラピスト用 LINE連絡モード</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                セラピストへの連絡文面を送る際のLINE連携方法を設定します。
+              </p>
+              <div className="flex gap-6">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="therapist_line_mode"
+                    value="official_line"
+                    checked={form.therapist_line_mode === 'official_line'}
+                    onChange={() => setForm({ ...form, therapist_line_mode: 'official_line' })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>公式LINE（コピー機能のみ）</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="therapist_line_mode"
+                    value="line"
+                    checked={form.therapist_line_mode === 'line'}
+                    onChange={() => setForm({ ...form, therapist_line_mode: 'line' })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>普通のLINE（LINEアプリ起動）</span>
+                </label>
+              </div>
             </div>
 
 

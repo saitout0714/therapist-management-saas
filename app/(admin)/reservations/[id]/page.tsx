@@ -1137,7 +1137,7 @@ export default function ReservationPreviewPage() {
 
           {/* Therapist Copy */}
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
-            <div className="p-2 sm:p-4">
+            <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
               <button
                 onClick={() => handleCopy(generateTherapistLineText(), 'therapist')}
                 className={`w-full py-2 sm:py-3 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm ${copiedKey === 'therapist' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
@@ -1156,6 +1156,20 @@ export default function ReservationPreviewPage() {
                   </>
                 )}
               </button>
+              {selectedShop?.therapist_line_mode === 'line' && (
+                <a
+                  href={`https://line.me/R/share?text=${encodeURIComponent(generateTherapistLineText())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => void updateNotifiedStatus('therapist', true)}
+                  className="w-full py-2 sm:py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-center"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                  </svg>
+                  <span>LINEで送る</span>
+                </a>
+              )}
             </div>
             
             <div className="flex flex-col">

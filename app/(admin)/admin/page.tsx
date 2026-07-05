@@ -11,6 +11,7 @@ type Shop = {
   description: string | null
   is_active: boolean
   sms_address_mode: 'unified' | 'split_by_membership' | null
+  therapist_line_mode: 'official_line' | 'line' | null
   created_at: string
   order: number | null
 }

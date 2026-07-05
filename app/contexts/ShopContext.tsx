@@ -14,6 +14,7 @@ type Shop = {
   created_at: string
   order: number | null
   closing_date: number
+  therapist_line_mode: 'official_line' | 'line'
 }
 
 type ShopContextType = {
