@@ -285,12 +285,16 @@ export default function ReservationPreviewPage() {
     const endTimeKanjiVal = toKanjiTime(reservation.end_time)
     const roomVal = roomInfo?.name || '未定'
     const custNameVal = reservation.customers?.name || '未設定'
-    const therapistNameVal = reservation.therapists?.name || 'フリー'
+    const therapistNameVal = reservation.designation_type === 'free'
+      ? ''
+      : (reservation.therapists?.name || 'フリー')
     const courseNameVal = reservation.courses?.name || '未設定'
     const courseDurationVal = `${reservation.courses?.duration || 0}分`
     const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
     const designationVal = designationLabel(reservation.designation_type)
-    const nominationFeeVal = displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円'
+    const nominationFeeVal = reservation.designation_type === 'free'
+      ? ''
+      : (displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円')
     const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
     const totalVal = `${reservation.total_price.toLocaleString()}円`
 
