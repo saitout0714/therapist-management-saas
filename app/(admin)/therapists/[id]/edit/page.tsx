@@ -28,6 +28,7 @@ export default function EditTherapistPage() {
     rank_id: "",
     reservation_interval_minutes: "",
     is_active: true,
+    is_rookie: false,
     ng_course_ids: [] as string[],
   });
   const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
@@ -245,6 +246,7 @@ export default function EditTherapistPage() {
             ? String(therapist.reservation_interval_minutes)
             : "",
           is_active: therapist.is_active !== false,
+          is_rookie: !!therapist.is_rookie,
           ng_course_ids: therapist.ng_course_ids || [],
         });
         // 写真一覧を取得
@@ -378,6 +380,7 @@ export default function EditTherapistPage() {
         rank_id: profile.rank_id || null,
         has_fee_override: hasOverrides,
         is_active: profile.is_active,
+        is_rookie: profile.is_rookie || false,
       })
       .eq("id", therapistId);
 
@@ -880,6 +883,22 @@ export default function EditTherapistPage() {
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="is_rookie"
+                    name="is_rookie"
+                    checked={profile.is_rookie || false}
+                    onChange={(e) => {
+                      setProfile(prev => ({ ...prev, is_rookie: e.target.checked }));
+                    }}
+                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="is_rookie" className="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                    新人として扱う（タイムチャートに新人マーク 🔰 を表示し、新人割の対象にします）
+                  </label>
                 </div>
 
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex flex-col gap-1 mt-8">

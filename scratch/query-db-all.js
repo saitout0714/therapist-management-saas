@@ -31,9 +31,9 @@ async function run() {
 
   const { data: therapists, error: tErr } = await supabase
     .from('therapists')
-    .select('id, name, is_active')
+    .select('*')
     .eq('shop_id', shop.id)
-    .order('order', { ascending: true, nullsFirst: false });
+    .limit(1);
 
   if (tErr) {
     console.error('Error fetching therapists:', tErr);
@@ -41,7 +41,7 @@ async function run() {
   }
 
   console.log(`Found ${therapists.length} therapists:`);
-  console.log(JSON.stringify(therapists.filter(t => t.is_active).map(t => t.name)));
+  console.log(`Therapist columns:`, Object.keys(therapists[0] || {}));
 }
 
 run();

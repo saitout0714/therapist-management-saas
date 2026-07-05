@@ -37,6 +37,8 @@ interface Therapist {
   unresolvedMemos?: TherapistMemo[];
   linked_therapist_group_id?: string | null;
   linked_shop_names?: string[];
+  rankName?: string | null;
+  isRookie?: boolean;
 }
 
 interface AvailableCourse {
@@ -426,6 +428,14 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         }}
                       >
                         <span>{therapist.name}</span>
+                        {therapist.isRookie && (
+                          <span className="text-[10px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                        )}
+                        {therapist.rankName && (
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold leading-none border border-slate-200 flex-shrink-0">
+                            {therapist.rankName}
+                          </span>
+                        )}
                         {therapist.linked_therapist_group_id && (
                           <span className="text-sky-500 font-bold text-[10px]" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                         )}
