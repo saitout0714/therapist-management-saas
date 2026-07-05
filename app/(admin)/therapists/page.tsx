@@ -23,6 +23,7 @@ type TherapistItem = {
   rank_id: string | null;
   therapist_ranks: { name: string } | null;
   linked_therapist_group_id: string | null;
+  is_rookie?: boolean;
 };
 
 export default function TherapistsPage() {
@@ -46,7 +47,7 @@ export default function TherapistsPage() {
     const [therapistsRes, memosRes] = await Promise.all([
       supabase
         .from("therapists")
-        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id")
+        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie")
         .eq("shop_id", selectedShop.id)
         .order("order", { ascending: true, nullsFirst: false }),
       supabase
@@ -265,6 +266,9 @@ export default function TherapistsPage() {
         {/* 情報エリア */}
         <div className="flex-1 min-w-0 ml-3">
           <div className="flex flex-wrap items-center gap-2">
+            {therapist.is_rookie && (
+              <span className="text-sm select-none" title="新人（新人割対象）">🔰</span>
+            )}
             <p className={`font-bold text-base whitespace-nowrap ${isActive ? "text-slate-800" : "text-slate-400"}`}>
               {therapist.name}
             </p>

@@ -1325,9 +1325,9 @@ function ShiftsContent() {
 
     const unassignedTherapist: Therapist = {
       id: 'unassigned',
-      name: 'フリー（未割当）',
+      name: 'フリー',
       intervalMinutes: shopIntervalMinutes,
-      notes: '未割当のフリー予約枠',
+      notes: undefined,
     };
 
     let sortedOthers = [...withShift];

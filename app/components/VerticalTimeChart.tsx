@@ -397,13 +397,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     {/* 写真 — 円形 (小型化: width 22px) */}
                     <div className="w-[22px] h-[22px] flex-shrink-0">
                       <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
-                        {therapist.id === 'unassigned' ? (
-                          <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                          </div>
-                        ) : therapist.avatar ? (
+                        {therapist.avatar ? (
                           <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
                         ) : (
                           <span className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-300">{therapist.name[0]}</span>
@@ -464,7 +458,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   {/* 2段目: 出勤時間 */}
                   <div className="text-[9px] font-semibold leading-tight flex-shrink-0 mt-0.5">
                     {therapist.id === 'unassigned' ? (
-                      <span className="text-amber-600 bg-amber-50 px-1 py-0.2 rounded border border-amber-100 font-bold">要対応</span>
+                      null
                     ) : isOff ? (
                       <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                     ) : therapist.shiftStart && therapist.shiftEnd ? (

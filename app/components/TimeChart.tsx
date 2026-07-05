@@ -396,13 +396,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   {/* 写真 — 3:4固定比率 */}
                   <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
                     <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
-                      {therapist.id === 'unassigned' ? (
-                        <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                        </div>
-                      ) : therapist.avatar ? (
+                      {therapist.avatar ? (
                         <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
@@ -465,7 +459,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     {/* 出勤時間 */}
                     <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
                       {therapist.id === 'unassigned' ? (
-                        <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                        null
                       ) : isOff ? (
                         <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                       ) : therapist.shiftStart && therapist.shiftEnd ? (
