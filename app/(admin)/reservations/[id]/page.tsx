@@ -599,7 +599,9 @@ export default function ReservationPreviewPage() {
       const courseDurationVal = `${reservation.courses?.duration || 0}分`
       const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
       const designationVal = designationLabel(reservation.designation_type)
-      const nominationFeeVal = displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円'
+      const nominationFeeVal = reservation.designation_type === 'free'
+        ? ''
+        : (displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円')
       const totalVal = `${reservation.total_price.toLocaleString()}円`
 
       let finalTemplate = therapistTemplate
