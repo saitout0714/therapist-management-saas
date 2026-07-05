@@ -308,6 +308,26 @@ export async function POST(req: NextRequest) {
         break
     }
 
+    // 深夜時間帯 (00:00 〜 05:59) の予約を、前日の営業日（例: 24:40等）へ自動補正する
+    if (parsed.date && parsed.startTime) {
+      const [hStr, mStr] = parsed.startTime.split(':')
+      const h = parseInt(hStr, 10)
+      if (h >= 0 && h < 6) {
+        const dateObj = new Date(parsed.date)
+        dateObj.setDate(dateObj.getDate() - 1)
+        const y = dateObj.getFullYear()
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0')
+        const d = String(dateObj.getDate()).padStart(2, '0')
+        
+        parsed.date = `${y}-${m}-${d}`
+        
+        const newH = h + 24
+        parsed.startTime = `${String(newH).padStart(2, '0')}:${mStr}:00`
+        
+        console.log(`[MailSync] Adjusted midnight reservation: date=${parsed.date}, startTime=${parsed.startTime}, endTime=${parsed.endTime}`)
+      }
+    }
+
     console.log('[MailSync] Parsed data:', parsed)
 
     if (!parsed.date || !parsed.startTime) {

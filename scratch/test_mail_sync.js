@@ -122,6 +122,26 @@ const mejiroMail = {
 Grow`
 };
 
+const midnightMail = {
+  subject: "[Grow] 新しい店舗予約を受け付けました",
+  body: `以下の内容で、新しい店舗予約を受け付けました。
+
+店舗：Legendひばりヶ丘 PREMIUM EDITION
+予約日時：2026年07月05日(日)00:40
+担当セラピスト：黒名ゆい (20)【期間限定】新人割1,000円引き＋初回指名料無料
+指名：本指名
+メニュー：90min 18,000yen
+クーポン：
+料金：0円
+お客様名：キザキ ミツグ
+電話番号：09052533659
+メールアドレス：
+備考：
+
+---------
+Grow`
+};
+
 
 const rankingMail = {
   subject: "【全国メンズエステランキング】仮予約を受け付けました",
@@ -315,6 +335,31 @@ async function runTest() {
       console.log(`Parsed EndTime: ${json6.reservation.end_time} (Expected: 24:00:00)`);
     } else {
       console.error("Test 6 failed:", json6);
+    }
+
+    // 7. Midnight Reservation (Grow 00:40 -> 24:40 & Day-1)
+    console.log(`\n--- [Test 7] Sending Midnight Mail (Should shift date to yesterday & time to 24:40) ---`);
+    const res7 = await fetch('http://localhost:3000/api/reserve/mail-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Yoyakl-API-Key': apiKey },
+      body: JSON.stringify({
+        subject: midnightMail.subject,
+        body: midnightMail.body,
+        shop_id: defaultShopId
+      })
+    });
+    const json7 = await res7.json();
+    console.log(`Status: ${res7.status}`);
+    if (json7.success && json7.reservation) {
+      createdReservationIds.push(json7.reservation.id);
+      console.log(`Status Result: ${json7.reservation.status} (Expected: confirmed)`);
+      console.log(`Is Handled: ${json7.reservation.is_handled} (Expected: true)`);
+      console.log(`Shop ID: ${json7.reservation.shop_id} (Expected: Legend '36949671-c90c-4cf9-9d88-51bd71a2b352')`);
+      console.log(`Parsed Date: ${json7.reservation.date} (Expected: 2026-07-04)`);
+      console.log(`Parsed StartTime: ${json7.reservation.start_time} (Expected: 24:40:00)`);
+      console.log(`Parsed EndTime: ${json7.reservation.end_time} (Expected: 26:10:00)`);
+    } else {
+      console.error("Test 7 failed:", json7);
     }
 
   } catch (e) {
