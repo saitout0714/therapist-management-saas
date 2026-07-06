@@ -27,15 +27,33 @@ export default function SearchableTherapistSelect({
 }: SearchableTherapistSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isFocused, setIsFocused] = useState(false)
   
   const containerRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Get the display name of the selected therapist
+  const getSelectedLabel = () => {
+    if (!value) return ''
+    if (value === 'unassigned') return 'フリー予約（未割当）'
+    const found = therapists.find((t) => t.id === value)
+    return found ? found.name : ''
+  }
+
+  // Sync searchQuery with selected label when not active/focused
+  useEffect(() => {
+    if (!isFocused) {
+      setSearchQuery(getSelectedLabel())
+    }
+  }, [value, isFocused, therapists])
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
+        setIsFocused(false)
+        setSearchQuery(getSelectedLabel())
       }
     }
     document.addEventListener('mousedown', handleOutsideClick)
@@ -44,29 +62,19 @@ export default function SearchableTherapistSelect({
       document.removeEventListener('mousedown', handleOutsideClick)
       document.removeEventListener('touchstart', handleOutsideClick)
     }
-  }, [])
-
-  // Auto-focus search input on open
-  useEffect(() => {
-    if (isOpen) {
-      setSearchQuery('')
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 50)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen])
-
-  const getSelectedLabel = () => {
-    if (!value) return '選択してください'
-    if (value === 'unassigned') return 'フリー予約（未割当）'
-    const found = therapists.find((t) => t.id === value)
-    return found ? found.name : '選択してください'
-  }
+  }, [value, therapists])
 
   const handleSelect = (val: string) => {
     onChange(val)
     setIsOpen(false)
+    setIsFocused(false)
+  }
+
+  const handleInputFocus = () => {
+    if (disabled) return
+    setIsFocused(true)
+    setIsOpen(true)
+    setSearchQuery('')
   }
 
   const normalize = (str: string) => str.replace(/\s+/g, '').toLowerCase()
@@ -100,74 +108,49 @@ export default function SearchableTherapistSelect({
         ))}
       </select>
 
-      {/* Styled Selector Trigger */}
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs flex items-center justify-between text-left ${
-          disabled ? 'opacity-50 cursor-not-allowed bg-slate-100' : 'cursor-pointer hover:bg-slate-100/50'
-        }`}
-        disabled={disabled}
-      >
-        <span className={`truncate ${!value ? 'text-slate-400' : 'text-slate-800 font-medium'}`}>
-          {getSelectedLabel()}
-        </span>
-        <svg
-          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ml-1.5 ${
-            isOpen ? '-rotate-180 text-indigo-600' : ''
+      {/* Autocomplete Input Trigger */}
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={handleInputFocus}
+          placeholder={getSelectedLabel() || '選択してください (検索可)'}
+          className={`w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs text-slate-800 font-medium ${
+            disabled ? 'opacity-50 cursor-not-allowed bg-slate-100' : 'cursor-pointer hover:bg-slate-100/50 focus:bg-white'
           }`}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
+          disabled={disabled}
+        />
+        {/* Dropdown Indicator Chevron */}
+        <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
+          <svg
+            className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${
+              isOpen ? '-rotate-180 text-indigo-600' : ''
+            }`}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+      </div>
 
       {/* Floating Dropdown Panel */}
       {isOpen && (
         <div className="absolute left-0 right-0 mt-1 rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none z-50 transform origin-top transition-all py-1.5 w-full flex flex-col max-h-60 overflow-hidden">
-          {/* Search Bar */}
-          <div className="px-2 pb-1.5 border-b border-slate-100 flex-shrink-0">
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="セラピスト名で検索..."
-                className="w-full pl-8 pr-7 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400 hover:text-slate-600"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* Options list */}
           <div className="overflow-y-auto flex-1 min-h-0 text-xs py-1 divide-y divide-slate-50/50">
             {/* 選択してください */}
             {showPlaceholder && (
               <button
                 type="button"
-                onClick={() => handleSelect('')}
+                onMouseDown={() => handleSelect('')}
                 className={`w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors ${
                   !value ? 'text-indigo-600 bg-indigo-50/30 font-bold' : 'text-slate-500'
                 }`}
@@ -180,7 +163,7 @@ export default function SearchableTherapistSelect({
             {showUnassigned && (
               <button
                 type="button"
-                onClick={() => handleSelect('unassigned')}
+                onMouseDown={() => handleSelect('unassigned')}
                 className={`w-full px-3 py-2 text-left hover:bg-amber-50/70 transition-colors ${
                   value === 'unassigned' ? 'text-amber-700 bg-amber-50 font-bold' : 'text-amber-700/85 font-medium'
                 }`}
@@ -197,7 +180,7 @@ export default function SearchableTherapistSelect({
                 <button
                   key={therapist.id}
                   type="button"
-                  onClick={() => handleSelect(therapist.id)}
+                  onMouseDown={() => handleSelect(therapist.id)}
                   className={`w-full px-3 py-2 text-left hover:bg-indigo-50/40 transition-colors flex items-center justify-between ${
                     isSelected ? 'text-indigo-600 bg-indigo-50/30 font-bold' : 'text-slate-700'
                   }`}
