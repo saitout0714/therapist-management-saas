@@ -305,13 +305,16 @@ export default function NewReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
-      const { data } = await supabase
+      console.log('Customer Search Request (new/page):', { q, normalized, shopId: selectedShop.id })
+      const { data, error } = await supabase
         .from('customers')
         .select('id, name, email, phone, status, ng_reason, memo, created_at')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
         .limit(50)
+      console.log('Customer Search Response (new/page):', { data, error })
+      if (error) console.error('Customer Search Error Details (new/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)
     }, 300)
