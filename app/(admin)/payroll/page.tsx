@@ -618,11 +618,13 @@ export default function PayrollPage() {
     }
 
     text += `\n------------------------\n`
-    text += `★ 本日合計バック: ¥${netPay.toLocaleString()}\n`
-    text += `★ 本日店落ち: ¥${(totalSales - netPay).toLocaleString()}\n`
+    text += `★ お給与: ¥${netPay.toLocaleString()}\n`
+    text += `★ お店: ¥${(totalSales - netPay).toLocaleString()}\n`
     if (hasCreditReservation) {
       const cashBalance = totalCashReceived - netPay
-      text += `★ 現金残: ${cashBalance < 0 ? `-¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}\n`
+      const creditAmount = totalSales - totalCashReceived
+      text += `★ クレジット: -¥${creditAmount.toLocaleString()}\n`
+      text += `★ 入金: ${cashBalance < 0 ? `-¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}\n`
     }
     text += `------------------------\n`
     text += `\nご確認よろしくお願いいたします！`
@@ -834,10 +836,10 @@ export default function PayrollPage() {
                           const cashBalance = customerCash - r.netBack
                           return (
                             <div className="mt-2.5 pt-2.5 border-t border-slate-100">
-                              <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">現金精算（クレジット着金前）</div>
+                              <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">他店振替（クレジット差引品）</div>
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                                 <div>
-                                  お客様現金: <span className="font-bold text-slate-800">¥{customerCash.toLocaleString()}</span>
+                                  お店様発送: <span className="font-bold text-slate-800">¥{customerCash.toLocaleString()}</span>
                                   {(optionsCash > 0 || extensionCash > 0) && (
                                     <span className="text-[10px] text-slate-400 ml-1">
                                       ({optionsCash > 0 && `オプション:¥${optionsCash.toLocaleString()}`}
@@ -848,7 +850,7 @@ export default function PayrollPage() {
                                 </div>
                                 <div className="text-slate-300">|</div>
                                 <div>
-                                  バック支払: <span className="font-bold text-slate-800">¥{r.netBack.toLocaleString()}</span>
+                                  バック先払い: <span className="font-bold text-slate-800">¥{r.netBack.toLocaleString()}</span>
                                 </div>
                                 <div className="text-slate-300">|</div>
                                 <div className="flex items-center gap-1">
