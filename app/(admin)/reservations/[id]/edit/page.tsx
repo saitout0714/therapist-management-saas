@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { resolveCustomerPrice, calculateBack, calculateShiftAllowances, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
+import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -989,20 +990,12 @@ export default function EditReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
               <div>
                 <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
-                <select
+                <SearchableTherapistSelect
                   value={formData.therapist_id}
-                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
+                  onChange={(val) => setFormData({ ...formData, therapist_id: val })}
+                  therapists={therapists}
                   required
-                >
-                  <option value="">選択してください</option>
-                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
-                  {therapists.map(therapist => (
-                    <option key={therapist.id} value={therapist.id}>
-                      {therapist.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>

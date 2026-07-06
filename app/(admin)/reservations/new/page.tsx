@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
+import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -1204,24 +1205,14 @@ export default function NewReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
               <div>
                 <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
-                <select
+                <SearchableTherapistSelect
                   value={formData.therapist_id}
-                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
-                  required
+                  onChange={(val) => setFormData({ ...formData, therapist_id: val })}
+                  therapists={availableTherapists}
+                  availableShiftText={availableShiftText}
                   disabled={availableTherapists.length === 0}
-                >
-                  <option value="">選択してください</option>
-                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
-                  {availableTherapists.map(therapist => (
-                    <option key={therapist.id} value={therapist.id}>
-                      {therapist.name}
-                      {availableShiftText(therapist.id)
-                        ? ` (${availableShiftText(therapist.id)})`
-                        : ''}
-                    </option>
-                  ))}
-                </select>
+                  required
+                />
                 {!noShiftsRegistered && availableTherapists.length === 0 && (
                   <p className="mt-1.5 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-center">
                     <svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
