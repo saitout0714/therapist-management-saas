@@ -1,19 +1,38 @@
-const { createClient } = require('@supabase/supabase-js');
+const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const connectionString = process.env.PRODUCTION_DATABASE_URL;
 
-const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+async function check() {
+  const client = new Client({
+    connectionString: connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
 
-async function main() {
-  console.log('--- serviceClient での customer_therapist_ng テーブルセレクトテスト ---');
-  const { data, error } = await serviceClient.from('customer_therapist_ng').select('*').limit(1);
-  if (error) {
-    console.error('エラー発生:', error);
-  } else {
-    console.log('セレクト成功:', data);
+  try {
+    await client.connect();
+    
+    // Fetch function definition for check_shop_access
+    const res = await client.query(`
+      SELECT prosrc 
+      FROM pg_proc 
+      WHERE proname = 'check_shop_access'
+    `);
+    
+    console.log('--- check_shop_access FUNCTION DEFINITION ---');
+    if (res.rows.length > 0) {
+      console.log(res.rows[0].prosrc);
+    } else {
+      console.log('Function not found.');
+    }
+
+  } catch (err) {
+    console.error('Error querying production DB:', err);
+  } finally {
+    await client.end();
   }
 }
 
-main().catch(console.error);
+check();
