@@ -314,6 +314,11 @@ export default function NewReservationPage() {
         .order('name')
         .limit(50)
       console.log('Customer Search Response (new/page):', { data, error })
+      if (data) {
+        data.forEach((c, index) => {
+          console.log(`  [${index}] name: "${c.name}", phone: "${c.phone}", status: "${c.status}"`)
+        })
+      }
       if (error) console.error('Customer Search Error Details (new/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)

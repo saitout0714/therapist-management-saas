@@ -207,6 +207,11 @@ export default function EditReservationPage() {
         .order('name')
         .limit(50)
       console.log('Customer Search Response (edit/page):', { data, error })
+      if (data) {
+        data.forEach((c, index) => {
+          console.log(`  [${index}] name: "${c.name}", phone: "${c.phone}", status: "${c.status}"`)
+        })
+      }
       if (error) console.error('Customer Search Error Details (edit/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)
