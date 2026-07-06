@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  })
+}
+
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,10 +35,10 @@ export async function GET(
     .single()
 
   if (codeError || !codeRow) {
-    return NextResponse.json({ error: '予約ページが見つかりません' }, { status: 404 })
+    return NextResponse.json({ error: '予約ページが見つかりません' }, { status: 404, headers: CORS_HEADERS })
   }
   if (!codeRow.is_active) {
-    return NextResponse.json({ error: 'このページは現在ご利用いただけません' }, { status: 403 })
+    return NextResponse.json({ error: 'このページは現在ご利用いただけません' }, { status: 403, headers: CORS_HEADERS })
   }
 
   const shopId = codeRow.shop_id
@@ -37,7 +50,7 @@ export async function GET(
   nextWeek.setDate(today.getDate() + 6)
   const nextWeekStr = nextWeek.toISOString().split('T')[0]
 
-  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes] = await Promise.all([
+  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes, therapistsRes] = await Promise.all([
     supabase.from('shops').select('id, name, short_name, description').eq('id', shopId).single(),
     supabase
       .from('courses')
@@ -49,7 +62,7 @@ export async function GET(
       .from('shifts')
       .select(`
         id, date, start_time, end_time,
-        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, rank_id, is_active, reservation_interval_minutes,
+        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, reservation_interval_minutes,
           therapist_ranks (name))
       `)
       .eq('shop_id', shopId)
@@ -69,10 +82,16 @@ export async function GET(
       .select('reservation_interval_minutes')
       .eq('shop_id', shopId)
       .maybeSingle(),
+    supabase
+      .from('therapists')
+      .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, therapist_ranks (name)')
+      .eq('shop_id', shopId)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
   ])
 
   if (shopRes.error) {
-    return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 })
+    return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500, headers: CORS_HEADERS })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,12 +100,15 @@ export async function GET(
     return t?.is_active !== false
   })
 
-  // シフトに出勤しているセラピストIDを収集して写真を取得
+  // シフトに出勤しているセラピストIDと、全アクティブセラピストのIDを収集して写真を取得
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const therapistIds = [...new Set(shifts.map((s: any) => {
+  const shiftsTherapistIds = shifts.map((s: any) => {
     const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
     return t?.id
-  }).filter(Boolean))] as string[]
+  }).filter(Boolean) as string[]
+
+  const allTherapistIds = (therapistsRes.data || []).map((t: any) => t.id) as string[]
+  const therapistIds = [...new Set([...shiftsTherapistIds, ...allTherapistIds])] as string[]
 
   const photosMap: Record<string, string[]> = {}
   if (therapistIds.length > 0) {
@@ -111,11 +133,22 @@ export async function GET(
     }
   })
 
+  // 全アクティブセラピストにも写真を紐付け
+  const therapistsWithPhotos = (therapistsRes.data || []).map((t: any) => {
+    return {
+      ...t,
+      photos: photosMap[t.id] || [],
+    }
+  })
+
   return NextResponse.json({
     shop: shopRes.data,
     courses: coursesRes.data || [],
     shifts: shiftsWithPhotos,
     reservations: reservationsRes.data || [],
     system_interval_minutes: (settingsRes.data as { reservation_interval_minutes?: number } | null)?.reservation_interval_minutes ?? 20,
+    therapists: therapistsWithPhotos,
+  }, {
+    headers: CORS_HEADERS
   })
 }

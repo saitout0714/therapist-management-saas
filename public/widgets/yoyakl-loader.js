@@ -1,0 +1,1017 @@
+(function() {
+  // すでに読み込まれている場合は再実行しない
+  if (window.YoyaklWidgetInitialized) return;
+  window.YoyaklWidgetInitialized = true;
+
+  // 1. スクリプトの配信元URLからAPIのベースURLを自動判定
+  let apiBase = '';
+  const currentScript = document.currentScript;
+  if (currentScript && currentScript.src) {
+    try {
+      const url = new URL(currentScript.src);
+      apiBase = url.origin;
+    } catch (e) {
+      console.error('[Yoyakl] Failed to parse script origin:', e);
+    }
+  }
+  if (!apiBase) {
+    apiBase = window.location.origin;
+  }
+
+  // CSSスタイルの注入 (スコープ限定・セージグリーンテーマ)
+  const styleId = 'yoyakl-widget-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `
+      #yoyakl-widget {
+        --yk-pink: #758e7b; /* セージグリーン */
+        --yk-pink-hover: #5d7362;
+        --yk-pink-light: #f1f4f2;
+        --yk-gray-50: #f8fafc;
+        --yk-gray-100: #f1f5f9;
+        --yk-gray-200: #e2e8f0;
+        --yk-gray-300: #cbd5e1;
+        --yk-gray-500: #64748b;
+        --yk-gray-700: #334155;
+        --yk-gray-800: #1e293b;
+        --yk-gray-900: #0f172a;
+        --yk-radius-lg: 12px;
+        --yk-radius-md: 8px;
+        --yk-radius-sm: 4px;
+        --yk-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        
+        font-family: var(--yk-font);
+        color: var(--yk-gray-900);
+        margin: 0 auto;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      #yoyakl-widget * {
+        box-sizing: border-box;
+      }
+      
+      /* タブメニュー (モードが 'all' の場合に使用) */
+      .yk-tabs-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 24px;
+      }
+      .yk-tabs {
+        display: inline-flex;
+        background: var(--yk-gray-100);
+        padding: 6px;
+        border-radius: var(--yk-radius-lg);
+        border: 1px solid var(--yk-gray-200);
+      }
+      .yk-tab-btn {
+        border: none;
+        background: transparent;
+        padding: 10px 24px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--yk-gray-500);
+        border-radius: var(--yk-radius-md);
+        cursor: pointer;
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .yk-tab-btn:hover {
+        color: var(--yk-gray-800);
+      }
+      .yk-tab-btn.active {
+        background: #ffffff;
+        color: var(--yk-pink);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      }
+      
+      /* コンテンツ表示エリア */
+      .yk-tab-panel {
+        display: none;
+        animation: yk-fadeIn 0.3s ease;
+      }
+      .yk-tab-panel.active {
+        display: block;
+      }
+      
+      @keyframes yk-fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      /* セラピスト一覧グリッド */
+      .yk-therapist-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+      }
+      .yk-card {
+        background: #ffffff;
+        border: 1px solid var(--yk-gray-200);
+        border-radius: var(--yk-radius-lg);
+        overflow: hidden;
+        transition: all 0.25s ease;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      }
+      .yk-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border-color: var(--yk-gray-300);
+      }
+      
+      /* 写真エリア */
+      .yk-photo-wrapper {
+        position: relative;
+        aspect-ratio: 3 / 4;
+        background: var(--yk-gray-100);
+        overflow: hidden;
+      }
+      .yk-photo-link {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .yk-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+      }
+      .yk-card:hover .yk-photo {
+        transform: scale(1.02);
+      }
+      
+      /* 画像がない場合のプレースホルダー */
+      .yk-photo-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: var(--yk-gray-500);
+        background: linear-gradient(135deg, var(--yk-gray-50) 0%, var(--yk-gray-100) 100%);
+      }
+      .yk-photo-placeholder svg {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 8px;
+        color: var(--yk-gray-300);
+      }
+      
+      .yk-rank-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(117, 142, 123, 0.9); /* セージグリーン半透明 */
+        color: #ffffff;
+        padding: 3px 8px;
+        border-radius: 9999px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        pointer-events: none; /* 下の写真リンクをクリック可能にする */
+      }
+      
+      /* カード内情報 */
+      .yk-card-info {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        text-align: center; /* ユーザーサイト風に中央寄せ */
+      }
+      .yk-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--yk-gray-900);
+        margin-bottom: 4px;
+      }
+      .yk-name-link {
+        color: inherit;
+        text-decoration: none !important;
+        transition: color 0.2s ease;
+      }
+      .yk-name-link:hover {
+        color: var(--yk-pink);
+      }
+      
+      .yk-profile-str {
+        font-size: 12px;
+        color: var(--yk-gray-500);
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+      .yk-comment {
+        font-size: 12px;
+        color: var(--yk-gray-500);
+        line-height: 1.5;
+        margin: 0 0 12px 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+      }
+      
+      /* 予約・指名ボタン（一覧カード用） */
+      .yk-card-book-btn {
+        width: 100%;
+        background: var(--yk-pink-light);
+        color: var(--yk-pink) !important;
+        border: 1px solid rgba(117, 142, 123, 0.2);
+        text-align: center;
+        text-decoration: none !important;
+        padding: 8px 12px;
+        border-radius: var(--yk-radius-md);
+        font-size: 13px;
+        font-weight: 700;
+        margin-top: 14px;
+        display: block;
+        transition: all 0.2s ease;
+      }
+      .yk-card-book-btn:hover {
+        background: var(--yk-pink);
+        color: #ffffff !important;
+        border-color: var(--yk-pink);
+      }
+      
+      /* 出勤予定 */
+      .yk-shifts-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--yk-gray-500);
+        margin-bottom: 6px;
+        border-bottom: 1px solid var(--yk-gray-100);
+        padding-bottom: 4px;
+        text-align: left;
+      }
+      .yk-shift-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .yk-shift-item {
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--yk-gray-700);
+      }
+      .yk-shift-date {
+        font-weight: 500;
+      }
+      .yk-shift-time {
+        font-weight: 600;
+        color: var(--yk-pink);
+      }
+      .yk-shift-none {
+        font-size: 11px;
+        color: var(--yk-gray-500);
+        font-style: italic;
+      }
+      
+      /* スケジュール用日付選択タブ (日付ボタン一覧) */
+      .yk-sched-date-tabs-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        width: 100%;
+      }
+      .yk-sched-date-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        max-width: 100%;
+        -webkit-overflow-scrolling: touch;
+      }
+      .yk-sched-date-tabs::-webkit-scrollbar {
+        height: 3px;
+      }
+      .yk-sched-date-tabs::-webkit-scrollbar-thumb {
+        background: var(--yk-gray-300);
+        border-radius: 2px;
+      }
+      .yk-sched-date-btn {
+        background: var(--yk-gray-100);
+        border: 1px solid var(--yk-gray-200);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--yk-gray-700);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+      }
+      .yk-sched-date-btn:hover {
+        background: var(--yk-gray-200);
+      }
+      .yk-sched-date-btn.active {
+        background: var(--yk-pink);
+        color: #ffffff;
+        border-color: var(--yk-pink);
+      }
+      
+      /* スケジュール内セラピストカード用の時間帯予約ボタン */
+      .yk-card-hours-badge {
+        background: var(--yk-pink);
+        color: #ffffff !important;
+        padding: 8px 12px;
+        border-radius: var(--yk-radius-md);
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: auto;
+        text-align: center;
+        text-decoration: none !important;
+        display: block;
+        transition: background 0.2s;
+      }
+      .yk-card-hours-badge:hover {
+        background: var(--yk-pink-hover);
+      }
+      
+      /* 個人ページ用レイアウト */
+      .yk-single-therapist-container {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      @media (min-width: 768px) {
+        .yk-single-therapist-container {
+          grid-template-columns: 280px 1fr;
+        }
+      }
+      .yk-single-profile-card {
+        background: #ffffff;
+        border: 1px solid var(--yk-gray-200);
+        border-radius: var(--yk-radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        height: fit-content;
+      }
+      .yk-single-avatar-wrapper {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-bottom: 16px;
+        background: var(--yk-gray-100);
+        border: 3px solid var(--yk-pink-light);
+      }
+      .yk-single-avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .yk-single-avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--yk-gray-200);
+        color: var(--yk-gray-500);
+        font-size: 36px;
+        font-weight: 700;
+      }
+      .yk-single-name {
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        color: var(--yk-gray-900);
+      }
+      .yk-single-profile-str {
+        font-size: 13px;
+        color: var(--yk-gray-500);
+        margin-bottom: 14px;
+        font-weight: 500;
+      }
+      .yk-single-comment {
+        font-size: 13px;
+        color: var(--yk-gray-600);
+        line-height: 1.5;
+        margin: 0 0 20px 0;
+      }
+      
+      .yk-general-book-btn-main {
+        width: 100%;
+        background: var(--yk-pink);
+        color: #ffffff !important;
+        text-decoration: none !important;
+        padding: 12px 16px;
+        border-radius: var(--yk-radius-md);
+        font-size: 14px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+        cursor: pointer;
+      }
+      .yk-general-book-btn-main:hover {
+        background: var(--yk-pink-hover);
+      }
+      
+      .yk-single-schedule-card {
+        background: #ffffff;
+        border: 1px solid var(--yk-gray-200);
+        border-radius: var(--yk-radius-lg);
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      }
+      .yk-single-schedule-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0 0 16px 0;
+        color: var(--yk-gray-900);
+        border-left: 4px solid var(--yk-pink);
+        padding-left: 10px;
+        text-align: left;
+      }
+      .yk-single-shift-list {
+        display: flex;
+        flex-direction: column;
+      }
+      .yk-single-shift-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--yk-gray-100);
+        font-size: 14px;
+      }
+      .yk-single-shift-row:last-child {
+        border-bottom: none;
+      }
+      .yk-single-shift-date {
+        font-weight: 600;
+        color: var(--yk-gray-700);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .yk-single-shift-date.today {
+        color: var(--yk-pink-hover);
+      }
+      .yk-single-today-tag {
+        background: var(--yk-pink);
+        color: #ffffff;
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+      .yk-single-shift-time {
+        font-size: 14px;
+      }
+      .yk-single-book-btn {
+        background: var(--yk-pink-light);
+        color: var(--yk-pink) !important;
+        border: 1px solid rgba(117, 142, 123, 0.2);
+        padding: 6px 12px;
+        border-radius: var(--yk-radius-sm);
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none !important;
+        transition: all 0.2s ease;
+      }
+      .yk-single-book-btn:hover {
+        background: var(--yk-pink);
+        color: #ffffff !important;
+        border-color: var(--yk-pink);
+      }
+      
+      .yk-no-shifts {
+        font-size: 13px;
+        color: var(--yk-gray-500);
+        text-align: center;
+        padding: 32px 0;
+        grid-column: 1/-1;
+      }
+      
+      /* ローダー */
+      .yk-loader-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px;
+      }
+      .yk-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--yk-gray-200);
+        border-top-color: var(--yk-pink);
+        border-radius: 50%;
+        animation: yk-spin 0.8s linear infinite;
+        margin-bottom: 12px;
+      }
+      @keyframes yk-spin {
+        to { transform: rotate(360deg); }
+      }
+      .yk-loading-text {
+        font-size: 13px;
+        color: var(--yk-gray-500);
+      }
+      
+      /* エラー表示 */
+      .yk-error-box {
+        border: 1px solid #fca5a5;
+        background: #fef2f2;
+        color: #991b1b;
+        padding: 16px;
+        border-radius: var(--yk-radius-lg);
+        font-size: 14px;
+        font-weight: 500;
+        text-align: center;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 各種ヘルパー関数
+  function formatTime(timeStr) {
+    if (!timeStr) return '';
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+      return `${parts[0]}:${parts[1]}`;
+    }
+    return timeStr;
+  }
+
+  function resolvePhotoUrl(photoUrl, base) {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || photoUrl.startsWith('data:')) {
+      return photoUrl;
+    }
+    return `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
+  }
+
+  function getJstDateString(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function formatShortDate(dateStr, showYear = false) {
+    const d = new Date(dateStr);
+    const m = d.getMonth() + 1;
+    const date = d.getDate();
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    const dayOfWeek = days[d.getDay()];
+    if (showYear) {
+      return `${d.getFullYear()}/${m}/${date}(${dayOfWeek})`;
+    }
+    return `${m}/${date}(${dayOfWeek})`;
+  }
+
+  // ユーザーサイト風のプロフィール文字列整形 (28才 T.167 B.87(E) W.58 H.87)
+  function formatProfileString(t) {
+    const parts = [];
+    if (t.age) parts.push(`${t.age}才`);
+    if (t.height) parts.push(`T.${t.height}`);
+    if (t.bust && t.bust_cup) {
+      parts.push(`B.${t.bust}(${t.bust_cup})`);
+    } else if (t.bust_cup) {
+      parts.push(`B.(${t.bust_cup})`);
+    }
+    if (t.waist) parts.push(`W.${t.waist}`);
+    if (t.hip) parts.push(`H.${t.hip}`);
+    return parts.join(' ');
+  }
+
+  // 初期化開始
+  document.addEventListener('DOMContentLoaded', initWidget);
+  // DOMContentLoadedがすでに発生していた場合のセーフティ
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    initWidget();
+  }
+
+  function initWidget() {
+    const widget = document.getElementById('yoyakl-widget');
+    if (!widget) return;
+
+    const shopCode = widget.getAttribute('data-shop-code');
+    const mode = widget.getAttribute('data-mode') || 'all'; // 'therapists', 'schedule', 'all', 'single-therapist'
+    const therapistName = widget.getAttribute('data-therapist-name');
+    const therapistId = widget.getAttribute('data-therapist-id');
+    const castUrlPattern = widget.getAttribute('data-cast-url-pattern') || '/cast/{name}/';
+
+    if (!shopCode) {
+      widget.innerHTML = '<div class="yk-error-box">エラー: data-shop-code が設定されていません。</div>';
+      return;
+    }
+
+    // ローディング表示
+    widget.innerHTML = `
+      <div class="yk-loader-container">
+        <div class="yk-spinner"></div>
+        <div class="yk-loading-text">スケジュール情報を読み込み中...</div>
+      </div>
+    `;
+
+    // APIからデータ取得
+    const apiUrl = `${apiBase}/api/public/${shopCode}`;
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('データの取得に失敗しました');
+        }
+        return response.json();
+      })
+      .then(data => {
+        renderWidget(widget, data, mode, shopCode, therapistName, therapistId, castUrlPattern);
+      })
+      .catch(error => {
+        console.error('[Yoyakl] API Error:', error);
+        widget.innerHTML = `<div class="yk-error-box">情報の取得に失敗しました。時間をおいて再度お試しください。</div>`;
+      });
+  }
+
+  function renderWidget(container, data, mode, shopCode, therapistName, therapistId, castUrlPattern) {
+    const { shifts, therapists } = data;
+    
+    // セラピスト個人用詳細ページリンクを生成するヘルパー
+    function getTherapistProfileUrl(t) {
+      if (t.hp_url) {
+        return t.hp_url;
+      }
+      if (!castUrlPattern) return '#';
+      const cleanName = t.name.replace(/\s+/g, '');
+      return castUrlPattern.replace('{name}', encodeURIComponent(cleanName)).replace('{id}', t.id);
+    }
+
+    // 本日から7日間の日付スケジュール枠の作成
+    const datesList = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      datesList.push(getJstDateString(d));
+    }
+
+    // モードに応じてレイアウトを分岐描画
+    if (mode === 'single-therapist') {
+      // 個人スケジュール表示モード
+      let targetT = null;
+      if (therapistId) {
+        targetT = therapists.find(t => t.id === therapistId);
+      } else if (therapistName) {
+        const cleanSearch = therapistName.replace(/\s+/g, '').toLowerCase();
+        targetT = therapists.find(t => {
+          const cleanName = t.name.replace(/\s+/g, '').toLowerCase();
+          return cleanName.includes(cleanSearch) || cleanSearch.includes(cleanName);
+        });
+      }
+
+      if (!targetT) {
+        container.innerHTML = `<div class="yk-error-box">セラピスト「${therapistName || therapistId}」が見つかりません。</div>`;
+        return;
+      }
+
+      container.innerHTML = renderSingleTherapistHTML(targetT, datesList, shifts, shopCode);
+    } else if (mode === 'therapists') {
+      // セラピスト一覧ページ専用表示
+      container.innerHTML = `
+        <div class="yk-therapist-grid">
+          ${renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl)}
+        </div>
+      `;
+    } else if (mode === 'schedule') {
+      // スケジュールページ専用表示 (日付タブ付き)
+      container.innerHTML = renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl);
+      initScheduleTabEvents(container, datesList);
+    } else {
+      // 複合表示（両方タブ切り替え）
+      container.innerHTML = `
+        <div class="yk-tabs-container">
+          <div class="yk-tabs" role="tablist">
+            <button class="yk-tab-btn active" id="yk-tab-btn-therapists" role="tab" aria-selected="true" aria-controls="yk-panel-therapists">
+              <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              セラピスト一覧
+            </button>
+            <button class="yk-tab-btn" id="yk-tab-btn-schedule" role="tab" aria-selected="false" aria-controls="yk-panel-schedule">
+              <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              出勤スケジュール
+            </button>
+          </div>
+        </div>
+        
+        <!-- セラピスト一覧パネル -->
+        <div class="yk-tab-panel active" id="yk-panel-therapists" role="tabpanel" aria-labelledby="yk-tab-btn-therapists">
+          <div class="yk-therapist-grid">
+            ${renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl)}
+          </div>
+        </div>
+        
+        <!-- スケジュール一覧パネル -->
+        <div class="yk-tab-panel" id="yk-panel-schedule" role="tabpanel" aria-labelledby="yk-tab-btn-schedule">
+          ${renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl)}
+        </div>
+      `;
+
+      // メインタブイベントの紐付け
+      const tabTherapistsBtn = container.querySelector('#yk-tab-btn-therapists');
+      const tabScheduleBtn = container.querySelector('#yk-tab-btn-schedule');
+      const panelTherapists = container.querySelector('#yk-panel-therapists');
+      const panelSchedule = container.querySelector('#yk-panel-schedule');
+
+      function switchMainTab(showTherapists) {
+        if (showTherapists) {
+          tabTherapistsBtn.classList.add('active');
+          tabTherapistsBtn.setAttribute('aria-selected', 'true');
+          tabScheduleBtn.classList.remove('active');
+          tabScheduleBtn.setAttribute('aria-selected', 'false');
+          panelTherapists.classList.add('active');
+          panelSchedule.classList.remove('active');
+        } else {
+          tabTherapistsBtn.classList.remove('active');
+          tabTherapistsBtn.setAttribute('aria-selected', 'false');
+          tabScheduleBtn.classList.add('active');
+          tabScheduleBtn.setAttribute('aria-selected', 'true');
+          panelTherapists.classList.remove('active');
+          panelSchedule.classList.add('active');
+        }
+      }
+
+      tabTherapistsBtn.addEventListener('click', () => switchMainTab(true));
+      tabScheduleBtn.addEventListener('click', () => switchMainTab(false));
+
+      // スケジュール側の日付サブタブのイベントを紐付け
+      initScheduleTabEvents(container, datesList);
+    }
+  }
+
+  // セラピストカード一覧HTML
+  function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl) {
+    if (therapists.length === 0) {
+      return '<div class="yk-no-shifts" style="grid-column:1/-1;">在籍セラピスト情報がありません。</div>';
+    }
+
+    return therapists.map(t => {
+      const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
+      const hasPhoto = !!photoSrc;
+      const profileText = formatProfileString(t);
+      const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}`;
+      const profileUrl = getTherapistProfileUrl(t);
+
+      return `
+        <div class="yk-card">
+          <div class="yk-photo-wrapper">
+            <a href="${profileUrl}" target="_self" class="yk-photo-link" title="${t.name}の個人ページを見る">
+              ${hasPhoto ? 
+                `<img src="${photoSrc}" alt="${t.name}" class="yk-photo" loading="lazy" />` : 
+                `<div class="yk-photo-placeholder">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  <span>No Photo</span>
+                </div>`
+              }
+            </a>
+            ${t.therapist_ranks?.name ? `<span class="yk-rank-badge">${t.therapist_ranks.name}</span>` : ''}
+          </div>
+          <div class="yk-card-info">
+            <div class="yk-name">
+              <a href="${profileUrl}" target="_self" class="yk-name-link" title="${t.name}の個人ページを見る">${t.name}</a>
+            </div>
+            ${profileText ? `<div class="yk-profile-str">${profileText}</div>` : ''}
+            <p class="yk-comment" title="${t.comment || ''}">${t.comment || 'よろしくお願いします。'}</p>
+            
+            <a href="${bookUrl}" target="_blank" class="yk-card-book-btn">
+              指名予約する
+            </a>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // スケジュール専用HTML（上部日付タブ ＋ アクティブ日グリッド）
+  function renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl) {
+    const todayStr = getJstDateString(new Date());
+    
+    // 日付ごとにシフトを整理
+    const shiftsByDate = {};
+    datesList.forEach(d => {
+      shiftsByDate[d] = [];
+    });
+    shifts.forEach(s => {
+      if (shiftsByDate[s.date]) {
+        shiftsByDate[s.date].push(s);
+      }
+    });
+
+    // 日付選択タブのHTML
+    const tabsHTML = `
+      <div class="yk-sched-date-tabs-container">
+        <div class="yk-sched-date-tabs">
+          ${datesList.map((dateStr, idx) => {
+            const label = formatShortDate(dateStr);
+            const isToday = dateStr === todayStr;
+            const activeClass = idx === 0 ? 'active' : '';
+            return `
+              <button class="yk-sched-date-btn ${activeClass}" data-date="${dateStr}">
+                ${isToday ? '本日 ' : ''}${label}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // 日付ごとの表示パネルHTML
+    const panelsHTML = datesList.map((dateStr, idx) => {
+      const activeClass = idx === 0 ? 'active' : '';
+      const dayShifts = shiftsByDate[dateStr] || [];
+      dayShifts.sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+      return `
+        <div class="yk-tab-panel ${activeClass}" id="yk-day-panel-${dateStr}" data-panel-date="${dateStr}">
+          <div class="yk-therapist-grid">
+            ${dayShifts.length > 0 ? 
+              dayShifts.map(s => {
+                const t = s.therapists;
+                if (!t) return '';
+                const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
+                const hasPhoto = !!photoSrc;
+                const profileText = formatProfileString(t);
+                const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}&date=${dateStr}`;
+                const profileUrl = getTherapistProfileUrl(t);
+                
+                return `
+                  <div class="yk-card">
+                    <div class="yk-photo-wrapper">
+                      <a href="${profileUrl}" target="_self" class="yk-photo-link" title="${t.name}の個人ページを見る">
+                        ${hasPhoto ? 
+                          `<img src="${photoSrc}" alt="${t.name}" class="yk-photo" loading="lazy" />` : 
+                          `<div class="yk-photo-placeholder">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                            <span>No Photo</span>
+                          </div>`
+                        }
+                      </a>
+                      ${t.therapist_ranks?.name ? `<span class="yk-rank-badge">${t.therapist_ranks.name}</span>` : ''}
+                    </div>
+                    <div class="yk-card-info">
+                      <div class="yk-name">
+                        <a href="${profileUrl}" target="_self" class="yk-name-link" title="${t.name}の個人ページを見る">${t.name}</a>
+                      </div>
+                      ${profileText ? `<div class="yk-profile-str">${profileText}</div>` : ''}
+                      <p class="yk-comment" title="${t.comment || ''}">${t.comment || 'よろしくお願いします。'}</p>
+                      
+                      <a href="${bookUrl}" target="_blank" class="yk-card-hours-badge">
+                        ${formatTime(s.start_time)} 〜 ${formatTime(s.end_time)} 指名予約
+                      </a>
+                    </div>
+                  </div>
+                `;
+              }).join('') :
+              `<div class="yk-no-shifts">この日の出勤予定はまだありません。</div>`
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="yk-schedule-wrapper">
+        ${tabsHTML}
+        <div class="yk-schedule-panels">
+          ${panelsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  // 個人スケジュール＆プロフィール表示HTML
+  function renderSingleTherapistHTML(therapist, datesList, shifts, shopCode) {
+    const todayStr = getJstDateString(new Date());
+    
+    // このセラピストのシフトのみを抽出
+    const myShifts = {};
+    datesList.forEach(d => {
+      myShifts[d] = null;
+    });
+    
+    shifts.forEach(s => {
+      if (s.therapists && s.therapists.id === therapist.id) {
+        if (myShifts[s.date] === null) {
+          myShifts[s.date] = s;
+        }
+      }
+    });
+
+    const photoSrc = resolvePhotoUrl(therapist.photo_url || (therapist.photos && therapist.photos[0]), apiBase);
+    const hasPhoto = !!photoSrc;
+    const profileText = formatProfileString(therapist);
+
+    const scheduleListHTML = datesList.map(dateStr => {
+      const shift = myShifts[dateStr];
+      const label = formatShortDate(dateStr, true);
+      const isToday = dateStr === todayStr;
+      
+      let shiftText = '<span style="color:var(--yk-gray-500); font-weight:500;">お休み</span>';
+      let bookBtn = '';
+      
+      if (shift) {
+        shiftText = `<span style="color:var(--yk-pink); font-weight:700;">${formatTime(shift.start_time)} 〜 ${formatTime(shift.end_time)}</span>`;
+        const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}&date=${dateStr}`;
+        bookBtn = `<a href="${bookUrl}" target="_blank" class="yk-single-book-btn">予約する</a>`;
+      }
+      
+      return `
+        <div class="yk-single-shift-row">
+          <span class="yk-single-shift-date ${isToday ? 'today' : ''}">
+            ${label}
+            ${isToday ? '<span class="yk-single-today-tag">本日</span>' : ''}
+          </span>
+          <span class="yk-single-shift-time">${shiftText}</span>
+          <span class="yk-single-shift-action">${bookBtn}</span>
+        </div>
+      `;
+    }).join('');
+
+    const generalBookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}`;
+
+    return `
+      <div class="yk-single-therapist-container">
+        <div class="yk-single-profile-card">
+          <div class="yk-single-avatar-wrapper">
+            ${hasPhoto ? 
+              `<img src="${photoSrc}" alt="${therapist.name}" class="yk-single-avatar" />` :
+              `<div class="yk-single-avatar-placeholder">${therapist.name ? therapist.name.charAt(0) : 'T'}</div>`
+            }
+          </div>
+          <div class="yk-single-profile-info">
+            <h3 class="yk-single-name">${therapist.name}</h3>
+            ${profileText ? `<div class="yk-single-profile-str">${profileText}</div>` : ''}
+            <p class="yk-single-comment">${therapist.comment || 'よろしくお願いします。'}</p>
+            <a href="${generalBookUrl}" target="_blank" class="yk-general-book-btn-main">
+              <svg style="width:16px;height:16px;margin-right:6px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              このキャストを指名してWEB予約
+            </a>
+          </div>
+        </div>
+        
+        <div class="yk-single-schedule-card">
+          <h4 class="yk-single-schedule-title">週間出勤スケジュール</h4>
+          <div class="yk-single-shift-list">
+            ${scheduleListHTML}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // スケジュール内の日付サブタブ切り替え処理
+  function initScheduleTabEvents(container, datesList) {
+    const dateButtons = container.querySelectorAll('.yk-sched-date-btn');
+    const dayPanels = container.querySelectorAll('[data-panel-date]');
+
+    dateButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetDate = btn.getAttribute('data-date');
+        
+        // ボタン状態のアクティブ切り替え
+        dateButtons.forEach(b => {
+          if (b.getAttribute('data-date') === targetDate) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
+
+        // パネル表示の切り替え
+        dayPanels.forEach(panel => {
+          if (panel.getAttribute('data-panel-date') === targetDate) {
+            panel.classList.add('active');
+          } else {
+            panel.classList.remove('active');
+          }
+        });
+      });
+    });
+  }
+
+})();

@@ -247,6 +247,71 @@ function PhotoCarousel({ photos, name }: { photos: string[]; name: string }) {
   )
 }
 
+function hexToHsl(hex: string) {
+  hex = hex.replace('#', '')
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
+  }
+  const r = parseInt(hex.substring(0, 2), 16) / 255
+  const g = parseInt(hex.substring(2, 4), 16) / 255
+  const b = parseInt(hex.substring(4, 6), 16) / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0)
+        break
+      case g:
+        h = (b - r) / d + 2
+        break
+      case b:
+        h = (r - g) / d + 4
+        break
+    }
+    h /= 6
+  }
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  }
+}
+
+function generateThemeStyles(hexColor: string) {
+  try {
+    const { h, s, l } = hexToHsl(hexColor)
+    return `
+      :root {
+        --color-blue-50: hsl(${h}, ${s}%, 96%) !important;
+        --color-blue-100: hsl(${h}, ${s}%, 91%) !important;
+        --color-blue-200: hsl(${h}, ${s}%, 82%) !important;
+        --color-blue-300: hsl(${h}, ${s}%, 72%) !important;
+        --color-blue-400: hsl(${h}, ${s}%, 62%) !important;
+        --color-blue-500: hsl(${h}, ${s}%, ${l}%) !important;
+        --color-blue-600: hsl(${h}, ${s}%, ${Math.max(10, l - 8)}%) !important;
+        --color-blue-700: hsl(${h}, ${s}%, ${Math.max(10, l - 16)}%) !important;
+        --color-blue-800: hsl(${h}, ${s}%, ${Math.max(10, l - 24)}%) !important;
+        --color-blue-900: hsl(${h}, ${s}%, ${Math.max(5, l - 32)}%) !important;
+      }
+      .border-blue-100 {
+        border-color: hsl(${h}, ${s}%, 91%) !important;
+      }
+    `
+  } catch (e) {
+    console.error('Failed to generate theme styles:', e)
+    return ''
+  }
+}
+
 export default function ReserveClient({ initialData }: { initialData: InitialReserveData }) {
   const { code } = initialData
   const searchParams = useSearchParams()
@@ -319,6 +384,35 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
       setLoading(false)
     }
   }, [code])
+
+  // therapist_id がパラメータで渡された場合に自動遷移させる処理
+  useEffect(() => {
+    const paramTherapistId = searchParams.get('therapist_id')
+    const paramDate = searchParams.get('date')
+    
+    if (paramTherapistId && shifts.length > 0) {
+      let targetShift = null
+      if (paramDate) {
+        targetShift = shifts.find(s => s.therapists && s.therapists.id === paramTherapistId && s.date === paramDate)
+      } else {
+        const sortedMyShifts = shifts
+          .filter(s => s.therapists && s.therapists.id === paramTherapistId)
+          .sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time))
+        if (sortedMyShifts.length > 0) {
+          targetShift = sortedMyShifts[0]
+        }
+      }
+
+      if (targetShift && targetShift.therapists) {
+        setSelectedDate(targetShift.date)
+        setSelectedTherapist(targetShift.therapists)
+        setSelectedShift(targetShift)
+        setSelectedCourse(null)
+        setSelectedStartTime('')
+        setStep('details')
+      }
+    }
+  }, [searchParams, shifts])
 
   // 選択日のシフト一覧
   const todayShifts = shifts.filter(s => s.date === selectedDate)
@@ -454,8 +548,14 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   ]
   const stepIndex = stepLabels.findIndex(s => s.key === step)
 
+  const themeParam = searchParams.get('theme')
+  const activeThemeColor = themeParam || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null)
+
   return (
     <div ref={mainRef} className="min-h-screen bg-white">
+      {activeThemeColor && (
+        <style dangerouslySetInnerHTML={{ __html: generateThemeStyles(activeThemeColor) }} />
+      )}
       {/* ヘッダー */}
       {!isEmbed && (
         <header className="bg-white border-b border-blue-100 sticky top-0 z-10">
