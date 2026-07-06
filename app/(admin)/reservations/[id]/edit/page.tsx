@@ -815,7 +815,7 @@ export default function EditReservationPage() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2 order-2 sm:order-1 space-y-3 pb-24 sm:pb-0">
           {/* 1: お客様 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0">
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0">
             <div className="flex items-center gap-2 pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-indigo-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">お客様</h2>
               {formData.customer_id && (
