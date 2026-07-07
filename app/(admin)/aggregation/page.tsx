@@ -9,6 +9,9 @@ import { toDisplayTime } from '@/lib/timeUtils'
 interface DailySummary {
   date: string;
   totalSales: number;
+  cashSales: number;
+  creditCount: number;
+  creditSales: number;
   totalBack: number;
   shopProfit: number;
   reservationCount: number;
@@ -35,6 +38,10 @@ interface ReservationWithDetails {
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
   reservation_options: { option_id: string | null; price: number; custom_name?: string | null; option?: { name: string } | null }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
+  payment_method: 'cash' | 'credit' | null
+  options_payment_method: 'cash' | 'credit' | null
+  extension_payment_method: 'cash' | 'credit' | null
+  options_price?: number | null
   customer?: { name: string } | null
   reception_source?: string | null
 }
@@ -172,6 +179,9 @@ interface CalculatedReservation extends ReservationWithDetails {
         const dayRes = dailyMap[dStr] || []
         
         let daySales = 0
+        let dayCashSales = 0
+        let dayCreditSales = 0
+        let dayCreditCount = 0
         let dayBack = 0
         let dayCount = dayRes.length
         let dayCreditFee = 0
@@ -196,6 +206,25 @@ interface CalculatedReservation extends ReservationWithDetails {
           daySales += calculatedTotalPrice
           dayBack += calculatedNetBack
 
+          const optComponent = res.options_price ?? (res.reservation_options?.reduce((sum, o) => sum + (o.price || 0), 0) || 0);
+          let resCreditSales = 0;
+          let resCashSales = 0;
+          let hasCredit = false;
+
+          if (res.payment_method === 'credit') {
+            resCreditSales = calculatedTotalPrice - (res.options_payment_method === 'cash' ? optComponent : 0);
+            resCashSales = calculatedTotalPrice - resCreditSales;
+            hasCredit = true;
+          } else {
+            resCashSales = calculatedTotalPrice - (res.options_payment_method === 'credit' ? optComponent : 0);
+            resCreditSales = calculatedTotalPrice - resCashSales;
+            if (res.options_payment_method === 'credit') hasCredit = true;
+          }
+
+          dayCreditSales += resCreditSales;
+          dayCashSales += resCashSales;
+          if (hasCredit) dayCreditCount++;
+
           calculatedResList.push({
             ...res,
             therapistName: therapist ? therapist.name : '（未割当）',
@@ -208,6 +237,9 @@ interface CalculatedReservation extends ReservationWithDetails {
         results.push({
           date: dStr,
           totalSales: daySales,
+          cashSales: dayCashSales,
+          creditCount: dayCreditCount,
+          creditSales: dayCreditSales,
           totalBack: dayBack,
           shopProfit: daySales - dayBack,
           reservationCount: dayCount,
@@ -233,6 +265,9 @@ interface CalculatedReservation extends ReservationWithDetails {
 
   const totals = useMemo(() => {
     let sales = 0
+    let cashSales = 0
+    let creditCount = 0
+    let creditSales = 0
     let back = 0
     let profit = 0
     let count = 0
@@ -244,6 +279,9 @@ interface CalculatedReservation extends ReservationWithDetails {
 
     dailySummaries.forEach(cur => {
       sales += cur.totalSales
+      cashSales += cur.cashSales
+      creditCount += cur.creditCount
+      creditSales += cur.creditSales
       back += cur.totalBack
       profit += cur.shopProfit
       count += cur.reservationCount
@@ -264,6 +302,9 @@ interface CalculatedReservation extends ReservationWithDetails {
 
     return {
       sales,
+      cashSales,
+      creditCount,
+      creditSales,
       back,
       profit,
       count,
@@ -274,54 +315,53 @@ interface CalculatedReservation extends ReservationWithDetails {
       clientCount
     }
   }, [dailySummaries, calculatedReservations])
-  // 前半・後半への分割
-  const half = Math.ceil(dailySummaries.length / 2)
-  const leftHalf = dailySummaries.slice(0, half)
-  const rightHalf = dailySummaries.slice(half)
-
-  const renderTable = (data: DailySummary[]) => (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <table className="w-full text-left border-collapse">
+  const renderTable = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto animate-in fade-in duration-500">
+      <table className="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
         <thead className="bg-slate-50">
           <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-            <th className="px-3 py-2 border-b border-slate-100">日付</th>
-            <th className="px-3 py-2 border-b border-slate-100">売上</th>
-            <th className="px-3 py-2 border-b border-slate-100 text-indigo-600">報酬</th>
-            <th className="px-3 py-2 border-b border-slate-100 text-emerald-600">利益</th>
-            <th className="px-3 py-2 border-b border-slate-100 hidden sm:table-cell">件数</th>
-            <th className="px-1 py-1 border-b border-slate-100 w-8"></th>
+            <th className="px-4 py-3 border-b border-slate-100">日付</th>
+            <th className="px-4 py-3 border-b border-slate-100">売上合計</th>
+            <th className="px-4 py-3 border-b border-slate-100">現金売上</th>
+            <th className="px-4 py-3 border-b border-slate-100">クレジット売上</th>
+            <th className="px-4 py-3 border-b border-slate-100">クレ件数</th>
+            <th className="px-4 py-3 border-b border-slate-100">クレ手数料</th>
+            <th className="px-4 py-3 border-b border-slate-100 text-indigo-600">報酬</th>
+            <th className="px-4 py-3 border-b border-slate-100 text-emerald-600">利益</th>
+            <th className="px-4 py-3 border-b border-slate-100">件数</th>
+            <th className="px-2 py-3 border-b border-slate-100 w-10"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          {data.map((day) => (
+          {dailySummaries.map((day) => (
             <tr key={day.date} className="hover:bg-slate-50/50 transition-colors">
-              <td className="px-3 py-1.5 border-b border-slate-50">
-                <div className="flex items-center gap-1.5 line-clamp-1 whitespace-nowrap">
+              <td className="px-4 py-2">
+                <div className="flex items-center gap-2">
                   <span className="font-bold text-slate-700 font-mono text-xs">{day.date.slice(5).replace('-', '/')}</span>
-                  <span className={`text-[9px] font-bold px-1 rounded whitespace-nowrap ${
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     new Date(day.date).getDay() === 0 ? 'text-rose-500 bg-rose-50' : 
-                    new Date(day.date).getDay() === 6 ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400'
+                    new Date(day.date).getDay() === 6 ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400 bg-slate-50'
                   }`}>
                     {new Date(day.date).toLocaleDateString('ja-JP', { weekday: 'short' })}
                   </span>
                 </div>
               </td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono text-[11px] text-slate-600 whitespace-nowrap">¥{day.totalSales.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-indigo-600 whitespace-nowrap">¥{day.totalBack.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 font-mono font-bold text-[11px] text-emerald-600 whitespace-nowrap">¥{day.shopProfit.toLocaleString()}</td>
-              <td className="px-3 py-1.5 border-b border-slate-50 hidden sm:table-cell whitespace-nowrap">
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold">
-                  {day.reservationCount}
-                </span>
-              </td>
-              <td className="px-1 py-1 text-center border-b border-slate-50">
+              <td className="px-4 py-2 font-mono text-xs font-bold text-slate-700">¥{day.totalSales.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.cashSales.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.creditSales.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.creditCount}件</td>
+              <td className="px-4 py-2 font-mono text-xs text-amber-500">¥{day.totalCreditFee.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs font-bold text-indigo-600">¥{day.totalBack.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs font-bold text-emerald-600">¥{day.shopProfit.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.reservationCount}件</td>
+              <td className="px-2 py-2 text-center">
                 <button 
                   type="button"
                   onClick={() => setSelectedDate(day.date)}
                   className="text-slate-300 hover:text-indigo-600 transition-colors p-1"
                   title="詳細明細を表示（日報）"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                 </button>
               </td>
             </tr>
@@ -400,28 +440,52 @@ interface CalculatedReservation extends ReservationWithDetails {
         )}
 
         {/* サマリー（超小型） */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60">
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総売上</div>
-            <div className="text-lg font-bold text-slate-800 font-mono">¥{totals.sales.toLocaleString()}</div>
-            {totals.creditFee > 0 && (
-              <div className="text-[10px] text-amber-500 font-medium mt-0.5">うち手数料 ¥{totals.creditFee.toLocaleString()}</div>
-            )}
-          </div>
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60">
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">報酬合計</div>
-            <div className="text-lg font-bold text-indigo-600 font-mono">¥{totals.back.toLocaleString()}</div>
-          </div>
-          <div className="bg-emerald-600 p-3.5 rounded-xl shadow-lg border border-emerald-700">
-            <div className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider mb-0.5">店舗利益 (店落ち)</div>
-            <div className="text-xl font-bold text-white font-mono">¥{totals.profit.toLocaleString()}</div>
-          </div>
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60">
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総予約数</div>
-            <div className="text-lg font-bold text-slate-600 font-mono tracking-tight">
-              {totals.count} <span className="text-xs">件</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
+          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">売上合計</div>
+              <div className="text-xl font-bold text-slate-800 font-mono">¥{totals.sales.toLocaleString()}</div>
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 font-medium">
+            <div className="text-[11px] text-slate-500 font-medium mt-2 flex justify-between border-t border-slate-100 pt-1.5">
+              <span>現金: <span className="font-mono text-slate-700 font-bold">¥{totals.cashSales.toLocaleString()}</span></span>
+            </div>
+          </div>
+          
+          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">クレジット売上</div>
+              <div className="text-xl font-bold text-slate-800 font-mono">¥{totals.creditSales.toLocaleString()}</div>
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium mt-2 flex flex-col gap-0.5 border-t border-slate-100 pt-1.5">
+              <div className="flex justify-between">
+                <span>件数:</span>
+                <span className="font-mono text-slate-700 font-bold">{totals.creditCount}件</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-amber-600">手数料:</span>
+                <span className="font-mono text-amber-600 font-bold">¥{totals.creditFee.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">報酬合計</div>
+              <div className="text-xl font-bold text-indigo-600 font-mono">¥{totals.back.toLocaleString()}</div>
+            </div>
+            <div className="text-[11px] text-emerald-600 font-medium mt-2 flex justify-between border-t border-slate-100 pt-1.5">
+              <span>利益: <span className="font-mono font-bold text-emerald-700">¥{totals.profit.toLocaleString()}</span></span>
+            </div>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総予約数</div>
+              <div className="text-xl font-bold text-slate-600 font-mono tracking-tight">
+                {totals.count} <span className="text-xs">件</span>
+              </div>
+            </div>
+            <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 space-y-0.5 font-medium">
               <div className="flex justify-between">
                 <span>代行(mts):</span>
                 <span className="font-bold text-slate-700 font-mono">{totals.mtsCount}件</span>
@@ -442,10 +506,9 @@ interface CalculatedReservation extends ReservationWithDetails {
           </div>
         </div>
 
-        {/* 2列レイアウトの日別明細 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in duration-500">
-          <div>{renderTable(leftHalf)}</div>
-          <div>{renderTable(rightHalf)}</div>
+        {/* 1列レイアウトの日別明細 */}
+        <div className="w-full">
+          {renderTable()}
         </div>
 
         {loading && (
@@ -509,24 +572,50 @@ interface CalculatedReservation extends ReservationWithDetails {
 
               {/* Day Summary Cards */}
               <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
-                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">売上合計</span>
-                  <span className="text-base font-bold text-slate-800 font-mono">¥{summary.totalSales.toLocaleString()}</span>
-                  {summary.totalCreditFee > 0 && (
-                    <span className="text-[9px] text-amber-500 font-medium block">手数料 ¥{summary.totalCreditFee.toLocaleString()}</span>
-                  )}
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">売上合計</span>
+                    <span className="text-base font-bold text-slate-800 font-mono">¥{summary.totalSales.toLocaleString()}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-medium mt-1.5 flex justify-between border-t border-slate-100 pt-1">
+                    <span>現金: ¥{summary.cashSales?.toLocaleString() || 0}</span>
+                  </div>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
-                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">報酬合計</span>
-                  <span className="text-base font-bold text-indigo-600 font-mono">¥{summary.totalBack.toLocaleString()}</span>
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">クレジット売上</span>
+                    <span className="text-base font-bold text-slate-800 font-mono">¥{summary.creditSales?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-medium mt-1.5 flex flex-col gap-0.5 border-t border-slate-100 pt-1">
+                    <div className="flex justify-between">
+                      <span>件数:</span>
+                      <span>{summary.creditCount || 0}件</span>
+                    </div>
+                    {summary.totalCreditFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-amber-500">手数料:</span>
+                        <span className="text-amber-500 font-bold">¥{summary.totalCreditFee.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 shadow-sm">
-                  <span className="text-[10px] text-emerald-600 font-bold block mb-0.5">店舗利益 (店落ち)</span>
-                  <span className="text-base font-bold text-emerald-700 font-mono">¥{summary.shopProfit.toLocaleString()}</span>
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">報酬合計</span>
+                    <span className="text-base font-bold text-indigo-600 font-mono">¥{summary.totalBack.toLocaleString()}</span>
+                  </div>
+                  <div className="text-[9px] text-emerald-600 font-medium mt-1.5 flex justify-between border-t border-slate-100 pt-1">
+                    <span>利益: <span className="font-bold">¥{summary.shopProfit.toLocaleString()}</span></span>
+                  </div>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
-                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">総予約数</span>
-                  <span className="text-base font-bold text-slate-600 font-mono">{summary.reservationCount} 件</span>
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">総予約数</span>
+                    <span className="text-base font-bold text-slate-600 font-mono">{summary.reservationCount} 件</span>
+                  </div>
                 </div>
               </div>
 
