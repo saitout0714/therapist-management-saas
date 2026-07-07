@@ -324,8 +324,8 @@ interface CalculatedReservation extends ReservationWithDetails {
             <th className="px-4 py-3 border-b border-slate-100">売上合計</th>
             <th className="px-4 py-3 border-b border-slate-100">現金売上</th>
             <th className="px-4 py-3 border-b border-slate-100">クレジット売上</th>
-            <th className="px-4 py-3 border-b border-slate-100">クレ件数</th>
             <th className="px-4 py-3 border-b border-slate-100">クレ手数料</th>
+            <th className="px-4 py-3 border-b border-slate-100">クレ件数</th>
             <th className="px-4 py-3 border-b border-slate-100 text-indigo-600">報酬</th>
             <th className="px-4 py-3 border-b border-slate-100 text-emerald-600">利益</th>
             <th className="px-4 py-3 border-b border-slate-100">件数</th>
@@ -349,8 +349,8 @@ interface CalculatedReservation extends ReservationWithDetails {
               <td className="px-4 py-2 font-mono text-xs font-bold text-slate-700">¥{day.totalSales.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.cashSales.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.creditSales.toLocaleString()}</td>
-              <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.creditCount}件</td>
               <td className="px-4 py-2 font-mono text-xs text-amber-500">¥{day.totalCreditFee.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.creditCount}件</td>
               <td className="px-4 py-2 font-mono text-xs font-bold text-indigo-600">¥{day.totalBack.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs font-bold text-emerald-600">¥{day.shopProfit.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.reservationCount}件</td>
