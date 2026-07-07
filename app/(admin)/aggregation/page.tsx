@@ -531,12 +531,16 @@ interface CalculatedReservation extends ReservationWithDetails {
       {selectedDate && (() => {
         const dayReservations = calculatedReservations.filter(r => r.date === selectedDate)
         const summary = dailySummaries.find(d => d.date === selectedDate) || {
+          date: selectedDate,
           totalSales: 0,
+          cashSales: 0,
+          creditCount: 0,
+          creditSales: 0,
           totalBack: 0,
           shopProfit: 0,
           reservationCount: 0,
           totalCreditFee: 0
-        }
+        } as DailySummary
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
