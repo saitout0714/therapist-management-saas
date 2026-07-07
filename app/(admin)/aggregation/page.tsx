@@ -439,68 +439,120 @@ interface CalculatedReservation extends ReservationWithDetails {
           </div>
         )}
 
-        {/* サマリー（超小型） */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">売上合計</div>
-              <div className="text-xl font-bold text-slate-800 font-mono">¥{totals.sales.toLocaleString()}</div>
-            </div>
-            <div className="text-[11px] text-slate-500 font-medium mt-2 flex justify-between border-t border-slate-100 pt-1.5">
-              <span>現金: <span className="font-mono text-slate-700 font-bold">¥{totals.cashSales.toLocaleString()}</span></span>
-            </div>
-          </div>
+        {/* サマリーダッシュボード */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+          {/* 売上カード */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 flex flex-col justify-between">
             <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">クレジット売上</div>
-              <div className="text-xl font-bold text-slate-800 font-mono">¥{totals.creditSales.toLocaleString()}</div>
-            </div>
-            <div className="text-[11px] text-slate-500 font-medium mt-2 flex flex-col gap-0.5 border-t border-slate-100 pt-1.5">
-              <div className="flex justify-between">
-                <span>件数:</span>
-                <span className="font-mono text-slate-700 font-bold">{totals.creditCount}件</span>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-slate-700 text-sm">売上実績</h3>
               </div>
-              <div className="flex justify-between">
-                <span className="text-amber-600">手数料:</span>
-                <span className="font-mono text-amber-600 font-bold">¥{totals.creditFee.toLocaleString()}</span>
+              
+              <div className="mb-4">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">売上合計</div>
+                <div className="text-3xl font-bold text-slate-800 font-mono tracking-tight">¥{totals.sales.toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-4 border-t border-slate-100">
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-slate-600 font-medium flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  現金売上
+                </div>
+                <div className="text-sm font-bold text-slate-700 font-mono">¥{totals.cashSales.toLocaleString()}</div>
+              </div>
+              
+              <div className="flex justify-between items-start">
+                <div className="text-xs text-slate-600 font-medium flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  クレジット売上
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-slate-700 font-mono">¥{totals.creditSales.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                    {totals.creditCount}件 / 手数料: <span className="text-amber-600">¥{totals.creditFee.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">報酬合計</div>
-              <div className="text-xl font-bold text-indigo-600 font-mono">¥{totals.back.toLocaleString()}</div>
+          {/* 収支カード */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 opacity-50"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-slate-700 text-sm">収支状況</h3>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-1">店舗利益 (店落ち)</div>
+                <div className="text-3xl font-bold text-emerald-600 font-mono tracking-tight">¥{totals.profit.toLocaleString()}</div>
+              </div>
             </div>
-            <div className="text-[11px] text-emerald-600 font-medium mt-2 flex justify-between border-t border-slate-100 pt-1.5">
-              <span>利益: <span className="font-mono font-bold text-emerald-700">¥{totals.profit.toLocaleString()}</span></span>
+
+            <div className="space-y-2 pt-4 border-t border-slate-100 relative z-10">
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="text-xs text-slate-600 font-bold">
+                  報酬合計
+                </div>
+                <div className="text-sm font-bold text-indigo-600 font-mono">¥{totals.back.toLocaleString()}</div>
+              </div>
+              <div className="text-[10px] text-slate-400 px-1 text-center font-medium mt-1">
+                ※利益 ＝ 売上合計 － 報酬合計
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/60 flex flex-col justify-between">
+          {/* 稼働カード */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 flex flex-col justify-between">
             <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">総予約数</div>
-              <div className="text-xl font-bold text-slate-600 font-mono tracking-tight">
-                {totals.count} <span className="text-xs">件</span>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-slate-700 text-sm">稼働実績</h3>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">総予約数</div>
+                <div className="flex items-baseline gap-1.5">
+                  <div className="text-3xl font-bold text-slate-800 font-mono tracking-tight">{totals.count}</div>
+                  <div className="text-xs text-slate-500 font-bold">件</div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 space-y-0.5 font-medium">
-              <div className="flex justify-between">
-                <span>代行(mts):</span>
-                <span className="font-bold text-slate-700 font-mono">{totals.mtsCount}件</span>
+
+            <div className="grid grid-cols-2 gap-2 pt-4 border-t border-slate-100">
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+                <div className="text-[10px] text-slate-500 font-bold mb-0.5">WEB/その他</div>
+                <div className="text-sm font-bold text-slate-700 font-mono">{totals.clientCount}件</div>
               </div>
-              <div className="flex justify-between">
-                <span>オーナー:</span>
-                <span className="font-bold text-slate-700 font-mono">{totals.ownerCount}件</span>
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+                <div className="text-[10px] text-slate-500 font-bold mb-0.5">代行 (mts)</div>
+                <div className="text-sm font-bold text-slate-700 font-mono">{totals.mtsCount}件</div>
               </div>
-              <div className="flex justify-between">
-                <span>姫予約:</span>
-                <span className="font-bold text-slate-700 font-mono">{totals.therapistCount}件</span>
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+                <div className="text-[10px] text-slate-500 font-bold mb-0.5">姫予約</div>
+                <div className="text-sm font-bold text-slate-700 font-mono">{totals.therapistCount}件</div>
               </div>
-              <div className="flex justify-between">
-                <span>WEB/その他:</span>
-                <span className="font-bold text-slate-700 font-mono">{totals.clientCount}件</span>
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+                <div className="text-[10px] text-slate-500 font-bold mb-0.5">オーナー</div>
+                <div className="text-sm font-bold text-slate-700 font-mono">{totals.ownerCount}件</div>
               </div>
             </div>
           </div>
