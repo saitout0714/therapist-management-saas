@@ -102,6 +102,15 @@ CREATE TABLE IF NOT EXISTS "public"."customer_therapist_ng" (
   "reason" text,
   "created_at" timestamp with time zone DEFAULT now(),
   CONSTRAINT "customer_therapist_ng_pkey" PRIMARY KEY ("id")
+CREATE TABLE IF NOT EXISTS "public"."custom_templates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "shop_id" uuid NOT NULL,
+  "title" text NOT NULL,
+  "content" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  CONSTRAINT "custom_templates_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "custom_templates_shop_id_fkey" FOREIGN KEY ("shop_id") REFERENCES "public"."shops"("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "public"."customers" (
@@ -117,6 +126,8 @@ CREATE TABLE IF NOT EXISTS "public"."customers" (
   "ng_reason" text,
   "furigana" text,
   "memo" text,
+  "signature_status" text NOT NULL DEFAULT '未署名'::text,
+  "signed_at" timestamp with time zone,
   CONSTRAINT "customers_pkey" PRIMARY KEY ("id")
 );
 
@@ -1186,6 +1197,8 @@ DROP POLICY IF EXISTS "Reservation Discounts Public Select Policy" ON "public"."
 CREATE POLICY "Reservation Discounts Public Select Policy" ON "public"."reservation_discounts" FOR SELECT TO anon USING (true);
 DROP POLICY IF EXISTS "Users can access customer_therapist_ng for their stores" ON "public"."customer_therapist_ng";
 CREATE POLICY "Users can access customer_therapist_ng for their stores" ON "public"."customer_therapist_ng" FOR ALL TO public USING (true);
+DROP POLICY IF EXISTS "Custom Templates Shop Owner Policy" ON "public"."custom_templates";
+CREATE POLICY "Custom Templates Shop Owner Policy" ON "public"."custom_templates" FOR ALL TO public USING (check_shop_access(shop_id));
 
 -- === 9. TRIGGERS ===
 DROP TRIGGER IF EXISTS "on_auth_user_created" ON auth.users;

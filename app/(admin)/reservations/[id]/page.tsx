@@ -64,6 +64,12 @@ type CustomOption = {
   } | null
 }
 
+type CustomTemplate = {
+  id: string
+  title: string
+  content: string
+}
+
 type ReservationDiscount = {
   applied_amount: number
   adhoc_name: string | null
@@ -131,6 +137,8 @@ export default function ReservationPreviewPage() {
   const [therapistTemplate, setTherapistTemplate] = useState<string | null>(null)
   const [customerTemplate, setCustomerTemplate] = useState<string | null>(null)
   const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30)
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([])
+  const [selectedCustomTemplate, setSelectedCustomTemplate] = useState<CustomTemplate | null>(null)
 
   useEffect(() => {
     fetchReservationAndRoom()
@@ -224,6 +232,14 @@ export default function ReservationPreviewPage() {
       setTherapistTemplate(settingsData?.therapist_template || null)
       setCustomerTemplate(settingsData?.customer_template || null)
       setExtensionUnitMinutes(settingsData?.extension_unit_minutes || 30)
+
+      // 6. Fetch custom templates
+      const { data: ctData } = await supabase
+        .from('custom_templates')
+        .select('id, title, content')
+        .eq('shop_id', selectedShop.id)
+        .order('created_at', { ascending: true })
+      setCustomTemplates(ctData || [])
     } catch (error) {
       const msg = error instanceof Error ? error.message : JSON.stringify(error)
       console.error('予約詳細の取得に失敗:', msg, error)
@@ -787,7 +803,211 @@ export default function ReservationPreviewPage() {
     }
   }
 
+  const generateCustomTemplateText = (templateContent: string) => {
+    if (!reservation) return ''
 
+    // 指名料がコース料金に含まれて保存されている場合の表示分離
+    const originalCoursePrice = reservation.courses?.base_price || 0
+    let displayBasePrice = reservation.base_price
+    let displayNominationFee = reservation.nomination_fee
+    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
+      displayNominationFee = reservation.base_price - originalCoursePrice
+      displayBasePrice = originalCoursePrice
+    }
+
+    const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
+    const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
+    const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
+    const startTimeVal = toDisplayTime(reservation.start_time)
+    const startTimeKanjiVal = toKanjiTime(reservation.start_time)
+    const endTimeVal = toDisplayTime(reservation.end_time)
+    const endTimeKanjiVal = toKanjiTime(reservation.end_time)
+    const roomVal = roomInfo?.name || '未定'
+    const custNameVal = reservation.customers?.name || '未設定'
+    const therapistNameVal = reservation.designation_type === 'free'
+      ? ''
+      : (reservation.therapists?.name || 'フリー')
+    const courseNameVal = reservation.courses?.name || '未設定'
+    const courseDurationVal = `${reservation.courses?.duration || 0}分`
+    const coursePriceVal = `${displayBasePrice.toLocaleString()}円`
+    const designationVal = designationLabel(reservation.designation_type)
+    const nominationFeeVal = reservation.designation_type === 'free'
+      ? ''
+      : (displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円')
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    const totalVal = `${reservation.total_price.toLocaleString()}円`
+
+    // オプション一覧の生成
+    let optionsText = ''
+    reservation.reservation_options?.forEach(ro => {
+      if (ro.option_id && ro.options) {
+        optionsText += `${ro.options.name} ${ro.options.price.toLocaleString()}円\n`
+      } else if (!ro.option_id && ro.custom_name) {
+        optionsText += `${ro.custom_name} ${ro.price.toLocaleString()}円\n`
+      }
+    })
+    if (optionsText) {
+      optionsText = `■ オプション\n` + optionsText.trim()
+    }
+
+    // 割引一覧の生成
+    let discountsText = ''
+    if (reservation.discount_amount > 0) {
+      const discounts = (reservation.reservation_discounts ?? []).filter(d => d.applied_amount > 0)
+      if (discounts.length > 0) {
+        discounts.forEach((d, idx) => {
+          const discountName = d.is_adhoc ? (d.adhoc_name || '割引') : (d.policy?.name || '割引')
+          discountsText += `${discountName}：-${d.applied_amount.toLocaleString()}円`
+          if (idx < discounts.length - 1) {
+            discountsText += '\n'
+          }
+        })
+      } else {
+        discountsText += `割引：-${reservation.discount_amount.toLocaleString()}円`
+      }
+    }
+    if (discountsText) {
+      discountsText = discountsText.trim()
+    }
+
+    // 備考の生成
+    let notesText = ''
+    if (reservation.notes) {
+      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
+      notesText = `■ ${label}\n${reservation.notes}`
+    }
+
+    // 決済情報の生成
+    let paymentInfoText = ''
+    if (reservation.payment_method === 'credit') {
+      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
+      
+      let creditText = ''
+      if (reservation.credit_fee_amount > 0) {
+        creditText += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
+      }
+      creditText += `クレジット決済額：${creditTotal.toLocaleString()}円\n`
+      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+        creditText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+      }
+      if (creditPaymentUrl) {
+        creditText += `\n`
+        creditText += `下記のサイトから決済手数料10%込みの金額`
+        creditText += ` ${creditTotal.toLocaleString()}円\n`
+        creditText += `でご決済をご入室前までにお願い致します\n\n`
+        creditText += `${creditPaymentUrl}\n`
+      }
+      paymentInfoText = creditText.trim()
+    } else {
+      if (reservation.credit_fee_amount > 0) {
+        let cashText = `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
+        cashText += `💳 クレジット請求額：${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}円\n`
+        if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+          cashText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+        }
+        paymentInfoText = cashText.trim()
+      }
+    }
+
+    // 道案内の生成 (ルームテンプレート)
+    const roomTemplate = activeIsNewCustomer
+      ? (roomInfo?.template_new_customer || roomInfo?.template_member)
+      : (roomInfo?.template_member || roomInfo?.template_new_customer)
+    const directionsText = roomTemplate ? roomTemplate.trim() : ''
+
+    const extensionPrice = reservation.extension_count > 0
+      ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount)
+      : 0
+    const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
+    const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
+    const himeVal = reservation.is_hime ? '姫予約' : ''
+
+    let finalTemplate = templateContent
+      .replace(/\[日付\]/g, dateVal)
+      .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
+      .replace(/\[開始時刻\]/g, startTimeVal)
+      .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
+      .replace(/\[終了時刻\]/g, endTimeVal)
+      .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
+      .replace(/\[ルーム\]/g, roomVal)
+      .replace(/\[お客様区分\]/g, customerPrefix)
+      .replace(/\[お客様名\]/g, custNameVal)
+      .replace(/\[セラピスト名\]/g, therapistNameVal)
+      .replace(/\[コース\]/g, courseNameVal)
+      .replace(/\[コース時間\]/g, courseDurationVal)
+      .replace(/\[コース料金\]/g, coursePriceVal)
+      .replace(/\[指名区分\]/g, designationVal)
+      .replace(/\[指名料金\]/g, nominationFeeVal)
+      .replace(/\[支払方法\]/g, paymentText)
+      .replace(/\[合計料金\]/g, totalVal)
+      .replace(/\[道案内\]/g, directionsText)
+
+    // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
+    if (!himeVal) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[姫予約\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[姫予約\]/g, himeVal)
+    }
+
+    // 延長がない場合は、[延長時間]タグが含まれる行全体を削除する
+    if (!extMinutesVal) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[延長時間\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[延長時間\]/g, extMinutesVal)
+    }
+
+    // 延長料金がない場合は、[延長料金]タグが含まれる行全体を削除する
+    if (!extPriceVal) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[延長料金\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[延長料金\]/g, extPriceVal)
+    }
+
+    // 割引がない場合は、[割引]タグが含まれる行全体を削除する
+    if (!discountsText) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[割引\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
+    }
+
+    // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
+    if (!optionsText) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+    }
+
+    // 備考がない場合は、[備考]タグが含まれる行全体を削除する
+    if (!notesText) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[備考\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[備考\]/g, notesText)
+    }
+
+    // 決済情報がない場合は、[決済情報]タグが含まれる行全体を削除する
+    if (!paymentInfoText) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[決済情報\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[決済情報\]/g, paymentInfoText)
+    }
+
+    return finalTemplate
+  }
+
+  const handleCopyCustomTemplate = async (template: CustomTemplate) => {
+    const text = generateCustomTemplateText(template.content)
+    try {
+      await navigator.clipboard.writeText(text)
+      alert(`「${template.title}」の文章をコピーしました。`)
+    } catch (err) {
+      console.error('コピーに失敗しました', err)
+    }
+  }
+
+  const handleSmsCustomTemplate = async (template: CustomTemplate) => {
+    void updateNotifiedStatus('customer', true)
+  }
 
   const goBack = () => {
     const targetDate = reservation?.business_date || reservation?.date
@@ -1071,6 +1291,8 @@ export default function ReservationPreviewPage() {
           </div>
         </div>
 
+
+
         {/* Action Buttons for LINE */}
         <div className="grid grid-cols-2 gap-2 sm:gap-4">
           {/* Customer Copy */}
@@ -1193,6 +1415,76 @@ export default function ReservationPreviewPage() {
             </div>
           </div>
         </div>
+
+        {/* 追加連絡テンプレート送信ブロック */}
+        {customTemplates.length > 0 && (
+          <div className="bg-indigo-50/50 rounded-xl sm:rounded-2xl shadow-sm border border-indigo-100 p-3 sm:p-4 mt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-indigo-900 flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                追加連絡用テンプレート
+              </span>
+              <span className="text-[10px] text-indigo-500 font-bold bg-indigo-100/60 px-2 py-0.5 rounded-full">
+                {customTemplates.length}個登録あり
+              </span>
+            </div>
+
+            <div>
+              <select
+                onChange={(e) => {
+                  const id = e.target.value
+                  const found = customTemplates.find(t => t.id === id)
+                  setSelectedCustomTemplate(found || null)
+                }}
+                value={selectedCustomTemplate?.id || ''}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs sm:text-sm text-slate-800 font-semibold"
+              >
+                <option value="">-- 送信するテンプレートを選択してください --</option>
+                {customTemplates.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedCustomTemplate && (
+              <div className="space-y-2">
+                <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-3">
+                  <span className="block text-[10px] font-bold text-slate-400 mb-1">本文プレビュー（自動差し替え済）:</span>
+                  <pre className="text-[10px] sm:text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">
+                    {generateCustomTemplateText(selectedCustomTemplate.content)}
+                  </pre>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCopyCustomTemplate(selectedCustomTemplate)}
+                    className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    文章をコピー
+                  </button>
+
+                  {reservation?.customers?.phone && (
+                    <a
+                      href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomTemplateText(selectedCustomTemplate.content))}`}
+                      onClick={() => void handleSmsCustomTemplate(selectedCustomTemplate)}
+                      className="flex-1 py-2 px-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      SMSで送信
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Details Card */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
