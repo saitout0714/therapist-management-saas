@@ -645,9 +645,11 @@
     
     // セラピスト個人用詳細ページリンクを生成するヘルパー
     function getTherapistProfileUrl(t) {
-      if (t.hp_url) {
-        return t.hp_url;
-      }
+      // 本番サーバーURLがDBに入っている場合そちらを優先する仕様でしたが、
+      // 動的ページ生成機能を使う場合は無視するようにします
+      // if (t.hp_url) {
+      //   return t.hp_url;
+      // }
       if (!castUrlPattern) return '#';
       const cleanName = t.name.replace(/\s+/g, '');
       return castUrlPattern.replace('{name}', encodeURIComponent(cleanName)).replace('{id}', t.id);
