@@ -62,7 +62,7 @@ export async function GET(
       .from('shifts')
       .select(`
         id, date, start_time, end_time,
-        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, reservation_interval_minutes,
+        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, is_rookie, reservation_interval_minutes,
           therapist_ranks (name))
       `)
       .eq('shop_id', shopId)
@@ -84,7 +84,7 @@ export async function GET(
       .maybeSingle(),
     supabase
       .from('therapists')
-      .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, therapist_ranks (name)')
+      .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, is_rookie, therapist_ranks (name)')
       .eq('shop_id', shopId)
       .eq('is_active', true)
       .order('name', { ascending: true }),

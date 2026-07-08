@@ -61,7 +61,7 @@ export default async function ReservePage({ params }: PageProps) {
       .from('shifts')
       .select(`
         id, date, start_time, end_time,
-        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, rank_id, is_active, reservation_interval_minutes,
+        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, is_rookie, reservation_interval_minutes,
           therapist_ranks (name))
       `)
       .eq('shop_id', shopId)
