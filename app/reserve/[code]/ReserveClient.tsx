@@ -34,6 +34,7 @@ export type Therapist = {
   photos: string[]
   rank_id: string | null
   is_active: boolean
+  is_rookie?: boolean
   reservation_interval_minutes: number | null
   therapist_ranks: TherapistRank | null
 }
@@ -348,6 +349,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const [isFreeReservation, setIsFreeReservation] = useState(false)
   const timelineRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLDivElement>(null)
+  const hasInitializedFromUrl = useRef(false)
 
   useEffect(() => {
     if (!isEmbed) return
@@ -361,6 +363,44 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     sendHeight()
     return () => ro.disconnect()
   }, [isEmbed])
+
+  // URLクエリパラメータから指名セラピストおよび出勤日を自動事前選択
+  useEffect(() => {
+    if (hasInitializedFromUrl.current) return
+    if (shifts.length === 0) return
+
+    const urlTherapistId = searchParams.get('therapist_id')
+    const urlDate = searchParams.get('date')
+
+    if (urlTherapistId) {
+      let matchingShift = null
+      if (urlDate) {
+        matchingShift = shifts.find(s => {
+          const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
+          return t && t.id === urlTherapistId && s.date === urlDate
+        })
+      }
+      
+      if (!matchingShift) {
+        matchingShift = shifts.find(s => {
+          const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
+          return t && t.id === urlTherapistId
+        })
+      }
+
+      if (matchingShift) {
+        const t = Array.isArray(matchingShift.therapists) ? matchingShift.therapists[0] : matchingShift.therapists
+        if (t) {
+          setIsFreeReservation(false)
+          setSelectedTherapist(t)
+          setSelectedShift(matchingShift)
+          setSelectedDate(matchingShift.date)
+          setStep('details')
+          hasInitializedFromUrl.current = true
+        }
+      }
+    }
+  }, [searchParams, shifts])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -610,20 +650,30 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
             {/* 日付タブ */}
             {availableDates.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {availableDates.map(date => (
-                  <button
-                    key={date}
-                    onClick={() => setSelectedDate(date)}
-                    className={`flex-shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                      selectedDate === date
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
-                    }`}
-                  >
-                    {formatDate(date)}
-                  </button>
-                ))}
+              <div className="grid grid-cols-7 gap-1 w-full">
+                {availableDates.map(dateStr => {
+                  const d = new Date(dateStr + 'T00:00:00')
+                  const m = d.getMonth() + 1
+                  const date = d.getDate()
+                  const days = ['日', '月', '火', '水', '木', '金', '土']
+                  const dayOfWeek = days[d.getDay()]
+                  const isSunday = dayOfWeek === '日'
+                  const isSaturday = dayOfWeek === '土'
+                  const dayClass = isSunday ? 'text-red-500' : (isSaturday ? 'text-blue-500' : 'text-slate-500')
+                  const activeClass = selectedDate === dateStr
+                    ? 'bg-blue-500 border-blue-500 text-white'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => setSelectedDate(dateStr)}
+                      className={`flex flex-col items-center justify-center py-2 border rounded-xl transition-all ${activeClass}`}
+                    >
+                      <span className="text-xs font-bold">{m}/{date}</span>
+                      <span className={`text-[10px] font-bold mt-0.5 ${selectedDate === dateStr ? 'text-white' : dayClass}`}>{dayOfWeek}</span>
+                    </button>
+                  )
+                })}
               </div>
             )}
 
@@ -637,13 +687,18 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   const t = shift.therapists
                   if (!t) return null
                   return (
-                    <button
+                    <div
                       key={shift.id}
                       onClick={() => handleSelectTherapist(t, shift)}
-                      className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
+                      className="cursor-pointer bg-white rounded-2xl border border-slate-100 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
                     >
                       <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
                         <PhotoCarousel photos={t.photos?.length ? t.photos : (t.photo_url ? [t.photo_url] : [])} name={t.name} />
+                        {t.is_rookie && (
+                          <span className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 animate-pulse">
+                            ♥ 新人
+                          </span>
+                        )}
                       </div>
                       <div className="p-3">
                         <p className="font-bold text-slate-800 text-sm truncate">{t.name}</p>
@@ -665,13 +720,13 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{t.comment}</p>
                         )}
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
                 {/* フリー（指名なし）カード */}
-                <button
+                <div
                   onClick={handleSelectFree}
-                  className="bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
+                  className="cursor-pointer bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
                 >
                   <div className="aspect-[3/4] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-3">
                     <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center">
@@ -685,7 +740,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                     <p className="font-bold text-slate-700 text-sm">フリー</p>
                     <p className="text-xs text-slate-400 mt-0.5">セラピストおまかせ</p>
                   </div>
-                </button>
+                </div>
               </div>
             )}
           </div>
