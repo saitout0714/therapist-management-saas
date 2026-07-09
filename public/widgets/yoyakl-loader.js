@@ -384,15 +384,15 @@
       .yk-sched-date-btn .yk-date-btn-day.sat {
         color: #3b82f6;
       }
-      .yk-sched-date-btn.active {
-        background: var(--yk-pink);
-        border-color: var(--yk-pink);
+      .yoyakl-widget .yk-sched-date-btn.active {
+        background: var(--yk-pink) !important;
+        border-color: var(--yk-pink) !important;
       }
-      .yk-sched-date-btn.active .yk-date-btn-date,
-      .yk-sched-date-btn.active .yk-date-btn-day,
-      .yk-sched-date-btn.active .yk-date-btn-day.sun,
-      .yk-sched-date-btn.active .yk-date-btn-day.sat {
-        color: #ffffff;
+      .yoyakl-widget .yk-sched-date-btn.active .yk-date-btn-date,
+      .yoyakl-widget .yk-sched-date-btn.active .yk-date-btn-day,
+      .yoyakl-widget .yk-sched-date-btn.active .yk-date-btn-day.sun,
+      .yoyakl-widget .yk-sched-date-btn.active .yk-date-btn-day.sat {
+        color: #ffffff !important;
       }
       
       /* スケジュール内セラピストカード用の時間帯予約ボタン */
