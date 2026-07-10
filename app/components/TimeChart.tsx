@@ -393,8 +393,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
 
-                  {/* 写真 — 3:4固定比率 */}
-                  <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
+                  {/* 写真 — 3:4固定比率 (スマホ表示時は非表示) */}
+                  <div className="hidden sm:block w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
                     <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
                       {therapist.avatar ? (
                         <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />

@@ -394,8 +394,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                   {/* 1段目: 写真(丸型22px) + 名前 */}
                   <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-                    {/* 写真 — 円形 (小型化: width 22px) */}
-                    <div className="w-[22px] h-[22px] flex-shrink-0">
+                    {/* 写真 — 円形 (スマホ表示時は非表示) */}
+                    <div className="hidden sm:block w-[22px] h-[22px] flex-shrink-0">
                       <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
                         {therapist.avatar ? (
                           <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
