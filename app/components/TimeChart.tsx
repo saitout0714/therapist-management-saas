@@ -354,18 +354,29 @@ const TimeChart: React.FC<TimeChartProps> = ({
     >
       <div className="flex min-w-max">
         {/* Left Column (Therapists) */}
-        <div style={{ width: 'fit-content', minWidth: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)]">
+        <div style={{ width: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[82px] sm:w-auto">
           {/* Header (Date) */}
-          <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-3">
-            <div className="font-bold text-slate-800 text-sm tracking-tight">
+          <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-1 sm:px-3 text-center">
+            <div className="font-bold text-slate-800 text-[10px] sm:text-sm tracking-tight truncate max-w-full">
               {date ? (() => {
                 const [year, month, day] = date.split('-').map(Number);
                 const localDate = new Date(year, month - 1, day);
-                return localDate.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
-              })() : new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
+                // スマホでは「7/10」のように短縮
+                return (
+                  <>
+                    <span className="sm:hidden">{localDate.getMonth() + 1}/{localDate.getDate()}({localDate.toLocaleDateString('ja-JP', { weekday: 'short' })})</span>
+                    <span className="hidden sm:inline">{localDate.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                  </>
+                );
+              })() : (
+                <>
+                  <span className="sm:hidden">{new Date().getMonth() + 1}/{new Date().getDate()}</span>
+                  <span className="hidden sm:inline">{new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                </>
+              )}
             </div>
-            <div className="text-[10px] text-slate-500 font-medium">
-              勤務スケジュール
+            <div className="text-[8px] sm:text-[10px] text-slate-500 font-medium truncate max-w-full">
+              勤務
             </div>
             {/* Soft gradient separation line */}
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
@@ -381,12 +392,19 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   s.startTime === therapist.shiftStart &&
                   s.endTime === therapist.shiftEnd
               );
+
+              // 出勤時間のスマホ用短縮関数 (例: 12:00〜21:00 -> 12:00-21:00)
+              const getShortShiftTime = (start?: string, end?: string) => {
+                if (!start || !end) return '';
+                return `${start}-${end}`;
+              };
+
               return (
                 <div
                   key={therapist.id}
                   style={{ height: `${rowHeight}px` }}
                   className={`flex items-stretch border-b border-slate-100 transition-colors group relative overflow-hidden
-                    ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
+                    ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-2 sm:border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                 >
                   {/* Active indicator bar */}
                   {!isOff && (
@@ -405,11 +423,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   </div>
 
                   {/* テキスト情報 */}
-                  <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
+                  <div className="flex flex-col justify-center flex-1 min-w-0 px-1 sm:px-2 py-1 gap-[2px] sm:gap-[4px]">
                     {/* 名前 */}
-                    <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-0.5 sm:gap-1.5 min-w-0">
                       <p
-                        className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
+                        className={`text-[11px] sm:text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-0.5
                           ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                         onMouseEnter={(e) => {
                           if (therapist.id === 'unassigned') return;
@@ -423,26 +441,26 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         }}
                       >
                         {therapist.isRookie && (
-                          <span className="text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                          <span className="text-[10px] sm:text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
                         )}
                         <span>{therapist.name}</span>
                         {therapist.rankName && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                          <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0 hidden sm:inline-block">
                             {therapist.rankName}
                           </span>
                         )}
                         {therapist.linked_therapist_group_id && (
-                          <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                          <span className="text-sky-500 font-bold text-[10px] sm:text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                         )}
                       </p>
                       {isOff && (
-                        <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
-                          休み
+                        <span className="flex-shrink-0 text-[8px] sm:text-[9px] font-extrabold px-1 py-0.2 sm:py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
+                          休
                         </span>
                       )}
                       {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                         <span
-                          className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[120px]"
+                          className="flex-shrink-0 flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[10px] font-extrabold px-1 py-0.2 sm:py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[15px] sm:max-w-[120px]"
                           title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                           onMouseEnter={e => {
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -450,61 +468,79 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           }}
                           onMouseLeave={() => setMemoPopup(null)}
                         >
-                          <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                          <span>引継: {therapist.unresolvedMemos![0].content}</span>
+                          <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                          <span className="hidden sm:inline">引継: {therapist.unresolvedMemos![0].content}</span>
                         </span>
                       )}
                     </div>
 
                     {/* 出勤時間 */}
-                    <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
+                    <p className="text-[9px] sm:text-[11px] font-semibold leading-none whitespace-nowrap">
                       {therapist.id === 'unassigned' ? (
                         null
                       ) : isOff ? (
-                        <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        <span className="text-slate-400 line-through">
+                          <span className="sm:hidden">{getShortShiftTime(therapist.shiftStart, therapist.shiftEnd)}</span>
+                          <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        </span>
                       ) : therapist.shiftStart && therapist.shiftEnd ? (
-                        <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        <span className="text-emerald-600">
+                          <span className="sm:hidden">{getShortShiftTime(therapist.shiftStart, therapist.shiftEnd)}</span>
+                          <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        </span>
                       ) : (
                         <span className="text-slate-400">未設定</span>
                       )}
                     </p>
 
-                    {/* ルーム + インターバル */}
-                    <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
-                      {therapist.room && (
-                        <span
-                          className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                          onMouseEnter={(e) => {
-                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setRoomMemoPopup({
-                              roomName: therapist.room ?? '',
-                              displayName: therapist.roomDisplayName ?? null,
-                              address: therapist.roomAddress ?? null,
-                              memo: therapist.roomMemo ?? '',
-                              mapUrl: therapist.roomMapUrl ?? null,
-                              x: rect.left,
-                              y: rect.bottom + 4
-                            });
-                          }}
-                          onMouseLeave={() => {
-                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                          }}
-                        >
-                          <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                          {therapist.room}
+                    {/* ルーム名 */}
+                    {therapist.room && (
+                      <div
+                        className={`text-[8px] sm:text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none ${isOff ? 'opacity-40' : ''}`}
+                        onMouseEnter={(e) => {
+                          if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setRoomMemoPopup({
+                            roomName: therapist.room ?? '',
+                            displayName: therapist.roomDisplayName ?? null,
+                            address: therapist.roomAddress ?? null,
+                            memo: therapist.roomMemo ?? '',
+                            mapUrl: therapist.roomMapUrl ?? null,
+                            x: rect.left,
+                            y: rect.bottom + 4
+                          });
+                        }}
+                        onMouseLeave={() => {
+                          roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                        }}
+                      >
+                        <svg className="hidden sm:inline w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        <span>{therapist.room}</span>
+                      </div>
+                    )}
+
+                    {/* インターバル */}
+                    {therapist.id !== 'unassigned' && (
+                      <div className={`flex items-center ${isOff ? 'opacity-40' : ''}`}>
+                        <span className="flex-shrink-0 text-[8px] sm:text-[9px] font-medium px-0.5 sm:px-1.5 py-0.2 sm:py-0.5 leading-none rounded bg-slate-50 sm:bg-slate-100 text-slate-500 border border-slate-200">
+                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? (
+                            <>
+                              <span className="sm:hidden">{therapist.intervalMinutes}m</span>
+                              <span className="hidden sm:inline">{therapist.intervalMinutes}分</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="sm:hidden">20m</span>
+                              <span className="hidden sm:inline">20分</span>
+                            </>
+                          )}
                         </span>
-                      )}
-                      {therapist.id !== 'unassigned' && (
-                        <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* notes */}
                     {therapist.notes && (
-                      <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={therapist.notes}>
+                      <p className="text-[8px] sm:text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate max-w-[70px] sm:max-w-none" title={therapist.notes}>
                         {therapist.notes}
                       </p>
                     )}
@@ -517,7 +553,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         onShiftEditOpen(therapist.id);
                       }}
                       title="シフトを編集"
-                      className="flex-shrink-0 flex items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                      className="hidden sm:flex flex-shrink-0 items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
