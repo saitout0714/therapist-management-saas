@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 type Shop = {
   id: string
@@ -14,10 +15,12 @@ type Shop = {
   therapist_line_mode: 'official_line' | 'line' | null
   created_at: string
   order: number | null
+  is_web_reserve_plan?: boolean
 }
 
 export default function AdminPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [shops, setShops] = useState<Shop[]>([])
   const [shopsLoading, setShopsLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -27,18 +30,43 @@ export default function AdminPage() {
   const [copyResults, setCopyResults] = useState<string[]>([])
 
   useEffect(() => {
-    fetchShops()
-  }, [])
+    if (user) {
+      fetchShops()
+    }
+  }, [user])
 
   const fetchShops = async () => {
     try {
       const { data, error } = await supabase
         .from('shops')
-        .select('*')
+        .select(`
+          *,
+          shop_owners (
+            users (
+              role
+            )
+          )
+        `)
         .order('order', { ascending: true, nullsFirst: false })
 
       if (error) throw error
-      setShops(data || [])
+      
+      const allShops = (data || []).map((shop: any) => {
+        const hasSimpleOwner = shop.shop_owners?.some((so: any) => {
+          const u = Array.isArray(so.users) ? so.users[0] : so.users
+          return u?.role === 'simple_client_owner'
+        })
+        return {
+          ...shop,
+          is_web_reserve_plan: !!hasSimpleOwner
+        }
+      }) as Shop[]
+      
+      const visibleShops = user?.role === 'developer' 
+        ? allShops 
+        : allShops.filter(s => !s.is_web_reserve_plan)
+        
+      setShops(visibleShops)
     } catch (error) {
       console.error('店舗の取得に失敗:', error)
       alert('店舗の取得に失敗しました')
@@ -128,6 +156,76 @@ export default function AdminPage() {
     }
   }
 
+  const renderShopRow = (shop: Shop) => (
+    <tr
+      key={shop.id}
+      draggable
+      onDragStart={(e) => handleDragStart(e, shop.id)}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, shop)}
+      className={`transition-all group ${
+        draggedId === shop.id
+          ? 'opacity-40 bg-indigo-50/60 border-dashed'
+          : 'hover:bg-slate-50/50'
+      } ${!shop.is_active ? 'opacity-60' : ''}`}
+    >
+      <td className="px-3 py-4 w-10">
+        <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+          {shop.name}
+        </div>
+      </td>
+      <td className="px-6 py-4 hidden md:table-cell">
+        <div className="text-sm text-slate-600 line-clamp-2">{shop.description || <span className="text-slate-400 italic">説明なし</span>}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+        {shop.sms_address_mode === 'split_by_membership'
+          ? <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-200 text-amber-700">新規／会員で切替</span>
+          : <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-slate-50 border-slate-200 text-slate-500">一律</span>
+        }
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${shop.is_active
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+          : 'bg-slate-100 border-slate-200 text-slate-600'
+        }`}>
+          {shop.is_active ? '営業中' : '休止中'}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => router.push(`/admin/shops/${shop.id}/edit`)}
+            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1"
+            title="編集"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span className="hidden md:inline font-medium">編集</span>
+          </button>
+          <button
+            onClick={() => handleShopDelete(shop.id)}
+            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            title="削除"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+
   return (
     <div className="bg-gray-100 p-4 md:p-4">
       <div className="mx-auto">
@@ -178,75 +276,26 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ) : (
-                        shops.map((shop) => (
-                          <tr
-                            key={shop.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, shop.id)}
-                            onDragEnd={handleDragEnd}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, shop)}
-                            className={`transition-all group ${
-                              draggedId === shop.id
-                                ? 'opacity-40 bg-indigo-50/60 border-dashed'
-                                : 'hover:bg-slate-50/50'
-                            } ${!shop.is_active ? 'opacity-60' : ''}`}
-                          >
-                            <td className="px-3 py-4 w-10">
-                              <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                </svg>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                                {shop.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 hidden md:table-cell">
-                              <div className="text-sm text-slate-600 line-clamp-2">{shop.description || <span className="text-slate-400 italic">説明なし</span>}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                              {shop.sms_address_mode === 'split_by_membership'
-                                ? <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-200 text-amber-700">新規／会員で切替</span>
-                                : <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-slate-50 border-slate-200 text-slate-500">一律</span>
-                              }
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${shop.is_active
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                : 'bg-slate-100 border-slate-200 text-slate-600'
-                              }`}>
-                                {shop.is_active ? '営業中' : '休止中'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => router.push(`/admin/shops/${shop.id}/edit`)}
-                                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1"
-                                  title="編集"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  <span className="hidden md:inline font-medium">編集</span>
-                                </button>
-                                <button
-                                  onClick={() => handleShopDelete(shop.id)}
-                                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                  title="削除"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                        <>
+                          {user?.role === 'developer' ? (
+                            <>
+                              {shops.filter(s => !s.is_web_reserve_plan).length > 0 && (
+                                <tr>
+                                  <td colSpan={6} className="bg-slate-50/80 px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">代行プラン店舗</td>
+                                </tr>
+                              )}
+                              {shops.filter(s => !s.is_web_reserve_plan).map((shop) => renderShopRow(shop))}
+                              {shops.filter(s => s.is_web_reserve_plan).length > 0 && (
+                                <tr>
+                                  <td colSpan={6} className="bg-slate-50/80 px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider border-t border-slate-200">Web予約プラン店舗</td>
+                                </tr>
+                              )}
+                              {shops.filter(s => s.is_web_reserve_plan).map((shop) => renderShopRow(shop))}
+                            </>
+                          ) : (
+                            shops.map((shop) => renderShopRow(shop))
+                          )}
+                        </>
                       )}
                     </tbody>
                   </table>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 function EmbedCodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
@@ -52,6 +53,7 @@ function EmbedCodeBlock({ code }: { code: string }) {
 export default function EditShopPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -414,7 +416,7 @@ export default function EditShopPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
                   >
                     <option value="agency_client_owner">代行プラン (全機能)</option>
-                    <option value="simple_client_owner">web予約プラン (一部機能)</option>
+                    {user?.role === 'developer' && <option value="simple_client_owner">web予約プラン (一部機能)</option>}
                   </select>
                 </div>
               </div>

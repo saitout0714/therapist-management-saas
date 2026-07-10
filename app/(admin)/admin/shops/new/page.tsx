@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 export default function NewShopPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -184,7 +186,7 @@ export default function NewShopPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
                   >
                     <option value="agency_client_owner">代行プラン (全機能)</option>
-                    <option value="simple_client_owner">web予約プラン (一部機能)</option>
+                    {user?.role === 'developer' && <option value="simple_client_owner">web予約プラン (一部機能)</option>}
                   </select>
                 </div>
               </div>
