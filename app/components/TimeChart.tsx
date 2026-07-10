@@ -310,7 +310,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
         // Apply scrolling if we found a valid index
         if (foundTime) {
-          const cellWidth = 14;
+          const cellWidth = 21;
           const containerWidth = contentTimelineRef.current.clientWidth;
           const scrollPosition = idx * cellWidth - containerWidth / 2;
 
@@ -342,8 +342,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
   }
 
   // Row height & Cell width adjustments for compact view
-  const rowHeight = 76; // Row height with vertical breathing room
-  const cellWidth = 14; // Cell width
+  const rowHeight = 114; // Row height with vertical breathing room
+  const cellWidth = 21; // Cell width
 
   return (
     <div 

@@ -183,8 +183,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
 
   // Time grid configuration
-  const cellHeight = 14; // Height per 5 minutes cell
-  const columnWidth = 110; // Width of each therapist column
+  const cellHeight = 21; // Height per 5 minutes cell
+  const columnWidth = 165; // Width of each therapist column
   const headerHeight = 96; // Height of the top header row
   const timeColumnWidth = 60; // Width of left sticky time column
 
