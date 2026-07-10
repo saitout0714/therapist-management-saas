@@ -342,7 +342,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   }
 
   // Row height & Cell width adjustments for compact view
-  const rowHeight = 114; // Row height with vertical breathing room
+  const rowHeight = 76; // Row height with vertical breathing room
   const cellWidth = 21; // Cell width
 
   return (
