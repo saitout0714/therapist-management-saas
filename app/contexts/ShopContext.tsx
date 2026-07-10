@@ -15,6 +15,7 @@ type Shop = {
   order: number | null
   closing_date: number
   therapist_line_mode: 'official_line' | 'line'
+  is_web_reserve_plan?: boolean
 }
 
 type ShopContextType = {
@@ -49,16 +50,44 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await supabase
         .from('shops')
-        .select('*')
+        .select(`
+          *,
+          shop_owners (
+            users (
+              role
+            )
+          )
+        `)
         .eq('is_active', true)
         .order('order', { ascending: true, nullsFirst: false })
 
       if (error) throw error
-      setShops(data || [])
+
+      const mappedShops: Shop[] = (data || []).map((shop: any) => {
+        const hasSimpleOwner = shop.shop_owners?.some((so: any) => {
+          const u = Array.isArray(so.users) ? so.users[0] : so.users
+          return u?.role === 'simple_client_owner'
+        })
+        return {
+          id: shop.id,
+          name: shop.name,
+          short_name: shop.short_name,
+          description: shop.description,
+          special_rules: shop.special_rules,
+          is_active: shop.is_active,
+          created_at: shop.created_at,
+          order: shop.order,
+          closing_date: shop.closing_date,
+          therapist_line_mode: shop.therapist_line_mode,
+          is_web_reserve_plan: !!hasSimpleOwner
+        }
+      })
+
+      setShops(mappedShops)
 
       // ローカルストレージから選択店舗を復元
       const savedShopId = localStorage.getItem('selectedShopId')
-      const shopToSelect = data?.find((s) => s.id === savedShopId) || data?.[0] || null
+      const shopToSelect = mappedShops.find((s) => s.id === savedShopId) || mappedShops[0] || null
       if (shopToSelect) {
         setSelectedShopState(shopToSelect)
         localStorage.setItem('selectedShopId', shopToSelect.id)

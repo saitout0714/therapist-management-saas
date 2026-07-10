@@ -48,3 +48,32 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Update public.handle_new_auth_user trigger function to fallback to 'simple_client_owner' instead of obsolete 'owner'
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+BEGIN
+  INSERT INTO public.users (id, login_id, password_hash, role, name, created_at, updated_at)
+  VALUES (
+    new.id,
+    -- メールのドメイン部分を除去して login_id とする（SaaSオーナー用）
+    split_part(new.email, '@', 1),
+    new.encrypted_password,
+    COALESCE(new.raw_user_meta_data->>'role', 'simple_client_owner'), -- 'owner' から 'simple_client_owner' へ変更
+    COALESCE(new.raw_user_meta_data->>'name', ''),
+    new.created_at,
+    new.updated_at
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    login_id = EXCLUDED.login_id,
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role,
+    name = EXCLUDED.name,
+    updated_at = NOW();
+  RETURN NEW;
+END;
+$function$;
+

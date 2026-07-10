@@ -135,10 +135,15 @@ export default function ShopSwitcher() {
 
   // Filter and sort shops
   const filteredShops = shops.filter((shop) => {
+    // web予約プランの店舗は、システム管理者 (system_admin) 以外の切り替えバーには表示しない
+    if (shop.is_web_reserve_plan && user?.role !== 'system_admin') return false
+
     const query = searchQuery.toLowerCase().trim()
     if (!query) return true
     return shop.name.toLowerCase().includes(query)
   })
+
+
 
 
   return (
