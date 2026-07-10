@@ -38,6 +38,7 @@ type SystemSettings = {
   credit_payment_url: string | null
   google_calendar_id: string | null
   gas_calendar_sync_url: string | null
+  allow_new_customers: boolean
 }
 
 type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'custom_templates'
@@ -74,6 +75,7 @@ export default function SystemPage() {
     credit_payment_url: string
     google_calendar_id: string
     gas_calendar_sync_url: string
+    allow_new_customers: boolean
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -99,6 +101,7 @@ export default function SystemPage() {
     credit_payment_url: '',
     google_calendar_id: '',
     gas_calendar_sync_url: '',
+    allow_new_customers: true,
   })
 
   async function fetchSettings() {
@@ -142,6 +145,7 @@ export default function SystemPage() {
       credit_payment_url: row?.credit_payment_url ?? '',
       google_calendar_id: row?.google_calendar_id ?? '',
       gas_calendar_sync_url: row?.gas_calendar_sync_url ?? '',
+      allow_new_customers: row?.allow_new_customers ?? true,
     })
     setLoading(false)
   }
@@ -276,6 +280,38 @@ export default function SystemPage() {
                 ))}
               </select>
               <p className="text-xs text-slate-400 mt-1.5">セラピスト個別設定がある場合はそちらが優先されます。</p>
+            </div>
+
+            {/* ご新規様の予約受付設定 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">新規予約の自動受付</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                ご新規様（未登録の電話番号）からのWEB予約を受け付けるかどうかを設定します。「受け付けない」にすると、電話番号が既に登録されている会員様のみが自動受付の対象になり、ご新規様はお断りします。
+              </p>
+              <div className="flex gap-6">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="allow_new_customers"
+                    value="true"
+                    checked={form.allow_new_customers === true}
+                    onChange={() => setForm({ ...form, allow_new_customers: true })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>受け付ける（通常モード）</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="allow_new_customers"
+                    value="false"
+                    checked={form.allow_new_customers === false}
+                    onChange={() => setForm({ ...form, allow_new_customers: false })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>受け付けない（会員様限定モード）</span>
+                </label>
+              </div>
             </div>
 
             {/* セラピスト連絡用LINEモード */}

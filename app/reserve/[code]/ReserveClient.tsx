@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
@@ -454,8 +454,56 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     }
   }, [searchParams, shifts])
 
-  // 選択日のシフト一覧
-  const todayShifts = shifts.filter(s => s.date === selectedDate)
+  // 最短のコース時間
+  const minCourseDuration = useMemo(() => {
+    return courses.length > 0 ? Math.min(...courses.map(c => c.duration)) : 60
+  }, [courses])
+
+  // 選択日のシフト一覧 (空き枠判定を行い、ご予約満了者を一番下にする)
+  const todayShifts = useMemo(() => {
+    const rawShifts = shifts.filter(s => s.date === selectedDate)
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    const shiftsWithAvailability = rawShifts.map(shift => {
+      const t = shift.therapists
+      if (!t) return { ...shift, hasAvailableSlot: false }
+
+      const interval = t.reservation_interval_minutes ?? systemIntervalMinutes
+      const therapistReservations = existingReservations.filter(
+        r => r.therapist_id === t.id && r.date === shift.date
+      )
+
+      const isToday = shift.date === todayStr
+      const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
+      const shiftStartSimpleMin = timeToMinutes(shift.start_time)
+      const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
+      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const minStartAbsMin = (isToday && inOrNearShift)
+        ? timeToMinutesAbsolute(currentTimeStr, shift.start_time) + 20
+        : -Infinity
+
+      // 最短コースで枠生成を試す
+      const allSlots = generateSlots(shift.start_time, shift.end_time, minCourseDuration, 5)
+      const hasAnyAvailable = allSlots.some(slot => {
+        const isAvail = isSlotAvailable(slot, minCourseDuration, therapistReservations, interval, shift.start_time)
+        const isTimeValid = minStartAbsMin === -Infinity || timeToMinutesAbsolute(slot, shift.start_time) >= minStartAbsMin
+        return isAvail && isTimeValid
+      })
+
+      return {
+        ...shift,
+        hasAvailableSlot: hasAnyAvailable
+      }
+    })
+
+    // 空き枠があるセラピストを優先し、ご予約満了のセラピストを一番下にする
+    return shiftsWithAvailability.sort((a, b) => {
+      if (a.hasAvailableSlot && !b.hasAvailableSlot) return -1
+      if (!a.hasAvailableSlot && b.hasAvailableSlot) return 1
+      return 0
+    })
+  }, [shifts, selectedDate, courses, existingReservations, systemIntervalMinutes, minCourseDuration])
 
   // 利用可能な日付一覧（シフトがある日）
   const availableDates = [...new Set(shifts.map(s => s.date))].sort()
@@ -592,7 +640,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const activeThemeColor = themeParam || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null)
 
   return (
-    <div ref={mainRef} className="min-h-screen bg-white">
+    <div ref={mainRef} className={`${isEmbed ? 'min-h-0' : 'min-h-screen'} bg-white`}>
       {activeThemeColor && (
         <style dangerouslySetInnerHTML={{ __html: generateThemeStyles(activeThemeColor) }} />
       )}
@@ -637,10 +685,12 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         {step === 'attendance' && (
           <div className="space-y-5">
             {initialData.allow_new_customers === false && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm space-y-1">
-                <p className="font-bold">📢 【会員様限定】WEB予約について</p>
-                <p>現在、新規のお客様のWEB予約は受け付けておりません。</p>
-                <p>既存の会員様のみご利用いただけます。ご新規様はお電話または公式LINEよりお問い合わせください。</p>
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm whitespace-pre-wrap leading-relaxed">
+{`⚠️ 会員限定予約のお知らせ
+
+当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。
+
+※会員様で予約完了できない場合もお手数ですが、お電話、公式LINEにてお問合せください。`}
               </div>
             )}
             <div>
@@ -686,11 +736,20 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 {todayShifts.map(shift => {
                   const t = shift.therapists
                   if (!t) return null
+                  const isAvailable = (shift as any).hasAvailableSlot !== false
                   return (
                     <div
                       key={shift.id}
-                      onClick={() => handleSelectTherapist(t, shift)}
-                      className="cursor-pointer bg-white rounded-2xl border border-slate-100 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
+                      onClick={() => {
+                        if (isAvailable) {
+                          handleSelectTherapist(t, shift)
+                        }
+                      }}
+                      className={`relative bg-white rounded-2xl border border-slate-100 overflow-hidden transition-all text-left group ${
+                        isAvailable 
+                          ? 'cursor-pointer hover:border-[#789280] hover:shadow-md' 
+                          : 'cursor-not-allowed opacity-60'
+                      }`}
                     >
                       <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
                         <PhotoCarousel photos={t.photos?.length ? t.photos : (t.photo_url ? [t.photo_url] : [])} name={t.name} />
@@ -699,11 +758,18 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                             ♥ 新人
                           </span>
                         )}
+                        {!isAvailable && (
+                          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-20">
+                            <span className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg tracking-wider border border-red-400/30">
+                              ご予約満了
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="p-3">
                         <p className="font-bold text-slate-800 text-sm truncate">{t.name}</p>
                         {t.therapist_ranks && (
-                          <p className="text-xs text-blue-500 font-medium mt-0.5">{t.therapist_ranks.name}</p>
+                          <p className="text-xs text-[#b89035] font-semibold mt-0.5">{t.therapist_ranks.name}</p>
                         )}
                         <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -726,7 +792,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 {/* フリー（指名なし）カード */}
                 <div
                   onClick={handleSelectFree}
-                  className="cursor-pointer bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all text-left group"
+                  className="cursor-pointer bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-[#789280] hover:shadow-md transition-all text-left group"
                 >
                   <div className="aspect-[3/4] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-3">
                     <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center">
@@ -996,7 +1062,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           )}
                           {selectedLeft !== null && (
                             <div
-                              className="absolute top-1 bottom-1 bg-blue-500 rounded-lg shadow-md flex items-center justify-center pointer-events-none"
+                              className="absolute top-1 bottom-1 bg-[#789280] rounded-lg shadow-md flex items-center justify-center pointer-events-none"
                               style={{ left: `${selectedLeft}%`, width: `${Math.max(selectedWidth, 2)}%` }}
                             >
                               {selectedWidth > 8 && (
@@ -1009,7 +1075,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         {/* 凡例 */}
                         <div className="flex items-center gap-3 mt-1.5">
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-2 rounded-sm bg-emerald-200" />
+                            <div className="w-3 h-2 rounded-sm bg-[#e2ebe6]" />
                             <span className="text-[10px] text-slate-500">予約可</span>
                           </div>
                           <div className="flex items-center gap-1">
@@ -1018,7 +1084,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           </div>
                           {selectedStartTime && (
                             <div className="flex items-center gap-1">
-                              <div className="w-3 h-2 rounded-sm bg-blue-500" />
+                              <div className="w-3 h-2 rounded-sm bg-[#789280]" />
                               <span className="text-[10px] text-slate-500">選択中</span>
                             </div>
                           )}
@@ -1057,9 +1123,9 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                                   disabled={!slot.available}
                                   className={`py-3 rounded-xl text-sm font-semibold transition-all ${
                                     selectedStartTime === slot.time
-                                      ? 'bg-blue-500 text-white shadow-sm'
+                                      ? 'bg-[#789280] text-white shadow-sm'
                                       : slot.available
-                                      ? 'bg-emerald-50 text-slate-700 active:bg-emerald-200'
+                                      ? 'bg-[#f4f7f5] text-[#4a5c50] active:bg-[#e2ebe6]'
                                       : 'bg-slate-100 text-slate-300 cursor-not-allowed line-through'
                                   }`}
                                 >
@@ -1075,7 +1141,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         <button
                           onClick={() => adjustTime(-5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50] disabled:opacity-30 transition-colors"
                           aria-label="-5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1097,7 +1163,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         <button
                           onClick={() => adjustTime(5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-30 transition-colors"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50] disabled:opacity-30 transition-colors"
                           aria-label="+5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1119,8 +1185,8 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   onClick={() => setPaymentMethod('cash')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                     paymentMethod === 'cash'
-                      ? 'border-blue-400 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
+                      ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1132,8 +1198,8 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   onClick={() => setPaymentMethod('credit')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                     paymentMethod === 'credit'
-                      ? 'border-blue-400 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
+                      ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1147,7 +1213,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <button
               onClick={handleDetailsNext}
               disabled={!selectedCourse || !selectedStartTime}
-              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               お客様情報の入力へ
             </button>
@@ -1160,7 +1226,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('details')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
+                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-[#789280]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1173,10 +1239,12 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             </div>
 
             {initialData.allow_new_customers === false && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 space-y-1">
-                <p className="font-bold">⚠️ 会員限定予約のお知らせ</p>
-                <p>当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。</p>
-                <p className="text-xs text-red-500">※会員様で電話番号が登録されていない場合も予約が完了できない場合がございます。その際はお手数ですが、店舗へ直接ご連絡ください。</p>
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 whitespace-pre-wrap leading-relaxed">
+{`⚠️ 会員限定予約のお知らせ
+
+当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。
+
+※会員様で予約完了できない場合もお手数ですが、お電話、公式LINEにてお問合せください。`}
               </div>
             )}
 
@@ -1190,7 +1258,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 <div key={field.key}>
                   <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5">
                     {field.label}
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-600">必須</span>
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#f0f4f1] text-[#4a5c50]">必須</span>
                   </label>
                   <input
                     type={field.type}
@@ -1202,7 +1270,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                       }
                     }}
                     placeholder={field.placeholder}
-                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-blue-400/50 ${
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-[#789280]/50 ${
                       validationErrors[field.key] ? 'border-red-400' : 'border-slate-200'
                     }`}
                   />
@@ -1218,14 +1286,14 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   onChange={e => setCustomer(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="ご要望やご質問があればご記入ください"
                   rows={3}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-blue-400/50 resize-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-[#789280]/50 resize-none"
                 />
               </div>
             </div>
 
             <button
               onClick={handleCustomerNext}
-              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600"
+              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362]"
             >
               予約内容の確認へ
             </button>
@@ -1238,7 +1306,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('customer')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
+                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-[#789280]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1299,7 +1367,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-base transition-all hover:bg-blue-600 disabled:opacity-60"
+              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362] disabled:opacity-60"
             >
               {submitting ? '送信中...' : 'この内容で予約を申し込む'}
             </button>
@@ -1309,8 +1377,8 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         {/* Step 5: 完了 */}
         {step === 'complete' && (
           <div className="flex flex-col items-center text-center py-16 space-y-6">
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-10 h-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-20 h-20 bg-[#f0f4f1] rounded-full flex items-center justify-center">
+              <svg className="w-10 h-10 text-[#789280]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -1339,7 +1407,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 setIsFreeReservation(false)
                 setCustomer({ name: '', furigana: '', phone: '', email: '', notes: '' })
               }}
-              className="text-sm text-blue-500 hover:underline"
+              className="text-sm text-[#4a5c50] hover:underline font-semibold"
             >
               トップへ戻る
             </button>

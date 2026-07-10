@@ -416,7 +416,7 @@ export async function POST(
       }
 
       return NextResponse.json(
-        { error: '現在、新規のお客様のWEB予約は受け付けておりません。お手数ですが、お電話または公式LINEなどからお問い合わせください。' },
+        { error: '当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。※会員様で予約完了できない場合もお手数ですが、お電話、公式LINEにてお問合せください。' },
         { status: 400 }
       )
     }
