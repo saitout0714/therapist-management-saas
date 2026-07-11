@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
+import { useAuth } from "@/app/contexts/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -21,19 +22,24 @@ type TherapistItem = {
   comment: string | null;
   rank_id: string | null;
   therapist_ranks: { name: string } | null;
+  linked_therapist_group_id: string | null;
+  is_rookie?: boolean;
 };
 
 export default function TherapistsPage() {
   const { selectedShop } = useShop();
+  const { user } = useAuth();
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
   const [photosMap, setPhotosMap] = useState<Map<string, string>>(new Map());
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
+  const [linkedShopsMap, setLinkedShopsMap] = useState<Map<string, string[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
   const [deleteCountLoading, setDeleteCountLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
@@ -41,7 +47,7 @@ export default function TherapistsPage() {
     const [therapistsRes, memosRes] = await Promise.all([
       supabase
         .from("therapists")
-        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name)")
+        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie")
         .eq("shop_id", selectedShop.id)
         .order("order", { ascending: true, nullsFirst: false }),
       supabase
@@ -57,6 +63,32 @@ export default function TherapistsPage() {
       const list = (therapistsRes.data as unknown as TherapistItem[]) || [];
       setTherapists(list);
       setError(null);
+
+      // 他店舗連携先店舗名のフェッチ
+      const groupIds = list.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
+      if (groupIds.length > 0) {
+        const { data: linkedData } = await supabase
+          .from("therapists")
+          .select("linked_therapist_group_id, shops(name)")
+          .in("linked_therapist_group_id", groupIds)
+          .neq("shop_id", selectedShop.id);
+        
+        const linkedMap = new Map<string, string[]>();
+        (linkedData || []).forEach((row: any) => {
+          const groupId = row.linked_therapist_group_id;
+          const shopName = row.shops?.name;
+          if (groupId && shopName) {
+            const arr = linkedMap.get(groupId) || [];
+            if (!arr.includes(shopName)) {
+              arr.push(shopName);
+            }
+            linkedMap.set(groupId, arr);
+          }
+        });
+        setLinkedShopsMap(linkedMap);
+      } else {
+        setLinkedShopsMap(new Map());
+      }
 
       // 各セラピストの先頭写真を取得
       if (list.length > 0) {
@@ -162,13 +194,27 @@ export default function TherapistsPage() {
     fetchTherapists();
   }, [selectedShop]);
 
+  const filterByQuery = (list: TherapistItem[]) => {
+    const q = searchQuery.trim();
+    if (!q) return list;
+    return list.filter((t) =>
+      q.split(/\s+/).every((word) =>
+        t.name.toLowerCase().includes(word.toLowerCase())
+      )
+    );
+  };
+
   const activeTherapists = therapists.filter((t) => t.is_active !== false);
   const inactiveTherapists = therapists.filter((t) => t.is_active === false);
+  const filteredActive = filterByQuery(activeTherapists);
+  const filteredInactive = filterByQuery(inactiveTherapists);
+  const isSearching = searchQuery.trim().length > 0;
 
   const TherapistRow = ({ therapist }: { therapist: TherapistItem }) => {
     const isActive = therapist.is_active !== false;
     const rankName = therapist.therapist_ranks?.name;
     const photoUrl = photosMap.get(therapist.id);
+    const [imageError, setImageError] = useState(false);
 
     const sizeLabel = (() => {
       const parts: string[] = [];
@@ -203,8 +249,15 @@ export default function TherapistsPage() {
 
         {/* アバター */}
         <div className={`w-9 h-12 flex-shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-lg mt-0.5 ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
-          {photoUrl ? (
-            <Image src={photoUrl} alt={therapist.name} fill className="object-cover" unoptimized />
+          {photoUrl && !imageError ? (
+            <Image 
+              src={photoUrl} 
+              alt={therapist.name} 
+              fill 
+              className="object-cover" 
+              unoptimized 
+              onError={() => setImageError(true)} 
+            />
           ) : (
             therapist.name.charAt(0)
           )}
@@ -213,19 +266,31 @@ export default function TherapistsPage() {
         {/* 情報エリア */}
         <div className="flex-1 min-w-0 ml-3">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`font-bold text-base ${isActive ? "text-slate-800" : "text-slate-400"}`}>
+            {therapist.is_rookie && (
+              <span className="text-sm select-none" title="新人（新人割対象）">🔰</span>
+            )}
+            <p className={`font-bold text-base whitespace-nowrap ${isActive ? "text-slate-800" : "text-slate-400"}`}>
               {therapist.name}
             </p>
             {!isActive && (
-              <span className="text-xs text-rose-400 font-medium">退店</span>
+              <span className="text-xs text-rose-400 font-medium whitespace-nowrap">退店</span>
             )}
             {rankName && (
-              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
                 {rankName}
               </span>
             )}
+            {therapist.linked_therapist_group_id && (() => {
+              const shopNames = linkedShopsMap.get(therapist.linked_therapist_group_id);
+              const label = shopNames && shopNames.length > 0 ? shopNames.join('・') : 'リンク中';
+              return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗とスケジュール・精算が相互同期されています">
+                  🔗 {label}
+                </span>
+              );
+            })()}
             {(unresolvedMemoCounts.get(therapist.id) ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
@@ -236,41 +301,36 @@ export default function TherapistsPage() {
 
           {/* 身体情報 */}
           {(therapist.age || therapist.height || sizeLabel) && (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-              {therapist.age && (
-                <span className="text-xs text-slate-500">{therapist.age}歳</span>
-              )}
-              {therapist.height && (
-                <span className="text-xs text-slate-500">{therapist.height}cm</span>
-              )}
-              {sizeLabel && (
-                <span className="text-xs text-slate-500">{sizeLabel}</span>
-              )}
+            <div className="flex items-center gap-x-3 mt-1 text-xs text-slate-500 whitespace-nowrap overflow-x-auto scrollbar-hide">
+              {typeof therapist.age === "number" && therapist.age > 0 ? (
+                <span>{therapist.age}歳</span>
+              ) : null}
+              {typeof therapist.height === "number" && therapist.height > 0 ? (
+                <span>{therapist.height}cm</span>
+              ) : null}
+              {sizeLabel ? (
+                <span>{sizeLabel}</span>
+              ) : null}
             </div>
           )}
 
-          {/* メモ */}
-          {therapist.comment && (
-            <p className="mt-1 text-xs text-slate-400 line-clamp-1 max-w-lg">
-              {therapist.comment}
-            </p>
-          )}
+
         </div>
 
         {/* アクションボタン */}
-        <div className="flex-shrink-0 ml-3 flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+        <div className="flex-shrink-0 ml-2 md:ml-3 flex items-center gap-1.5 md:gap-2 opacity-80 group-hover:opacity-100 transition-opacity whitespace-nowrap">
           <Link
             href={`/therapists/${therapist.id}/edit`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 hover:text-indigo-700 transition-colors whitespace-nowrap"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span>編集</span>
+            <span className="hidden sm:inline">編集</span>
           </Link>
           <button
             onClick={() => handleDeleteClick(therapist)}
-            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
             title="削除"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,12 +343,66 @@ export default function TherapistsPage() {
   };
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">セラピスト管理</h1>
             <p className="text-sm text-slate-500 mt-1">所属するセラピストの登録・編集および表示順の並び替えを行います。</p>
+          </div>
+        </div>
+
+        {/* セラピスト検索バー (シフト登録画面と同じスタイル) */}
+        <div className="px-5 py-3 border border-slate-100 rounded-xl bg-white mb-6">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                id="therapist-list-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="セラピスト名で絞り込み..."
+                className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label="検索をクリア"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchQuery.trim() ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {filteredActive.length + filteredInactive.length}名表示中
+                </span>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs text-slate-500 hover:text-indigo-600 underline transition-colors"
+                >
+                  全員表示
+                </button>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">
+                全{therapists.length}名
+              </span>
+            )}
           </div>
         </div>
 
@@ -314,15 +428,17 @@ export default function TherapistsPage() {
               <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">{activeTherapists.length}</span>
             </h2>
             <div className="flex gap-2">
-              <Link
-                href="/therapists/import"
-                className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <span>HPから一括取込</span>
-              </Link>
+              {['developer', 'system_admin'].includes(user?.role || '') && (
+                <Link
+                  href="/therapists/import"
+                  className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span>HPから一括取込</span>
+                </Link>
+              )}
               <Link
                 href="/therapists/new"
                 className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -334,12 +450,17 @@ export default function TherapistsPage() {
           </div>
 
           <div className="p-4 md:p-5">
-            {activeTherapists.length > 0 ? (
+            {filteredActive.length > 0 ? (
               <ul className="space-y-3">
-                {activeTherapists.map((therapist) => (
+                {filteredActive.map((therapist) => (
                   <TherapistRow key={therapist.id} therapist={therapist} />
                 ))}
               </ul>
+            ) : isSearching ? (
+              <div className="text-center py-10">
+                <p className="text-slate-500 font-medium">「{searchQuery}」に一致する在籍中セラピストが見つかりません</p>
+                <button onClick={() => setSearchQuery('')} className="mt-2 text-sm text-indigo-500 hover:text-indigo-700 underline transition-colors">検索をクリア</button>
+              </div>
             ) : (
               <div className="text-center py-10">
                 <p className="text-slate-500 font-medium">在籍中のセラピストがいません</p>
@@ -365,11 +486,17 @@ export default function TherapistsPage() {
             </div>
 
             <div className="p-4 md:p-5">
-              <ul className="space-y-3">
-                {inactiveTherapists.map((therapist) => (
-                  <TherapistRow key={therapist.id} therapist={therapist} />
-                ))}
-              </ul>
+              {filteredInactive.length > 0 ? (
+                <ul className="space-y-3">
+                  {filteredInactive.map((therapist) => (
+                    <TherapistRow key={therapist.id} therapist={therapist} />
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-slate-400 text-sm">「{searchQuery}」に一致する退店セラピストが見つかりません</p>
+                </div>
+              )}
             </div>
           </div>
         )}

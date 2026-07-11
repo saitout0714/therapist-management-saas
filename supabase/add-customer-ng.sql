@@ -12,3 +12,12 @@ CREATE TABLE IF NOT EXISTS customer_therapist_ng (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(customer_id, therapist_id)
 );
+
+-- RLSの有効化
+ALTER TABLE customer_therapist_ng ENABLE ROW LEVEL SECURITY;
+
+-- 全ユーザーへのアクセス許可ポリシーの追加 (他テーブルの設定と統一)
+DROP POLICY IF EXISTS "Users can access customer_therapist_ng for their stores" ON customer_therapist_ng;
+CREATE POLICY "Users can access customer_therapist_ng for their stores" ON customer_therapist_ng 
+  FOR ALL USING (true);
+

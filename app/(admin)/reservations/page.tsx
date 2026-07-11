@@ -4,22 +4,26 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type Reservation = {
   id: string
   date: string
+  business_date?: string | null
   start_time: string
   end_time: string
   total_price: number
   status: string
   designation_type: string
   created_at: string
-  customer: { name: string } | null
+  customer: { id: string; name: string } | null
   therapist: { name: string } | null
   course: { name: string } | null
   created_by: { name: string } | null
   is_handled?: boolean
   source?: string
+  customer_notified?: boolean
+  therapist_notified?: boolean
 }
 
 type SearchFilters = {
@@ -47,9 +51,11 @@ export default function ReservationsPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
+  const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
   const [draft, setDraft] = useState<SearchFilters>(EMPTY_FILTERS)
   const [applied, setApplied] = useState<SearchFilters>(EMPTY_FILTERS)
+  const [showFilters, setShowFilters] = useState(false)
 
   async function fetchDesignationTypes() {
     if (!selectedShop) return
@@ -113,7 +119,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer:customers(name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -131,8 +137,21 @@ export default function ReservationsPage() {
 
     if (error) alert('予約の取得に失敗しました')
     else {
-      setReservations((data as unknown as Reservation[]) || [])
+      const reservationList = (data as unknown as Reservation[]) || []
+      setReservations(reservationList)
       setTotalCount(count ?? 0)
+
+      // NGセラピストを持つ顧客IDを取得
+      const cIds = reservationList.filter(r => r.customer).map(r => r.customer!.id)
+      if (cIds.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', cIds)
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
     }
     setLoading(false)
   }
@@ -152,12 +171,58 @@ export default function ReservationsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('この予約を削除しますか？')) return
+
+    // 削除前の同期用パラメータ取得
+    let eventId: string | null = null
+    let calendarId: string | null = null
+    try {
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('google_event_id, shop_id')
+        .eq('id', id)
+        .maybeSingle()
+      
+      if (resData) {
+        eventId = resData.google_event_id
+        if (resData.shop_id) {
+          const { data: settingsData } = await supabase
+            .from('system_settings')
+            .select('google_calendar_id')
+            .eq('shop_id', resData.shop_id)
+            .maybeSingle()
+          if (settingsData) {
+            calendarId = settingsData.google_calendar_id
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[CalendarSync] 削除前のカレンダー情報取得に失敗しました:', err)
+    }
+
     await supabase.from('reservation_options').delete().eq('reservation_id', id)
     const { error } = await supabase.from('reservations').delete().eq('id', id)
     if (error) {
       alert('削除に失敗しました')
       return
     }
+
+    // 削除に成功したら非同期でカレンダーから削除
+    if (eventId && calendarId) {
+      try {
+        await fetch('/api/calendar-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete',
+            deletedEventId: eventId,
+            deletedCalendarId: calendarId
+          })
+        })
+      } catch (syncErr) {
+        console.error('[CalendarSync] カレンダー削除同期に失敗しました:', syncErr)
+      }
+    }
+
     void fetchReservations(page, applied)
   }
 
@@ -206,7 +271,7 @@ export default function ReservationsPage() {
   const hasActiveFilters = Object.values(applied).some(v => v !== '')
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="mx-auto">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -222,85 +287,107 @@ export default function ReservationsPage() {
         </div>
 
         {/* 検索フィルター */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
-          <h2 className="text-sm font-semibold text-slate-600 mb-4">絞り込み検索</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">予約日（開始）</label>
-              <input
-                type="date"
-                value={draft.dateFrom}
-                onChange={e => setDraft(d => ({ ...d, dateFrom: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">絞り込み検索</span>
+              {hasActiveFilters && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  絞り込み中
+                </span>
+              )}
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">予約日（終了）</label>
-              <input
-                type="date"
-                value={draft.dateTo}
-                onChange={e => setDraft(d => ({ ...d, dateTo: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">ステータス</label>
-              <select
-                value={draft.status}
-                onChange={e => setDraft(d => ({ ...d, status: e.target.value }))}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              >
-                <option value="">すべて</option>
-                <option value="pending">保留中</option>
-                <option value="confirmed">確定</option>
-                <option value="completed">完了</option>
-                <option value="cancelled">キャンセル</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">お客様名</label>
-              <input
-                type="text"
-                placeholder="部分一致"
-                value={draft.customerName}
-                onChange={e => setDraft(d => ({ ...d, customerName: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">セラピスト名</label>
-              <input
-                type="text"
-                placeholder="部分一致"
-                value={draft.therapistName}
-                onChange={e => setDraft(d => ({ ...d, therapistName: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4">
-            <button
-              onClick={handleSearch}
-              className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            <svg
+              className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              検索
-            </button>
-            {hasActiveFilters && (
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                リセット
-              </button>
-            )}
-            {hasActiveFilters && (
-              <span className="text-xs text-indigo-600 font-medium ml-1">絞り込み中</span>
-            )}
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showFilters && (
+            <div className="p-6 pt-0 border-t border-slate-50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">予約日（開始）</label>
+                  <input
+                    type="date"
+                    value={draft.dateFrom}
+                    onChange={e => setDraft(d => ({ ...d, dateFrom: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">予約日（終了）</label>
+                  <input
+                    type="date"
+                    value={draft.dateTo}
+                    onChange={e => setDraft(d => ({ ...d, dateTo: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">ステータス</label>
+                  <select
+                    value={draft.status}
+                    onChange={e => setDraft(d => ({ ...d, status: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  >
+                    <option value="">すべて</option>
+                    <option value="pending">保留中</option>
+                    <option value="confirmed">確定</option>
+                    <option value="completed">完了</option>
+                    <option value="cancelled">キャンセル</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">お客様名</label>
+                  <input
+                    type="text"
+                    placeholder="部分一致"
+                    value={draft.customerName}
+                    onChange={e => setDraft(d => ({ ...d, customerName: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-500">セラピスト名</label>
+                  <input
+                    type="text"
+                    placeholder="部分一致"
+                    value={draft.therapistName}
+                    onChange={e => setDraft(d => ({ ...d, therapistName: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={handleSearch}
+                  className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  検索
+                </button>
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    リセット
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -320,118 +407,90 @@ export default function ReservationsPage() {
             </span>
           </div>
 
+          {/* PC用テーブル表示 */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-left border-collapse">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">予約日</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">時間</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">お客様</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">セラピスト</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">コース</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">指名</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">料金</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">状態</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">登録日</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">担当者</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">操作</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">詳細</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">予約日</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">顧客</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">セラピスト</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">指名</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">コース</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">料金</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">状態</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">登録日</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">担当者</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 text-[11px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">削除</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td className="px-6 py-12 text-center" colSpan={11}>
+                    <td className="px-2.5 py-8 md:px-6 md:py-12 text-center" colSpan={11}>
                       <div className="flex justify-center items-center text-indigo-600">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                        <span className="ml-3 font-medium text-sm">読み込み中...</span>
+                        <span className="ml-3 font-medium text-xs md:text-sm">読み込み中...</span>
                       </div>
                     </td>
                   </tr>
                 ) : reservations.length === 0 ? (
                   <tr>
-                    <td className="px-6 py-12 text-center text-slate-500" colSpan={11}>
+                    <td className="px-2.5 py-8 md:px-6 md:py-12 text-center text-slate-500" colSpan={11}>
                       {hasActiveFilters ? '条件に一致する予約がありません' : '予約がありません'}
                     </td>
                   </tr>
                 ) : (
-                  reservations.map((r) => {
-                    const isUnhandledWeb = r.source === 'web' && !r.is_handled;
+                  reservations.map((r, idx) => {
+                    const isNotificationUnsent = !r.customer_notified || !r.therapist_notified;
                     return (
-                      <tr key={r.id} className={`transition-colors ${isUnhandledWeb ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : 'hover:bg-slate-50/80'}`}>
-                        <td className="px-6 py-4 text-sm font-semibold text-slate-800">{r.date}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                          {r.start_time.slice(0, 5)} - {r.end_time.slice(0, 5)}
+                      <tr key={r.id} className={`transition-colors ${isNotificationUnsent ? 'bg-amber-50/80 border-l-4 border-l-amber-500 hover:bg-amber-100/60 shadow-[inset_1px_0_0_0_rgba(245,158,11,0.2)] font-medium' : idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80'}`}>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">
+                          <Link href={`/reservations/${r.id}`} style={{ color: '#00b4d8' }} className="font-semibold hover:opacity-75 transition-opacity">
+                            詳細
+                          </Link>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.customer?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.therapist?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{r.course?.name || '-'}</td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${designationStyle(r.designation_type)}`}>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm font-semibold text-slate-800 whitespace-nowrap">
+                          {(r.business_date || r.date).slice(5).replace('-', '/')} {toDisplayTime(r.start_time)}
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">
+                          {r.customer ? (
+                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1">
+                              {r.customer.name}
+                              {ngCustomerIds.has(r.customer.id) && (
+                                <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                              )}
+                            </Link>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">{r.therapist?.name || '-'}</td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${designationStyle(r.designation_type)}`}>
                             {designationLabel(r.designation_type)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-800">¥{r.total_price.toLocaleString()}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
-                              {statusLabel(r.status)}
-                            </span>
-                            {isUnhandledWeb && (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white border border-amber-400 shadow-sm animate-pulse">
-                                未対応
-                              </span>
-                            )}
-                          </div>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">{r.course?.name || '-'}</td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm font-bold text-slate-800 whitespace-nowrap hidden md:table-cell">
+                          ¥{r.total_price.toLocaleString()}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap hidden md:table-cell">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle(r.status)}`}>
+                            {statusLabel(r.status)}
+                          </span>
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-500 whitespace-nowrap">
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-700 whitespace-nowrap">{r.created_by?.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-3">
-                            {isUnhandledWeb && (
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('reservations')
-                                    .update({ is_handled: true })
-                                    .eq('id', r.id);
-                                  if (error) {
-                                    alert('更新に失敗しました: ' + error.message);
-                                  } else {
-                                    void fetchReservations(page, applied);
-                                  }
-                                }}
-                                className="text-amber-700 hover:text-amber-800 font-bold text-xs bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg border border-amber-300 transition-colors shadow-sm cursor-pointer"
-                              >
-                                対応済にする
-                              </button>
-                            )}
-                            {r.source === 'web' && r.is_handled && (
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('reservations')
-                                    .update({ is_handled: false })
-                                    .eq('id', r.id);
-                                  if (error) {
-                                    alert('更新に失敗しました: ' + error.message);
-                                  } else {
-                                    void fetchReservations(page, applied);
-                                  }
-                                }}
-                                className="text-slate-600 hover:text-slate-800 font-bold text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-300 transition-colors shadow-sm cursor-pointer"
-                              >
-                                未対応に戻す
-                              </button>
-                            )}
-                            <Link href={`/reservations/${r.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
-                              詳細 / 編集
-                            </Link>
-                            <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
-                              削除
-                            </button>
-                          </div>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap hidden md:table-cell">
+                          {r.created_by?.name || '-'}
+                        </td>
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-right whitespace-nowrap">
+                          <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
+                            削除
+                          </button>
                         </td>
                       </tr>
                     );

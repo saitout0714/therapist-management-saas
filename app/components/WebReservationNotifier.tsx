@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 interface NotifItem {
   id: string
@@ -14,6 +15,7 @@ interface NotifItem {
   endTime: string
   courseName: string
   receivedAt: Date
+  source: string
 }
 
 function playBeep() {
@@ -39,6 +41,7 @@ function playBeep() {
 
 export default function WebReservationNotifier() {
   const { shops } = useShop()
+  const { user, loading: authLoading } = useAuth()
   const [items, setItems] = useState<NotifItem[]>([])
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   // stale closure 対策：最新の shops を ref で保持
@@ -54,16 +57,34 @@ export default function WebReservationNotifier() {
   // 通知許可リクエスト
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) return;
+
     if ('Notification' in window && Notification.permission === 'default') {
       void Notification.requestPermission()
     }
   }, [])
 
-  // Realtime 購読（全店舗、一度だけ）
+  // Realtime 購読（ログイン完了後に確立）
   useEffect(() => {
-    if (shops.length === 0) return
-    // すでに購読中なら再購読しない
-    if (channelRef.current) return
+    if (shops.length === 0 || authLoading || !user) return
+
+    // モバイル端末の場合は通知機能を完全に無効化する
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) {
+      console.log('Mobile device detected. Skipping reservation subscription.')
+      return
+    }
+
+    // 既存の接続があれば一度クリーンアップ
+    if (channelRef.current) {
+      void supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+
+    console.log(`Starting Supabase Realtime subscription for reservations. User ID: ${user.id}`)
 
     const channel = supabase
       .channel('web-reservations-all-shops')
@@ -71,46 +92,59 @@ export default function WebReservationNotifier() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'reservations' },
         async (payload) => {
-          const row = payload.new as Record<string, unknown>
-          if (row.source !== 'web') return
+          try {
+            const row = payload.new as Record<string, unknown>
+            if (row.source !== 'web') return
 
-          // 自分の店舗の予約かチェック
-          const shop = shopsRef.current.find(s => s.id === row.shop_id)
-          if (!shop) return
+            // 自分の店舗の予約かチェック
+            const shop = shopsRef.current.find(s => s.id === row.shop_id)
+            if (!shop) return
 
-          const [custRes, therapistRes, courseRes] = await Promise.all([
-            supabase.from('customers').select('name').eq('id', row.customer_id as string).single(),
-            supabase.from('therapists').select('name').eq('id', row.therapist_id as string).single(),
-            row.course_id
-              ? supabase.from('courses').select('name').eq('id', row.course_id as string).single()
-              : Promise.resolve({ data: null }),
-          ])
+            const [custRes, therapistRes, courseRes] = await Promise.all([
+              row.customer_id
+                ? supabase.from('customers').select('name').eq('id', row.customer_id as string).maybeSingle()
+                : Promise.resolve({ data: null, error: null }),
+              row.therapist_id
+                ? supabase.from('therapists').select('name').eq('id', row.therapist_id as string).maybeSingle()
+                : Promise.resolve({ data: null, error: null }),
+              row.course_id
+                ? supabase.from('courses').select('name').eq('id', row.course_id as string).maybeSingle()
+                : Promise.resolve({ data: null, error: null }),
+            ])
 
-          const notif: NotifItem = {
-            id: row.id as string,
-            shopName: shop.name,
-            customerName: (custRes.data as { name: string } | null)?.name ?? '不明',
-            therapistName: (therapistRes.data as { name: string } | null)?.name ?? '不明',
-            date: row.date as string,
-            startTime: (row.start_time as string)?.slice(0, 5) ?? '',
-            endTime: (row.end_time as string)?.slice(0, 5) ?? '',
-            courseName: (courseRes.data as { name: string } | null)?.name ?? '',
-            receivedAt: new Date(),
-          }
+            const isMail = (row.notes as string)?.includes('【メール同期自動登録】')
+            const notif: NotifItem = {
+              id: row.id as string,
+              shopName: shop.name,
+              customerName: (custRes.data as { name: string } | null)?.name ?? '不明',
+              therapistName: (therapistRes.data as { name: string } | null)?.name ?? 'フリー（未割当）',
+              date: row.date as string,
+              startTime: (row.start_time as string)?.slice(0, 5) ?? '',
+              endTime: (row.end_time as string)?.slice(0, 5) ?? '',
+              courseName: (courseRes.data as { name: string } | null)?.name ?? '',
+              receivedAt: new Date(),
+              source: isMail ? 'mail_sync' : (row.source as string),
+            }
 
-          setItems(prev => [notif, ...prev])
-          playBeep()
+            setItems(prev => [notif, ...prev])
+            playBeep()
 
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(`【${shop.name}】新規Web予約！`, {
-              body: `${notif.customerName} 様 ／ ${notif.therapistName} ／ ${notif.date} ${notif.startTime}〜${notif.endTime}`,
-              icon: '/favicon.ico',
-              requireInteraction: true,
-            })
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const isMail = notif.source === 'mail_sync'
+              new Notification(`【${shop.name}】新規${isMail ? 'メール' : 'Web'}予約！`, {
+                body: `${notif.customerName} 様 ／ ${notif.therapistName} ／ ${notif.date} ${notif.startTime}〜${notif.endTime}`,
+                icon: '/favicon.ico',
+                requireInteraction: true,
+              })
+            }
+          } catch (err) {
+            console.error('Realtime notification handler error:', err)
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log(`Supabase Realtime subscription status for reservations: ${status}`)
+      })
 
     channelRef.current = channel
 
@@ -118,9 +152,7 @@ export default function WebReservationNotifier() {
       void supabase.removeChannel(channel)
       channelRef.current = null
     }
-  // shops.length が 0→1以上 になった時だけ購読開始
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shops.length === 0])
+  }, [shops.length, authLoading, user?.id])
 
   if (items.length === 0) return null
 
@@ -158,7 +190,7 @@ export default function WebReservationNotifier() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-black text-lg leading-tight tracking-tight">
-                      🔔 新規Web予約が入りました！
+                      🔔 新規{notif.source === 'mail_sync' ? 'メール' : 'Web'}予約が入りました！
                     </p>
                     <p className="text-red-200 text-xs font-medium mt-0.5">
                       {notif.receivedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 受信

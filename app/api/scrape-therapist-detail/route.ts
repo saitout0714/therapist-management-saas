@@ -19,8 +19,10 @@ function extractImageUrls(html: string, baseUrl: string): string[] {
       if (!raw || raw.startsWith('data:')) continue
       const abs = resolveUrl(baseUrl, raw)
       if (!abs.startsWith('http')) continue
-      // ロゴ・アイコン・トラッキング画像と思われるものを除外
-      if (/logo|icon|banner|pixel|tracking|spacer|noimage|no_image|dummy/i.test(abs)) continue
+      // 画像以外の拡張子（.js, .css など）を除外
+      if (!/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i.test(abs)) continue
+      // ロゴ・アイコン・トラッキング・メニュー画像等と思われるものを除外
+      if (/logo|icon|banner|pixel|tracking|spacer|noimage|no_image|dummy|menu|bg|btn|header|footer/i.test(abs)) continue
       urls.add(abs)
     }
   }

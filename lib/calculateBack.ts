@@ -125,6 +125,7 @@ export type BackCalculationResult = {
   businessDate: string
   appliedRate: number | null
   calcMethod: string
+  optionDetails?: { option_id: string | null; price: number; back: number }[]
 }
 
 // ============================================================
@@ -250,11 +251,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const [therapistOptBacksRes, optCategoriesRes] = await Promise.all([
     client.from('therapist_option_backs').select('option_category, designation_type, back_rate').eq('therapist_id', input.therapistId),
     optionIds.length > 0
-      ? client.from('options').select('id, back_category').in('id', optionIds)
-      : Promise.resolve({ data: [] as { id: string; back_category: string }[] }),
+      ? client.from('options').select('id, back_category, back_amount').in('id', optionIds)
+      : Promise.resolve({ data: [] as { id: string; back_category: string; back_amount?: number }[] }),
   ])
   const therapistOptBacks = (therapistOptBacksRes.data || []) as { option_category: string | null; designation_type: string | null; back_rate: number }[]
   const optCategoryMap = new Map<string, string>((optCategoriesRes.data || []).map((o: { id: string; back_category: string }) => [o.id, o.back_category]))
+  const optBackAmountMap = new Map<string, number>((optCategoriesRes.data || []).map((o: { id: string; back_amount?: number }) => [o.id, o.back_amount ?? 0]))
 
   const businessDate = resolveBusinessDate(
     input.date,
@@ -282,12 +284,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // 指名料部分を分離してバック計算を独立させる。
   const implicitNominationFee = (
     !matrixBackUsed &&
-    input.nominationFee === 0 &&
     resolved_price.source === 'default' &&
     effectiveCoursePrice > input.coursePrice
   ) ? effectiveCoursePrice - input.coursePrice : 0
-  const courseOnlyPrice = effectiveCoursePrice - implicitNominationFee
-  const nominationFeeForBack = input.nominationFee + implicitNominationFee
+  const courseOnlyPrice = effectiveCoursePrice - (input.nominationFee > 0 ? input.nominationFee : implicitNominationFee)
+  const nominationFeeForBack = input.nominationFee + (input.nominationFee > 0 ? 0 : implicitNominationFee)
+
 
   // Step 1: 適用バック率の解決（オーバーライドチェーン）
   const resolved = await resolveBackRates(
@@ -342,7 +344,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
 
-    const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee)
+    const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack
     return {
       courseBack: courseHalfBack,
       extensionBack: extensionBack,
@@ -393,6 +395,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     } else if (input.courseBackAmount && input.courseBackAmount > 0) {
       courseBack = input.courseBackAmount
       calcMethod = `コース設定バック（¥${courseBack.toLocaleString()}）`
+    } else if (shopRule.course_back_amount != null && shopRule.course_back_amount > 0) {
+      courseBack = shopRule.course_back_amount
+      calcMethod = `店舗デフォルト固定額（¥${courseBack.toLocaleString()}）`
     } else {
       calcMethod = '固定額（未設定 → 0円）'
     }
@@ -433,58 +438,93 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // Step 3: オプションバック額の算出
+  const optionDetails: { option_id: string | null; price: number; back: number }[] = []
+
   for (const opt of input.options) {
+    let currentOptBack = 0
+    let isCalculated = false
+
     // カスタムオプション（手入力）: option_id がない場合は custom_back_amount をそのまま使用
     if (!opt.option_id) {
-      optionBack += opt.custom_back_amount || 0
+      currentOptBack = opt.custom_back_amount || 0
+      optionBack += currentOptBack
+      optionDetails.push({ option_id: null, price: opt.price, back: currentOptBack })
       continue
     }
 
-    // セラピスト個別オプションバック設定を最優先で解決
-    // 解決優先順位: カテゴリ×指名種別 > カテゴリ×全種別 > 全カテゴリ×指名種別 > 全カテゴリ×全種別 > shop default
+    // 1. セラピスト個別オプションバック設定を最優先で解決
+    // 解決優先順位: カテゴリ×指名種別 > カテゴリ×全種別 > 全カテゴリ×指名種別 > 全カテゴリ×全種別
     if (therapistOptBacks.length > 0) {
       const optCat = optCategoryMap.get(opt.option_id) ?? 'その他'
       const therapistRate = resolveTherapistOptionRate(therapistOptBacks, optCat, input.designationType)
       if (therapistRate !== null) {
-        optionBack += applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        currentOptBack = applyRounding(opt.price * therapistRate, shopRule.rounding_method)
+        optionBack += currentOptBack
+        optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
         continue
       }
     }
 
-    // option_back_rules（オプション個別設定）にフォールバック
+    // 2. option_back_rules（オプション個別設定テーブル）があれば適用
     const optRule = await fetchOptionBackRule(input.shopId, opt.option_id, client)
-
     if (optRule) {
       switch (optRule.calc_type) {
         case 'full_back':
-          optionBack += opt.price
+          currentOptBack = opt.price
+          isCalculated = true
           break
         case 'percentage':
-          optionBack += applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
+          currentOptBack = applyRounding(opt.price * (optRule.back_rate || 0) / 100, shopRule.rounding_method)
+          isCalculated = true
           break
         case 'fixed':
-          optionBack += optRule.back_amount || 0
+          currentOptBack = optRule.back_amount || 0
+          isCalculated = true
           break
-      }
-    } else {
-      // 店舗デフォルト設定で計算
-      switch (shopRule.option_calc_type) {
-        case 'full_back':
-          optionBack += opt.price
-          break
-        case 'percentage':
-          optionBack += applyRounding(opt.price * shopRule.option_back_rate / 100, shopRule.rounding_method)
-          break
-        default:
-          optionBack += opt.price // フルバックにフォールバック
       }
     }
+
+    // 3. オプションマスタの個別固定バック額（options.back_amount）があれば優先適用
+    if (!isCalculated) {
+      const itemBackAmount = optBackAmountMap.get(opt.option_id)
+      if (itemBackAmount !== undefined && itemBackAmount !== null && itemBackAmount > 0) {
+        currentOptBack = itemBackAmount
+        isCalculated = true
+      }
+    }
+
+    // 4. 店舗デフォルト設定で計算
+    if (!isCalculated) {
+      switch (shopRule.option_calc_type) {
+        case 'fixed':
+          currentOptBack = shopRule.option_back_amount ?? 0
+          break
+        case 'per_item':
+          currentOptBack = optBackAmountMap.get(opt.option_id) ?? 0
+          break
+        case 'percentage':
+          currentOptBack = applyRounding(opt.price * (shopRule.option_back_rate || 0) / 100, shopRule.rounding_method)
+          break
+        case 'full_back':
+          currentOptBack = opt.price
+          break
+        default:
+          // 最終フォールバック：店舗デフォルト固定額があるならそれ、なければフルバック
+          if (shopRule.option_back_amount !== undefined && shopRule.option_back_amount !== null && shopRule.option_back_amount > 0) {
+            currentOptBack = shopRule.option_back_amount
+          } else {
+            currentOptBack = opt.price
+          }
+      }
+    }
+
+    optionBack += currentOptBack
+    optionDetails.push({ option_id: opt.option_id, price: opt.price, back: currentOptBack })
   }
 
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
-  // マトリクスの back_amount を使用した場合は指名料バックを別途計算しない
-  // （back_amount がコース+指名料の合計バックとして設定されているため）
-  if (!matrixBackUsed && nominationFeeForBack > 0) {
+  // マトリクスの back_amount を使用した場合でも指名料バックを別途計算する
+  if (nominationFeeForBack > 0) {
     // designation_types の default_back_amount が設定されている場合はそれを優先
     if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
       nominationBack = resolved_price.backAmount
@@ -492,6 +532,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       switch (shopRule.nomination_calc_type) {
         case 'full_back':
           nominationBack = nominationFeeForBack
+          break
+        case 'fixed':
+          nominationBack = shopRule.nomination_back_amount ?? 0
           break
         case 'percentage':
           const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
@@ -530,6 +573,12 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     shopDiscountBurden = input.discountAmount
   }
 
+  // マトリクス詳細設定が使用されている場合、登録額は指名料バックを含んだ合計であるため、
+  // コースバックの内訳から指名料バック分を差し引く（合計額は維持する）
+  if (matrixBackUsed) {
+    courseBack = Math.max(0, courseBack - nominationBack)
+  }
+
   const totalBack = courseBack + extensionBack + optionBack + nominationBack - therapistDiscountBurden
 
   // Step 6: 予約単位の控除・手当処理
@@ -538,7 +587,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
   // マトリクスの customer_price（合計）を使用した場合は nomination_fee を加算しない（二重計上防止）
-  const totalPrice = effectiveCoursePrice + extensionPrice + totalOptionsPrice + (matrixBackUsed ? 0 : input.nominationFee) - totalDiscount
+  const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack - totalDiscount
 
   const himeBonus = input.himeBonus ?? 0
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances + himeBonus
@@ -562,6 +611,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     businessDate,
     appliedRate: resolved.calcType === 'percentage' ? resolved.courseRate : null,
     calcMethod,
+    optionDetails,
   }
 }
 
@@ -751,11 +801,11 @@ async function fetchShopBackRule(shopId: string, client?: any): Promise<ShopBack
     course_calc_type: 'fixed' as const,
     course_back_rate: 0,
     course_back_amount: 0,
-    option_calc_type: 'full_back' as const,
-    option_back_rate: 100,
+    option_calc_type: 'fixed' as const,
+    option_back_rate: 0,
     option_back_amount: 0,
-    nomination_calc_type: 'full_back' as const,
-    nomination_back_rate: 100,
+    nomination_calc_type: 'fixed' as const,
+    nomination_back_rate: 0,
     nomination_back_amount: 0,
     rounding_method: 'floor' as const,
     business_day_cutoff: '06:00',

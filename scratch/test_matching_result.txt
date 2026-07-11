@@ -1,0 +1,60 @@
+Target Date: 2026-06-07
+Loaded 72 therapists from Supabase (Urban Shimitsuma)
+Sample therapists in DB:
+  - あんな
+  - マオ
+  - みる
+  - りの
+  - イズミ
+  - ユカリ
+  - レイ
+  - やしろ
+  - ハル
+  - きょうか
+  - める
+  - 七瀬えみり
+  - めい
+  - ひな
+  - さや
+  - モモ
+  - サリ
+  - アヤネ
+  - トモミ
+  - アオヤマ
+
+--- Scraping Urban Spa ---
+Scraped 7 cast from Urban Spa
+
+--- Scraping Himitsuma ---
+Scraped 2 cast from Himitsuma
+
+Total scraped: 9
+[0] Raw: '
+                まき💖5/19体入！6/30まで新人割🔰フレッシュJD(21)
+' -> Norm: 'まき体入まで新人割フレッシュJD' -> ❌ MISMATCH!
+[1] Raw: '
+                あんな💖激推しアイドル系！キレカワ超絶セクシーセラピスト(22)
+' -> Norm: 'あんな激推しアイドル系キレカワ超絶セクシーセラピスト' -> ✅ Match! (ID: 633bfb28-e745-4ce6-93bc-eed10dfb4e47)
+[2] Raw: '
+                めい💖ふわもち肌の吸い付き力あふれる経験少ない爆乳ガールの入店です！(19)
+' -> Norm: 'めいふわもち肌の吸い付き力あふれる経験少ない爆乳ガールの入店です' -> ✅ Match! (ID: c2434ef5-30d4-4258-b4e1-60594c6e19c8)
+[3] Raw: '
+                みさき(28)
+' -> Norm: 'みさき' -> ✅ Match! (ID: 14377206-2b48-466a-b4c0-228a16887b07)
+[4] Raw: '
+                みる💖バッチバチに可愛いアイドル系セラピスト(24)
+' -> Norm: 'みるバッチバチに可愛いアイドル系セラピスト' -> ✅ Match! (ID: a5e55633-bafc-4f77-98f8-b68346247f09)
+[5] Raw: '
+                ゆうか(23)
+' -> Norm: 'ゆうか' -> ✅ Match! (ID: 90b22e64-f9da-4c46-959f-1ae20e5a39bc)
+[6] Raw: '
+                るる💖アイドル系！可愛い系の極み✨完全業界未経験！(22)
+' -> Norm: 'るるアイドル系可愛い系の極み完全業界未経験' -> ✅ Match! (ID: 37dc1c43-0ad7-469e-b2b6-cb239e5c6b84)
+[7] Raw: '
+                                            アオノ(37)
+' -> Norm: 'アオノ' -> ❌ MISMATCH!
+[8] Raw: '
+                                            サクヤ(42)
+' -> Norm: 'サクヤ' -> ❌ MISMATCH!
+
+Match rate: 6/9 (66.7%)

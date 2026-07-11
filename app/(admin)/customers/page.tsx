@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -14,6 +14,7 @@ type Customer = {
   created_at: string
   status: string
   ng_reason: string | null
+  memo: string | null
 }
 
 type Reservation = {
@@ -58,6 +59,12 @@ export default function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // ページネーション・件数表示
+  const [totalCount, setTotalCount] = useState<number>(0)
+  const [filteredCount, setFilteredCount] = useState<number | null>(null)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
+
   const fetchVisitCounts = useCallback(async (customerIds: string[]) => {
     if (!selectedShop || customerIds.length === 0) return
     const { data } = await supabase
@@ -72,20 +79,40 @@ export default function CustomersPage() {
     setVisitCounts(map)
   }, [selectedShop])
 
-  const fetchRecentCustomers = useCallback(async () => {
+  const fetchRecentCustomers = useCallback(async (page: number = 1) => {
     if (!selectedShop) return
     setLoading(true)
     try {
+      const from = (page - 1) * 100
+      const to = page * 100 - 1
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .order('created_at', { ascending: false })
-        .limit(100)
+        .range(from, to)
       if (error) throw error
       const list = data || []
       setCustomers(list)
       await fetchVisitCounts(list.map((c) => c.id))
+
+      // NGセラピストを持つ顧客IDを取得
+      if (list.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', list.map((c) => c.id))
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
+
+      // 総登録件数を取得
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', selectedShop.id)
+      if (count !== null) setTotalCount(count)
     } catch (err) {
       console.error('顧客の取得に失敗:', JSON.stringify(err))
     } finally {
@@ -93,22 +120,44 @@ export default function CustomersPage() {
     }
   }, [selectedShop, fetchVisitCounts])
 
-  const searchCustomers = useCallback(async (query: string) => {
+  const searchCustomers = useCallback(async (query: string, page: number = 1) => {
     if (!selectedShop) return
     setSearching(true)
     try {
       const normalized = query.replace(/-/g, '')
+      const from = (page - 1) * 100
+      const to = page * 100 - 1
+
+      // 検索フィルタに合致する件数を取得
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('shop_id', selectedShop.id)
+        .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
+      if (count !== null) setFilteredCount(count)
+
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
         .order('name')
-        .limit(200)
+        .range(from, to)
       if (error) throw error
       const list = data || []
       setCustomers(list)
       await fetchVisitCounts(list.map((c) => c.id))
+
+      // NGセラピストを持つ顧客IDを取得
+      if (list.length > 0) {
+        const { data: ngData } = await supabase
+          .from('customer_therapist_ng')
+          .select('customer_id')
+          .in('customer_id', list.map((c) => c.id))
+        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
+      } else {
+        setNgCustomerIds(new Set())
+      }
     } catch (err) {
       console.error('顧客検索に失敗:', err)
     } finally {
@@ -118,23 +167,27 @@ export default function CustomersPage() {
 
   useEffect(() => {
     setSearchQuery('')
-    fetchRecentCustomers()
-  }, [selectedShop])
+    setCurrentPage(1)
+    setFilteredCount(null)
+    void fetchRecentCustomers(1)
+  }, [selectedShop, fetchRecentCustomers])
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     const q = searchQuery.trim()
+    setCurrentPage(1)
     if (!q) {
-      fetchRecentCustomers()
+      setFilteredCount(null)
+      void fetchRecentCustomers(1)
       return
     }
     debounceTimer.current = setTimeout(() => {
-      searchCustomers(q)
+      void searchCustomers(q, 1)
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [searchQuery])
+  }, [searchQuery, fetchRecentCustomers, searchCustomers])
 
   const openHistoryModal = async (customer: Customer) => {
     setHistoryTarget(customer)
@@ -258,6 +311,19 @@ export default function CustomersPage() {
     }
   }
 
+  const totalItems = searchQuery.trim() ? (filteredCount ?? 0) : totalCount
+  const totalPages = Math.ceil(totalItems / 100)
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+    const q = searchQuery.trim()
+    if (q) {
+      void searchCustomers(q, newPage)
+    } else {
+      void fetchRecentCustomers(newPage)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20 text-indigo-600">
@@ -268,18 +334,23 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
+    <div className="bg-gray-100 p-2 md:p-4">
       <div className="mx-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">顧客管理</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              顧客管理
+              <span className="text-xs font-normal text-slate-500 bg-slate-200/60 border border-slate-300/60 px-2 py-0.5 rounded-lg">
+                登録数: {totalCount}人
+              </span>
+            </h1>
             <p className="text-sm text-slate-500 mt-1">店舗を利用されるお客様の情報や来店履歴を管理します。</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
             {mergeMode && selectedIds.size >= 2 && (
               <button
                 onClick={openMergeModal}
-                className="px-5 py-2.5 bg-amber-500 text-white font-medium rounded-xl shadow-sm hover:bg-amber-600 transition-all active:scale-95 flex items-center gap-2"
+                className="px-4 py-2 bg-amber-500 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-amber-600 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -289,7 +360,7 @@ export default function CustomersPage() {
             )}
             <button
               onClick={toggleMergeMode}
-              className={`px-5 py-2.5 font-medium rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-2 ${
+              className={`px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap ${
                 mergeMode
                   ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -302,7 +373,7 @@ export default function CustomersPage() {
             </button>
             <Link
               href="/customers/new"
-              className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
               <span className="text-lg leading-none">+</span>
               <span>新規顧客登録</span>
@@ -348,23 +419,26 @@ export default function CustomersPage() {
               </button>
             )}
           </div>
-          {!searchQuery && (
-            <p className="text-xs text-slate-400 mt-1 ml-1">最新100件を表示中。名前・電話番号で検索すると全件から探せます。</p>
+          {!searchQuery ? (
+            <p className="text-xs text-slate-400 mt-1 ml-1">登録されているすべての顧客が表示されます。（1ページ100人表示）</p>
+          ) : (
+            <p className="text-xs text-slate-400 mt-1 ml-1">検索結果を全件から探しています。</p>
           )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* テーブル表示（PC/スマホ共通・横スクロール対応） */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
-                  {mergeMode && <th className="px-4 py-4 w-10"></th>}
-                  <th className="px-6 py-4 whitespace-nowrap">指名</th>
-                  <th className="px-6 py-4 whitespace-nowrap">電話番号</th>
-                  <th className="px-6 py-4 whitespace-nowrap">メールアドレス</th>
-                  <th className="px-6 py-4 whitespace-nowrap text-center">来店履歴</th>
-                  <th className="px-6 py-4 whitespace-nowrap">ステータス</th>
-                  <th className="px-4 py-4 w-12"></th>
+                <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] md:text-sm font-medium text-slate-600">
+                  {mergeMode && <th className="px-2.5 py-2.5 md:px-4 md:py-4 w-8 whitespace-nowrap"></th>}
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">氏名</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">電話番号</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap hidden md:table-cell">メールアドレス</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap text-center">来店</th>
+                  <th className="px-2.5 py-2.5 md:px-6 md:py-4 whitespace-nowrap">ステータス</th>
+                  <th className="px-2.5 py-2.5 md:px-4 md:py-4 text-center whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -393,15 +467,34 @@ export default function CustomersPage() {
                   customers.map((customer) => {
                     const status = customer.status || '予約可'
                     const isSelected = selectedIds.has(customer.id)
+
+                    // 注意事項・警告ステータスがある場合の背景・ボーダー・スタイル設定
+                    let rowBorderClass = 'border-l-4 border-l-transparent'
+                    let rowBgClass = ''
+                    if (status === '出禁') {
+                      rowBorderClass = 'border-l-4 border-l-rose-500'
+                      rowBgClass = 'bg-rose-50/20 hover:bg-rose-50/30'
+                    } else if (status === '要注意') {
+                      rowBorderClass = 'border-l-4 border-l-amber-500'
+                      rowBgClass = 'bg-amber-50/20 hover:bg-amber-50/30'
+                    } else if (customer.memo) {
+                      rowBorderClass = 'border-l-4 border-l-orange-400'
+                      rowBgClass = 'bg-orange-50/10 hover:bg-orange-50/20'
+                    }
+
+                    if (isSelected) {
+                      rowBgClass = 'bg-amber-100/70 hover:bg-amber-100/80'
+                    }
+
                     return (
                       <tr
                         key={customer.id}
-                        className={`hover:bg-slate-50/50 transition-colors group ${isSelected ? 'bg-amber-50/60' : ''}`}
+                        className={`hover:bg-slate-50/50 transition-colors group ${rowBgClass}`}
                         onClick={mergeMode ? () => toggleSelect(customer.id) : undefined}
                         style={mergeMode ? { cursor: 'pointer' } : undefined}
                       >
-                        {mergeMode && (
-                          <td className="px-4 py-4">
+                        {mergeMode ? (
+                          <td className={`px-2.5 py-2 md:px-4 md:py-4 ${rowBorderClass}`}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -410,25 +503,69 @@ export default function CustomersPage() {
                               className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                             />
                           </td>
-                        )}
-                        <td className="px-6 py-4">
+                        ) : null}
+                        <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm ${!mergeMode ? rowBorderClass : ''}`}>
                           {mergeMode ? (
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${isSelected ? 'bg-amber-100 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                {customer.name.charAt(0)}
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800">{customer.name}</span>
+                                {(customer.ng_reason || customer.memo) && (
+                                  <div className="mt-1 flex flex-col gap-1 text-xs max-w-xs md:max-w-sm">
+                                    {customer.ng_reason && (
+                                      <span className="text-rose-600 font-semibold truncate flex items-center gap-1" title={`要注意理由: ${customer.ng_reason}`}>
+                                        <span className="flex-shrink-0 text-rose-500">⚠️</span>
+                                        <span className="truncate">{customer.ng_reason}</span>
+                                      </span>
+                                    )}
+                                    {customer.memo && (
+                                      <span className="text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60 truncate flex items-center gap-1" title={`注意事項: ${customer.memo}`}>
+                                        <span className="flex-shrink-0 text-amber-500">📝</span>
+                                        <span className="truncate">{customer.memo}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-bold text-slate-800">{customer.name}</span>
                             </div>
                           ) : (
-                            <Link href={`/customers/${customer.id}`} className="flex items-center gap-3 group/link">
-                              <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg group-hover/link:bg-indigo-100 transition-colors">
-                                {customer.name.charAt(0)}
+                            <Link href={`/customers/${customer.id}`} className="flex items-start gap-3 group/link">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors flex items-center gap-1.5 flex-wrap">
+                                  {customer.name}
+                                  {ngCustomerIds.has(customer.id) && (
+                                    <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                                  )}
+                                  {customer.status === '出禁' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">出禁</span>
+                                  )}
+                                  {customer.status === '要注意' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">要注意</span>
+                                  )}
+                                  {customer.memo && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800">注意事項あり</span>
+                                  )}
+                                </span>
+                                {(customer.ng_reason || customer.memo) && (
+                                  <div className="mt-1 flex flex-col gap-1 text-xs max-w-xs md:max-w-sm">
+                                    {customer.ng_reason && (
+                                      <span className="text-rose-600 font-semibold truncate flex items-center gap-1" title={`要注意理由: ${customer.ng_reason}`}>
+                                        <span className="flex-shrink-0 text-rose-500">⚠️</span>
+                                        <span className="truncate">{customer.ng_reason}</span>
+                                      </span>
+                                    )}
+                                    {customer.memo && (
+                                      <span className="text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60 truncate flex items-center gap-1" title={`注意事項: ${customer.memo}`}>
+                                        <span className="flex-shrink-0 text-amber-500">📝</span>
+                                        <span className="truncate">{customer.memo}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors">{customer.name}</span>
                             </Link>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-600 font-medium whitespace-nowrap">
                           <div className="flex flex-col gap-0.5">
                             <span>{customer.phone || <span className="text-slate-400 font-normal italic">未登録</span>}</span>
                             {customer.phone2 && (
@@ -436,10 +573,10 @@ export default function CustomersPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap hidden md:table-cell">
                           {customer.email || <span className="text-slate-400 italic">未登録</span>}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 text-center whitespace-nowrap">
                           <button
                             onClick={(e) => { e.stopPropagation(); openHistoryModal(customer) }}
                             className="inline-flex items-center justify-center px-3 py-1 bg-slate-100 text-slate-600 font-medium rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
@@ -447,16 +584,16 @@ export default function CustomersPage() {
                             <span className="mr-1 text-lg leading-none">{visitCounts.get(customer.id) ?? '…'}</span> 回
                           </button>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusStyles[status] || 'bg-slate-100 text-slate-800'}`}>
                             {status}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-right">
+                        <td className="px-2.5 py-2 md:px-4 md:py-4 text-center whitespace-nowrap">
                           {!mergeMode && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer) }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="削除"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -471,6 +608,230 @@ export default function CustomersPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* スマホ用リスト表示（テーブルに統合済みのため非表示） */}
+          <div className="hidden">
+            {customers.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                {searchQuery ? (
+                  <>
+                    <h3 className="text-base font-medium text-slate-800 mb-2">該当する顧客が見つかりません</h3>
+                    <p className="text-xs text-slate-500">検索条件を変えてお試しください。</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-base font-medium text-slate-800 mb-2">顧客データがありません</h3>
+                    <p className="text-xs text-slate-500">右上の「新規顧客登録」ボタンから顧客を追加してください。</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {customers.map((customer, idx) => {
+                  const status = customer.status || '予約可'
+                  const isSelected = selectedIds.has(customer.id)
+
+                  // 注意事項・警告ステータスがある場合の背景・ボーダー・スタイル設定
+                  let rowBorderClass = 'border-l-4 border-l-transparent'
+                  let rowBgClass = ''
+                  if (status === '出禁') {
+                    rowBorderClass = 'border-l-4 border-l-rose-500'
+                    rowBgClass = 'bg-rose-50/20 hover:bg-rose-50/30'
+                  } else if (status === '要注意') {
+                    rowBorderClass = 'border-l-4 border-l-amber-500'
+                    rowBgClass = 'bg-amber-50/20 hover:bg-amber-50/30'
+                  } else if (customer.memo) {
+                    rowBorderClass = 'border-l-4 border-l-orange-400'
+                    rowBgClass = 'bg-orange-50/10 hover:bg-orange-50/20'
+                  }
+
+                  if (isSelected) {
+                    rowBgClass = 'bg-amber-100/70 hover:bg-amber-100/80'
+                  }
+
+                  // 警告や選択状態の背景色が適用されていない場合のゼブラ背景色設定
+                  const finalBgClass = rowBgClass || (idx % 2 === 0 ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-100 hover:bg-slate-200/80')
+
+                  return (
+                    <div
+                      key={customer.id}
+                      className={`p-2.5 transition-colors ${rowBorderClass} ${finalBgClass}`}
+                      onClick={mergeMode ? () => toggleSelect(customer.id) : undefined}
+                      style={mergeMode ? { cursor: 'pointer' } : undefined}
+                    >
+                      {/* 1行目: 詳細 ＆ 氏名 ＆ 要注意等 ＆ 操作 */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* 詳細リンク（通常モードのみ） */}
+                          {!mergeMode && (
+                            <Link
+                              href={`/customers/${customer.id}`}
+                              className="text-xs font-bold text-sky-500 hover:text-sky-600 shrink-0 whitespace-nowrap"
+                            >
+                              詳細
+                            </Link>
+                          )}
+                          
+                          {/* 氏名 */}
+                          <span className="font-bold text-slate-900 truncate whitespace-nowrap">{customer.name}</span>
+
+                          {/* 警告マーク・メモアイコン */}
+                          {customer.status === '出禁' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-800 whitespace-nowrap">出禁</span>
+                          )}
+                          {customer.status === '要注意' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 whitespace-nowrap">要注意</span>
+                          )}
+                          {customer.memo && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-100 text-orange-800 whitespace-nowrap">注意メモ</span>
+                          )}
+                        </div>
+
+                        {/* 操作・チェックボックス */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {mergeMode ? (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(customer.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                            />
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(customer) }}
+                              className="text-xs font-semibold text-rose-600 hover:text-rose-700 cursor-pointer whitespace-nowrap"
+                              title="削除"
+                            >
+                              削除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* メモ・要注意理由の差し込み */}
+                      {(customer.ng_reason || customer.memo) && (
+                        <div className="mb-2 flex flex-col gap-1 text-[11px] bg-slate-50/80 p-1.5 rounded-lg border border-slate-100">
+                          {customer.ng_reason && (
+                            <span className="text-rose-600 font-semibold truncate flex items-center gap-1">
+                              <span className="flex-shrink-0 text-rose-500">⚠️</span>
+                              <span className="truncate whitespace-nowrap">{customer.ng_reason}</span>
+                            </span>
+                          )}
+                          {customer.memo && (
+                            <span className="text-amber-700 truncate flex items-center gap-1">
+                              <span className="flex-shrink-0 text-amber-500">📝</span>
+                              <span className="truncate whitespace-nowrap">{customer.memo}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 2行目: 比率調整グリッドによるデータ表示 */}
+                      <div className="grid grid-cols-[1.3fr_0.7fr_0.8fr_1.2fr] gap-1 items-center text-xs text-slate-700">
+                        {/* 電話番号 */}
+                        <div className="flex flex-col min-w-0 text-left">
+                          <span className="font-semibold text-slate-700 truncate whitespace-nowrap">{customer.phone || '未登録'}</span>
+                          {customer.phone2 && <span className="text-[10px] text-slate-400 truncate whitespace-nowrap">{customer.phone2}</span>}
+                        </div>
+
+                        {/* 来店回数 */}
+                        <div className="flex justify-center">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openHistoryModal(customer) }}
+                            className="inline-flex items-center justify-center px-2 py-0.5 bg-slate-100 text-slate-600 font-medium rounded text-[11px] hover:bg-indigo-50 hover:text-indigo-600 transition-colors whitespace-nowrap"
+                          >
+                            <span className="mr-0.5 font-bold">{visitCounts.get(customer.id) ?? '…'}</span>回
+                          </button>
+                        </div>
+
+                        {/* ステータスバッジ */}
+                        <div className="flex justify-center">
+                          <span className={`inline-flex justify-center px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 whitespace-nowrap ${statusStyles[status] || 'bg-slate-100 text-slate-800'}`}>
+                            {status}
+                          </span>
+                        </div>
+
+                        {/* 登録日 */}
+                        <div className="text-[10px] text-slate-400 text-right whitespace-nowrap shrink-0">
+                          {new Date(customer.created_at).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' })} 登録
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ページネーションコントロール */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+            <div className="text-xs text-slate-500">
+              {searchQuery.trim() ? (
+                <>
+                  検索結果: <span className="font-bold text-slate-800">{filteredCount ?? 0}</span>人中
+                  <span className="font-bold text-slate-800 ml-1">
+                    {Math.min((currentPage - 1) * 100 + 1, filteredCount ?? 0)}〜
+                    {Math.min(currentPage * 100, filteredCount ?? 0)}
+                  </span>件目を表示中
+                </>
+              ) : (
+                <>
+                  登録顧客数: <span className="font-bold text-slate-800">{totalCount}</span>人
+                  <span className="font-bold text-slate-800 ml-1">
+                    {totalCount > 0 ? Math.min((currentPage - 1) * 100 + 1, totalCount) : 0}〜
+                    {Math.min(currentPage * 100, totalCount)}
+                  </span>件目を表示中
+                </>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                >
+                  前へ
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .map((p, idx, arr) => {
+                    const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
+                    return (
+                      <div key={p} className="flex items-center">
+                        {showEllipsis && <span className="px-2 text-slate-400">...</span>}
+                        <button
+                          onClick={() => handlePageChange(p)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            currentPage === p
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </div>
+                    )
+                  })}
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
+                >
+                  次へ
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

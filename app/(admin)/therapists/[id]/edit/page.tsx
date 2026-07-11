@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -11,7 +11,7 @@ export default function EditTherapistPage() {
   const router = useRouter();
   const params = useParams();
   const therapistId = params.id as string;
-  useShop();
+  const { selectedShop } = useShop();
 
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -28,6 +28,8 @@ export default function EditTherapistPage() {
     rank_id: "",
     reservation_interval_minutes: "",
     is_active: true,
+    is_rookie: false,
+    ng_course_ids: [] as string[],
   });
   const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -36,23 +38,36 @@ export default function EditTherapistPage() {
   const [ranks, setRanks] = useState<{ id: string, name: string }[]>([]);
   const [nominationFees, setNominationFees] = useState<{ id: string, name: string }[]>([]);
   const [feeOverrides, setFeeOverrides] = useState<Record<string, string>>({});
-  const [therapistShopId, setTherapistShopId] = useState<string | null>(null);
+  const [therapistShopId, setTherapistShopId] = useState<string>("");
   const [optionCategories, setOptionCategories] = useState<string[]>([]);
   const [designationTypes, setDesignationTypes] = useState<{ slug: string; display_name: string }[]>([]);
   // Matrix key: `${category}||${desig_slug}` where desig_slug = '__all__' for 全種別共通
   const [optionBackMatrix, setOptionBackMatrix] = useState<Record<string, string>>({});
+  const [courses, setCourses] = useState<{ id: string, name: string, duration: number }[]>([]);
 
   // 引き継ぎメモ
-  interface TherapistMemo { id: string; date: string; content: string; amount: number; is_resolved: boolean; }
+  interface TherapistMemo {
+    id: string;
+    date: string;
+    content: string;
+    amount: number;
+    is_resolved: boolean;
+    resolved_at?: string | null;
+    resolved_date?: string | null;
+  }
   const [memos, setMemos] = useState<TherapistMemo[]>([]);
   const [memoForm, setMemoForm] = useState({ content: '', amount: '' });
   const [memoLoading, setMemoLoading] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
 
+  // 編集用の状態
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [editMemoForm, setEditMemoForm] = useState({ content: '', amount: '' });
+
   const fetchMemos = async () => {
     const { data } = await supabase
       .from('therapist_memos')
-      .select('id, date, content, amount, is_resolved')
+      .select('id, date, content, amount, is_resolved, resolved_at, resolved_date')
       .eq('therapist_id', therapistId)
       .order('date', { ascending: false });
     setMemos((data || []) as TherapistMemo[]);
@@ -60,22 +75,67 @@ export default function EditTherapistPage() {
 
   const handleAddMemo = async () => {
     if (!memoForm.content.trim()) return;
+    const targetShopId = therapistShopId || selectedShop?.id;
+    if (!targetShopId) {
+      alert('店舗情報が見つかりません。ページの読み込みを待つか、再読み込みしてください。');
+      return;
+    }
     setMemoLoading(true);
     const { error } = await supabase.from('therapist_memos').insert([{
       therapist_id: therapistId,
-      shop_id: therapistShopId,
+      shop_id: targetShopId,
       date: new Date().toISOString().split('T')[0],
       content: memoForm.content.trim(),
       amount: parseInt(memoForm.amount || '0', 10) || 0,
     }]);
     setMemoLoading(false);
-    if (error) { alert('メモの追加に失敗しました'); return; }
+    if (error) { alert('メモの追加に失敗しました: ' + error.message); return; }
     setMemoForm({ content: '', amount: '' });
     await fetchMemos();
   };
 
+  const handleEditMemoStart = (memo: TherapistMemo) => {
+    setEditingMemoId(memo.id);
+    setEditMemoForm({
+      content: memo.content ?? '',
+      amount: memo.amount != null ? String(memo.amount) : ''
+    });
+  };
+
+  const handleUpdateMemo = async (id: string) => {
+    if (!editMemoForm.content.trim()) return;
+    setMemoLoading(true);
+    const { error } = await supabase
+      .from('therapist_memos')
+      .update({
+        content: editMemoForm.content.trim(),
+        amount: parseInt(editMemoForm.amount || '0', 10) || 0
+      })
+      .eq('id', id);
+    setMemoLoading(false);
+    if (error) {
+      alert('メモの更新に失敗しました: ' + error.message);
+    } else {
+      setEditingMemoId(null);
+      await fetchMemos();
+    }
+  };
+
   const handleResolveMemo = async (id: string) => {
-    await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', id);
+    await supabase.from('therapist_memos').update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_date: null
+    }).eq('id', id);
+    await fetchMemos();
+  };
+
+  const handleUnresolveMemo = async (id: string) => {
+    await supabase.from('therapist_memos').update({
+      is_resolved: false,
+      resolved_at: null,
+      resolved_date: null
+    }).eq('id', id);
     await fetchMemos();
   };
 
@@ -84,6 +144,11 @@ export default function EditTherapistPage() {
     await supabase.from('therapist_memos').delete().eq('id', id);
     await fetchMemos();
   };
+
+  // 多店舗リンク用
+  const [allOtherTherapists, setAllOtherTherapists] = useState<any[]>([]);
+  const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
+  const [originalGroupId, setOriginalGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (therapistId) void fetchMemos();
@@ -105,19 +170,43 @@ export default function EditTherapistPage() {
         if (therapistError) throw therapistError;
 
         setTherapistShopId(therapist.shop_id);
+        setOriginalGroupId(therapist.linked_therapist_group_id || null);
 
-        // Fetch ranks, fees, option data in parallel
-        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes] = await Promise.all([
+        // 相互リンクが許可されている店舗IDリストを取得
+        const { data: linksData } = await supabase
+          .from('shop_links')
+          .select('shop_id_1, shop_id_2')
+          .eq('is_active', true)
+          .or(`shop_id_1.eq.${therapist.shop_id},shop_id_2.eq.${therapist.shop_id}`);
+        const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === therapist.shop_id ? l.shop_id_2 : l.shop_id_1);
+
+        // Fetch ranks, fees, option data, courses in parallel
+        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes, coursesRes] = await Promise.all([
           supabase.from("therapist_ranks").select("id, name").eq("shop_id", therapist.shop_id).order("display_order"),
           supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
           supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
           supabase.from("options").select("back_category").eq("shop_id", therapist.shop_id).eq("is_active", true),
           supabase.from("designation_types").select("slug, display_name").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order"),
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
+          linkedShopIds.length > 0
+            ? supabase.from("therapists").select("id, name, shop_id, shops(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
+            : Promise.resolve({ data: [] }),
+          supabase.from("courses").select("id, name, duration").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order")
         ]);
 
         setRanks(ranksRes.data || []);
         setNominationFees(feesRes.data || []);
+        setCourses(coursesRes.data || []);
+
+        const otherTherapists = (otherTherapistsRes.data || []) as any[];
+        setAllOtherTherapists(otherTherapists);
+
+        if (therapist.linked_therapist_group_id) {
+          const initialSelectedIds = otherTherapists
+            .filter((t: any) => t.linked_therapist_group_id === therapist.linked_therapist_group_id)
+            .map((t: any) => t.id);
+          setSelectedLinkIds(initialSelectedIds);
+        }
 
         const overridesObj: Record<string, string> = {};
         if (overridesRes.data) {
@@ -157,6 +246,8 @@ export default function EditTherapistPage() {
             ? String(therapist.reservation_interval_minutes)
             : "",
           is_active: therapist.is_active !== false,
+          is_rookie: !!therapist.is_rookie,
+          ng_course_ids: therapist.ng_course_ids || [],
         });
         // 写真一覧を取得
         const { data: photoData } = await supabase
@@ -289,6 +380,7 @@ export default function EditTherapistPage() {
         rank_id: profile.rank_id || null,
         has_fee_override: hasOverrides,
         is_active: profile.is_active,
+        is_rookie: profile.is_rookie || false,
       })
       .eq("id", therapistId);
 
@@ -296,6 +388,15 @@ export default function EditTherapistPage() {
       setError("保存に失敗しました: " + updateError.message);
       setLoading(false);
       return;
+    }
+
+    // ng_course_ids を別途保存（未マイグレーション対策）
+    const { error: ngCourseError } = await supabase
+      .from("therapists")
+      .update({ ng_course_ids: profile.ng_course_ids })
+      .eq("id", therapistId);
+    if (ngCourseError) {
+      console.warn("ng_course_idsの保存をスキップ（DBマイグレーション未適用の可能性）:", ngCourseError.message);
     }
 
     // インターバル列を別途保存（DB未マイグレーションでも他フィールドは守る）
@@ -352,6 +453,76 @@ export default function EditTherapistPage() {
       }
     }
 
+    // === 多店舗セラピストリンク同期 ===
+    const newLinkIds = selectedLinkIds;
+
+    if (newLinkIds.length > 0) {
+      // リンクあり：グループIDを決定（既存のものを使用するか、新規に生成）
+      let groupId = originalGroupId;
+      if (!groupId) {
+        // 新規にグループIDを生成
+        groupId = crypto.randomUUID();
+      }
+
+      // 自分と選択された他店舗セラピスト全員のグループIDを更新
+      const targetIds = [therapistId, ...newLinkIds];
+      await supabase
+        .from("therapists")
+        .update({ linked_therapist_group_id: groupId })
+        .in("id", targetIds);
+
+      // それ以外の、以前同じグループだったが選択解除されたセラピストのグループIDをクリア（NULLに）
+      if (originalGroupId) {
+        const { data: oldMembers } = await supabase
+          .from("therapists")
+          .select("id")
+          .eq("linked_therapist_group_id", originalGroupId)
+          .not("id", "in", `(${targetIds.join(",")})`);
+        
+        if (oldMembers && oldMembers.length > 0) {
+          const oldMemberIds = oldMembers.map(m => m.id);
+          await supabase
+            .from("therapists")
+            .update({ linked_therapist_group_id: null })
+            .in("id", oldMemberIds);
+          
+          // 古いグループに残ったメンバーが1人以下になったら、そのグループを解体
+          const { data: remainingMembers } = await supabase
+            .from("therapists")
+            .select("id")
+            .eq("linked_therapist_group_id", originalGroupId);
+          if (remainingMembers && remainingMembers.length <= 1) {
+            await supabase
+              .from("therapists")
+              .update({ linked_therapist_group_id: null })
+              .eq("linked_therapist_group_id", originalGroupId);
+          }
+        }
+      }
+    } else {
+      // リンクなし：自分のグループIDをクリア
+      await supabase
+        .from("therapists")
+        .update({ linked_therapist_group_id: null })
+        .eq("id", therapistId);
+
+      // 以前のグループメンバーの整理
+      if (originalGroupId) {
+        const { data: remainingMembers } = await supabase
+          .from("therapists")
+          .select("id")
+          .eq("linked_therapist_group_id", originalGroupId);
+        
+        if (remainingMembers && remainingMembers.length <= 1) {
+          // 残ったメンバーが1人以下ならグループ解体
+          await supabase
+            .from("therapists")
+            .update({ linked_therapist_group_id: null })
+            .eq("linked_therapist_group_id", originalGroupId);
+        }
+      }
+    }
+
     setLoading(false);
     router.push("/therapists");
   };
@@ -366,7 +537,7 @@ export default function EditTherapistPage() {
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-4 mb-4">
           <Link href="/therapists" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -379,18 +550,17 @@ export default function EditTherapistPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 md:p-5">
-            {error && (
-              <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex items-start">
-                <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {error}
-              </div>
-            )}
+        {error && (
+          <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex items-start">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-            <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="order-2 lg:order-1 lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
               {/* 写真 */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -587,6 +757,51 @@ export default function EditTherapistPage() {
                   />
                 </div>
 
+                {/* 多店舗リンク設定 */}
+                {allOtherTherapists.length > 0 && (
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2">🔗 多店舗リンク設定</h3>
+                    <p className="text-xs text-slate-400">
+                      他の連携店舗に登録されている「同一人物のセラピスト」を選択してください。
+                      選択すると、スケジュール（予約ブロック）や精算が相互に自動的に同期されます。
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
+                      {allOtherTherapists.map((t) => {
+                        const isChecked = selectedLinkIds.includes(t.id);
+                        return (
+                          <label
+                            key={t.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              isChecked
+                                ? "bg-indigo-50 border-indigo-200"
+                                : "bg-white border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedLinkIds([...selectedLinkIds, t.id]);
+                                } else {
+                                  setSelectedLinkIds(selectedLinkIds.filter((id) => id !== t.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                            />
+                            <div className="text-xs md:text-sm">
+                              <span className="font-bold text-slate-800">{t.name}</span>
+                              <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                                {t.shops?.name || "他店舗"}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* 在籍状況 */}
@@ -670,6 +885,22 @@ export default function EditTherapistPage() {
                   </select>
                 </div>
 
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="is_rookie"
+                    name="is_rookie"
+                    checked={profile.is_rookie || false}
+                    onChange={(e) => {
+                      setProfile(prev => ({ ...prev, is_rookie: e.target.checked }));
+                    }}
+                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="is_rookie" className="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                    新人 🔰
+                  </label>
+                </div>
+
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex flex-col gap-1 mt-8">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -698,6 +929,59 @@ export default function EditTherapistPage() {
                     <div className="text-sm text-slate-500 py-2">システム設定から指名料マスタを登録してください。</div>
                   )}
                 </div>
+              </div>
+
+              {/* NGコース設定 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  NGコース設定
+                </h3>
+                <p className="text-xs text-slate-400">
+                  このセラピストが対応できない（NG）コースを選択します。チェックを入れたコースは予約時に選択できなくなります。
+                </p>
+                {courses.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-2">有効なコースが登録されていません。</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {courses.map((course) => (
+                      <label
+                        key={course.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                          profile.ng_course_ids.includes(course.id)
+                            ? 'bg-red-50/50 border-red-200'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={profile.ng_course_ids.includes(course.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setProfile({ ...profile, ng_course_ids: [...profile.ng_course_ids, course.id] });
+                              } else {
+                                setProfile({ ...profile, ng_course_ids: profile.ng_course_ids.filter(id => id !== course.id) });
+                              }
+                            }}
+                            className="peer sr-only"
+                          />
+                          <div className="w-5 h-5 rounded border border-slate-300 bg-white peer-checked:bg-red-500 peer-checked:border-red-500 transition-colors flex items-center justify-center">
+                            <svg className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-medium ${profile.ng_course_ids.includes(course.id) ? 'text-red-700' : 'text-slate-700'}`}>
+                            {course.name}
+                          </span>
+                          <span className="text-xs text-slate-500">{course.duration}分</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* オプションバック設定 */}
@@ -757,26 +1041,13 @@ export default function EditTherapistPage() {
                   解決優先順位：カテゴリ×指名種別 → カテゴリ×全種別共通 → 店舗デフォルト
                 </p>
               </div>
+          </div>
 
-              <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">
-                <Link
-                  href="/therapists"
-                  className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  キャンセル
-                </Link>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-8 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
-                >
-                  {loading ? '更新中...' : '更新する'}
-                </button>
-              </div>
-            </form>
-
+          {/* 右側サイドバー (スマホでは order-1 で一番上、デスクトップでは order-2 で右側に sticky 固定) */}
+          <div className="order-1 lg:order-2 lg:col-span-1 lg:sticky lg:top-4 space-y-6 w-full">
+            
             {/* 引き継ぎメモセクション */}
-            <div className="mt-8 border border-amber-200 rounded-2xl overflow-hidden">
+            <div className="border border-amber-200 rounded-2xl overflow-hidden bg-white shadow-sm">
               <div className="bg-amber-50 px-5 py-4 flex items-center justify-between border-b border-amber-200">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
@@ -788,6 +1059,7 @@ export default function EditTherapistPage() {
                   )}
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowResolved(v => !v)}
                   className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
                 >
@@ -830,47 +1102,147 @@ export default function EditTherapistPage() {
               <div className="divide-y divide-amber-100">
                 {memos
                   .filter(m => showResolved || !m.is_resolved)
-                  .map(memo => (
-                    <div key={memo.id} className={`px-5 py-3 flex items-start gap-3 ${memo.is_resolved ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-amber-700">{memo.date}</span>
-                          {memo.amount !== 0 && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                              {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                  .map(memo => {
+                    const isEditing = editingMemoId === memo.id;
+                    if (isEditing) {
+                      return (
+                        <div key={memo.id} className="px-5 py-4 bg-amber-50/30 space-y-3">
+                          <div className="flex items-center justify-between border-b border-amber-100/50 pb-2">
+                            <span className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                              <svg className="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              メモを編集
                             </span>
-                          )}
-                          {memo.is_resolved && (
-                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">解決済み</span>
-                          )}
+                            <span className="text-xs text-slate-400">{memo.date}</span>
+                          </div>
+                          <textarea
+                            value={editMemoForm.content}
+                            onChange={e => setEditMemoForm(f => ({ ...f, content: e.target.value }))}
+                            rows={2}
+                            className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                            placeholder="メモ内容"
+                          />
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={editMemoForm.amount}
+                                onChange={e => setEditMemoForm(f => ({ ...f, amount: e.target.value }))}
+                                className="w-24 px-3 py-1.5 bg-white border border-amber-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
+                                placeholder="金額"
+                              />
+                              <span className="text-xs text-slate-500">円 (正=余剰 / 負=不足)</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMemoId(null)}
+                                className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all"
+                              >
+                                キャンセル
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateMemo(memo.id)}
+                                disabled={memoLoading || !editMemoForm.content.trim()}
+                                className="px-4 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 rounded-lg transition-all disabled:opacity-50"
+                              >
+                                {memoLoading ? '保存中...' : '保存'}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-700 leading-snug">{memo.content}</p>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {!memo.is_resolved && (
+                      );
+                    }
+
+                    return (
+                      <div key={memo.id} className={`px-5 py-3 flex items-start gap-3 ${memo.is_resolved ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold text-amber-700">{memo.date}</span>
+                            {memo.amount !== 0 && (
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                              </span>
+                            )}
+                            {memo.is_resolved && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex-shrink-0">精算済み</span>
+                                {memo.resolved_date && (
+                                  <span className="text-[9px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 whitespace-nowrap">
+                                    {memo.resolved_date.replace(/-/g, '/')}の給与で精算
+                                  </span>
+                                )}
+                                {memo.resolved_at && (
+                                  <span className="text-[9px] text-slate-400 whitespace-nowrap">
+                                    ({new Date(memo.resolved_at).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-700 leading-snug">{memo.content}</p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <button
-                            onClick={() => handleResolveMemo(memo.id)}
-                            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-2 py-1 rounded-lg transition-colors"
+                            type="button"
+                            onClick={() => handleEditMemoStart(memo)}
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 border border-slate-200 hover:border-indigo-300 px-2 py-1 rounded-lg transition-colors"
                           >
-                            解決済みに
+                            編集
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteMemo(memo.id)}
-                          className="text-[10px] font-bold text-slate-300 hover:text-red-500 border border-slate-200 hover:border-red-300 px-2 py-1 rounded-lg transition-colors"
-                        >
-                          削除
-                        </button>
+                          {memo.is_resolved ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUnresolveMemo(memo.id)}
+                              className="text-[10px] font-bold text-amber-600 hover:text-amber-800 border border-slate-200 hover:border-amber-300 px-2 py-1 rounded-lg transition-colors"
+                            >
+                              未精算に戻す
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleResolveMemo(memo.id)}
+                              className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-2 py-1 rounded-lg transition-colors"
+                            >
+                              解決済みに
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMemo(memo.id)}
+                            className="text-[10px] font-bold text-slate-300 hover:text-red-500 border border-slate-200 hover:border-red-300 px-2 py-1 rounded-lg transition-colors"
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 {memos.filter(m => showResolved || !m.is_resolved).length === 0 && (
                   <div className="px-5 py-6 text-center text-sm text-slate-400">メモはありません</div>
                 )}
               </div>
             </div>
+
+            {/* 更新・キャンセルボタン */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex gap-3 justify-end w-full">
+              <Link
+                href="/therapists"
+                className="flex-1 text-center py-3 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                キャンセル
+              </Link>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
+              >
+                {loading ? '更新中...' : '更新する'}
+              </button>
+            </div>
+
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

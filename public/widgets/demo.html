@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>yoyakl埋め込みウィジェット 個人ページ対応デモ</title>
+  <style>
+    :root {
+      --primary: #758e7b; /* セージグリーン */
+      --primary-hover: #5d7362;
+      --bg-site: #f5f6f4; /* サイト背景 */
+      --card-bg: #ffffff;
+      --text-main: #2f3e33;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-site);
+      color: var(--text-main);
+      line-height: 1.6;
+    }
+
+    /* 上部検証用コントロールパネル */
+    .admin-bar {
+      background: #2f3e33;
+      color: #f1f4f2;
+      padding: 16px 24px;
+      border-bottom: 4px solid var(--primary);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .admin-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .admin-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .admin-title span {
+      background: var(--primary);
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .admin-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-input {
+      padding: 6px 12px;
+      border: 1px solid #4a5c4f;
+      background: #1c2620;
+      color: white;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: monospace;
+      width: 160px;
+    }
+    .admin-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .admin-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    /* サロンホームページのヘッダーシミュレーション */
+    .client-header {
+      background: #ffffff;
+      padding: 30px 24px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .client-header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 800;
+      color: #1e2921;
+    }
+    .client-header p {
+      margin: 6px 0 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+    .client-nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .client-nav button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-family: inherit;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .client-nav button.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .main-content {
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+
+    /* ページシミュレーター */
+    .page-panel {
+      display: none;
+      animation: page-fadeIn 0.3s ease;
+    }
+    .page-panel.active {
+      display: block;
+    }
+    @keyframes page-fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .page-title-section {
+      background: #ffffff;
+      padding: 20px 24px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .page-title-section h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: #1e2921;
+    }
+    .page-title-section p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* 説明ドキュメント */
+    .doc-card {
+      background: #1c2620;
+      color: #cbd5e1;
+      padding: 24px;
+      border-radius: var(--radius);
+      margin-top: 48px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .doc-card h3 {
+      margin-top: 0;
+      color: #ffffff;
+      font-size: 16px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 8px;
+    }
+    .code-block {
+      background: #111814;
+      color: #86efac;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      border: 1px solid #27352c;
+      margin: 12px 0;
+    }
+    .code-comment {
+      color: #5b7264;
+    }
+    .code-html {
+      color: #f87171;
+    }
+    .code-attr {
+      color: #fbbf24;
+    }
+    .code-val {
+      color: #34d399;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text-muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+      margin-top: 64px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ウィジェット検証用コントロールパネル -->
+  <div class="admin-bar">
+    <div class="admin-container">
+      <h2 class="admin-title">yoyakl ウィジェット個別ページ表示検証パネル <span>セージグリーンテーマ</span></h2>
+      <div class="admin-controls">
+        <label for="shop-code-input" style="font-size: 13px;">店舗コード:</label>
+        <input type="text" id="shop-code-input" class="admin-input" />
+        <button id="apply-btn" class="admin-btn">反映してテスト</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 架空のサロンサイトヘッダーシミュレーション -->
+  <div class="client-header">
+    <h1>こころリンス</h1>
+    <p>Aroma Spa for Man - 秋葉原・馬喰町・浅草橋</p>
+    <div class="client-nav">
+      <button id="nav-therapist" class="active">THERAPIST (セラピスト一覧)</button>
+      <button id="nav-schedule">SCHEDULE (スケジュール)</button>
+      <button id="nav-single">きたがわ (個人紹介ページ)</button>
+      <button id="nav-combined">COMBINED (複合・タブ切り替え)</button>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="main-content">
+    
+    <!-- ① セラピスト一覧ページ シミュレーション -->
+    <div class="page-panel active" id="panel-therapist">
+      <div class="page-title-section">
+        <h2>THERAPIST - セラピスト一覧ページ</h2>
+        <p>WordPressの <code>https://kokoro-rinse.com/therapist/</code> 固定ページに埋め込んだ場合の表示イメージです。(<code>data-mode="therapists"</code>)</p>
+      </div>
+      
+      <!-- セラピスト表示用のタグ -->
+      <div id="yoyakl-widget-therapists" class="yoyakl-embed-container"></div>
+    </div>
+
+    <!-- ② スケジュールページ シミュレーション -->
+    <div class="page-panel" id="panel-schedule">
+      <div class="page-title-section">
+        <h2>SCHEDULE - 出勤予定スケジュール</h2>
+        <p>WordPressの <code>https://kokoro-rinse.com/schedule/</code> 固定ページに埋め込んだ場合の表示イメージです。(<code>data-mode="schedule"</code>)</p>
+      </div>
+
+      <!-- スケジュール表示用のタグ -->
+      <div id="yoyakl-widget-schedule" class="yoyakl-embed-container"></div>
+    </div>
+
+    <!-- ③ 個人紹介ページ シミュレーション -->
+    <div class="page-panel" id="panel-single">
+      <div class="page-title-section">
+        <h2>CAST PROFILE - セラピスト個人スケジュール</h2>
+        <p>WordPressの各キャスト紹介ページ（例: <code>https://kokoro-rinse.com/cast/きたがわ/</code>）に埋め込んだ場合の表示イメージです。(<code>data-mode="single-therapist"</code>)</p>
+      </div>
+
+      <!-- 個人スケジュール表示用のタグ -->
+      <div id="yoyakl-widget-single" class="yoyakl-embed-container"></div>
+    </div>
+
+    <!-- ④ 複合タブ切り替え表示 シミュレーション -->
+    <div class="page-panel" id="panel-combined">
+      <div class="page-title-section">
+        <h2>COMBINED - セラピスト＆スケジュール複合表示</h2>
+        <p>1つのページに両方をタブで切り替えて表示させたい場合（例：トップページなど）の表示イメージです。(<code>data-mode="all"</code>)</p>
+      </div>
+
+      <!-- 複合表示用のタグ -->
+      <div id="yoyakl-widget-combined" class="yoyakl-embed-container"></div>
+    </div>
+
+    <!-- 導入解説カード -->
+    <div class="doc-card">
+      <h3>WordPressへの導入貼り付けコード</h3>
+      <p>WordPressの固定ページ（ブロックエディタ）で<strong>「カスタムHTML」ブロック</strong>を作成し、それぞれ表示させたいページに応じて以下のタグを貼り付けてください。</p>
+      
+      <h4>1. セラピスト一覧ページ (therapist) に貼り付けるコード</h4>
+      <div class="code-block">
+<span class="code-comment">&lt;!-- data-cast-url-pattern には、写真・名前をクリックした際の個人ページURL規則を指定します（デフォルト: /cast/{name}/） --&gt;</span>
+&lt;<span class="code-html">div</span> <span class="code-attr">id</span>=<span class="code-val">"yoyakl-widget"</span> <span class="code-attr">data-shop-code</span>=<span class="code-val">"<span class="js-code-placeholder">demo-shop</span>"</span> <span class="code-attr">data-mode</span>=<span class="code-val">"therapists"</span> <span class="code-attr">data-cast-url-pattern</span>=<span class="code-val">"/cast/{name}/"</span>&gt;&lt;/<span class="code-html">div</span>&gt;
+&lt;<span class="code-html">script</span> <span class="code-attr">src</span>=<span class="code-val">"<span class="js-loader-placeholder">loader-url</span>"</span> <span class="code-attr">defer</span>&gt;&lt;/<span class="code-html">script</span>&gt;
+      </div>
+
+      <h4>2. スケジュールページ (schedule) に貼り付けるコード</h4>
+      <div class="code-block">
+&lt;<span class="code-html">div</span> <span class="code-attr">id</span>=<span class="code-val">"yoyakl-widget"</span> <span class="code-attr">data-shop-code</span>=<span class="code-val">"<span class="js-code-placeholder">demo-shop</span>"</span> <span class="code-attr">data-mode</span>=<span class="code-val">"schedule"</span> <span class="code-attr">data-cast-url-pattern</span>=<span class="code-val">"/cast/{name}/"</span>&gt;&lt;/<span class="code-html">div</span>&gt;
+&lt;<span class="code-html">script</span> <span class="code-attr">src</span>=<span class="code-val">"<span class="js-loader-placeholder">loader-url</span>"</span> <span class="code-attr">defer</span>&gt;&lt;/<span class="code-html">script</span>&gt;
+      </div>
+
+      <h4>3. セラピスト個人紹介ページ (例：きたがわ様のページなど) に貼り付けるコード</h4>
+      <div class="code-block">
+&lt;<span class="code-html">div</span> <span class="code-attr">id</span>=<span class="code-val">"yoyakl-widget"</span> <span class="code-attr">data-shop-code</span>=<span class="code-val">"<span class="js-code-placeholder">demo-shop</span>"</span> <span class="code-attr">data-mode</span>=<span class="code-val">"single-therapist"</span> <span class="code-attr">data-therapist-name</span>=<span class="code-val">"きたがわ"</span>&gt;&lt;/<span class="code-html">div</span>&gt;
+&lt;<span class="code-html">script</span> <span class="code-attr">src</span>=<span class="code-val">"<span class="js-loader-placeholder">loader-url</span>"</span> <span class="code-attr">defer</span>&gt;&lt;/<span class="code-html">script</span>&gt;
+      </div>
+
+      <h3>デザインの上書き調整 (CSSのカスタマイズ)</h3>
+      <p>セージグリーン（<code>#758e7b</code>）がデフォルトに設定されていますが、WordPress側のCSSでさらに微調整が可能です。</p>
+      <div class="code-block" style="color: #c084fc;">
+<span class="code-comment">/* WordPressの「外観 &gt; 追加CSS」等に追記することで配色を自由に変更できます */</span>
+<span class="code-html">#yoyakl-widget</span> {
+  --yk-pink: #6E8272; <span class="code-comment">/* メインカラー */</span>
+  --yk-pink-hover: #566759; <span class="code-comment">/* ホバー時のカラー */</span>
+  --yk-pink-light: #f3f6f4; <span class="code-comment">/* 薄い背景色 */</span>
+}
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    &copy; 2026 こころリンス × yoyakl Integration Demo.
+  </footer>
+
+  <!-- ウィジェットを動的に設定・読み込む処理 -->
+  <script>
+    // URLパラメータから 'code' を取得して反映
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopCode = urlParams.get('code') || 'demo-shop';
+    
+    document.getElementById('shop-code-input').value = shopCode;
+
+    // 各埋め込み要素に属性をセット
+    const wTherapists = document.getElementById('yoyakl-widget-therapists');
+    wTherapists.setAttribute('id', 'yoyakl-widget'); // loaderが検知できるようにIDを一時的に書き換え
+    wTherapists.setAttribute('data-shop-code', shopCode);
+    wTherapists.setAttribute('data-mode', 'therapists');
+    wTherapists.setAttribute('data-cast-url-pattern', '/cast/{name}/');
+
+    const wSchedule = document.getElementById('yoyakl-widget-schedule');
+    wSchedule.setAttribute('data-shop-code', shopCode);
+    wSchedule.setAttribute('data-mode', 'schedule');
+    wSchedule.setAttribute('data-cast-url-pattern', '/cast/{name}/');
+
+    const wSingle = document.getElementById('yoyakl-widget-single');
+    wSingle.setAttribute('data-shop-code', shopCode);
+    wSingle.setAttribute('data-mode', 'single-therapist');
+    // デモ用として、データベースに確実に存在する「きたがわ」を指定します
+    wSingle.setAttribute('data-therapist-name', 'きたがわ'); 
+
+    const wCombined = document.getElementById('yoyakl-widget-combined');
+    wCombined.setAttribute('data-shop-code', shopCode);
+    wCombined.setAttribute('data-mode', 'all');
+    wCombined.setAttribute('data-cast-url-pattern', '/cast/{name}/');
+
+    // 複数の場所で同じloaderが適用されるよう、デモページ用にDOMに追加するタイミングを制御
+    const script = document.createElement('script');
+    script.src = `${window.location.origin}/widgets/yoyakl-loader.js`;
+    document.body.appendChild(script);
+
+    // デモ用ローダスクリプトのローカル環境依存を自動書き換えして適用するヘルパー
+    script.onload = () => {
+      setTimeout(() => {
+        // スケジュール用を初期化
+        wTherapists.removeAttribute('id');
+        wSchedule.setAttribute('id', 'yoyakl-widget');
+        window.YoyaklWidgetInitialized = false; // 再実行フラグのリセット
+        window.document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        setTimeout(() => {
+          // 個人用を初期化
+          wSchedule.removeAttribute('id');
+          wSingle.setAttribute('id', 'yoyakl-widget');
+          window.YoyaklWidgetInitialized = false;
+          window.document.dispatchEvent(new Event('DOMContentLoaded'));
+
+          setTimeout(() => {
+            // 複合用を初期化
+            wSingle.removeAttribute('id');
+            wCombined.setAttribute('id', 'yoyakl-widget');
+            window.YoyaklWidgetInitialized = false;
+            window.document.dispatchEvent(new Event('DOMContentLoaded'));
+          }, 100);
+        }, 100);
+      }, 100);
+    };
+
+    // ナビゲーション切り替えイベント
+    const navTherapist = document.getElementById('nav-therapist');
+    const navSchedule = document.getElementById('nav-schedule');
+    const navSingle = document.getElementById('nav-single');
+    const navCombined = document.getElementById('nav-combined');
+
+    const panelTherapist = document.getElementById('panel-therapist');
+    const panelSchedule = document.getElementById('panel-schedule');
+    const panelSingle = document.getElementById('panel-single');
+    const panelCombined = document.getElementById('panel-combined');
+
+    function switchPage(activeBtn, activePanel) {
+      [navTherapist, navSchedule, navSingle, navCombined].forEach(btn => btn.classList.remove('active'));
+      [panelTherapist, panelSchedule, panelSingle, panelCombined].forEach(panel => panel.classList.remove('active'));
+
+      activeBtn.classList.add('active');
+      activePanel.classList.add('active');
+    }
+
+    navTherapist.addEventListener('click', () => switchPage(navTherapist, panelTherapist));
+    navSchedule.addEventListener('click', () => switchPage(navSchedule, panelSchedule));
+    navSingle.addEventListener('click', () => switchPage(navSingle, panelSingle));
+    navCombined.addEventListener('click', () => switchPage(navCombined, panelCombined));
+
+    // 反映ボタンのクリックイベント
+    document.getElementById('apply-btn').addEventListener('click', () => {
+      const nextCode = document.getElementById('shop-code-input').value.trim();
+      if (nextCode) {
+        window.location.search = `?code=${encodeURIComponent(nextCode)}`;
+      }
+    });
+
+    // デモ用処理: セラピスト一覧やスケジュールの顔写真・名前がクリックされた際、
+    // 該当のキャスト詳細タブへシームレスに切り替えてスクロールするエミュレート
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (link) {
+        const href = link.getAttribute('href');
+        // /cast/ というパスを含んでいる場合にインターセプト
+        if (href && href.indexOf('/cast/') !== -1) {
+          e.preventDefault();
+          switchPage(navSingle, panelSingle);
+          window.scrollTo({ top: document.querySelector('.client-header').offsetTop, behavior: 'smooth' });
+        }
+      }
+    });
+
+    // コード解説のテキストを書き換え
+    document.querySelectorAll('.js-code-placeholder').forEach(el => el.innerText = shopCode);
+    document.querySelectorAll('.js-loader-placeholder').forEach(el => el.innerText = `${window.location.origin}/widgets/yoyakl-loader.js`);
+  </script>
+</body>
+</html>

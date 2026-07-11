@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Image from 'next/image'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 interface Therapist {
   id: string
@@ -19,11 +21,15 @@ interface Therapist {
   hip?: number | null
   staffMemo?: string | null
   unresolvedMemos?: { id: string; date: string; content: string; amount: number }[]
+  linked_therapist_group_id?: string | null
+  linked_shop_names?: string[]
 }
 
 interface Room {
   id: string
   name: string
+  display_name?: string | null
+  address?: string | null
   memo?: string | null
   google_map_url?: string | null
 }
@@ -50,8 +56,18 @@ interface Reservation {
   total_price: number
   discount_amount: number
   notes?: string | null
+  payment_method: string | null
+  customer_notified: boolean
+  therapist_notified: boolean
+  source?: string | null
+  is_handled?: boolean | null
+  extension_count?: number
   customers: { name: string; created_at: string } | null
   courses: { name: string; duration: number } | null
+  business_date?: string | null
+  customer_id?: string | null
+  isNewCustomer?: boolean
+  customer_type_override?: 'new' | 'member' | null
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -64,6 +80,7 @@ interface WeeklyDayViewProps {
   roomOrderMap?: Map<string, number>
   shopIntervalMinutes?: number
   minCourseDuration?: number
+  extensionUnitMinutes?: number
   onShiftEditOpen?: (therapistId: string, date: string) => void
 }
 
@@ -76,18 +93,11 @@ function formatDate(date: Date): string {
 
 const toMinutes = (t: string): number => {
   const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
+  const adjustedH = h < 6 ? h + 24 : h
+  return adjustedH * 60 + m
 }
 
-const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
-  const base = dbTime.slice(0, 5)
-  const ref = refDbTime.slice(0, 5)
-  if (toMinutes(base) <= toMinutes(ref)) {
-    const [h, m] = base.split(':').map(Number)
-    return `${String(h + 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  }
-  return base
-}
+
 
 const DESIGNATION_LABEL: Record<string, string> = {
   free: 'フリー',
@@ -107,19 +117,75 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   roomOrderMap = new Map(),
   shopIntervalMinutes = 20,
   minCourseDuration = 0,
+  extensionUnitMinutes = 30,
   onShiftEditOpen,
 }) => {
   const router = useRouter()
   const { selectedShop } = useShop()
+  const { loading: authLoading, user } = useAuth()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
 
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null)
-  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
+  const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; displayName: string | null; address: string | null; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
   const roomMemoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [therapistPopup, setTherapistPopup] = useState<{ therapist: Therapist; x: number; y: number } | null>(null)
   const therapistPopupHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ドラッグスクロール用のState/Ref/Handler
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragDistanceRef = useRef(0)
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // 左クリックのみ反応
+    if (e.button !== 0) return
+    if (!scrollContainerRef.current) return
+
+    const startScrollLeft = scrollContainerRef.current.scrollLeft
+    const startClientX = e.clientX
+    dragDistanceRef.current = 0
+
+    const handleDragMove = (moveEvent: MouseEvent) => {
+      if (!scrollContainerRef.current) return
+
+      const distance = Math.abs(moveEvent.clientX - startClientX)
+      dragDistanceRef.current = distance
+
+      if (distance > 5) {
+        setIsDragging(true)
+        moveEvent.preventDefault()
+        document.body.style.userSelect = 'none'
+      }
+
+      const deltaX = moveEvent.clientX - startClientX
+      scrollContainerRef.current.scrollLeft = startScrollLeft - deltaX
+    }
+
+    const handleDragEnd = () => {
+      window.removeEventListener('mousemove', handleDragMove)
+      window.removeEventListener('mouseup', handleDragEnd)
+      window.removeEventListener('blur', handleDragEnd)
+      document.body.style.userSelect = ''
+      setTimeout(() => {
+        setIsDragging(false)
+      }, 50)
+    }
+
+    window.addEventListener('mousemove', handleDragMove)
+    window.addEventListener('mouseup', handleDragEnd)
+    window.addEventListener('blur', handleDragEnd)
+  }
+
+  const handleContainerClickCapture = (e: React.MouseEvent) => {
+    // ドラッグ移動が大きかった場合はクリックイベントを遮断する
+    if (dragDistanceRef.current > 5) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+  }
 
 
   const weekDates = useMemo(() => {
@@ -133,7 +199,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   }, [weekStartDate])
 
   const fetchWeekData = async () => {
-    if (!selectedShop) return
+    if (!selectedShop || authLoading || !user) return
     const startDate = formatDate(weekDates[0])
     const endDate = formatDate(weekDates[6])
 
@@ -146,20 +212,73 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
     ])
 
+    const rawReservations = (reservationsRes.data as any[]) || []
+
+    // 過去に予約がある顧客を特定する処理を追加
+    const customerIds = Array.from(new Set(rawReservations.map((r) => r.customer_id).filter(Boolean)))
+    const pastCustomerIds = new Set<string>()
+    if (customerIds.length > 0) {
+      const { data: pastRes } = await supabase
+        .from('reservations')
+        .select('customer_id')
+        .in('customer_id', customerIds)
+        .eq('shop_id', selectedShop.id)
+        .lt('date', startDate)
+        .in('status', ['confirmed', 'blocked'])
+      if (pastRes) {
+        pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id))
+      }
+    }
+
+    // 同週内の予約を顧客ごとにソートし、最初の予約のみを新規判定する
+    const customerFirstResMap = new Map<string, string>()
+    const customerResMap = new Map<string, any[]>()
+    rawReservations.forEach((res) => {
+      if (!res.customer_id) return
+      if (!customerResMap.has(res.customer_id)) {
+        customerResMap.set(res.customer_id, [])
+      }
+      customerResMap.get(res.customer_id)!.push(res)
+    })
+
+    customerResMap.forEach((resList, cid) => {
+      resList.sort((a, b) => {
+        const dateDiff = a.date.localeCompare(b.date)
+        if (dateDiff !== 0) return dateDiff
+        return a.start_time.localeCompare(b.start_time)
+      })
+      if (resList.length > 0) {
+        customerFirstResMap.set(cid, resList[0].id)
+      }
+    })
+
+    const processedReservations = rawReservations.map((res) => {
+      if (res.customer_type_override) {
+        return { ...res, isNewCustomer: res.customer_type_override === 'new' }
+      }
+      if (!res.customer_id) {
+        return { ...res, isNewCustomer: false }
+      }
+      if (pastCustomerIds.has(res.customer_id)) {
+        return { ...res, isNewCustomer: false }
+      }
+      const isFirstInWeek = customerFirstResMap.get(res.customer_id) === res.id
+      return { ...res, isNewCustomer: isFirstInWeek }
+    })
+
     setShifts((shiftsRes.data as Shift[]) || [])
-    setReservations((reservationsRes.data as unknown as Reservation[]) || [])
+    setReservations(processedReservations)
   }
 
   useEffect(() => {
     void fetchWeekData()
-  }, [selectedShop, weekDates])
+  }, [selectedShop, weekDates, authLoading, user])
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -168,6 +287,27 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       setRooms((data as Room[]) || [])
     }
     void fetchRooms()
+  }, [selectedShop])
+
+  useEffect(() => {
+    const fetchDesignationTypes = async () => {
+      if (!selectedShop) return
+      const { data } = await supabase
+        .from('designation_types')
+        .select('slug, display_name')
+        .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
+      if (data) {
+        const map: Record<string, string> = {}
+        data.forEach((d: { slug: string; display_name: string }) => {
+          if (d.slug) map[d.slug] = d.display_name
+        })
+        setDesignationMap(map)
+      } else {
+        setDesignationMap({})
+      }
+    }
+    void fetchDesignationTypes()
   }, [selectedShop])
 
   const therapistMap = useMemo(() => {
@@ -201,14 +341,21 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     if (now.getHours() < 6) nowMins += 24 * 60
 
     map.forEach((list, dateStr) => {
-      // 休み（blocked）のセラピストIDセット（日付ごと）
-      const blockedIds = new Set(
-        reservations.filter(r => r.date === dateStr && r.status === 'blocked' && r.therapist_id).map(r => r.therapist_id)
-      )
-      const isOff = (s: Shift) => blockedIds.has(s.therapist_id)
+      const isOff = (s: Shift) => {
+        const shiftStartStr = toDisplayTime(s.start_time)
+        const shiftEndStr = toDisplayTime(s.end_time)
+        return reservations.some(
+          r =>
+            (r.business_date || r.date) === dateStr &&
+            r.status === 'blocked' &&
+            r.therapist_id === s.therapist_id &&
+            toDisplayTime(r.start_time) === shiftStartStr &&
+            toDisplayTime(r.end_time) === shiftEndStr
+        )
+      }
 
       const hasUnassigned = reservations.some(
-        r => r.date === dateStr && r.therapist_id === null && r.status !== 'blocked'
+        r => (r.business_date || r.date) === dateStr && r.therapist_id === null && r.status !== 'blocked'
       )
 
       let others = [...list]
@@ -229,7 +376,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
       } else if (sortMode === 'reservation') {
         const earliestMap = new Map<string, number>()
         reservations
-          .filter(r => r.date === dateStr && r.status === 'confirmed' && r.therapist_id)
+          .filter(r => (r.business_date || r.date) === dateStr && r.status === 'confirmed' && r.therapist_id)
           .forEach(r => {
             const mins = toMinutes(r.start_time.slice(0, 5))
             const cur = earliestMap.get(r.therapist_id) ?? 9999
@@ -245,7 +392,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           const therapist = therapistMap.get(shift.therapist_id)
           const interval = therapist?.reservation_interval_minutes ?? shopIntervalMinutes
           const therapistReservations = reservations.filter(
-            r => r.therapist_id === shift.therapist_id && r.date === dateStr && r.status === 'confirmed'
+            r => r.therapist_id === shift.therapist_id && (r.business_date || r.date) === dateStr && r.status === 'confirmed'
           )
           const lastEndMins = therapistReservations.length > 0
             ? Math.max(...therapistReservations.map(r => toMinutes(r.end_time.slice(0, 5))))
@@ -293,7 +440,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const reservationsByDateTherapist = useMemo(() => {
     const map = new Map<string, Reservation[]>()
     reservations.forEach(r => {
-      const key = `${r.date}_${r.therapist_id || 'unassigned'}`
+      const key = `${r.business_date || r.date}_${r.therapist_id || 'unassigned'}`
       const list = map.get(key) || []
       list.push(r)
       map.set(key, list)
@@ -309,8 +456,13 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   return (
     <div className="flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       {/* 週間グリッド — bg-slate-50 は TimeChart の timeline エリアと同じ */}
-      <div className="overflow-x-auto">
-        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[980px]">
+      <div
+        className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        onClickCapture={handleContainerClickCapture}
+      >
+        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[1190px]">
           {weekDates.map((date) => {
             const dateStr = formatDate(date)
             const dayShifts = shiftsByDate.get(dateStr) || []
@@ -353,58 +505,37 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                       const therapist = therapistMap.get(shift.therapist_id)
                       if (!therapist) return null
                       const roomName = shift.room_id ? roomMap.get(shift.room_id) : null
-                      const endDisplay = dbTimeToDisplay(shift.end_time, shift.start_time)
+                      const endDisplay = toDisplayTime(shift.end_time)
                       const allDayReservations = reservationsByDateTherapist.get(`${dateStr}_${shift.therapist_id}`) || []
                       const dayReservations = allDayReservations.filter(r => r.status === 'confirmed')
                       const blockedNote = allDayReservations.find(r => r.status === 'blocked')?.notes
                       const shiftNote = blockedNote != null ? blockedNote : (shift.notes ?? null)
 
+                      const shiftStartStr = toDisplayTime(shift.start_time)
+                      const shiftEndStr = toDisplayTime(shift.end_time)
+                      const isOff = therapist.id !== 'unassigned' && allDayReservations.some(r =>
+                        r.status === 'blocked' &&
+                        toDisplayTime(r.start_time) === shiftStartStr &&
+                        toDisplayTime(r.end_time) === shiftEndStr
+                      )
+
                       return (
                         <div
                           key={shift.id}
-                          className={`bg-white hover:bg-indigo-50/40 transition-colors group relative
+                          className={`transition-colors group relative
+                            ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}
                             ${shiftIdx < dayShifts.length - 1 ? 'border-b border-slate-100' : ''}`}
                         >
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
-                          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                           {/* ＋予約・編集ボタン — 右上固定 */}
-                          {therapist.id !== 'unassigned' && (
-                            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                              {onShiftEditOpen && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onShiftEditOpen(therapist.id, dateStr)
-                                  }}
-                                  title="シフトを編集"
-                                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                              )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const t = new Date()
-                                  t.setHours(t.getHours() + 1, 0, 0, 0)
-                                  const time = `${String(t.getHours()).padStart(2, '0')}:00`
-                                  const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time })
-                                  if (shift.room_id) params.set('room_id', shift.room_id)
-                                  router.push(`/reservations/new?${params.toString()}`)
-                                }}
-                                className="text-[10px] font-bold text-rose-400 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-2 py-1 rounded-md transition-all"
-                              >
-                                ＋予約
-                              </button>
-                            </div>
+                          {!isOff && (
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
 
                           {/* セラピスト情報 */}
                           <div className="flex items-stretch">
                             {/* 写真 — 3:4固定比率 */}
                             <div className="w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
-                              <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
+                              <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
                                 {therapist.id === 'unassigned' ? (
                                   <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -420,76 +551,94 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                             </div>
                             {/* テキスト情報 */}
                             <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
-                              {/* 名前 + インターバル */}
-                              <div className="flex items-center gap-1.5 min-w-0 pr-14">
+                              {/* 名前 */}
+                              <div className="min-w-0 flex items-center justify-between gap-1">
                                 <p
-                                  className="text-[13px] font-bold text-slate-800 leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate"
+                                  className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
+                                    ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                                   onMouseEnter={(e) => {
-                                    if (therapist.id === 'unassigned') return
                                     if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
                                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                     setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 })
                                   }}
                                   onMouseLeave={() => {
-                                    if (therapist.id === 'unassigned') return
                                     therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150)
                                   }}
                                 >
-                                  {therapist.name}
+                                  <span>{therapist.name}</span>
+                                  {therapist.linked_therapist_group_id && (
+                                    <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                                  )}
                                 </p>
-                                {therapist.id !== 'unassigned' && (
-                                  <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
+                                {isOff && (
+                                  <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                    休み
                                   </span>
                                 )}
-                                {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                              </div>
+                              {/* 引き継ぎメモ */}
+                              {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                                <div className="flex min-w-0">
                                   <span
-                                    className="flex-shrink-0 flex items-center text-amber-400 cursor-default"
+                                    className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse cursor-default truncate max-w-full"
+                                    title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                                     onMouseEnter={e => {
                                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                       setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top })
                                     }}
                                     onMouseLeave={() => setMemoPopup(null)}
                                   >
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <span className="truncate">引継: {therapist.unresolvedMemos![0].content}</span>
                                   </span>
-                                )}
-                              </div>
-
+                                </div>
+                              )}
+ 
                               {/* 出勤時間 */}
                               <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
                                 {therapist.id === 'unassigned' ? (
                                   <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                                ) : isOff ? (
+                                  <span className="text-slate-400 line-through">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
                                 ) : (
-                                  <span className="text-emerald-600">{shift.start_time.slice(0, 5)}〜{endDisplay}</span>
+                                  <span className="text-emerald-600">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
                                 )}
                               </p>
-
-                              {/* ルーム */}
-                              {roomName && (
-                                <span
-                                  className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                                  onMouseEnter={(e) => {
-                                    if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
-                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    const activeRoom = rooms.find(r => r.id === shift.room_id)
-                                    setRoomMemoPopup({
-                                      roomName: roomName,
-                                      memo: activeRoom?.memo ?? '',
-                                      mapUrl: activeRoom?.google_map_url ?? null,
-                                      x: rect.left,
-                                      y: rect.bottom + 4
-                                    })
-                                  }}
-                                  onMouseLeave={() => {
-                                    roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
-                                  }}
-                                >
-                                  <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                  {roomName}
-                                </span>
-                              )}
-
+ 
+                              {/* ルーム + インターバル */}
+                              <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
+                                {roomName && (
+                                  <span
+                                    className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
+                                    onMouseEnter={(e) => {
+                                      if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
+                                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                      const activeRoom = rooms.find(r => r.id === shift.room_id)
+                                      setRoomMemoPopup({
+                                        roomName: roomName,
+                                        displayName: activeRoom?.display_name ?? null,
+                                        address: activeRoom?.address ?? null,
+                                        memo: activeRoom?.memo ?? '',
+                                        mapUrl: activeRoom?.google_map_url ?? null,
+                                        x: rect.left,
+                                        y: rect.bottom + 4
+                                      })
+                                    }}
+                                    onMouseLeave={() => {
+                                      roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
+                                    }}
+                                  >
+                                    <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    {roomName}
+                                  </span>
+                                )}
+                                {therapist.id !== 'unassigned' && (
+                                  <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
+                                  </span>
+                                )}
+                              </div>
+ 
                               {/* notes */}
                               {shiftNote && therapist.id !== 'unassigned' && (
                                 <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={shiftNote}>
@@ -497,64 +646,177 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 </p>
                               )}
                             </div>
+                            {/* アクションボタン（予約・編集）の縦スタック — 右端上下中央 */}
+                            {true && (
+                              <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 mr-1.5 self-center">
+                                {!isOff && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const t = new Date()
+                                      t.setHours(t.getHours() + 1, 0, 0, 0)
+                                      const time = `${String(t.getHours()).padStart(2, '0')}:00`
+                                      const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time, from: 'weekly' })
+                                      if (shift.room_id) params.set('room_id', shift.room_id)
+                                      router.push(`/reservations/new?${params.toString()}`)
+                                    }}
+                                    className="flex-shrink-0 text-[9px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 px-1.5 py-0.5 rounded transition-all"
+                                  >
+                                    予約
+                                  </button>
+                                )}
+                                {onShiftEditOpen && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onShiftEditOpen(therapist.id, dateStr)
+                                    }}
+                                    title="シフトを編集"
+                                    className="flex items-center justify-center w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* 予約リスト — TimeChart の予約ブロックと完全同一スタイル */}
-                          {dayReservations.length > 0 ? (
-                            <div className="px-2 pb-2.5 flex flex-col gap-1.5">
-                              {dayReservations.map((res) => {
-                                const isNewCustomer = res.customers?.created_at?.split('T')[0] === res.date
-                                return (
-                                  <div
-                                    key={res.id}
-                                    className={`rounded-lg px-2 py-1.5 border shadow-md text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${ (res.is_hime || res.designation_type === 'princess') ? 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 border-pink-300/50 shadow-pink-500/20' : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border-indigo-400/50 shadow-indigo-500/20'}`}
-                                    onClick={() => router.push(`/reservations/${res.id}?from=shifts`)}
-                                  >
-                                    <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
-                                      {/* Row 1: 時間 */}
-                                      <div className="text-[10px] font-medium text-white leading-none">
-                                        <span className="whitespace-nowrap">{res.start_time.slice(0, 5)}-{res.end_time.slice(0, 5)}</span>
-                                      </div>
-                                      {/* Row 2: 顧客名 + 新規/会員バッジ */}
-                                      <div className="flex items-center justify-start gap-1 min-w-0">
-                                        <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
-                                          {res.customers?.name || '—'}
-                                        </span>
-                                        <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
-                                          {isNewCustomer ? '新規' : '会員'}
-                                        </span>
-                                      </div>
-                                      {/* Row 3: コース時間・指名種別・金額 */}
-                                      <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
-                                        {res.courses?.duration && (
-                                          <span className="opacity-90">{res.courses.duration}分</span>
-                                        )}
-                                        {res.designation_type && (
-                                          <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">
-                                            {DESIGNATION_LABEL[res.designation_type] || res.designation_type}
-                                          </span>
-                                        )}
-                                        {res.total_price !== undefined && (
-                                          <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
-                                            ¥{res.total_price.toLocaleString()}
-                                          </span>
-                                        )}
-                                        {res.discount_amount > 0 && (
-                                          <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
-                                            -¥{res.discount_amount.toLocaleString()}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                              })}
+                          {isOff ? (
+                            <div className="px-2 pb-2.5">
+                              <div className="rounded-lg px-2.5 py-2 border border-rose-200 bg-rose-50/50 text-rose-800 text-[11px] font-bold text-center flex flex-col gap-0.5 shadow-sm">
+                                <div>全日受付不可 (休み)</div>
+                                {shiftNote && (
+                                  <div className="text-[10px] text-rose-600/90 font-medium whitespace-pre-wrap">{shiftNote}</div>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="px-3 pb-2.5">
-                              <span className="text-[10px] text-slate-300 font-medium">予約なし</span>
-                            </div>
-                          )}
+                          ) : (() => {
+                            const displayReservations = allDayReservations.filter(r => {
+                              if (r.status === 'confirmed') return true
+                              if (r.status === 'blocked') {
+                                const isFullDayBlock = toDisplayTime(r.start_time) === shiftStartStr && toDisplayTime(r.end_time) === shiftEndStr
+                                return !isFullDayBlock
+                              }
+                              return false
+                            })
+
+                            displayReservations.sort((a, b) => toMinutes(a.start_time.slice(0, 5)) - toMinutes(b.start_time.slice(0, 5)))
+
+                            if (displayReservations.length > 0) {
+                              return (
+                                <div className="px-2 pb-2.5 flex flex-col gap-1.5">
+                                  {displayReservations.map((res) => {
+                                    if (res.status === 'blocked') {
+                                      return (
+                                        <div
+                                          key={res.id}
+                                          className="rounded-lg px-2 py-1.5 border border-rose-200 bg-rose-50/60 text-rose-800 cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-md"
+                                          onClick={() => router.push(`/reservations/${res.id}?from=weekly`)}
+                                        >
+                                          <div className="flex flex-col py-0.5 gap-1">
+                                            <div className="text-[10px] font-bold text-rose-700 leading-none flex items-center justify-between gap-1">
+                                              <span>{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
+                                              <span className="bg-rose-100 text-rose-700 text-[8px] font-extrabold px-1 rounded-sm">
+                                                {res.customers?.name || '受付不可'}
+                                              </span>
+                                            </div>
+                                            {res.notes && (
+                                              <p className="text-[10px] font-bold leading-tight truncate mt-0.5 text-rose-600/90" title={res.notes}>
+                                                {res.notes}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    }
+
+                                    const isNewCustomer = res.isNewCustomer
+                                    const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
+                                    const isWeb = res.source === 'web'
+                                    const cardBgClass = (res.is_hime || res.designation_type === 'princess')
+                                      ? isNotificationUnsent
+                                        ? 'bg-gradient-to-br from-[#e27396] to-[#c35175] border-2 border-amber-400 shadow-lg shadow-amber-500/40 animate-pulse'
+                                        : 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-[#c35175]/30 shadow-md shadow-rose-900/10'
+                                      : isWeb
+                                        ? isNotificationUnsent
+                                          ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
+                                          : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/40 shadow-md shadow-teal-700/20'
+                                        : isNotificationUnsent
+                                          ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
+                                          : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
+
+                                    return (
+                                      <div
+                                        key={res.id}
+                                        className={`rounded-lg px-2 py-1.5 border text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${cardBgClass}`}
+                                        onClick={() => router.push(`/reservations/${res.id}?from=weekly`)}
+                                      >
+                                        <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">
+                                          {/* Row 1: 時間 & 未送信バッジ */}
+                                          <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
+                                            <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
+                                            {!res.customer_notified && (
+                                              <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="お客様未送信">客未</span>
+                                            )}
+                                            {!res.therapist_notified && (
+                                              <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="セラピスト未送信">セラ未</span>
+                                            )}
+                                          </div>
+                                          {/* Row 2: 顧客名 + 新規/会員バッジ */}
+                                          <div className="flex items-center justify-start gap-1 min-w-0">
+                                            <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
+                                              {res.customers?.name || '—'}
+                                            </span>
+                                            <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
+                                              {isNewCustomer ? '新規' : '会員'}
+                                            </span>
+                                            {res.payment_method === 'credit' && (
+                                              <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
+                                                💳 クレジット
+                                              </span>
+                                            )}
+                                          </div>
+                                          {/* Row 3: コース時間・指名種別・延長・金額 */}
+                                          <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
+                                            {res.courses?.duration && (
+                                              <span className="opacity-90">{res.courses.duration}分</span>
+                                            )}
+                                            {res.extension_count !== undefined && res.extension_count > 0 && (
+                                              <span className="bg-amber-500/90 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400/40">
+                                                延長+{res.extension_count * extensionUnitMinutes}分
+                                              </span>
+                                            )}
+                                            {res.designation_type && (
+                                              <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">
+                                                {designationMap[res.designation_type] || DESIGNATION_LABEL[res.designation_type] || res.designation_type}
+                                              </span>
+                                            )}
+                                            {res.total_price !== undefined && (
+                                              <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
+                                                ¥{res.total_price.toLocaleString()}
+                                              </span>
+                                            )}
+                                            {res.discount_amount > 0 && (
+                                              <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
+                                                -¥{res.discount_amount.toLocaleString()}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            } else {
+                              return (
+                                <div className="px-3 pb-2.5">
+                                  <span className="text-[10px] text-slate-300 font-medium">予約なし</span>
+                                </div>
+                              )
+                            }
+                          })()}
                         </div>
                       )
                     })
@@ -575,6 +837,15 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           onMouseLeave={() => setTherapistPopup(null)}
         >
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
+            {therapistPopup.therapist.linked_therapist_group_id && (() => {
+              const shopNames = therapistPopup.therapist.linked_shop_names;
+              const label = shopNames && shopNames.length > 0 ? `連携: ${shopNames.join('・')}` : '他店舗連携中';
+              return (
+                <div className="text-[10px] text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5 font-bold flex items-center gap-1 justify-center">
+                  <span>🔗 {label}</span>
+                </div>
+              );
+            })()}
             {(therapistPopup.therapist.age || therapistPopup.therapist.height) && (
               <div className="flex gap-1.5 flex-wrap">
                 {therapistPopup.therapist.age && (
@@ -615,24 +886,49 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
           onMouseEnter={() => { if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current); }}
           onMouseLeave={() => setRoomMemoPopup(null)}
         >
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100 p-3 space-y-2">
-            {roomMemoPopup.memo ? (
-              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
-            ) : (
-              !roomMemoPopup.mapUrl && (
-                <p className="text-xs text-slate-400 italic">メモはありません</p>
-              )
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 space-y-3 min-w-[240px] max-w-sm">
+            {/* ルームヘッダー */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">ルーム情報</h4>
+              <div className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                <span>{roomMemoPopup.roomName}</span>
+                {roomMemoPopup.displayName && (
+                  <span className="text-xs text-slate-500 font-medium">({roomMemoPopup.displayName})</span>
+                )}
+              </div>
+            </div>
+            
+            {/* 住所 */}
+            {roomMemoPopup.address && (
+              <div className="pt-2 border-t border-slate-50 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 block">住所</span>
+                <p className="text-xs text-slate-700 leading-normal">{roomMemoPopup.address}</p>
+              </div>
             )}
+
+            {/* メモ */}
+            <div className="pt-2 border-t border-slate-50 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 block">メモ</span>
+              {roomMemoPopup.memo ? (
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{roomMemoPopup.memo}</p>
+              ) : (
+                <p className="text-xs text-slate-400 italic">メモはありません</p>
+              )}
+            </div>
+
+            {/* Googleマップリンク */}
             {roomMemoPopup.mapUrl && (
-              <a
-                href={roomMemoPopup.mapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-lg px-3 py-2 w-full text-xs"
-              >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Googleマップを開く
-              </a>
+              <div className="pt-1">
+                <a
+                  href={roomMemoPopup.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] transition-all text-white font-bold rounded-xl px-3 py-2 w-full text-xs shadow-sm shadow-emerald-500/10"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Googleマップを開く
+                </a>
+              </div>
             )}
           </div>
         </div>

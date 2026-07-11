@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { resolveCustomerPrice, calculateBack, calculateShiftAllowances, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
+import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -14,6 +15,8 @@ type Customer = {
   phone: string | null
   status?: string
   ng_reason?: string | null
+  memo?: string | null
+  created_at?: string
 }
 
 type Course = {
@@ -40,6 +43,7 @@ type Therapist = {
   rank_id: string | null
   back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
   therapist_ranks?: { name: string } | null
+  ng_course_ids?: string[]
 }
 
 type DesignationTypeItem = {
@@ -138,11 +142,13 @@ export default function EditReservationPage() {
     manual_therapist_burden: 0,
     notes: '',
     status: 'confirmed' as 'pending' | 'confirmed' | 'cancelled',
-    reception_source: 'staff' as 'staff' | 'client' | 'therapist',
+    reception_source: 'staff' as 'staff' | 'client' | 'therapist' | 'owner',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
+    extension_payment_method: 'cash' as 'cash' | 'credit',
     is_hime: false,
     hime_bonus: 0,
+    customer_type_override: 'new' as 'new' | 'member',
   })
   const [creatorName, setCreatorName] = useState<string | null>(null)
 
@@ -164,6 +170,7 @@ export default function EditReservationPage() {
     duration: 0,
     creditFeeAmount: 0,
   })
+
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
@@ -192,13 +199,21 @@ export default function EditReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
-      const { data } = await supabase
+      console.log('Customer Search Request (edit/page):', { q, normalized, shopId: selectedShop.id })
+      const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason')
+        .select('id, name, email, phone, status, ng_reason, memo, created_at')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
         .limit(50)
+      console.log('Customer Search Response (edit/page):', { data, error })
+      if (data) {
+        data.forEach((c, index) => {
+          console.log(`  [${index}] name: "${c.name}", phone: "${c.phone}", status: "${c.status}"`)
+        })
+      }
+      if (error) console.error('Customer Search Error Details (edit/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)
     }, 300)
@@ -229,10 +244,10 @@ export default function EditReservationPage() {
     if (!selectedShop) return
     try {
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
@@ -286,7 +301,7 @@ export default function EditReservationPage() {
       if (reservation.customer_id) {
         const { data: customerData } = await supabase
           .from('customers')
-          .select('id, name, email, phone')
+          .select('id, name, email, phone, status, ng_reason, memo, created_at')
           .eq('id', reservation.customer_id)
           .single()
         if (customerData) {
@@ -295,13 +310,22 @@ export default function EditReservationPage() {
         }
       }
 
+      let initialType = reservation.customer_type_override as 'new' | 'member' | null;
+      if (!initialType && reservation.customer_id) {
+        const customer = customersRes.data?.find(c => c.id === reservation.customer_id);
+        if (customer) {
+          const isNew = new Date((customer as any).created_at || new Date()).toDateString() === new Date(reservation.created_at || new Date()).toDateString();
+          initialType = isNew ? 'new' : 'member';
+        }
+      }
+      
       setFormData({
         customer_id: reservation.customer_id,
         date: reservation.date,
         start_time: reservation.start_time,
         end_time: reservation.end_time || '',
         course_id: reservation.course_id,
-        therapist_id: reservation.therapist_id,
+        therapist_id: reservation.therapist_id || 'unassigned',
         designation_type: reservation.designation_type,
         selected_options: selectedOptions,
         extension_count: reservation.extension_count || 0,
@@ -313,8 +337,10 @@ export default function EditReservationPage() {
         reception_source: reservation.reception_source || 'staff',
         payment_method: reservation.payment_method || 'cash',
         options_payment_method: reservation.options_payment_method || 'cash',
+        extension_payment_method: reservation.extension_payment_method || 'cash',
         is_hime: reservation.is_hime || false,
         hime_bonus: reservation.hime_bonus || 0,
+        customer_type_override: initialType || 'new',
       })
 
       const policyIds = appliedDiscounts.filter((d: any) => d.policy_id).map((d: any) => d.policy_id as string)
@@ -401,7 +427,8 @@ export default function EditReservationPage() {
     } else if (formData.designation_type !== 'free') {
       const originalBase = selectedCourse?.base_price || 0
       if (basePrice > originalBase) {
-        nominationFee = 0 // 既にbasePriceに含有
+        nominationFee = basePrice - originalBase
+        basePrice = originalBase // 基本料金を本来の金額にリセット
       } else {
         const defaultNominationFee = systemSettings?.default_nomination_fee || 0
         const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
@@ -436,8 +463,22 @@ export default function EditReservationPage() {
     // クレジット手数料の計算
     const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
     let creditFeeAmount = 0
+    let creditBase = 0
     if (formData.payment_method === 'credit') {
-      const creditBase = basePrice + nominationFee + extensionPrice + (formData.options_payment_method === 'credit' ? optionsPrice : 0)
+      creditBase += basePrice + nominationFee
+    }
+    if (formData.extension_payment_method === 'credit') {
+      creditBase += extensionPrice
+    }
+    if (formData.options_payment_method === 'credit') {
+      creditBase += optionsPrice
+    }
+    if (creditBase > 0) {
+      const subtotalForRatio = basePrice + optionsPrice + extensionPrice + nominationFee
+      const creditRatio = subtotalForRatio > 0 ? creditBase / subtotalForRatio : 1
+      const discountForCredit = Math.floor(dynamicDiscount * creditRatio)
+      
+      creditBase = Math.max(0, creditBase - discountForCredit)
       creditFeeAmount = Math.floor(creditBase * feeRate)
     }
 
@@ -475,7 +516,7 @@ export default function EditReservationPage() {
       if (data && data.length > 0) {
         setFormData((prev) => ({ ...prev, designation_type: 'confirmed' }))
       } else {
-        setFormData((prev) => ({ ...prev, designation_type: 'nomination' }))
+        setFormData((prev) => ({ ...prev, designation_type: 'first_nomination' }))
       }
     } catch (error) {
       console.error('指名判定の検索に失敗:', error)
@@ -522,6 +563,30 @@ export default function EditReservationPage() {
       return
     }
 
+    // NGセラピストチェック（キャンセル時はパス、それ以外は確認ダイアログを表示して強制保存可能にする）
+    if (formData.customer_id && formData.therapist_id && formData.status !== 'cancelled') {
+      try {
+        const { data: ngData, error: ngError } = await supabase
+          .from('customer_therapist_ng')
+          .select('id')
+          .eq('customer_id', formData.customer_id)
+          .eq('therapist_id', formData.therapist_id)
+          .limit(1)
+
+        if (ngError) throw ngError
+        if (ngData && ngData.length > 0) {
+          const proceed = window.confirm('【警告】このセラピストはこのお客様に対してNG登録されています。本当にこのまま保存しますか？')
+          if (!proceed) {
+            return
+          }
+        }
+      } catch (err: any) {
+        console.error('NGチェックエラー:', err)
+        alert('NGチェック中にエラーが発生しました')
+        return
+      }
+    }
+
     try {
       // 新規顧客の場合は先に登録
       if (!formData.customer_id && newCustomer.name) {
@@ -538,9 +603,7 @@ export default function EditReservationPage() {
         setFormData(prev => ({ ...prev, customer_id: createdCustomer.id }))
         formData.customer_id = createdCustomer.id
       }
-      const startDate = new Date(`${formData.date}T${formData.start_time}`)
-      const endDate = new Date(startDate.getTime() + calculatedPrice.duration * 60000)
-      const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+
 
       const selectedDesignationType = designationTypes.find(d => d.slug === formData.designation_type)
 
@@ -548,7 +611,7 @@ export default function EditReservationPage() {
         .from('reservations')
         .update({
           customer_id: formData.customer_id,
-          therapist_id: formData.therapist_id,
+          therapist_id: formData.therapist_id === 'unassigned' ? null : formData.therapist_id,
           course_id: formData.course_id,
           date: formData.date,
           start_time: formData.start_time,
@@ -560,12 +623,14 @@ export default function EditReservationPage() {
           total_price: calculatedPrice.totalPrice,
           discount_amount: calculatedPrice.discountAmount,
           designation_type: formData.designation_type,
-          designation_type_id: selectedDesignationType?.id || null,
+          designation_type_id: (selectedDesignationType?.id && !selectedDesignationType.id.startsWith('default-')) ? selectedDesignationType.id : null,
           notes: formData.notes,
           status: formData.status,
           reception_source: formData.reception_source,
           payment_method: formData.payment_method,
           options_payment_method: formData.options_payment_method,
+          extension_payment_method: formData.extension_payment_method,
+          customer_type_override: formData.customer_type_override,
           credit_fee_amount: calculatedPrice.creditFeeAmount,
           is_hime: formData.is_hime,
           hime_bonus: formData.is_hime ? formData.hime_bonus : 0,
@@ -635,6 +700,7 @@ export default function EditReservationPage() {
       }
 
       // ★ バック再計算
+      let redirectDate = formData.date
       try {
         const selectedTherapist = therapists.find(t => t.id === formData.therapist_id)
         const selectedCourse = courses.find(c => c.id === formData.course_id)
@@ -679,6 +745,7 @@ export default function EditReservationPage() {
           himeBonus: formData.is_hime ? formData.hime_bonus : 0,
         }
         const backResult = await calculateBack(backInput)
+        redirectDate = backResult.businessDate || formData.date
         await supabase.from('reservations').update({
           therapist_back_amount: backResult.netBack,
           shop_revenue: backResult.shopRevenue,
@@ -689,20 +756,43 @@ export default function EditReservationPage() {
         console.warn('バック計算に失敗しましたが予約は更新されています:', backErr)
       }
 
+      // Googleカレンダー同期APIの呼び出し（非同期）
+      try {
+        void fetch('/api/calendar-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reservationId,
+            action: 'update'
+          })
+        }).catch((syncErr) => {
+          console.error('[CalendarSync] 同期APIの呼び出しに失敗しました:', syncErr)
+        })
+      } catch (syncErr) {
+        console.error('[CalendarSync] 同期API呼び出しのセットアップに失敗しました:', syncErr)
+      }
+
       // 遷移元に応じて戻る先を変更
-      if (fromPage === 'shifts') {
-        router.push('/shifts')
+      if (fromPage === 'weekly') {
+        window.location.href = `/shifts?date=${redirectDate}&view=week`
+      } else if (fromPage === 'vertical') {
+        window.location.href = `/shifts?date=${redirectDate}&view=vertical&scroll_to_time=${formData.start_time}`
+      } else if (fromPage === 'shifts') {
+        window.location.href = `/shifts?date=${redirectDate}&scroll_to_time=${formData.start_time}`
       } else {
         router.push('/reservations')
       }
     } catch (error: any) {
       console.error('予約の更新に失敗:', error)
-      setSaveError(`予約の更新に失敗しました: ${error.message || '不明なエラー'}`)
+      const details = error?.details ? ` (${error.details})` : ''
+      const message = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error))
+      setSaveError(`予約の更新に失敗しました: ${message}${details}`)
     }
   }
 
   // アコーディオン開閉状態（モバイル: 1-4のみ初期展開、PC: CSS で常時表示）
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([1, 2, 3, 4]))
+  const [summaryExpanded, setSummaryExpanded] = useState(false)
   const toggleSection = (num: number) => setOpenSections(prev => {
     const next = new Set(prev); next.has(num) ? next.delete(num) : next.add(num); return next
   })
@@ -724,80 +814,80 @@ export default function EditReservationPage() {
       <h1 className="text-lg font-bold text-slate-800 tracking-tight mb-4">予約編集</h1>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="sm:col-span-2 space-y-3">
+        <div className="sm:col-span-2 order-2 sm:order-1 space-y-3 pb-24 sm:pb-0">
           {/* 1: お客様 */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-indigo-500 bg-slate-50/60">
-              <h2 className="text-sm font-bold text-slate-700">お客様</h2>
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0">
+            <div className="flex items-center gap-2 pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-indigo-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+              <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">お客様</h2>
               {formData.customer_id && (
-                <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{selectedCustomerObj?.name}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{selectedCustomerObj?.name}</span>
               )}
             </div>
-            <div className="px-4 pb-4 pt-3 space-y-3">
-              {/* 電話番号フィールド */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">電話番号</label>
-                <input
-                  type="text"
-                  value={customerSearch}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setCustomerSearch(val)
-                    setNewCustomer(prev => ({ ...prev, name: '' }))
-                    if (formData.customer_id) {
-                      setFormData({ ...formData, customer_id: '' })
-                      setSelectedCustomerObj(null)
-                    }
-                  }}
-                  placeholder="電話番号・名前・メールで検索"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all text-sm placeholder:text-xs placeholder:text-slate-400"
-                />
+            <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* 電話番号フィールド */}
+                <div className="relative">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">電話番号</label>
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setCustomerSearch(val)
+                      setNewCustomer(prev => ({ ...prev, name: '' }))
+                      if (formData.customer_id) {
+                        setFormData({ ...formData, customer_id: '' })
+                        setSelectedCustomerObj(null)
+                      }
+                    }}
+                    placeholder="検索 (電話・名・メール)"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-700 outline-none transition-all text-xs placeholder:text-[10px] placeholder:text-slate-400"
+                  />
                   {!formData.customer_id && normalizedSearch && (
-                  <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1">
-                    {customerSearchLoading ? (
-                      <div className="px-3 py-2 text-xs text-gray-500">検索中...</div>
-                    ) : filteredCustomers.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-gray-500">該当するお客様がいません</div>
-                    ) : (
-                      filteredCustomers.slice(0, 50).map(customer => (
-                        <button
-                          key={customer.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCustomerObj(customer)
-                            setFormData({ ...formData, customer_id: customer.id })
-                            setCustomerSearch(customer.phone || '')
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
-                        >
-                          <span className="font-medium">{customer.name}</span>{' '}
-                          <span className="text-gray-500">{customer.phone ? `(${customer.phone})` : ''}</span>
-                          {customer.email && <span className="text-gray-500 ml-2">{customer.email}</span>}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* お客様名フィールド */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  お客様名 <span className="text-rose-500">*</span>
-                  {!selectedCustomerObj && customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
-                    <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">新規登録</span>
+                    <div className="border border-slate-200 rounded-xl max-h-48 overflow-auto bg-white shadow-sm mt-1 absolute z-30 w-64">
+                      {customerSearchLoading ? (
+                        <div className="px-3 py-2 text-xs text-gray-500">検索中...</div>
+                      ) : filteredCustomers.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-gray-500">該当するお客様がいません</div>
+                      ) : (
+                        filteredCustomers.slice(0, 50).map(customer => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCustomerObj(customer)
+                                const isNew = new Date(customer.created_at || new Date()).toDateString() === new Date(formData.date || new Date()).toDateString()
+                                setFormData({ ...formData, customer_id: customer.id, customer_type_override: isNew ? 'new' : 'member' })
+                              setCustomerSearch(customer.phone || '')
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                          >
+                            <span className="font-medium">{customer.name}</span>{' '}
+                            <span className="text-gray-500 text-[10px]">{customer.phone ? `(${customer.phone})` : ''}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   )}
-                </label>
-                {selectedCustomerObj ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`flex-1 px-3 py-2 border rounded-xl text-sm font-bold flex items-center gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
-                        <svg className={`w-4 h-4 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                </div>
+
+                {/* お客様名フィールド */}
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">
+                    お客様名
+                    {!selectedCustomerObj && customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id && (
+                      <span className="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-1 py-0.2 rounded">新規</span>
+                    )}
+                  </label>
+                  {selectedCustomerObj ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className={`flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 overflow-hidden ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
+                        <svg className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        {selectedCustomerObj.name}
+                        <span className="truncate flex-1">{selectedCustomerObj.name}</span>
                         {selectedCustomerObj.status && selectedCustomerObj.status !== '予約可' && (
-                          <span className={`ml-1 px-2 py-0.5 text-xs rounded-full font-bold ${selectedCustomerObj.status === '出禁' ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>
+                          <span className={`px-1 rounded font-bold text-[9px] flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>
                             {selectedCustomerObj.status}
                           </span>
                         )}
@@ -809,136 +899,176 @@ export default function EditReservationPage() {
                           setFormData({ ...formData, customer_id: '' })
                           setCustomerSearch('')
                         }}
-                        className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                        className="px-2 py-1.5 text-[10px] text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
                       >
                         変更
                       </button>
                     </div>
-                    {(selectedCustomerObj.status === '出禁' || selectedCustomerObj.status === '要注意') && (
-                      <div className={`px-3 py-2 rounded-xl text-xs flex items-start gap-2 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
-                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <div>
-                          <span className="font-bold">このお客様は「{selectedCustomerObj.status}」です。</span>
-                          {selectedCustomerObj.ng_reason && <span className="ml-1">{selectedCustomerObj.ng_reason}</span>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
-                  <input
-                    type="text"
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                    placeholder="お客様名を入力（新規登録）"
-                    className="w-full px-3 py-2 bg-amber-50 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-amber-400 placeholder:text-xs text-sm"
-                  />
-                ) : (
-                  <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400">
-                    電話番号や名前を検索してお客様を選択してください
-                  </div>
-                )}
+                  ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
+                    <input
+                      type="text"
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                      placeholder="新規お客様名を入力"
+                      className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
+                    />
+                  ) : (
+                    <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-400">
+                      検索から選択してください
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {(selectedCustomerObj?.status === '出禁' || selectedCustomerObj?.status === '要注意') && (
+                <div className={`px-2.5 py-1.5 rounded-lg text-[10px] flex items-start gap-1.5 ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                  <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <span className="font-bold">「{selectedCustomerObj.status}」です。</span>
+                    {selectedCustomerObj.ng_reason && <span className="ml-1">{selectedCustomerObj.ng_reason}</span>}
+                  </div>
+                </div>
+              )}
+              {selectedCustomerObj?.memo && (
+                <div className="px-3 py-2 rounded-lg text-[10px] flex flex-col gap-1 bg-amber-50 border border-amber-200 text-amber-900 shadow-sm">
+                  <div className="flex items-center gap-1 font-bold">
+                    <svg className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    顧客メモ
+                  </div>
+                  <div className="font-medium whitespace-pre-wrap leading-relaxed">
+                    {selectedCustomerObj.memo}
+                  </div>
+                </div>
+              )}
+
+              {/* 顧客区分（新規/会員）の選択 */}
+              <div className="mb-4 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">
+                  予約カード上の顧客区分表示
+                </label>
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customer_type_override"
+                      value="new"
+                      checked={formData.customer_type_override === 'new'}
+                      onChange={() => setFormData({ ...formData, customer_type_override: 'new' })}
+                      className="accent-emerald-600"
+                    />
+                    <span className="text-xs text-slate-700">新規</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customer_type_override"
+                      value="member"
+                      checked={formData.customer_type_override === 'member'}
+                      onChange={() => setFormData({ ...formData, customer_type_override: 'member' })}
+                      className="accent-emerald-600"
+                    />
+                    <span className="text-xs text-slate-700">会員</span>
+                  </label>
+                </div>
+              </div>
+
             </div>
           </section>
 
           {/* 2: セラピスト・指名 */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-cyan-500 bg-slate-50/60">
-              <h2 className="text-sm font-bold text-slate-700">セラピスト・指名</h2>
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0 relative z-20">
+            <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-cyan-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+              <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">セラピスト・指名</h2>
               {formData.therapist_id && (
-                <span className="text-xs font-medium text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">{therapists.find(t => t.id === formData.therapist_id)?.name}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">{therapists.find(t => t.id === formData.therapist_id)?.name}</span>
               )}
             </div>
-            <div className="px-4 pb-4 pt-3 space-y-4">
+            <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
-                <select
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
+                <SearchableTherapistSelect
                   value={formData.therapist_id}
-                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
+                  onChange={(val) => setFormData({ ...formData, therapist_id: val })}
+                  therapists={therapists}
                   required
-                >
-                  <option value="">選択してください</option>
-                  {therapists.map(therapist => (
-                    <option key={therapist.id} value={therapist.id}>
-                      {therapist.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium text-slate-500">指名タイプ <span className="text-rose-500">*</span></label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] sm:text-xs font-semibold text-slate-500">指名タイプ <span className="text-rose-500">*</span></label>
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); handleDesignationSearch() }}
                     disabled={designationSearchLoading}
-                    className="px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                    className="px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors"
                   >
-                    {designationSearchLoading ? '検索中...' : '履歴から自動判定'}
+                    {designationSearchLoading ? '検索中...' : '自動判定'}
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap">
                   {designationTypes.map(dt => (
                     <label
                       key={dt.id}
-                      className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-all select-none ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                      className={`flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 px-2 py-1.5 border rounded-lg cursor-pointer transition-all select-none text-center sm:text-left ${formData.designation_type === dt.slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                     >
-                      <input
-                        type="radio"
-                        name="designation_type"
-                        value={dt.slug}
-                        checked={formData.designation_type === dt.slug}
-                        onChange={() => {
-                          setFormData({
-                            ...formData,
-                            designation_type: dt.slug,
-                            is_hime: dt.slug === 'princess' ? true : formData.is_hime
-                          })
-                        }}
-                        className="w-3.5 h-3.5 accent-indigo-600"
-                      />
-                      <span className="font-bold text-xs">{dt.display_name}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name="designation_type"
+                          value={dt.slug}
+                          checked={formData.designation_type === dt.slug}
+                          onChange={() => {
+                            setFormData({
+                              ...formData,
+                              designation_type: dt.slug,
+                              is_hime: dt.slug === 'princess' ? true : formData.is_hime
+                            })
+                          }}
+                          className="w-3 h-3 accent-indigo-600"
+                        />
+                        <span className="font-bold text-[11px] sm:text-xs whitespace-nowrap">{dt.display_name}</span>
+                      </div>
                       {dt.is_store_paid_back && (
-                        <span className={`text-[10px] ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-400'}`}>店負担</span>
+                        <span className={`text-[9px] sm:text-[10px] ${formData.designation_type === dt.slug ? 'text-indigo-100' : 'text-slate-400'}`}>店負担</span>
                       )}
                     </label>
                   ))}
                   {designationTypes.length === 0 && (
-                    <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg">指名種別が未設定です。</p>
+                    <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg col-span-3">指名種別が未設定です。</p>
                   )}
                 </div>
               </div>
 
               {/* 姫予約 */}
-              <div className="border-t border-slate-100 pt-3">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div className="border-t border-slate-100 pt-2.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={formData.is_hime}
                     onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
-                    className="w-5 h-5 rounded accent-pink-500 cursor-pointer appearance-auto"
+                    className="w-4 h-4 rounded accent-pink-500 cursor-pointer appearance-auto"
                   />
                   <span className="text-xs font-semibold text-slate-700">
                     <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
                   </span>
                 </label>
                 {formData.is_hime && (
-                  <div className="mt-3 ml-8">
-                    <label className="block text-xs font-medium text-slate-500 mb-1">ボーナス金額 (円)</label>
+                  <div className="mt-2 ml-6">
+                    <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">ボーナス金額 (円)</label>
                     <input
                       type="number"
                       value={formData.hime_bonus}
                       onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
                       min={0}
                       step={100}
-                      className="w-48 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400/50 outline-none transition-all text-sm placeholder:text-xs"
+                      className="w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-pink-400/50 outline-none transition-all text-xs placeholder:text-[10px]"
                       placeholder="0"
                     />
-                    <p className="mt-1 text-xs text-slate-400">セラピストに支払うボーナス額</p>
                   </div>
                 )}
               </div>
@@ -946,27 +1076,27 @@ export default function EditReservationPage() {
           </section>
 
           {/* 3: 日時・コース */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-l-4 border-emerald-500 bg-slate-50/60">
-              <h2 className="text-sm font-bold text-slate-700">日時・コース</h2>
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
+            <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-emerald-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+              <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">日時・コース</h2>
               {formData.date && formData.start_time && (
-                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{formData.date} {formData.start_time}〜</span>
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{formData.date} {formData.start_time}〜</span>
               )}
             </div>
-            <div className="px-4 pb-4 pt-3 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
+              <div className="grid grid-cols-[1.2fr_1fr_1fr] gap-1.5">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">日付 <span className="text-rose-500">*</span></label>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">日付 <span className="text-rose-500">*</span></label>
                   <input
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
+                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">開始時刻 <span className="text-rose-500">*</span></label>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">開始 <span className="text-rose-500">*</span></label>
                   <TimeSelectHM
                     value={formData.start_time}
                     onChange={v => {
@@ -979,7 +1109,7 @@ export default function EditReservationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">終了時刻 <span className="text-rose-500">*</span></label>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">終了 <span className="text-rose-500">*</span></label>
                   <TimeSelectHM
                     value={formData.end_time}
                     onChange={v => setFormData({ ...formData, end_time: v })}
@@ -990,78 +1120,79 @@ export default function EditReservationPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">コース <span className="text-rose-500">*</span></label>
-                <select
-                  value={formData.course_id}
-                  onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
-                  required
-                >
-                  <option value="">選択してください</option>
-                  {courses.map(course => (
-                    <option key={course.id} value={course.id}>
-                      {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 items-end">
+                <div className="flex-1">
+                  <div className="flex justify-between items-end mb-1">
+                    <label className="block text-[11px] sm:text-xs font-semibold text-slate-500">コース <span className="text-rose-500">*</span></label>
+                    {therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids && therapists.find(t => t.id === formData.therapist_id)!.ng_course_ids!.length > 0 && (
+                      <span className="text-[10px] text-rose-500 font-bold bg-rose-50 px-1.5 py-0.5 rounded">※対応不可(NG)コースあり</span>
+                    )}
+                  </div>
+                  <select
+                    value={formData.course_id}
+                    onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
+                    required
+                  >
+                    <option value="">選択してください</option>
+                    {courses.map(course => {
+                      const isNg = therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids?.includes(course.id)
+                      return (
+                        <option key={course.id} value={course.id} disabled={isNg} style={isNg ? { color: '#dc2626', backgroundColor: '#fef2f2' } : {}}>
+                          {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}{isNg ? ' (NG)' : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
 
-              {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
-                <div className="border-t border-slate-100 pt-3">
-                  <label className="block text-xs font-medium text-slate-500 mb-2">延長</label>
-                  <div className="flex items-center gap-4">
+                {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200 justify-between h-[32px] w-28 sm:w-auto">
                     <button
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, extension_count: Math.max(0, prev.extension_count - 1) }))}
-                      className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xl font-bold flex items-center justify-center hover:bg-slate-100 transition-colors disabled:opacity-30"
+                      className="w-6 h-6 rounded-md border border-slate-200 bg-white text-slate-700 text-sm font-bold flex items-center justify-center hover:bg-slate-100 transition-colors disabled:opacity-30"
                       disabled={formData.extension_count === 0}
                     >−</button>
-                    <div className="text-center min-w-[4rem]">
-                      <span className="text-2xl font-extrabold text-indigo-600">{formData.extension_count}</span>
-                      <span className="text-sm font-semibold text-slate-500 ml-1">回</span>
-                      {formData.extension_count > 0 && (
-                        <div className="text-xs text-slate-500">
-                          +{formData.extension_count * (systemSettings.extension_unit_minutes ?? 30)}分 / ¥{(formData.extension_count * (systemSettings.extension_unit_price ?? 0)).toLocaleString()}
-                        </div>
-                      )}
+                    <div className="text-center flex-1">
+                      <span className="text-sm font-extrabold text-indigo-600">{formData.extension_count}</span>
+                      <span className="text-[10px] font-semibold text-slate-500 ml-0.5">延長</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, extension_count: prev.extension_count + 1 }))}
-                      className="w-9 h-9 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 text-xl font-bold flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                      className="w-6 h-6 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-600 text-sm font-bold flex items-center justify-center hover:bg-indigo-100 transition-colors"
                     >＋</button>
                   </div>
-                </div>
-              )}
-
+                )}
+              </div>
             </div>
           </section>
 
           {/* 4: オプション・ステータス・割引・支払 */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-4 py-3 border-l-4 border-amber-500 bg-slate-50/60">
-              <h2 className="text-sm font-bold text-slate-700">オプション・割引・支払</h2>
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
+            <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-amber-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+              <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">オプション・割引・支払</h2>
             </div>
-            <div className="px-4 pb-4 pt-3 space-y-5">
+            <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3.5">
 
               {/* ステータス */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-2">
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">
                   予約ステータス <span className="text-rose-500">*</span>
                 </label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   {(['pending', 'confirmed', 'cancelled'] as const).map(s => (
-                    <label key={s} className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.status === s ? s === 'confirmed' ? 'bg-emerald-600 border-emerald-600 text-white' : s === 'cancelled' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                      <input type="radio" name="status" value={s} checked={formData.status === s} onChange={() => setFormData({ ...formData, status: s })} className="w-3.5 h-3.5" />
-                      <span className="font-bold text-xs">{s === 'confirmed' ? '確定' : s === 'cancelled' ? 'キャンセル' : '保留中'}</span>
+                    <label key={s} className={`flex items-center justify-center gap-1 px-1.5 py-1.5 border rounded-lg cursor-pointer transition-all select-none text-center ${formData.status === s ? s === 'confirmed' ? 'bg-emerald-600 border-emerald-600 text-white' : s === 'cancelled' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                      <input type="radio" name="status" value={s} checked={formData.status === s} onChange={() => setFormData({ ...formData, status: s })} className="w-3 h-3 accent-indigo-600" />
+                      <span className="font-bold text-[10px] sm:text-xs whitespace-nowrap">{s === 'confirmed' ? '確定' : s === 'cancelled' ? 'キャンセル' : '保留中'}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               {/* オプション */}
-              <div className="border-t border-slate-100 pt-4">
+              <div className="border-t border-slate-100 pt-3">
                 <label className="block text-xs font-medium text-slate-500 mb-2">
                   オプション
                   {formData.selected_options.length > 0 && <span className="ml-2 text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[10px]">{formData.selected_options.length}個選択</span>}
@@ -1069,24 +1200,28 @@ export default function EditReservationPage() {
                 {options.length === 0 ? (
                   <p className="text-slate-400 text-xs bg-slate-50 p-3 rounded-xl">オプションがありません</p>
                 ) : (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {options.map(option => {
                       const isSelected = formData.selected_options.includes(option.id)
                       const mins = option.duration_minutes_added > 0 ? option.duration_minutes_added : option.duration
                       return (
                         <label
                           key={option.id}
-                          className={`flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all select-none ${isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                          className={`flex items-center gap-2.5 px-2.5 py-2 border rounded-lg cursor-pointer transition-all select-none ${isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleOptionToggle(option.id)}
-                            className="w-4 h-4 accent-indigo-600 cursor-pointer flex-shrink-0"
+                            className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer flex-shrink-0"
                           />
-                          <span className={`flex-1 font-medium text-xs ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{option.name}</span>
-                          {mins > 0 && <span className="text-xs text-slate-400 flex-shrink-0">+{mins}分</span>}
-                          <span className="font-bold text-xs text-slate-700 flex-shrink-0">¥{option.price.toLocaleString()}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className={`font-bold text-[11px] sm:text-xs truncate ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{option.name}</div>
+                            <div className="text-[10px] text-slate-400">
+                              {mins > 0 && <span>+{mins}分 / </span>}
+                              <span>¥{option.price.toLocaleString()}</span>
+                            </div>
+                          </div>
                         </label>
                       )
                     })}
@@ -1105,9 +1240,6 @@ export default function EditReservationPage() {
                       追加
                     </button>
                   </div>
-                  {customOptions.length === 0 && (
-                    <p className="text-xs text-slate-400">セラピストごとの個別オプションがある場合は追加してください</p>
-                  )}
                   {customOptions.length > 0 && (
                     <div className="grid grid-cols-[2fr_1fr_1fr_1.5rem] gap-2 px-1 mb-1">
                       <span className="text-xs font-medium text-slate-400">オプション名</span>
@@ -1158,15 +1290,13 @@ export default function EditReservationPage() {
               </div>
 
               {/* 割引 */}
-              <div className="border-t border-slate-100 pt-4">
+              <div className="border-t border-slate-100 pt-3">
                 <label className="block text-xs font-medium text-slate-500 mb-2">
                   割引・キャンペーン
                   {selectedDiscountIds.length > 0 && <span className="ml-2 text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full text-[10px]">{selectedDiscountIds.length}件適用</span>}
                 </label>
-                {discountPolicies.length === 0 ? (
-                  <p className="text-xs text-slate-400">登録されている割引ポリシーがありません</p>
-                ) : (
-                  <div className="space-y-1.5">
+                {discountPolicies.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {discountPolicies.map(p => {
                       const checked = selectedDiscountIds.includes(p.id)
                       const disabledByNonCombinable = !checked && selectedDiscountIds.some(id => {
@@ -1176,7 +1306,7 @@ export default function EditReservationPage() {
                       return (
                         <label
                           key={p.id}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
+                          className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border cursor-pointer transition-all ${
                             checked
                               ? 'bg-teal-50 border-teal-300 text-teal-800'
                               : disabledByNonCombinable
@@ -1186,7 +1316,7 @@ export default function EditReservationPage() {
                         >
                           <input
                             type="checkbox"
-                            className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+                            className="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500"
                             checked={checked}
                             disabled={disabledByNonCombinable}
                             onChange={() => {
@@ -1196,13 +1326,15 @@ export default function EditReservationPage() {
                               }
                             }}
                           />
-                          <span className="font-medium text-xs flex-1">{p.name}</span>
-                          <span className="text-xs font-bold text-teal-700">
-                            {p.discount_type === 'fixed' ? `¥${p.discount_value.toLocaleString()}引き` : `${p.discount_value}%引き`}
-                          </span>
-                          {!p.is_combinable && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">併用不可</span>
-                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-[11px] sm:text-xs truncate">{p.name}</div>
+                            <div className="text-[10px] text-teal-700 font-bold">
+                              {p.discount_type === 'fixed' ? `¥${p.discount_value.toLocaleString()}引き` : `${p.discount_value}%引き`}
+                              {!p.is_combinable && (
+                                <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold">単独</span>
+                              )}
+                            </div>
+                          </div>
                         </label>
                       )
                     })}
@@ -1247,7 +1379,7 @@ export default function EditReservationPage() {
               </div>
 
               {/* 支払方法 */}
-              <div className="border-t border-slate-100 pt-4">
+              <div className="border-t border-slate-100 pt-3">
                 <label className="block text-xs font-medium text-slate-500 mb-2">支払方法</label>
                 <div className="flex gap-3">
                   <label className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
@@ -1276,6 +1408,19 @@ export default function EditReservationPage() {
                         </label>
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-2">延長料金の支払方法</label>
+                      <div className="flex gap-3">
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.extension_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="extension_payment_method" value="cash" checked={formData.extension_payment_method === 'cash'} onChange={() => setFormData({ ...formData, extension_payment_method: 'cash' })} className="w-3.5 h-3.5 accent-slate-600" />
+                          <span className="text-xs font-bold">💴 現金（セラピストへ）</span>
+                        </label>
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.extension_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="extension_payment_method" value="credit" checked={formData.extension_payment_method === 'credit'} onChange={() => setFormData({ ...formData, extension_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
+                          <span className="text-xs font-bold">💳 クレジット</span>
+                        </label>
+                      </div>
+                    </div>
                     <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
                       手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
                       {calculatedPrice.creditFeeAmount > 0 && (
@@ -1290,41 +1435,44 @@ export default function EditReservationPage() {
           </section>
 
           {/* 5: 受付・備考 */}
-          <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-4 py-3 border-l-4 border-slate-400 bg-slate-50/60">
-              <h2 className="text-sm font-bold text-slate-700">受付・備考</h2>
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
+            <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-slate-400 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+              <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">受付・備考</h2>
             </div>
-            <div className="px-4 pb-4 pt-3 space-y-3">
+            <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">受付区分</label>
+                  <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">受付区分</label>
                   <select
                     value={formData.reception_source}
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm"
+                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >
-                    <option value="staff">スタッフ受付</option>
-                    <option value="client">顧客直接 (WEB等)</option>
-                    <option value="therapist">セラピスト直接</option>
+                    <option value="staff">mts</option>
+                    <option value="owner">オーナー</option>
+                    <option value="therapist">姫予約</option>
+                    {formData.reception_source === 'client' && (
+                      <option value="client">WEB予約</option>
+                    )}
                   </select>
                 </div>
                 <div className="flex items-end justify-end pb-1">
-                  <div className="text-xs text-slate-400 flex items-center">
-                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="text-[10px] text-slate-400 flex items-center">
+                    <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    登録者: <span className="font-bold ml-1 text-slate-600">{creatorName || '不明'}</span>
+                    操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-20">{creatorName || '不明'}</span>
                   </div>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="特別なリクエストや店内共有事項など"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-sm placeholder:text-xs"
-                  rows={3}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                  rows={1}
                 />
               </div>
             </div>
@@ -1332,8 +1480,9 @@ export default function EditReservationPage() {
         </div>
 
         {/* 右側：料金計算サマリー */}
-        <div className="col-span-1">
-          <div className="bg-gradient-to-br from-white to-slate-50 p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 sticky top-20">
+        <div className="col-span-1 order-1 sm:order-2">
+          {/* 1. PC用サマリー（常に全表示、サイドバー固定） */}
+          <div className="hidden sm:block bg-gradient-to-br from-white to-slate-50 p-4 rounded-2xl shadow-lg border border-slate-100 sticky top-20">
             <h2 className="text-sm font-bold text-slate-800 mb-3">予約サマリー</h2>
 
             <div className="space-y-1.5 text-xs mb-3 pb-3 border-b border-slate-200">
@@ -1418,6 +1567,56 @@ export default function EditReservationPage() {
                 キャンセル
               </button>
             </div>
+          </div>
+
+          {/* 2. スマホ用ボトムバー（常に最下部に固定、アコーディオンなしでコンパクトに全部表示） */}
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex flex-col gap-2">
+            {/* 上段: 内訳を1行で横スクロール可能に表示 */}
+            <div className="flex items-center text-[10px] text-slate-500 font-medium gap-1.5 border-b border-slate-100 pb-2 overflow-x-auto whitespace-nowrap scrollbar-none">
+              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[9px] text-slate-600 font-bold flex-shrink-0">内訳</span>
+              <span>基本:¥{calculatedPrice.basePrice.toLocaleString()}</span>
+              {calculatedPrice.optionsPrice > 0 && <span>/ オプ:¥{calculatedPrice.optionsPrice.toLocaleString()}</span>}
+              {calculatedPrice.extensionPrice > 0 && <span>/ 延長:¥{calculatedPrice.extensionPrice.toLocaleString()}</span>}
+              {calculatedPrice.nominationFee > 0 && <span>/ 指名:¥{calculatedPrice.nominationFee.toLocaleString()}</span>}
+              {calculatedPrice.discountAmount > 0 && <span className="text-rose-500">/ 割引:-¥{calculatedPrice.discountAmount.toLocaleString()}</span>}
+              <span>/ {calculatedPrice.duration}分</span>
+              {calculatedPrice.creditFeeAmount > 0 && (
+                <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0">
+                  / 手数料:+¥{calculatedPrice.creditFeeAmount.toLocaleString()} (請求:¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()})
+                </span>
+              )}
+            </div>
+
+            {/* 下段: 合計金額とアクションボタン */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-slate-400 font-semibold tracking-wider leading-none mb-0.5">合計金額 (税込)</span>
+                <span className="text-lg font-black text-indigo-600 tracking-tight leading-none">
+                  ¥{calculatedPrice.totalPrice.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 active:scale-95 whitespace-nowrap"
+                >
+                  更新する
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold text-xs active:scale-95 whitespace-nowrap"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+            {saveError && (
+              <div className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded border border-red-200 mt-1">
+                {saveError}
+              </div>
+            )}
           </div>
         </div>
       </form>

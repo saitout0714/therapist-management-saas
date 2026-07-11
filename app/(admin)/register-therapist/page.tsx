@@ -1,4 +1,4 @@
-﻿'use client' // ボタン操作などの動きがあるページにはこれが必要です
+'use client' // ボタン操作などの動きがあるページにはこれが必要です
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -46,7 +46,7 @@ export default function RegisterPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
               placeholder="例：さくら"
               required
             />
@@ -54,7 +54,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400"
+            className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400"
           >
             {loading ? '登録中...' : '登録する'}
           </button>

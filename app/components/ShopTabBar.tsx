@@ -215,7 +215,7 @@ export default function ShopTabBar() {
     if (!shop || shop.id === selectedShop?.id || dragRef.current.moved) return
     if (isEditingPage) {
       const ok = window.confirm(
-        `編集中のページを離れて「${shop.name}」のダッシュボードへ移動しますか？\n\n保存されていない変更は失われます。`
+        `編集中のページを離れて「${shop.name}」のホームへ移動しますか？\n\n保存されていない変更は失われます。`
       )
       if (!ok) return
     }
@@ -334,7 +334,7 @@ export default function ShopTabBar() {
                 onClick={() => handleShopSelect(shop)}
                 title={shop.name}
                 className={`
-                  relative flex-shrink-0 flex items-center gap-1.5 px-3 h-full rounded-full text-xs
+                  relative flex-shrink-0 flex items-center gap-1 px-2.5 h-full rounded-full text-xs
                   transition-all duration-200 focus:outline-none whitespace-nowrap
                   ${isActive
                     ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20 scale-102'
@@ -345,7 +345,7 @@ export default function ShopTabBar() {
                 <span
                   className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300 ${isActive ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.9)]' : 'bg-slate-300'}`}
                 />
-                {shop.short_name || shop.name}
+                {shop.name}
               </button>
             )
           })}

@@ -8,6 +8,9 @@ import { DiscountPoliciesTab } from './components/DiscountPoliciesTab'
 import { DeductionRulesTab } from './components/DeductionRulesTab'
 import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
 import { DesignationTypesTab } from './components/DesignationTypesTab'
+import { TherapistTemplateTab } from './components/TherapistTemplateTab'
+import { CustomerTemplateTab } from './components/CustomerTemplateTab'
+import { CustomTemplatesTab } from './components/CustomTemplatesTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
@@ -32,9 +35,13 @@ type SystemSettings = {
   smtp_user: string | null
   smtp_pass: string | null
   smtp_from: string | null
+  credit_payment_url: string | null
+  google_calendar_id: string | null
+  gas_calendar_sync_url: string | null
+  allow_new_customers: boolean
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'custom_templates'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
@@ -62,6 +69,13 @@ export default function SystemPage() {
     smtp_pass: string
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
+    web_reserve_address_mode: 'unified' | 'split_by_membership'
+    therapist_line_mode: 'official_line' | 'line'
+    special_rules: string
+    credit_payment_url: string
+    google_calendar_id: string
+    gas_calendar_sync_url: string
+    allow_new_customers: boolean
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -81,6 +95,13 @@ export default function SystemPage() {
     smtp_pass: '',
     smtp_from: '',
     sms_address_mode: 'unified',
+    web_reserve_address_mode: 'unified',
+    therapist_line_mode: 'official_line',
+    special_rules: '',
+    credit_payment_url: '',
+    google_calendar_id: '',
+    gas_calendar_sync_url: '',
+    allow_new_customers: true,
   })
 
   async function fetchSettings() {
@@ -88,13 +109,15 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode').eq('id', selectedShop.id).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
 
     const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
     const smsMode = shopRes.data?.sms_address_mode || 'unified'
+    const webMode = shopRes.data?.web_reserve_address_mode || 'unified'
+    const lineMode = shopRes.data?.therapist_line_mode || 'official_line'
 
     setSettings(row)
     setForm({
@@ -116,6 +139,13 @@ export default function SystemPage() {
       smtp_pass: row?.smtp_pass ?? '',
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
+      web_reserve_address_mode: webMode,
+      therapist_line_mode: lineMode,
+      special_rules: shopRes.data?.special_rules ?? '',
+      credit_payment_url: row?.credit_payment_url ?? '',
+      google_calendar_id: row?.google_calendar_id ?? '',
+      gas_calendar_sync_url: row?.gas_calendar_sync_url ?? '',
+      allow_new_customers: row?.allow_new_customers ?? true,
     })
     setLoading(false)
   }
@@ -125,7 +155,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, ...systemSettingsPayload } = form
+    const { sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -133,13 +163,16 @@ export default function SystemPage() {
       smtp_user: form.smtp_user || null,
       smtp_pass: form.smtp_pass || null,
       smtp_from: form.smtp_from || null,
+      credit_payment_url: form.credit_payment_url || null,
+      google_calendar_id: form.google_calendar_id || null,
+      gas_calendar_sync_url: form.gas_calendar_sync_url || null,
     }
 
     const [result, shopResult] = await Promise.all([
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ sms_address_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ special_rules, therapist_line_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
@@ -166,6 +199,9 @@ export default function SystemPage() {
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'pricing_defaults', label: '基本設定' },
+    { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
+    { key: 'customer_template', label: 'お客様連絡テンプレート' },
+    { key: 'custom_templates', label: '追加連絡テンプレート' },
     { key: 'courses', label: 'コース管理' },
     { key: 'designation_types', label: '指名種別' },
     { key: 'options', label: 'オプション管理' },
@@ -178,7 +214,7 @@ export default function SystemPage() {
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
-      <div className="mx-auto">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
           <p className="text-sm text-slate-500 mt-1">サービス設定と店舗の初期料金設定を管理します。</p>
@@ -207,12 +243,28 @@ export default function SystemPage() {
         {activeTab === 'back_amounts' && <CourseBackAmountsTab />}
         {activeTab === 'discounts' && <DiscountPoliciesTab />}
         {activeTab === 'deductions' && <DeductionRulesTab />}
+        {activeTab === 'therapist_template' && <TherapistTemplateTab />}
+        {activeTab === 'customer_template' && <CustomerTemplateTab />}
+        {activeTab === 'custom_templates' && <CustomTemplatesTab />}
 
         {activeTab === 'pricing_defaults' && (
-          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 max-w-2xl space-y-8">
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
               <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>
+            </div>
+
+            {/* 特殊ルール・注意事項 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">特殊ルール・注意事項</h3>
+              <p className="text-xs text-slate-400 mb-2">スケジュール画面の「店舗ルール」ツールチップに表示される内容です。</p>
+              <textarea
+                value={form.special_rules}
+                onChange={(e) => setForm({ ...form, special_rules: e.target.value })}
+                rows={3}
+                placeholder="例：受付時に身分証提示必須。2回目以降の利用で500円オフ。"
+                className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
+              />
             </div>
 
             {/* 予約インターバル */}
@@ -228,6 +280,70 @@ export default function SystemPage() {
                 ))}
               </select>
               <p className="text-xs text-slate-400 mt-1.5">セラピスト個別設定がある場合はそちらが優先されます。</p>
+            </div>
+
+            {/* ご新規様の予約受付設定 */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">新規予約の自動受付</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                ご新規様（未登録の電話番号）からのWEB予約を受け付けるかどうかを設定します。「受け付けない」にすると、電話番号が既に登録されている会員様のみが自動受付の対象になり、ご新規様はお断りします。
+              </p>
+              <div className="flex gap-6">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="allow_new_customers"
+                    value="true"
+                    checked={form.allow_new_customers === true}
+                    onChange={() => setForm({ ...form, allow_new_customers: true })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>受け付ける（通常モード）</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="allow_new_customers"
+                    value="false"
+                    checked={form.allow_new_customers === false}
+                    onChange={() => setForm({ ...form, allow_new_customers: false })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>受け付けない（会員様限定モード）</span>
+                </label>
+              </div>
+            </div>
+
+            {/* セラピスト連絡用LINEモード */}
+            <div className="border-b border-slate-100 pb-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">セラピスト用 LINE連絡モード</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                セラピストへの連絡文面を送る際のLINE連携方法を設定します。
+              </p>
+              <div className="flex gap-6">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="therapist_line_mode"
+                    value="official_line"
+                    checked={form.therapist_line_mode === 'official_line'}
+                    onChange={() => setForm({ ...form, therapist_line_mode: 'official_line' })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>公式LINE（コピー機能のみ）</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="radio"
+                    name="therapist_line_mode"
+                    value="line"
+                    checked={form.therapist_line_mode === 'line'}
+                    onChange={() => setForm({ ...form, therapist_line_mode: 'line' })}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span>普通のLINE（LINEアプリ起動）</span>
+                </label>
+              </div>
             </div>
 
 
@@ -288,145 +404,68 @@ export default function SystemPage() {
               <p className="mt-2 text-xs text-slate-400">ランク別の料金・バックは「ランク別 料金バック」タブで設定できます。</p>
             </div>
 
-            {/* クレジット決済手数料 */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
-              <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜12%の範囲で設定できます。</p>
-              <div className="flex items-center gap-3 max-w-xs">
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={12}
-                    step={0.5}
-                    value={form.credit_card_fee_rate}
-                    onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(12, Math.max(0, Number(e.target.value))) })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
-                </div>
-                <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
-              </div>
-            </div>
-
-            {/* SMS住所送信モード */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">SMS住所送信モード</h3>
-              <p className="text-xs text-slate-400 mb-4">Web予約確定時に自動送信されるSMSでの、住所情報の送信方法を設定します。</p>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="unified"
-                    checked={form.sms_address_mode === 'unified'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'unified' })}
-                    className="mt-1 accent-indigo-600 w-4 h-4"
-                  />
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">一律送信</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規・会員問わず同じ住所（ルームに設定した住所）を送信します。</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-all duration-200 group">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="split_by_membership"
-                    checked={form.sms_address_mode === 'split_by_membership'}
-                    onChange={() => setForm({ ...form, sms_address_mode: 'split_by_membership' })}
-                    className="mt-1 accent-indigo-600 w-4 h-4"
-                  />
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">新規／会員で切替</p>
-                    <p className="text-xs text-slate-500 mt-0.5">新規のお客様にはルームに設定した「近隣住所」を、会員には実住所を送信します。</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* メール送信設定 (SMTP) */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">メール送信設定 (SMTP)</h3>
-              <p className="text-xs text-slate-400 mb-4">
-                Web予約が完了した際にお客様へ自動送信される確認メールのSMTP設定です。<br />
-                未設定（空欄）の場合は、システム共通の環境変数に設定されたSMTPサーバーから送信されます。
-              </p>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPホスト名</label>
-                    <input
-                      type="text"
-                      placeholder="smtp.example.com"
-                      value={form.smtp_host}
-                      onChange={(e) => setForm({ ...form, smtp_host: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">ポート番号</label>
+            {/* クレジット決済設定 */}
+            <div className="border-b border-slate-100 pb-6 space-y-5">
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
+                <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜100%の範囲で設定できます。</p>
+                <div className="flex items-center gap-3 max-w-xs">
+                  <div className="relative flex-1">
                     <input
                       type="number"
-                      placeholder="587"
-                      value={form.smtp_port}
-                      onChange={(e) => setForm({ ...form, smtp_port: e.target.value === '' ? '' : Number(e.target.value) })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={form.credit_card_fee_rate}
+                      onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2 py-1">
-                  <input
-                    type="checkbox"
-                    id="smtp_secure"
-                    checked={form.smtp_secure}
-                    onChange={(e) => setForm({ ...form, smtp_secure: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <label htmlFor="smtp_secure" className="text-xs font-semibold text-slate-600 select-none cursor-pointer">
-                    SSL/TLSを使用する (通常465番ポートの場合にチェック)
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPユーザー名</label>
-                    <input
-                      type="text"
-                      placeholder="user@example.com"
-                      value={form.smtp_user}
-                      onChange={(e) => setForm({ ...form, smtp_user: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">SMTPパスワード</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••"
-                      value={form.smtp_pass}
-                      onChange={(e) => setForm({ ...form, smtp_pass: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">差出人表記 (FROM)</label>
-                  <input
-                    type="text"
-                    placeholder='"新宿店" <shinjuku@example.com>'
-                    value={form.smtp_from}
-                    onChange={(e) => setForm({ ...form, smtp_from: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm placeholder:text-slate-300"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    送信元の名前とメールアドレスを指定します。例: `&quot;新宿店&quot; &lt;shinjuku@example.com&gt;`
-                  </p>
+                  <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
                 </div>
               </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済リンク URL</h3>
+                <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。</p>
+                <input
+                  type="text"
+                  placeholder="https://pay.example.com/payment"
+                  value={form.credit_payment_url}
+                  onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">GoogleカレンダーID</h3>
+                <p className="text-xs text-slate-400 mb-4">予約情報を同期する対象のGoogleカレンダーID（例: example@gmail.com）を設定します。</p>
+                <input
+                  type="text"
+                  placeholder="example@gmail.com"
+                  value={form.google_calendar_id}
+                  onChange={(e) => setForm({ ...form, google_calendar_id: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">Google Apps Script 同期用ウェブアプリURL</h3>
+                <p className="text-xs text-slate-400 mb-4">カレンダー連携用のGASウェブアプリURL（https://script.google.com/macros/s/...）を設定します。</p>
+                <input
+                  type="text"
+                  placeholder="https://script.google.com/macros/s/xxxx/exec"
+                  value={form.gas_calendar_sync_url}
+                  onChange={(e) => setForm({ ...form, gas_calendar_sync_url: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
             </div>
+
+
+
+
 
             <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
               <button

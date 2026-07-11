@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import TimeChart from '@/app/components/TimeChart';
+import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
+import { toDisplayTime } from '@/lib/timeUtils';
 
 interface Shift {
   id: string;
@@ -32,15 +36,22 @@ interface Reservation {
   designation_type: string;
   is_hime: boolean | null;
   notes?: string | null;
+  payment_method: string | null;
   customers: { name: string; created_at: string } | null;
   courses: { name: string; duration: number } | null;
   is_handled?: boolean;
   source?: string;
+  customer_notified?: boolean;
+  therapist_notified?: boolean;
+  extension_count?: number;
+  shop_id?: string;
+  isNewCustomer?: boolean;
 }
 
 interface Room {
   id: string;
   name: string;
+  linked_room_group_id?: string | null;
 }
 
 interface TherapistRow {
@@ -54,6 +65,9 @@ interface TherapistRow {
   waist?: number | null;
   hip?: number | null;
   comment?: string | null;
+  linked_therapist_group_id?: string | null;
+  therapist_ranks?: { name: string } | { name: string }[] | null;
+  is_rookie?: boolean;
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -63,6 +77,8 @@ interface TherapistMemo {
   date: string;
   content: string;
   amount: number;
+  resolved_at?: string | null;
+  resolved_date?: string | null;
 }
 
 interface Therapist {
@@ -75,6 +91,8 @@ interface Therapist {
   room?: string;
   roomMemo?: string | null;
   roomMapUrl?: string | null;
+  roomDisplayName?: string | null;
+  roomAddress?: string | null;
   age?: number | null;
   height?: number | null;
   bust?: number | null;
@@ -85,6 +103,21 @@ interface Therapist {
   intervalMinutes?: number | null;
   notes?: string | null;
   unresolvedMemos?: TherapistMemo[];
+  linked_therapist_group_id?: string | null;
+  linked_shop_names?: string[];
+  rankName?: string | null;
+  isRookie?: boolean;
+}
+
+interface AvailableCourse {
+  duration: number;
+  startTime: string;
+  endTime: string;
+  latestStartTime: string;
+  color: string;
+  borderColor: string;
+  textColor: string;
+  label: string;
 }
 
 interface Schedule {
@@ -93,7 +126,7 @@ interface Schedule {
   endTime: string;
   title: string;
   color?: string;
-  type?: 'shift' | 'reservation' | 'interval' | 'blocked';
+  type?: 'shift' | 'reservation' | 'interval' | 'blocked' | 'available' | 'unavailable';
   reservationId?: string;
   customerId?: string;
   customerName?: string;
@@ -104,9 +137,16 @@ interface Schedule {
   isNewCustomer?: boolean;
   isHime?: boolean;
   isPending?: boolean;
+  isHandled?: boolean;
+  source?: string;
+  paymentMethod?: string | null;
+  customerNotified?: boolean;
+  therapistNotified?: boolean;
+  extensionMinutes?: number;
+  availableCourses?: AvailableCourse[];
 }
 
-type ViewMode = 'day' | 'week';
+type ViewMode = 'day' | 'vertical' | 'week';
 
 const getBusinessDate = () => {
   const now = new Date()
@@ -114,23 +154,97 @@ const getBusinessDate = () => {
   return now
 }
 
-export default function ShiftsPage() {
+function ShiftsContent() {
   const { selectedShop } = useShop();
+  const { loading: authLoading, user } = useAuth();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
+
+  // Load saved view mode from localStorage on client-side mount
+  useEffect(() => {
+    const saved = localStorage.getItem('shifts_view_mode');
+    if (saved === 'vertical' || saved === 'week' || saved === 'day') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (!viewParam) {
+        setViewMode(saved as ViewMode);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('shifts_view_mode', viewMode);
+    }
+  }, [viewMode]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
+  const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30);
   const [filterDate, setFilterDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
+
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view === 'week') {
+      setViewMode('week');
+    } else if (view === 'day') {
+      setViewMode('day');
+    } else if (view === 'vertical') {
+      setViewMode('vertical');
+    }
+
+    const qDate = searchParams.get('date');
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+      setFilterDate(qDate);
+      const parsedDate = new Date(qDate);
+      if (!isNaN(parsedDate.getTime())) {
+        setWeekStartDate(parsedDate);
+      }
+    }
+
+    // URLクエリパラメータをクリアして、リロード時に今日・デフォルト表示に戻るようにする
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('date') || url.searchParams.has('scroll_to_time') || url.searchParams.has('view')) {
+        url.searchParams.delete('date');
+        url.searchParams.delete('scroll_to_time');
+        url.searchParams.delete('view');
+        window.history.replaceState(null, '', url.pathname + url.search);
+      }
+    }
+  }, [searchParams]);
+
+  // 店舗（selectedShop）が変更された場合、日付を今日（当日）に戻す
+  const lastShopIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedShop) return;
+    if (lastShopIdRef.current !== null && lastShopIdRef.current !== selectedShop.id) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setFilterDate(todayStr);
+      setWeekStartDate(new Date());
+    }
+    lastShopIdRef.current = selectedShop.id;
+  }, [selectedShop]);
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
   const [roomOrderMap, setRoomOrderMap] = useState<Map<string, number>>(new Map());
   const [minCourseDuration, setMinCourseDuration] = useState<number>(0);
+
+  const [shopCourses, setShopCourses] = useState<{name: string, duration: number, price: number}[]>([]);
+  const [shopDiscounts, setShopDiscounts] = useState<{name: string, value: number}[]>([]);
+  const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
+  const [designationMap, setDesignationMap] = useState<Record<string, string>>({});
+  const [shopOptions, setShopOptions] = useState<{name: string, price: number, duration: number, type: string}[]>([]);
+
+
+
+
 
   // 予約不可編集モーダル
   const [blockedModal, setBlockedModal] = useState<{
@@ -142,6 +256,10 @@ export default function ShiftsPage() {
   // メモ追加フォーム
   const [memoForm, setMemoForm] = useState<{ content: string; amount: string } | null>(null);
 
+  // 編集用の状態
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [editMemoForm, setEditMemoForm] = useState<{ content: string; amount: string }>({ content: '', amount: '' });
+
   const handleAddMemo = async (therapistId: string) => {
     if (!memoForm || !selectedShop || !memoForm.content.trim()) return;
     const { data, error } = await supabase.from('therapist_memos').insert([{
@@ -151,7 +269,7 @@ export default function ShiftsPage() {
       content: memoForm.content.trim(),
       amount: parseInt(memoForm.amount || '0', 10) || 0,
     }]).select('id, date, content, amount').single();
-    if (error) { alert('メモの追加に失敗しました'); return; }
+    if (error) { alert('メモの追加に失敗しました: ' + error.message); return; }
     setMemoForm(null);
     setShiftEditModal(m => m ? {
       ...m,
@@ -160,8 +278,43 @@ export default function ShiftsPage() {
     setRefreshCounter(c => c + 1);
   };
 
+  const handleEditMemoStart = (memo: TherapistMemo) => {
+    setEditingMemoId(memo.id);
+    setEditMemoForm({
+      content: memo.content ?? '',
+      amount: memo.amount != null ? String(memo.amount) : ''
+    });
+  };
+
+  const handleUpdateMemo = async (id: string) => {
+    if (!editMemoForm.content.trim()) return;
+    const { error } = await supabase
+      .from('therapist_memos')
+      .update({
+        content: editMemoForm.content.trim(),
+        amount: parseInt(editMemoForm.amount || '0', 10) || 0
+      })
+      .eq('id', id);
+
+    if (error) {
+      alert('メモの更新に失敗しました: ' + error.message);
+      return;
+    }
+
+    setEditingMemoId(null);
+    setShiftEditModal(m => m ? {
+      ...m,
+      unresolvedMemos: (m.unresolvedMemos || []).map(memo => memo.id === id ? { ...memo, content: editMemoForm.content.trim(), amount: parseInt(editMemoForm.amount || '0', 10) || 0 } : memo),
+    } : null);
+    setRefreshCounter(c => c + 1);
+  };
+
   const handleResolveMemo = async (memoId: string, therapistId: string) => {
-    const { error } = await supabase.from('therapist_memos').update({ is_resolved: true }).eq('id', memoId);
+    const { error } = await supabase.from('therapist_memos').update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_date: filterDate
+    }).eq('id', memoId);
     if (error) { alert('解決済みの更新に失敗しました'); return; }
     setShiftEditModal(m => m ? {
       ...m,
@@ -208,23 +361,23 @@ export default function ShiftsPage() {
         .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).limit(1),
       supabase.from('reservations').select('id, start_time, end_time, notes')
         .eq('therapist_id', therapistId).eq('date', targetDate).eq('shop_id', selectedShop.id).eq('status', 'blocked'),
-      supabase.from('therapist_memos').select('id, date, content, amount')
+      supabase.from('therapist_memos').select('id, date, content, amount, resolved_at, resolved_date')
         .eq('therapist_id', therapistId).eq('shop_id', selectedShop.id).eq('is_resolved', false)
         .order('date', { ascending: false }),
     ]);
 
     const shift = shiftRes.data?.[0];
     const allBlocked = allBlockedRes.data || [];
-    const shiftStartStr = shift ? shift.start_time.slice(0, 5) : null;
-    const shiftEndStr = shift ? shift.end_time.slice(0, 5) : null;
+    const shiftStartStr = shift ? toDisplayTime(shift.start_time) : null;
+    const shiftEndStr = shift ? toDisplayTime(shift.end_time) : null;
 
     let isOff = false;
     let offMemo = '';
     const blockedSlots: { startTime: string; endTime: string }[] = [];
 
     for (const bl of allBlocked) {
-      const blStart = bl.start_time.slice(0, 5);
-      const blEnd = bl.end_time.slice(0, 5);
+      const blStart = toDisplayTime(bl.start_time);
+      const blEnd = toDisplayTime(bl.end_time);
       if (shiftStartStr && shiftEndStr && blStart === shiftStartStr && blEnd === shiftEndStr) {
         isOff = true;
         offMemo = bl.notes ?? '';
@@ -233,8 +386,8 @@ export default function ShiftsPage() {
       }
     }
 
-    const defaultStart = shift ? shift.start_time.slice(0, 5) : '10:00';
-    const defaultEnd = shift ? shift.end_time.slice(0, 5) : '18:00';
+    const defaultStart = shift ? toDisplayTime(shift.start_time) : '10:00';
+    const defaultEnd = shift ? toDisplayTime(shift.end_time) : '18:00';
 
     const unresolvedMemos: TherapistMemo[] = (memosRes.data || []).map((m: any) => ({
       id: m.id, date: m.date, content: m.content, amount: m.amount,
@@ -279,7 +432,7 @@ export default function ShiftsPage() {
 
     const toDbTime = (t: string) => {
       const [h, min] = t.split(':').map(Number);
-      return `${String(h % 24).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
     };
 
     const shiftPayload: any = {
@@ -387,14 +540,15 @@ export default function ShiftsPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchTherapists();
     fetchShifts();
     fetchReservations();
-  }, [filterDate, selectedShop, refreshCounter]);
+  }, [filterDate, selectedShop, refreshCounter, authLoading, user]);
 
   // 予約のリアルタイム更新（Supabase Realtime）
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     const channel = supabase
       .channel(`shifts-reservations-realtime-${selectedShop.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
@@ -405,35 +559,73 @@ export default function ShiftsPage() {
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [selectedShop, filterDate]);
+  }, [selectedShop, filterDate, authLoading, user]);
 
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     supabase
       .from('rooms')
-      .select('id, name, order')
+      .select('id, name, order, linked_room_group_id')
       .eq('shop_id', selectedShop.id)
       .order('order', { ascending: true, nullsFirst: false })
       .then(({ data }) => {
         const map = new Map<string, number>();
         (data || []).forEach((r: any, i: number) => map.set(r.id, r.order ?? i));
         setRoomOrderMap(map);
-        setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name })));
+        setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name, linked_room_group_id: r.linked_room_group_id })));
       });
-  }, [selectedShop, refreshCounter]);
+  }, [selectedShop, refreshCounter, authLoading, user]);
 
   useEffect(() => {
-    if (!selectedShop) return;
+    if (!selectedShop || authLoading || !user) return;
     supabase
       .from('courses')
-      .select('duration')
+      .select('name, duration, base_price')
       .eq('shop_id', selectedShop.id)
       .eq('is_active', true)
+      .order('display_order', { ascending: true })
       .then(({ data }) => {
+        setShopCourses((data as any[])?.map(d => ({ name: d.name, duration: d.duration, price: d.base_price })) || []);
         const durations = (data || []).map((c: any) => c.duration).filter((d: number) => d > 0);
         setMinCourseDuration(durations.length > 0 ? Math.min(...durations) : 0);
       });
-  }, [selectedShop]);
+
+    supabase
+      .from('discount_policies')
+      .select('name, discount_value')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setShopDiscounts((data as any[])?.map(d => ({ name: d.name, value: d.discount_value })) || []));
+
+    supabase
+      .from('designation_types')
+      .select('slug, display_name, default_fee')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          (data as any[]).forEach((d) => {
+            if (d.slug) map[d.slug] = d.display_name;
+          });
+          setDesignationMap(map);
+          setShopDesignations(data.map(d => ({ name: d.display_name, fee: d.default_fee })));
+        } else {
+          setDesignationMap({});
+          setShopDesignations([]);
+        }
+      });
+
+    supabase
+      .from('options')
+      .select('name, price, duration_minutes_added, option_type')
+      .eq('shop_id', selectedShop.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }) => setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []));
+  }, [selectedShop, authLoading, user]);
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
@@ -441,14 +633,14 @@ export default function ShiftsPage() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id, therapist_ranks(name), is_rookie')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
         const { data: basicData } = await supabase
           .from('therapists')
-          .select('id, name')
+          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie')
           .eq('shop_id', selectedShop.id)
           .order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
@@ -458,15 +650,39 @@ export default function ShiftsPage() {
 
       const { data: settingsData } = await supabase
         .from('system_settings')
-        .select('reservation_interval_minutes')
+        .select('reservation_interval_minutes, extension_unit_minutes')
         .eq('shop_id', selectedShop.id)
         .limit(1);
       const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
       setShopIntervalMinutes(shopInterval);
+      setExtensionUnitMinutes(settingsData?.[0]?.extension_unit_minutes ?? 30);
+
+      // 他店舗連携先店舗名のフェッチ
+      const groupIds = allTherapists.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
+      const linkedMap = new Map<string, string[]>();
+      if (groupIds.length > 0) {
+        const { data: linkedData } = await supabase
+          .from("therapists")
+          .select("linked_therapist_group_id, shops(name)")
+          .in("linked_therapist_group_id", groupIds)
+          .neq("shop_id", selectedShop.id);
+        
+        (linkedData || []).forEach((row: any) => {
+          const groupId = row.linked_therapist_group_id;
+          const shopName = row.shops?.name;
+          if (groupId && shopName) {
+            const arr = linkedMap.get(groupId) || [];
+            if (!arr.includes(shopName)) {
+              arr.push(shopName);
+            }
+            linkedMap.set(groupId, arr);
+          }
+        });
+      }
 
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
-        .select('therapist_id, room_id, rooms(name, memo, google_map_url), start_time, end_time, notes')
+        .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
         .eq('shop_id', selectedShop.id)
         .eq('date', filterDate);
 
@@ -475,7 +691,7 @@ export default function ShiftsPage() {
         return;
       }
 
-      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; memo?: string | null; google_map_url?: string | null } | null }>();
+      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; display_name?: string | null; address?: string | null; memo?: string | null; google_map_url?: string | null } | null }>();
       (shiftsData || []).forEach((shift: any) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
@@ -495,6 +711,8 @@ export default function ShiftsPage() {
           room: shift?.rooms?.name,
           roomMemo: shift?.rooms?.memo ?? null,
           roomMapUrl: shift?.rooms?.google_map_url ?? null,
+          roomDisplayName: shift?.rooms?.display_name ?? null,
+          roomAddress: shift?.rooms?.address ?? null,
           age: therapist.age ?? null,
           height: therapist.height ?? null,
           bust: therapist.bust ?? null,
@@ -504,6 +722,12 @@ export default function ShiftsPage() {
           staffMemo: therapist.comment ?? null,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
+          linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
+          linked_shop_names: therapist.linked_therapist_group_id ? (linkedMap.get(therapist.linked_therapist_group_id) || []) : [],
+          rankName: Array.isArray(therapist.therapist_ranks)
+            ? therapist.therapist_ranks[0]?.name || null
+            : (therapist.therapist_ranks as { name: string } | null)?.name || null,
+          isRookie: !!therapist.is_rookie,
         };
       });
 
@@ -528,7 +752,7 @@ export default function ShiftsPage() {
       // 未解決メモをセラピストごとにマージ
       const { data: memosData } = await supabase
         .from('therapist_memos')
-        .select('id, therapist_id, date, content, amount')
+        .select('id, therapist_id, date, content, amount, resolved_at, resolved_date')
         .eq('shop_id', selectedShop.id)
         .eq('is_resolved', false)
         .order('date', { ascending: false });
@@ -602,6 +826,29 @@ export default function ShiftsPage() {
   const fetchReservations = async () => {
     if (!selectedShop) return;
     try {
+      // レースコンディションを避けるため、自店舗のセラピスト・部屋の紐付けグループ情報および店舗連携情報を直接取得
+      const [ownTherapistsRes, ownRoomsRes, linksRes] = await Promise.all([
+        supabase
+          .from('therapists')
+          .select('id, linked_therapist_group_id')
+          .eq('shop_id', selectedShop.id)
+          .eq('is_active', true),
+        supabase
+          .from('rooms')
+          .select('id, linked_room_group_id')
+          .eq('shop_id', selectedShop.id),
+        supabase
+          .from('shop_links')
+          .select('shop_id_1, shop_id_2')
+          .eq('is_active', true)
+          .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`)
+      ]);
+      const ownTherapists = ownTherapistsRes.data || [];
+      const ownRooms = ownRoomsRes.data || [];
+      const linkedShopIds = (linksRes.data || []).map((l: any) => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
+      const targetShopIds = [selectedShop.id, ...linkedShopIds];
+
+      // 連携店舗に限定して該当日の予約を取得
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -619,15 +866,100 @@ export default function ShiftsPage() {
           notes,
           is_handled,
           source,
+          payment_method,
+          customer_notified,
+          therapist_notified,
+          extension_count,
+          shop_id,
+          room_id,
+          customer_type_override,
           customers(name, created_at),
-          courses(name, duration)
+          courses(name, duration),
+          therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
+          room:rooms!reservations_room_id_fkey(name, linked_room_group_id),
+          shop:shops!reservations_shop_id_fkey(name, short_name)
         `)
-        .eq('shop_id', selectedShop.id)
-        .eq('date', filterDate)
+        .in('shop_id', targetShopIds)
+        .or(`business_date.eq.${filterDate},and(business_date.is.null,date.eq.${filterDate})`)
         .in('status', ['confirmed', 'blocked', 'pending']);
 
       if (error) throw error;
-      setReservations((data as unknown as Reservation[]) || []);
+
+      const allRes = (data || []) as any[];
+
+      // 過去に予約がある顧客を特定する処理を追加
+      const customerIds = Array.from(new Set(allRes.map((r) => r.customer_id).filter(Boolean)));
+      const pastCustomerIds = new Set<string>();
+      if (customerIds.length > 0) {
+        const { data: pastRes } = await supabase
+          .from('reservations')
+          .select('customer_id')
+          .in('customer_id', customerIds)
+          .eq('shop_id', selectedShop.id)
+          .lt('date', filterDate)
+          .in('status', ['confirmed', 'blocked', 'pending']);
+        if (pastRes) {
+          pastRes.forEach((r: any) => pastCustomerIds.add(r.customer_id));
+        }
+      }
+
+      const processed: any[] = [];
+
+      allRes.forEach((res) => {
+        if (res.shop_id === selectedShop.id) {
+          // 自店舗の予約はそのまま追加
+          const isNew = res.customer_type_override
+            ? res.customer_type_override === 'new'
+            : !pastCustomerIds.has(res.customer_id)
+
+          processed.push({
+            ...res,
+            isNewCustomer: isNew
+          });
+        } else {
+          // 他店舗の予約：リンクされているものがあるか判定
+          let isLinked = false;
+          let mappedTherapistId = res.therapist_id;
+          let mappedRoomId = res.room_id;
+
+          // セラピストの紐付け
+          if (res.therapist?.linked_therapist_group_id) {
+            const targetTherapist = ownTherapists.find((t: any) => t.linked_therapist_group_id === res.therapist.linked_therapist_group_id);
+            if (targetTherapist) {
+              mappedTherapistId = targetTherapist.id;
+              isLinked = true;
+            }
+          }
+
+          // ルーム（部屋）の紐付け
+          if (res.room?.linked_room_group_id) {
+            const targetRoom = ownRooms.find((r: any) => r.linked_room_group_id === res.room.linked_room_group_id);
+            if (targetRoom) {
+              mappedRoomId = targetRoom.id;
+              isLinked = true;
+            }
+          }
+
+          if (isLinked) {
+            // 他店舗で予約が入っている時間を自店舗のスケジュール上でブロックする
+            const otherShopName = res.shop?.short_name || res.shop?.name || '他店舗';
+            processed.push({
+              ...res,
+              therapist_id: mappedTherapistId,
+              room_id: mappedRoomId,
+              status: 'blocked', // スケジュール上で「予約不可（ブロック）」として描画させる
+              customers: {
+                name: `${otherShopName}予約`,
+                created_at: null
+              },
+              courses: null,
+              notes: null,
+            });
+          }
+        }
+      });
+
+      setReservations(processed);
     } catch (error) {
       console.error('予約の取得に失敗:', error);
     }
@@ -644,15 +976,118 @@ export default function ShiftsPage() {
     return h * 60 + m;
   };
 
-  const designationLabel = (v: string) => ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+  const designationLabel = (v: string) => {
+    if (designationMap && designationMap[v]) return designationMap[v];
+    return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
+  };
+
+  const getAvailableCourses = (startMin: number, endMin: number): AvailableCourse[] => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return [];
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) return [];
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const getRankColors = (rank: number) => {
+      switch (rank) {
+        case 0: // 1番短い（最小）
+          return {
+            bg: '#d1fae5', // emerald-100
+            border: '#10b981', // emerald-500
+            text: '#065f46', // emerald-800
+          };
+        case 1: // 2番目に短い
+          return {
+            bg: '#dbeafe', // blue-100
+            border: '#3b82f6', // blue-500
+            text: '#1e3a8a', // blue-800
+          };
+        case 2: // 3番目に短い
+          return {
+            bg: '#f3e8ff', // purple-100
+            border: '#a855f7', // purple-500
+            text: '#581c87', // purple-800
+          };
+        case 3: // 4番目に短い
+          return {
+            bg: '#fae8ff', // fuchsia-100
+            border: '#d946ef', // fuchsia-500
+            text: '#701a75', // fuchsia-800
+          };
+        default:
+          return {
+            bg: '#f1f5f9', // slate-100
+            border: '#cbd5e1', // slate-300
+            text: '#475569', // slate-600
+          };
+      }
+    };
+
+    // 表示用コースを選択（短い順に最大4本）
+    const selectedDurations = filtered.slice(0, 4);
+
+    const sorted = [...selectedDurations].sort((a, b) => b - a);
+
+    return sorted.map(d => {
+      const latestStartMin = endMin - d;
+      const latestStartStr = formatMinToHHMM(latestStartMin);
+      const rank = selectedDurations.indexOf(d);
+      const colors = getRankColors(rank);
+      return {
+        duration: d,
+        startTime: latestStartStr,
+        endTime: formatMinToHHMM(endMin),
+        latestStartTime: latestStartStr,
+        color: colors.bg,
+        borderColor: colors.border,
+        textColor: colors.text,
+        label: `${latestStartStr} ${d}分`,
+      };
+    });
+  };
+
+  const getAvailableText = (startMin: number, endMin: number) => {
+    const totalAvail = endMin - startMin;
+    if (totalAvail <= 0) return '';
+
+    const menuDurations = shopCourses && shopCourses.length > 0
+      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+      : [30, 45, 60, 90, 120, 150, 180];
+
+    const filtered = menuDurations.filter(d => d <= totalAvail);
+    if (filtered.length === 0) {
+      return `空き ${totalAvail}分`;
+    }
+
+    const formatMinToHHMM = (m: number) => {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+
+    const sortedFiltered = [...filtered].sort((a, b) => b - a);
+    return sortedFiltered
+      .map(d => `${d}分 (最終案内 ${formatMinToHHMM(endMin - d)})`)
+      .join('\n');
+  };
 
   const schedules: Schedule[] = [
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
       .map((reservation) => ({
         therapistId: reservation.therapist_id || 'unassigned',
-        startTime: reservation.start_time.slice(0, 5),
-        endTime: reservation.end_time.slice(0, 5),
+        startTime: toDisplayTime(reservation.start_time),
+        endTime: toDisplayTime(reservation.end_time),
         title: `${reservation.customers?.name || 'unknown'}`,
         type: 'reservation' as const,
         reservationId: reservation.id,
@@ -662,37 +1097,41 @@ export default function ShiftsPage() {
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,
         discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
-        isNewCustomer: reservation.customers?.created_at?.split('T')[0] === reservation.date,
+        isNewCustomer: reservation.isNewCustomer,
         isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,
         source: reservation.source,
+        paymentMethod: reservation.payment_method,
+        customerNotified: reservation.customer_notified,
+        therapistNotified: reservation.therapist_notified,
+        extensionMinutes: (reservation.extension_count || 0) * extensionUnitMinutes,
       })),
     ...reservations
       .filter((r: any) => r.status === 'blocked')
       .map((reservation) => ({
         therapistId: reservation.therapist_id || 'unassigned',
-        startTime: reservation.start_time.slice(0, 5),
-        endTime: reservation.end_time.slice(0, 5),
-        title: '予約不可',
+        startTime: toDisplayTime(reservation.start_time),
+        endTime: toDisplayTime(reservation.end_time),
+        title: reservation.customers?.name || '予約不可',
+        customerName: reservation.customers?.name || undefined,
         type: 'blocked' as const,
         reservationId: reservation.id,
+        notes: reservation.notes || undefined,
+        isOtherShop: reservation.shop_id !== selectedShop?.id,
       })),
-    ...reservations
-      .filter((r: any) => r.status === 'confirmed' && r.therapist_id) // Skip intervals for unassigned bookings
-      .flatMap((reservation) => {
-        const therapist = therapists.find(t => t.id === reservation.therapist_id);
-        const interval = therapist?.intervalMinutes != null
+    ...(() => {
+      const intervalSchedules: Schedule[] = [];
+      
+      therapists.forEach((therapist) => {
+        const interval = therapist.intervalMinutes != null
           ? therapist.intervalMinutes
           : shopIntervalMinutes;
-        if (interval <= 0) return [];
-
-        const startMin = hhmToMinutes(reservation.start_time.slice(0, 5));
-        const endMin = hhmToMinutes(reservation.end_time.slice(0, 5));
+        if (interval <= 0) return;
 
         let shiftStartMin: number | undefined;
         let shiftEndAdjusted: number | undefined;
-        if (therapist?.shiftStart) {
+        if (therapist.shiftStart) {
           shiftStartMin = hhmToMinutes(therapist.shiftStart);
           if (therapist.shiftEnd) {
             let shiftEndMin = hhmToMinutes(therapist.shiftEnd);
@@ -701,35 +1140,169 @@ export default function ShiftsPage() {
           }
         }
 
-        const result: { therapistId: string; startTime: string; endTime: string; title: string; type: 'interval' }[] = [];
+        // シフト範囲が定義されていない（非出勤）の場合はスキップ
+        if (shiftStartMin === undefined || shiftEndAdjusted === undefined) return;
 
-        // 事前インターバル: 予約開始の interval 分前 ～ 予約開始
-        const preStart = shiftStartMin !== undefined
-          ? Math.max(shiftStartMin, startMin - interval)
-          : startMin - interval;
-        if (preStart < startMin) {
-          result.push({
-            therapistId: reservation.therapist_id,
-            startTime: minutesToHHMM(preStart),
-            endTime: reservation.start_time.slice(0, 5),
+        // 予約とブロックの両方を「境界（boundaries）」として抽出
+        const boundaries = reservations
+          .filter((r: any) => r.therapist_id === therapist.id)
+          .map((r: any) => {
+            const startMin = hhmToMinutes(toDisplayTime(r.start_time));
+            let endMin = hhmToMinutes(toDisplayTime(r.end_time));
+            if (endMin <= startMin) endMin += 24 * 60;
+            return {
+              startMin,
+              endMin,
+              startTimeStr: toDisplayTime(r.start_time),
+              endTimeStr: toDisplayTime(r.end_time),
+              type: (r.status === 'blocked' && r.shop_id === selectedShop?.id) ? ('blocked' as const) : ('reservation' as const),
+            };
+          })
+          .sort((a, b) => a.startMin - b.startMin);
+
+        // 1. シフト開始から最初の境界までの Gap
+        const firstBound = boundaries[0];
+        const firstLimit = firstBound ? firstBound.startMin : shiftEndAdjusted;
+        
+        // 最初の予定が確定予約(reservation)の場合のみ事前インターバルが必要
+        const needPreInterval = firstBound && firstBound.type === 'reservation';
+        const firstPreStart = needPreInterval 
+          ? Math.max(shiftStartMin, firstLimit - interval)
+          : firstLimit;
+
+        if (needPreInterval && firstPreStart < firstLimit) {
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(firstPreStart),
+            endTime: firstBound.startTimeStr,
             title: `インターバル ${interval}分`,
             type: 'interval' as const,
           });
         }
+        if (shiftStartMin < firstPreStart) {
+          const totalAvail = firstPreStart - shiftStartMin;
+          const menuDurations = shopCourses && shopCourses.length > 0
+            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+            : [30, 45, 60, 90, 120, 150, 180];
+          const filtered = menuDurations.filter(d => d <= totalAvail);
+          const isAvail = filtered.length > 0;
 
-        // 事後インターバル: 予約終了 ～ 予約終了 + interval（シフト終了以降なら非表示）
-        if (shiftEndAdjusted === undefined || endMin < shiftEndAdjusted) {
-          result.push({
-            therapistId: reservation.therapist_id,
-            startTime: reservation.end_time.slice(0, 5),
-            endTime: minutesToHHMM(endMin + interval),
-            title: `インターバル ${interval}分`,
-            type: 'interval' as const,
+          intervalSchedules.push({
+            therapistId: therapist.id,
+            startTime: minutesToHHMM(shiftStartMin),
+            endTime: minutesToHHMM(firstPreStart),
+            title: isAvail ? getAvailableText(shiftStartMin, firstPreStart) : `不足\n${totalAvail}分`,
+            type: (isAvail ? 'available' : 'unavailable') as any,
+            availableCourses: isAvail ? getAvailableCourses(shiftStartMin, firstPreStart) : undefined,
           });
         }
 
-        return result;
-      }),
+        // 2. 境界間の Gap
+        for (let i = 0; i < boundaries.length - 1; i++) {
+          const cur = boundaries[i];
+          const next = boundaries[i + 1];
+          
+          const curInterval = cur.type === 'reservation' ? interval : 0;
+          const nextInterval = next.type === 'reservation' ? interval : 0;
+          
+          const gap = next.startMin - cur.endMin;
+          if (gap <= 0) continue;
+
+          const totalInterval = curInterval + nextInterval;
+
+          if (gap <= totalInterval) {
+            if (gap > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${gap}分`,
+                type: 'interval' as const,
+              });
+            }
+          } else {
+            if (curInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(cur.endMin),
+                endTime: minutesToHHMM(cur.endMin + curInterval),
+                title: `インターバル ${curInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+            if (nextInterval > 0) {
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(next.startMin - nextInterval),
+                endTime: minutesToHHMM(next.startMin),
+                title: `インターバル ${nextInterval}分`,
+                type: 'interval' as const,
+              });
+            }
+
+            const availStart = cur.endMin + curInterval;
+            const availEnd = next.startMin - nextInterval;
+            if (availStart < availEnd) {
+              const totalAvail = availEnd - availStart;
+              const menuDurations = shopCourses && shopCourses.length > 0
+                ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+                : [30, 45, 60, 90, 120, 150, 180];
+              const filtered = menuDurations.filter(d => d <= totalAvail);
+              const isAvail = filtered.length > 0;
+
+              intervalSchedules.push({
+                therapistId: therapist.id,
+                startTime: minutesToHHMM(availStart),
+                endTime: minutesToHHMM(availEnd),
+                title: isAvail ? getAvailableText(availStart, availEnd) : `不足\n${totalAvail}分`,
+                type: (isAvail ? 'available' : 'unavailable') as any,
+                availableCourses: isAvail ? getAvailableCourses(availStart, availEnd) : undefined,
+              });
+            }
+          }
+        }
+
+        // 3. 最後の境界からシフト終了までの Gap
+        if (boundaries.length > 0) {
+          const lastBound = boundaries[boundaries.length - 1];
+          const needPostInterval = lastBound.type === 'reservation';
+          let lastPostEnd = needPostInterval ? lastBound.endMin + interval : lastBound.endMin;
+          if (shiftEndAdjusted !== undefined) {
+            lastPostEnd = Math.min(shiftEndAdjusted, lastPostEnd);
+          }
+
+          if (needPostInterval && lastBound.endMin < lastPostEnd) {
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: lastBound.endTimeStr,
+              endTime: minutesToHHMM(lastPostEnd),
+              title: `インターバル ${interval}分`,
+              type: 'interval' as const,
+            });
+          }
+
+          if (lastPostEnd < shiftEndAdjusted) {
+            const totalAvail = shiftEndAdjusted - lastPostEnd;
+            const menuDurations = shopCourses && shopCourses.length > 0
+              ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+              : [30, 45, 60, 90, 120, 150, 180];
+            const filtered = menuDurations.filter(d => d <= totalAvail);
+            const isAvail = filtered.length > 0;
+
+            intervalSchedules.push({
+              therapistId: therapist.id,
+              startTime: minutesToHHMM(lastPostEnd),
+              endTime: minutesToHHMM(shiftEndAdjusted),
+              title: isAvail ? getAvailableText(lastPostEnd, shiftEndAdjusted) : `不足\n${totalAvail}分`,
+              type: (isAvail ? 'available' : 'unavailable') as any,
+              availableCourses: isAvail ? getAvailableCourses(lastPostEnd, shiftEndAdjusted) : undefined,
+            });
+          }
+        }
+      });
+
+      return intervalSchedules;
+    })(),
   ];
 
   const sortedTherapistsWithShift = useMemo(() => {
@@ -745,21 +1318,17 @@ export default function ShiftsPage() {
       return reservations.some(r =>
         r.status === 'blocked' &&
         r.therapist_id === t.id &&
-        r.start_time.slice(0, 5) === t.shiftStart &&
-        r.end_time.slice(0, 5) === t.shiftEnd
+        toDisplayTime(r.start_time) === t.shiftStart &&
+        toDisplayTime(r.end_time) === t.shiftEnd
       );
     };
 
-    // Check if there are any unassigned reservations for the current day
-    const hasUnassigned = reservations.some(r => r.therapist_id === null && r.status !== 'blocked');
-    const unassignedTherapist: Therapist | null = hasUnassigned
-      ? {
-          id: 'unassigned',
-          name: 'フリー（未割当）',
-          intervalMinutes: shopIntervalMinutes,
-          notes: '未割当のフリー予約があります',
-        }
-      : null;
+    const unassignedTherapist: Therapist = {
+      id: 'unassigned',
+      name: 'フリー',
+      intervalMinutes: shopIntervalMinutes,
+      notes: undefined,
+    };
 
     let sortedOthers = [...withShift];
 
@@ -788,45 +1357,82 @@ export default function ShiftsPage() {
         return endMins;
       };
 
-      const isEffectivelyFinished = (t: Therapist): boolean => {
-        if (!t.shiftEnd) return false;
+      const getNextAvailableMins = (t: Therapist): { mins: number; finished: boolean } => {
+        if (!t.shiftStart || !t.shiftEnd) return { mins: 9999, finished: true };
+        const shiftStartMins = hhmToMinutes(t.shiftStart);
         const shiftEndMins = getShiftEndMins(t);
-        if (currentMins >= shiftEndMins) return true;
+
+        if (currentMins >= shiftEndMins) {
+          return { mins: 9999, finished: true };
+        }
+
         const interval = t.intervalMinutes ?? shopIntervalMinutes;
-        const therapistReservations = reservations.filter(
-          (r: any) => r.therapist_id === t.id && r.status === 'confirmed'
+        let slots: [number, number][] = [[Math.max(currentMins, shiftStartMins), shiftEndMins]];
+
+        const therapistRes = reservations.filter(
+          (r: any) => r.therapist_id === t.id && (r.status === 'confirmed' || r.status === 'blocked')
         );
-        const lastEndMins = therapistReservations.length > 0
-          ? Math.max(...therapistReservations.map((r: any) => hhmToMinutes(r.end_time.slice(0, 5))))
-          : null;
-        // 次に予約を受け付けられる開始時刻
-        const nextAvailableMins = lastEndMins !== null
-          ? Math.max(currentMins, lastEndMins + interval)
-          : currentMins;
-        // 最短コースが入らなければ受付終了
+
+        therapistRes.forEach((r: any) => {
+          const resStart = hhmToMinutes(toDisplayTime(r.start_time));
+          let resEnd = hhmToMinutes(toDisplayTime(r.end_time));
+          if (resEnd <= resStart) resEnd += 24 * 60;
+
+          let blockStart = resStart;
+          let blockEnd = resEnd;
+
+          if (r.status === 'confirmed' || r.shop_id !== selectedShop?.id) {
+            blockStart = Math.max(shiftStartMins, resStart - interval);
+            blockEnd = resEnd + interval;
+          }
+
+          const nextSlots: [number, number][] = [];
+          slots.forEach(([sStart, sEnd]) => {
+            if (blockStart >= sEnd || blockEnd <= sStart) {
+              nextSlots.push([sStart, sEnd]);
+            } else {
+              if (sStart < blockStart) {
+                nextSlots.push([sStart, blockStart]);
+              }
+              if (blockEnd < sEnd) {
+                nextSlots.push([blockEnd, sEnd]);
+              }
+            }
+          });
+          slots = nextSlots;
+        });
+
         const requiredMins = minCourseDuration > 0 ? minCourseDuration : 1;
-        return nextAvailableMins + requiredMins > shiftEndMins;
+        const validSlot = slots.find(([sStart, sEnd]) => sEnd - sStart >= requiredMins);
+
+        if (validSlot) {
+          return { mins: validSlot[0], finished: false };
+        } else {
+          return { mins: 9999, finished: true };
+        }
       };
 
-      const earliestMap = new Map<string, number>();
-      reservations.filter((r: any) => r.status === 'confirmed').forEach(r => {
-        const mins = hhmToMinutes(r.start_time.slice(0, 5));
-        const cur = earliestMap.get(r.therapist_id) ?? 9999;
-        if (mins < cur) earliestMap.set(r.therapist_id, mins);
+      const availabilityMap = new Map<string, { mins: number; finished: boolean }>();
+      sortedOthers.forEach(t => {
+        availabilityMap.set(t.id, getNextAvailableMins(t));
       });
+
       sortedOthers.sort((a, b) => {
         if (isOff(a) !== isOff(b)) return isOff(a) ? 1 : -1;
-        const aFinished = isEffectivelyFinished(a);
-        const bFinished = isEffectivelyFinished(b);
-        if (aFinished !== bFinished) return aFinished ? 1 : -1;
-        const aMin = earliestMap.get(a.id) ?? 9999;
-        const bMin = earliestMap.get(b.id) ?? 9999;
-        if (aMin !== bMin) return aMin - bMin;
+        const aAvail = availabilityMap.get(a.id)!;
+        const bAvail = availabilityMap.get(b.id)!;
+
+        if (aAvail.finished !== bAvail.finished) {
+          return aAvail.finished ? 1 : -1;
+        }
+        if (aAvail.mins !== bAvail.mins) {
+          return aAvail.mins - bAvail.mins;
+        }
         return hhmToMinutes(a.shiftStart || '99:99') - hhmToMinutes(b.shiftStart || '99:99');
       });
     }
-    return unassignedTherapist ? [unassignedTherapist, ...sortedOthers] : sortedOthers;
-  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration]);
+    return [unassignedTherapist, ...sortedOthers];
+  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop]);
 
   // 週間表示用：全セラピストを詳細な形式にマップ
   const therapistsForWeekly = therapists.map(t => ({
@@ -842,16 +1448,132 @@ export default function ShiftsPage() {
     hip: t.hip,
     staffMemo: t.staffMemo,
     unresolvedMemos: t.unresolvedMemos,
+    linked_therapist_group_id: t.linked_therapist_group_id ?? null,
+    linked_shop_names: t.linked_shop_names || [],
   }));
 
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
-        <div className="mb-2 md:mb-3">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">スケジュール</h1>
-          <p className="text-xs md:text-sm text-slate-500">
-            {viewMode === 'day' ? 'タイムチャート表示' : '週間表示'}
-          </p>
+        <div className="mb-2 md:mb-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              スケジュール
+              {/* 店舗ルールツールチップ */}
+              <div className="relative group cursor-pointer ml-3">
+                <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
+                  <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-slate-700">店舗ルール</span>
+                  <span className="text-slate-300 px-0.5">/</span>
+                  <span className="text-blue-600">料金システム</span>
+                </span>
+                {/* ツールチップの内容 */}
+                <div className="absolute left-0 top-full mt-2 w-80 p-4 bg-white border border-slate-200 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-sm max-h-[80vh] overflow-y-auto">
+                  <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{selectedShop?.name} 店舗ルール</h3>
+                  
+                  {/* 特殊ルール・注意事項 */}
+                  {selectedShop?.special_rules && (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                        <span className="text-amber-500">💡</span> 特殊ルール・注意事項
+                      </h4>
+                      <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 shadow-sm">
+                        {selectedShop.special_rules}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* コース料金 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-blue-500">🕒</span> 料金システム（コース）
+                    </h4>
+                    {shopCourses.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopCourses.map((c, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{c.name} ({c.duration}分)</span>
+                            <span className="font-bold text-slate-800">¥{c.price.toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">コースが設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* 指名料金 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-indigo-500">👑</span> 指名料金
+                    </h4>
+                    {shopDesignations.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopDesignations.map((d, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{d.name}</span>
+                            <span className="font-bold text-slate-800">
+                              {d.fee > 0 ? `¥${d.fee.toLocaleString()}` : '無料'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">指名料金が設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* 割引 */}
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-rose-500">🏷️</span> 割引ルール
+                    </h4>
+                    {shopDiscounts.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopDiscounts.map((d, i) => (
+                          <li key={i} className="flex justify-between border-b border-slate-50 pb-1 last:border-0">
+                            <span className="text-slate-700">{d.name}</span>
+                            <span className="font-bold text-rose-600">-¥{d.value.toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">割引が設定されていません</p>
+                    )}
+                  </div>
+
+                  {/* オプション */}
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
+                      <span className="text-emerald-500">✨</span> オプション
+                    </h4>
+                    {shopOptions.length > 0 ? (
+                      <ul className="text-xs space-y-1">
+                        {shopOptions.map((o, i) => (
+                          <li key={i} className="flex flex-col border-b border-slate-50 pb-1 last:border-0">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-700">{o.name}</span>
+                              <span className="font-bold text-slate-800">¥{o.price.toLocaleString()}</span>
+                            </div>
+                            {o.duration > 0 && (
+                              <div className="text-[10px] text-slate-400 text-right mt-0.5">追加時間: +{o.duration}分</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400">オプションが設定されていません</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </h1>
+            <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+              {viewMode === 'day' ? 'タイムチャート横表示' : viewMode === 'vertical' ? 'タイムチャート縦表示' : '週間表示'}
+            </p>
+          </div>
         </div>
 
         {/* フィルターと表示切り替え */}
@@ -866,7 +1588,16 @@ export default function ShiftsPage() {
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
               >
-                タイムチャート
+                タイムチャート（横）
+              </button>
+              <button
+                onClick={() => setViewMode('vertical')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'vertical'
+                  ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                タイムチャート（縦）
               </button>
               <button
                 onClick={() => setViewMode('week')}
@@ -901,7 +1632,7 @@ export default function ShiftsPage() {
 
             {/* 日付ナビゲーション */}
             <div className="flex gap-1 items-center bg-slate-100 p-1 rounded-lg">
-              {viewMode === 'day' ? (
+              {viewMode === 'day' || viewMode === 'vertical' ? (
                 <>
                   <button
                     onClick={handlePrevDay}
@@ -957,27 +1688,58 @@ export default function ShiftsPage() {
                 </>
               )}
             </div>
+
+
           </div>
         </div>
 
-        {/* ローディング（日表示のみ） */}
-        {viewMode === 'day' && loading && (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-600">読み込み中...</p>
-          </div>
-        )}
-
         {/* タイムチャートビュー */}
-        {viewMode === 'day' && !loading && (() => {
-          const chartHeight = 56 + sortedTherapistsWithShift.length * 76 + 10;
+        {viewMode === 'day' && (() => {
           return (
-            <div className="bg-white rounded-lg shadow-lg overflow-visible">
-              <div style={{ height: `${Math.max(chartHeight, 200)}px` }} className="w-full">
+            <div className="bg-white rounded-lg shadow-lg overflow-visible relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+                  <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
+                </div>
+              )}
+              <div style={{ height: '700px' }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart
                     therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
+                    scrollToTime={searchParams.get('scroll_to_time')}
+                    onBlockedClick={(id, startTime, endTime) =>
+                      setBlockedModal({ id, startTime, endTime })
+                    }
+                    onShiftEditOpen={handleOpenShiftEdit}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    シフトがあるセラピストがいません
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* タイムチャート縦（バーティカル）ビュー */}
+        {viewMode === 'vertical' && (() => {
+          return (
+            <div className="bg-white rounded-lg shadow-lg overflow-visible relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+                  <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
+                </div>
+              )}
+              <div style={{ height: '700px' }} className="w-full">
+                {sortedTherapistsWithShift.length > 0 ? (
+                  <VerticalTimeChart
+                    therapists={sortedTherapistsWithShift}
+                    schedules={schedules}
+                    date={filterDate}
+                    scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime })
                     }
@@ -1002,6 +1764,7 @@ export default function ShiftsPage() {
             roomOrderMap={roomOrderMap}
             shopIntervalMinutes={shopIntervalMinutes}
             minCourseDuration={minCourseDuration}
+            extensionUnitMinutes={extensionUnitMinutes}
             onDayClick={(date) => {
               setFilterDate(date);
               setViewMode('day');
@@ -1225,27 +1988,82 @@ export default function ShiftsPage() {
                 <p className="text-xs text-slate-400 text-center py-2">未解決のメモはありません</p>
               )}
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {shiftEditModal.unresolvedMemos.map(memo => (
-                  <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
-                        {memo.amount !== 0 && (
-                          <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                            {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
-                          </span>
-                        )}
+                {shiftEditModal.unresolvedMemos.map(memo => {
+                  const isEditing = editingMemoId === memo.id;
+                  if (isEditing) {
+                    return (
+                      <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                        <textarea
+                          value={editMemoForm.content}
+                          onChange={e => setEditMemoForm(f => ({ ...f, content: e.target.value }))}
+                          rows={1}
+                          className="w-full px-2 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                          placeholder="内容"
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editMemoForm.amount}
+                              onChange={e => setEditMemoForm(f => ({ ...f, amount: e.target.value }))}
+                              className="w-20 px-1.5 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none"
+                              placeholder="金額"
+                            />
+                            <span className="text-[10px] text-slate-500">円</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingMemoId(null)}
+                              className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 rounded transition-all"
+                            >
+                              キャンセル
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateMemo(memo.id)}
+                              disabled={!editMemoForm.content.trim()}
+                              className="px-2.5 py-1 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded transition-all"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
+                    );
+                  }
+
+                  return (
+                    <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
+                          {memo.amount !== 0 && (
+                            <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                              {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleEditMemoStart(memo)}
+                          className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 border border-slate-200 hover:border-indigo-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
+                          className="text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          解決済み
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
-                      className="flex-shrink-0 text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
-                    >
-                      解決済み
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1315,6 +2133,20 @@ export default function ShiftsPage() {
           </div>
         </div>
       )}
+
+
     </div>
+  );
+}
+
+export default function ShiftsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-slate-500 font-medium">読み込み中...</div>
+      </div>
+    }>
+      <ShiftsContent />
+    </Suspense>
   );
 }

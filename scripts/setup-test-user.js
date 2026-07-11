@@ -20,59 +20,95 @@ async function createOrUpdateTestUser() {
   try {
     console.log('🚀 Creating test user...');
 
-    const email = 'admin@example.com';
+    const loginId = 'admin';
+    const email = `${loginId}@yoyakl.tokyo`;
     const password = 'admin123';
     const role = 'admin';
 
-    // パスワードをハッシュ化
+    // パスワードをハッシュ化 (public.usersテーブルの制約用)
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 既存のユーザーをチェック
-    const { data: existingUsers, error: checkError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email);
+    // 1. Supabase Auth 管理用APIを使用してユーザーの作成・更新
 
-    if (checkError) {
-      console.error('❌ Error checking existing user:', checkError);
-      throw checkError;
+    console.log('🔑 Setting up user in Supabase Auth...');
+    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error('❌ Error listing auth users:', listError);
+      throw listError;
     }
 
+    const existingAuthUser = usersData.users.find(u => u.email === email);
     let userId;
 
-    if (existingUsers && existingUsers.length > 0) {
-      // ユーザーが存在する場合は更新
-      userId = existingUsers[0].id;
-      console.log('📝 Updating existing user...');
-      
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ password_hash: hashedPassword, role: role, updated_at: new Date().toISOString() })
-        .eq('email', email);
+    if (existingAuthUser) {
+      console.log('📝 Auth user already exists. Updating password and metadata...');
+      const { data: updatedUser, error: updateError } = await supabase.auth.admin.updateUserById(
+        existingAuthUser.id,
+        { 
+          password: password, 
+          user_metadata: { role: role } 
+        }
+      );
 
       if (updateError) {
-        console.error('❌ Error updating user:', updateError);
+        console.error('❌ Error updating auth user:', updateError);
         throw updateError;
       }
-      console.log('✅ User updated successfully');
+      userId = existingAuthUser.id;
+      console.log('✅ Auth user updated successfully');
     } else {
-      // ユーザーが存在しない場合は作成
-      console.log('➕ Creating new user...');
-      
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert([{ email, password_hash: hashedPassword, role }])
-        .select()
-        .single();
+      console.log('➕ Creating new user in Supabase Auth...');
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { role: role }
+      });
 
-      if (insertError) {
-        console.error('❌ Error creating user:', insertError);
-        throw insertError;
+      if (createError) {
+        console.error('❌ Error creating auth user:', createError);
+        throw createError;
       }
-      
-      userId = newUser.id;
-      console.log('✅ User created successfully');
+      userId = newUser.user.id;
+      console.log('✅ Auth user created successfully');
     }
+
+    // public.usersテーブルとの同期（トリガーが何らかの理由で発火しなかった場合や、既存ユーザー更新時のフォールバック）
+    console.log('🔄 Syncing user into public.users table...');
+    
+    // 競合する古いテストユーザー (異なるIDで登録されているもの) を削除
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('login_id', loginId)
+      .neq('id', userId);
+      
+    if (deleteError) {
+      console.warn('⚠️ Warning during old user cleanup:', deleteError.message);
+    }
+
+    const { error: syncError } = await supabase
+      .from('users')
+      .upsert({
+
+        id: userId,
+        login_id: loginId,
+        password_hash: hashedPassword,
+        role: role,
+        name: '管理者',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+
+    if (syncError) {
+      console.error('❌ Error syncing public.users:', syncError);
+      throw syncError;
+    }
+    console.log('✅ Synchronized public.users successfully');
+
+
+
 
     // デフォルト店舗を取得または作成
     console.log('🏪 Checking default shop...');
@@ -139,8 +175,9 @@ async function createOrUpdateTestUser() {
     }
 
     console.log('\n✨ Test user setup completed!');
-    console.log('📧 Email: admin@example.com');
+    console.log('📧 Login ID: admin');
     console.log('🔑 Password: admin123');
+
     
   } catch (error) {
     console.error('❌ Setup error:', error);

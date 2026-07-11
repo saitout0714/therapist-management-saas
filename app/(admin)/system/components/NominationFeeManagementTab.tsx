@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 
@@ -122,24 +122,24 @@ export function NominationFeeManagementTab() {
                 </form>
             )}
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead className="bg-slate-50">
                         <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                            <th className="p-4 w-32">種別</th>
-                            <th className="p-4">マンション名</th>
-                            <th className="p-4 w-32">基本料金</th>
-                            <th className="p-4 w-32 text-right">操作</th>
+                            <th className="p-4 w-32 whitespace-nowrap">種別</th>
+                            <th className="p-4 whitespace-nowrap">マンション名</th>
+                            <th className="p-4 w-32 whitespace-nowrap">基本料金</th>
+                            <th className="p-4 w-32 text-right whitespace-nowrap">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {fees.map((r) => (
                             <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-4 text-sm text-slate-600 font-medium">
+                                <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
                                     {feeTypes.find(f => f.value === r.fee_type)?.label || r.fee_type}
                                 </td>
-                                <td className="p-4 text-sm font-bold text-slate-800">{r.name}</td>
-                                <td className="p-4 text-sm font-bold text-slate-800">¥{r.price.toLocaleString()}</td>
+                                <td className="p-4 text-sm font-bold text-slate-800 whitespace-nowrap">{r.name}</td>
+                                <td className="p-4 text-sm font-bold text-slate-800 whitespace-nowrap">¥{r.price.toLocaleString()}</td>
                                 <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
                                     <button className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors" onClick={() => { setEditingFee(r); setFormData({ fee_type: r.fee_type, name: r.name, price: r.price }); setShowForm(true) }}>編集</button>
                                     <button className="font-medium text-rose-600 hover:text-rose-800 transition-colors" onClick={() => void handleDelete(r.id)}>削除</button>

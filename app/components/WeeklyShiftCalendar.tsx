@@ -82,6 +82,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
   const [endTime, setEndTime] = useState('18:00')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -137,9 +138,20 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     // 当日以降の日付リスト（表示週内で今日以降）
     const upcomingDates = weekDates.map(formatDate).filter(d => d >= todayStr)
 
-    const list = showOnlyWithShift
+    // まず showOnlyWithShift でフィルター
+    const listByShift = showOnlyWithShift
       ? (() => { const ids = new Set(shifts.map((s) => s.therapist_id)); return therapists.filter((t) => ids.has(t.id)) })()
       : therapists
+
+    // 検索クエリでフィルター（空白区切り複数ワード対応）
+    const query = searchQuery.trim()
+    const list = query
+      ? listByShift.filter((t) =>
+          query.split(/\s+/).every((word) =>
+            t.name.toLowerCase().includes(word.toLowerCase())
+          )
+        )
+      : listByShift
 
     // セラピストごとに「当日以降で最初にあるシフト」を取得（当日優先）
     const firstShift = (therapistId: string): Shift | null => {
@@ -160,7 +172,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
       if (sa.date !== sb.date) return sa.date.localeCompare(sb.date)
       return sa.start_time.localeCompare(sb.start_time)
     })
-  }, [therapists, shifts, showOnlyWithShift, shiftMap, weekDates])
+  }, [therapists, shifts, showOnlyWithShift, shiftMap, weekDates, searchQuery])
 
   const openModal = (therapistId: string, date: string) => {
     const existing = shiftMap.get(`${therapistId}_${date}`) || null
@@ -202,7 +214,11 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
 
     setSaving(false)
     if (result.error) {
-      setError('保存に失敗しました: ' + result.error.message)
+      let msg = result.error.message
+      if (msg.includes('duplicate key value violates unique constraint') || msg.includes('shifts_therapist_id_date_start_time_end_time_key')) {
+        msg = 'このセラピストは、指定された日に同じ時間帯で既にシフトが登録されています。'
+      }
+      setError('保存に失敗しました: ' + msg)
       return
     }
 
@@ -228,6 +244,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full">
+      {/* ナビゲーションバー */}
       <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70 flex-shrink-0">
         <button
           className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -246,16 +263,70 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
         </button>
       </div>
 
+      {/* セラピスト検索バー */}
+      <div className="px-5 py-3 border-b border-slate-100 bg-white flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              id="therapist-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="セラピスト名で絞り込み..."
+              className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="検索をクリア"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {searchQuery.trim() ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {filteredTherapists.length}名表示中
+              </span>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-xs text-slate-500 hover:text-indigo-600 underline transition-colors"
+              >
+                全員表示
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs text-slate-400">
+              全{therapists.length}名
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="overflow-auto flex-1">
         <table className="w-full text-sm border-collapse min-w-[900px]">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">セラピスト</th>
+            <tr className="bg-slate-50">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 left-0 bg-slate-50 z-20 border-b border-slate-100">セラピスト</th>
               {weekDates.map((d) => {
                 const dateText = formatDate(d)
                 const isToday = dateText === formatDate(new Date())
                 return (
-                  <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
+                  <th key={dateText} className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[110px] sticky top-0 bg-slate-50 z-10 border-b border-slate-100 ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
                     <div className={isToday ? 'font-bold' : ''}>{d.getMonth()+1}/{d.getDate()}</div>
                     <div className={`text-[10px] mt-1 ${isToday ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>{dayLabels[d.getDay()]}</div>
                   </th>

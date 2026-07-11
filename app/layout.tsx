@@ -20,8 +20,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Therapist Management SaaS",
-  description: "Manage therapist shifts and reservations per store",
+  title: "YOYAKL",
+  description: "YOYAKL - セラピストシフト・予約管理システム (yoyakl.tokyo)",
 };
 
 export default function RootLayout({

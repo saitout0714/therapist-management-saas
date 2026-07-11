@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: sans-serif; padding: 15px; background: #f4f7f6; font-size: 14px;}
+    .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .shop-selector { margin-bottom: 20px; padding: 10px; background: #e8f0fe; border-radius: 4px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+    .radio-group { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 5px; }
+    button { background: #1a73e8; color: #fff; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; transition: background 0.2s;}
+    button:hover { background: #1557b0; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    #status { margin-top: 10px; padding: 10px; display: none; font-size: 12px; border-radius: 4px; font-weight: bold;}
+    .loading { background: #fff8e1; color: #b05e00; }
+    .success { background: #e6f4ea; color: #137333; }
+    .error { background: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="shop-selector">
+      <label>🏢 店舗を選択</label>
+      <div class="radio-group">
+        <? for (const key in SHOP_CONFIG) { ?>
+          <label><input type="radio" name="shop" value="<?= key ?>" <?= key === 'shop_1' ? 'checked' : '' ?>> <?= SHOP_CONFIG[key].name ?></label>
+        <? } ?>
+      </div>
+    </div>
+
+    <label>📝 テキストからシフト追加</label>
+    <textarea id="shiftText" rows="10" style="width:100%; margin-bottom:10px; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;" placeholder="ここに別のAI等でテキスト化したシフトを貼り付けてください"></textarea>
+    <button id="btnText" onclick="uploadText()">テキストからAI解析して追加</button>
+  </div>
+  
+  <div id="status"></div>
+
+  <script>
+    function setStatus(msg, type) {
+      const status = document.getElementById('status');
+      status.textContent = msg;
+      status.className = type;
+      status.style.display = 'block';
+    }
+
+    function toggleButtons(disabled) {
+      document.getElementById('btnText').disabled = disabled;
+    }
+
+    // テキストアップロード処理
+    function uploadText() {
+      const textInput = document.getElementById('shiftText').value;
+      const shopKey = document.querySelector('input[name="shop"]:checked').value;
+      if (!textInput.trim()) return alert('テキストを入力してください');
+
+      setStatus('テキスト解析中...', 'loading');
+      toggleButtons(true);
+
+      google.script.run
+        .withSuccessHandler(res => {
+          setStatus(res, 'success');
+          toggleButtons(false);
+          document.getElementById('shiftText').value = '';
+        })
+        .withFailureHandler(err => {
+          setStatus('エラー: ' + err, 'error');
+          toggleButtons(false);
+        })
+        .processTextShift(textInput, shopKey);
+    }
+  </script>
+</body>
+</html>

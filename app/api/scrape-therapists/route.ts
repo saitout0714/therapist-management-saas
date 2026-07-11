@@ -101,6 +101,99 @@ function extractPageText(html: string, maxLen = 10000): string {
     .slice(0, maxLen)
 }
 
+function parseLegend(html: string, baseUrl: string): any[] {
+  const results: any[] = []
+  const aPattern = /<a[^>]+href=["']([^"']*detail\.cgi\?status=\d+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  
+  let match
+  while ((match = aPattern.exec(html)) !== null) {
+    const href = match[1]
+    const innerHtml = match[2]
+    
+    const profileUrl = resolveUrl(baseUrl, href)
+    if (!profileUrl) continue
+    
+    const nameMatch = innerHtml.match(/class=["']thumbname["'][^>]*>([^<]+)/i)
+    let name = ''
+    let age = null
+    if (nameMatch) {
+      const rawText = nameMatch[1].trim()
+      const parts = rawText.match(/^([^\(（]+)(?:[\(（](\d+)[\)）])?/)
+      if (parts) {
+        name = parts[1].trim()
+        if (parts[2]) age = parseInt(parts[2], 10)
+      }
+    }
+    
+    const imgMatch = innerHtml.match(/<img[^>]+src=["']([^"']+)["']/i)
+    let photoUrl = null
+    if (imgMatch) {
+      photoUrl = resolveUrl(baseUrl, imgMatch[1])
+    }
+    
+    if (name) {
+      results.push({
+        name,
+        age,
+        profile_url: profileUrl,
+        photo_url: photoUrl,
+        height: null,
+        bust: null,
+        bust_cup: null,
+        waist: null,
+        hip: null,
+        comment: null,
+        rank: null
+      })
+    }
+  }
+  return results
+}
+
+function parseEstheHp(html: string, baseUrl: string): any[] {
+  const results: any[] = []
+  const pattern = /<a[^>]+href=["']([^"']*(?:item_\d+\.html|\/item\/\d+))["'][^>]*>([\s\S]*?)<\/a>/gi
+  const seen = new Set<string>()
+  
+  let match
+  while ((match = pattern.exec(html)) !== null) {
+    const href = match[1]
+    const innerHtml = match[2]
+    
+    const profileUrl = resolveUrl(baseUrl, href)
+    if (!profileUrl || seen.has(profileUrl)) continue
+    
+    const text = innerHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    
+    let name = text
+    let age: number | null = null
+    const m = text.match(/[\(（](\d+)(?:歳)?[\)）]/)
+    if (m) {
+      name = text.split(/[\(（]/)[0].trim()
+      age = parseInt(m[1], 10)
+    }
+    
+    if (!name || name.length <= 1 || name.length > 10) continue
+    if (/トップ|出勤|料金|案内|システム|予約|求人|アクセス|ブログ|日記|掲示板/i.test(name)) continue
+    
+    seen.add(profileUrl)
+    results.push({
+      name,
+      age,
+      profile_url: profileUrl,
+      photo_url: null,
+      height: null,
+      bust: null,
+      bust_cup: null,
+      waist: null,
+      hip: null,
+      comment: null,
+      rank: null
+    })
+  }
+  return results
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -129,6 +222,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `ページの取得に失敗しました: ${msg}` }, { status: 422 })
     }
 
+    const isCgiTemplate = html.includes('detail.cgi?status=') || url.toLowerCase().includes('legend')
+    
+    if (isCgiTemplate) {
+      const enriched = parseLegend(html, url)
+      return NextResponse.json({ therapists: enriched })
+    }
+
+    const isEstheHp = url.toLowerCase().includes('esthe-hp.com') || html.includes('esthe-hp.com') || html.includes('/r/css/fdcStyle_p.css')
+    if (isEstheHp) {
+      const enriched = parseEstheHp(html, url)
+      return NextResponse.json({ therapists: enriched })
+    }
+
     const pageText = extractPageText(html)
     const candidateUrls = extractCandidateUrls(html, url)
     const urlContexts = extractUrlContexts(html, url, candidateUrls)
@@ -136,7 +242,6 @@ export async function POST(req: NextRequest) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
-    // URL候補と周辺テキストをセットで渡す（数字IDのURLでも名前と対応付けられる）
     const urlSection = urlContexts.length > 0
       ? `\n個人ページURL候補（URLとその周辺テキスト）:\n${urlContexts.map(c => `${c.url} → ${c.context}`).join('\n')}\n`
       : ''
@@ -174,7 +279,6 @@ ${pageText}`
       return NextResponse.json({ error: `AIの応答を解析できませんでした。レスポンス: ${rawText.slice(0, 200)}` }, { status: 500 })
     }
 
-    // 候補リスト外のURLは破棄（ハルシネーション対策）
     const candidateSet = new Set(candidateUrls)
     const enriched = (extracted as Array<Record<string, unknown>>).map(t => {
       const pu = t.profile_url

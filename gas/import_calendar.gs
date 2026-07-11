@@ -1,24 +1,14 @@
 /**
- * Googleカレンダー → Supabase 予約インポートスクリプト
+ * Googleカレンダー → Supabase 予約インポートスクリプト（v4）
  *
- * ■ 手動実行手順
- *   1. GASエディタ左メニュー「プロジェクトの設定」>「スクリプト プロパティ」に
- *      プロパティ名: SUPABASE_SERVICE_ROLE_KEY
- *      値: Supabase の Service Role Key
- *      を登録する
- *   2. 下の importCalendarToSupabase() 内の startDate / endDate を設定する
- *   3. 関数名 importCalendarToSupabase を選んで「実行（▶）」
- *   4. 実行ログでインポート結果を確認する
- *
- * ■ ウェブアプリとして利用する場合
- *   1. [デプロイ] > [新しいデプロイ] > 種類: ウェブアプリ
- *   2. 次のユーザーとして実行: 自分
- *   3. アクセスできるユーザー: 全員（または自分のみ）
- *   4. デプロイ後に表示されるURLを NEXT_PUBLIC_GAS_IMPORT_URL に設定する
- *
- * ■ イベントタイトル形式
- *   {セラピスト名}さん{お客様名}様{施術時間}分{指名種別}
- *   例: リナさん田中様90分本指名 / アオイさん佐藤様60分フリー
+ * urlfetch最小化戦略:
+ *   - セラピスト一覧: 1回
+ *   - 指名種別マップ: 1回
+ *   - 既存予約: 1〜数回（1000件ページング）
+ *   - 既存顧客: 1〜数回（1000件ページング）← NEW
+ *   - 新規顧客作成: 新規顧客の数だけ
+ *   - 予約登録: 成功件数だけ
+ *   → 重複チェック・顧客検索はAPIコールなし（メモリ上）
  */
 
 // ===== 設定 =====
@@ -34,9 +24,8 @@ function getServiceRoleKey() {
 
 // ===== 手動実行エントリポイント =====
 function importCalendarToSupabase() {
-  // ★ 対象期間を変更してください
-  var startDate = new Date('2024-12-01T00:00:00+09:00');
-  var endDate   = new Date('2026-04-27T23:59:59+09:00');
+  var startDate = new Date('2026-05-01T00:00:00+09:00');
+  var endDate   = new Date('2026-07-31T23:59:59+09:00');
 
   var result = runImport(startDate, endDate);
 
@@ -96,7 +85,9 @@ function runImport(startDate, endDate) {
     return { imported: 0, skipped: 0, errors: 1, log: [String(err)] };
   }
 
-  // セラピスト一覧取得
+  // ===== 準備フェーズ（API呼び出しをまとめる）=====
+
+  // 1. セラピスト一覧（1回）
   var therapists;
   try {
     therapists = fetchTherapists(key);
@@ -105,17 +96,43 @@ function runImport(startDate, endDate) {
     return { imported: 0, skipped: 0, errors: 1, log: ['セラピスト取得失敗: ' + String(err)] };
   }
 
-  // 指名種別マップ取得（slug → id）
-  var designationTypeMap;
+  // 2. 指名種別マップ（1回）
+  var designationTypeMap = {};
   try {
     designationTypeMap = fetchDesignationTypeMap(key);
     log.push('[準備] 指名種別 ' + Object.keys(designationTypeMap).length + ' 種取得');
   } catch (err) {
-    log.push('[警告] 指名種別取得失敗（designation_type_id は null で登録します）: ' + String(err));
-    designationTypeMap = {};
+    log.push('[警告] 指名種別取得失敗（null で登録します）: ' + String(err));
   }
 
-  // Googleカレンダーイベント取得
+  // 3. 既存予約を一括取得（重複チェック用、APIコール数: 件数/1000）
+  var existingReservations = {};
+  try {
+    existingReservations = fetchExistingReservations(key, formatDate(startDate), formatDate(endDate));
+    log.push('[準備] 既存予約 ' + Object.keys(existingReservations).length + ' 件取得');
+  } catch (err) {
+    log.push('[警告] 既存予約取得失敗（重複チェックなしで続行）: ' + String(err));
+  }
+
+  // 4. 既存顧客を一括取得（顧客検索をメモリ化、APIコール数: 件数/1000）★NEW
+  var customerCache = {};
+  try {
+    customerCache = fetchAllCustomers(key);
+    log.push('[準備] 既存顧客 ' + Object.keys(customerCache).length + ' 件取得');
+  } catch (err) {
+    log.push('[警告] 既存顧客取得失敗（都度検索にフォールバック）: ' + String(err));
+  }
+
+  // 5. コース一覧を取得
+  var courseMap = {};
+  try {
+    courseMap = fetchActiveCoursesMap(key);
+    log.push('[準備] コース情報取得完了');
+  } catch (err) {
+    log.push('[警告] コース情報取得失敗（コース紐付けなしでインポートします）: ' + String(err));
+  }
+
+  // 6. カレンダーイベント取得
   var calendar = CalendarApp.getCalendarById(CALENDAR_ID);
   if (!calendar) {
     return { imported: 0, skipped: 0, errors: 1, log: ['カレンダーが見つかりません: ' + CALENDAR_ID] };
@@ -124,24 +141,20 @@ function runImport(startDate, endDate) {
   log.push('[準備] イベント ' + events.length + ' 件取得 (' +
     formatDate(startDate) + ' 〜 ' + formatDate(endDate) + ')');
 
-  // 顧客名 → ID のキャッシュ（同一顧客の重複API呼び出しを防ぐ）
-  var customerCache = {};
-
-  // タイムアウト対策：5分で自動停止（残りは次回実行で続きから処理）
+  // ===== 処理フェーズ =====
   var startMs = new Date().getTime();
   var MAX_MS  = 5 * 60 * 1000;
 
   for (var i = 0; i < events.length; i++) {
     if (new Date().getTime() - startMs > MAX_MS) {
-      log.push('[中断] 実行時間5分に達しました。残り ' + (events.length - i) + ' 件未処理。' +
-        '再実行すると処理済みをスキップして続きから処理されます。');
+      log.push('[中断] 実行時間5分に達しました。残り ' + (events.length - i) + ' 件未処理。再実行で続きから処理されます。');
       break;
     }
 
     var event = events[i];
     var title = event.getTitle();
 
-    // タイトルパース
+    // パース
     var parsed = parseEventTitle(title);
     if (!parsed) {
       log.push('[スキップ] パース不可: "' + title + '"');
@@ -152,7 +165,7 @@ function runImport(startDate, endDate) {
     // セラピスト検索
     var therapist = findTherapistByName(therapists, parsed.therapistName);
     if (!therapist) {
-      log.push('[スキップ] セラピスト未登録: "' + parsed.therapistName + '" / タイトル: "' + title + '"');
+      log.push('[スキップ] セラピスト未登録: "' + parsed.therapistName + '" / "' + title + '"');
       skipped++;
       continue;
     }
@@ -164,32 +177,34 @@ function runImport(startDate, endDate) {
     var startTimeStr = formatTime(eventStart);
     var endTimeStr   = formatTime(eventEnd);
 
-    // 重複チェック（同日・同開始時刻・同セラピスト）
-    var isDuplicate;
-    try {
-      isDuplicate = checkDuplicateReservation(key, dateStr, startTimeStr, therapist.id);
-    } catch (err) {
-      log.push('[エラー] 重複チェック失敗: ' + dateStr + ' ' + startTimeStr + ' / ' + String(err));
-      errors++;
-      continue;
-    }
-    if (isDuplicate) {
-      log.push('[スキップ(重複)] ' + dateStr + ' ' + startTimeStr + ' ' + parsed.therapistName + ' / ' + parsed.customerName + '様');
+    // 重複チェック（メモリ上、APIコールなし）
+    var dupKey = dateStr + '_' + startTimeStr + '_' + therapist.id;
+    if (existingReservations[dupKey]) {
+      log.push('[スキップ(重複)] ' + dateStr + ' ' + startTimeStr + ' ' + therapist.name + ' / ' + parsed.customerName);
       skipped++;
       continue;
     }
 
-    // 顧客 取得または作成
+    // 顧客名のs/ｓクレンジング
+    var cleanCustName = parsed.customerName.trim();
+    var sMatch = cleanCustName.match(/^[sｓ]([^a-zA-Z\s\d].*)$/);
+    if (sMatch) {
+      cleanCustName = sMatch[1].trim();
+    }
+
+    // 顧客ID取得（キャッシュヒット → APIコールなし、新規のみAPIコール）
     var customerId;
     try {
-      if (customerCache[parsed.customerName]) {
-        customerId = customerCache[parsed.customerName];
+      if (customerCache[cleanCustName]) {
+        customerId = customerCache[cleanCustName];
       } else {
-        customerId = findOrCreateCustomer(key, parsed.customerName);
-        customerCache[parsed.customerName] = customerId;
+        // 新規顧客作成（APIコール1回）
+        customerId = createCustomer(key, cleanCustName);
+        customerCache[cleanCustName] = customerId;
+        log.push('[新規顧客] ' + cleanCustName);
       }
     } catch (err) {
-      log.push('[エラー] 顧客取得/作成失敗: "' + parsed.customerName + '" / ' + String(err));
+      log.push('[エラー] 顧客作成失敗: "' + cleanCustName + '" / ' + String(err));
       errors++;
       continue;
     }
@@ -198,27 +213,52 @@ function runImport(startDate, endDate) {
     var designationSlug   = mapDesignationType(parsed.designationType);
     var designationTypeId = designationTypeMap[designationSlug] || null;
 
-    // 予約登録
+    // コース時間の自動判別
+    var durationMin = calculateDuration(startTimeStr, endTimeStr);
+    var matchedCourse = courseMap[durationMin] || null;
+
+    // 営業日の計算 (朝 06:00 前は前日の営業日)
+    var businessDateStr = dateStr;
+    var startParts = startTimeStr.split(':');
+    var startH = parseInt(startParts[0], 10);
+    var startM = parseInt(startParts[1], 10);
+    if (startH * 60 + startM < 6 * 60) {
+      var d = new Date(dateStr + 'T00:00:00+09:00');
+      d.setDate(d.getDate() - 1);
+      businessDateStr = formatDate(d);
+    }
+
+    // 予約登録（APIコール1回）
     try {
       insertReservation(key, {
         shop_id:             SHOP_ID,
         therapist_id:        therapist.id,
         customer_id:         customerId,
         date:                dateStr,
+        business_date:       businessDateStr,
         start_time:          startTimeStr,
         end_time:            endTimeStr,
-        status:              'completed',
+        status:              'confirmed', // ★ 'completed' から 'confirmed' に変更して表示を可能にする
         designation_type:    designationSlug,
         designation_type_id: designationTypeId,
-        total_price:         0,
+        course_id:           matchedCourse ? matchedCourse.id : null,
+        base_price:          matchedCourse ? matchedCourse.base_price : 0,
+        total_price:         matchedCourse ? matchedCourse.base_price : 0,
+        payment_method:      'cash',
+        options_payment_method: 'cash',
+        extension_payment_method: 'cash',
+        customer_notified:   true,
+        therapist_notified:  true,
         notes:               'Googleカレンダーよりインポート',
       });
+
+      existingReservations[dupKey] = true; // 同一実行内の重複防止
       log.push('[成功] ' + dateStr + ' ' + startTimeStr + '〜' + endTimeStr +
-        ' ' + parsed.therapistName + ' / ' + parsed.customerName + '様 (' + designationSlug + ')');
+        ' ' + therapist.name + ' / ' + cleanCustName + ' (' + designationSlug + ')');
       imported++;
     } catch (err) {
       log.push('[エラー] 予約登録失敗: ' + dateStr + ' ' + startTimeStr +
-        ' ' + parsed.therapistName + ' / ' + String(err));
+        ' ' + therapist.name + ' / ' + String(err));
       errors++;
     }
   }
@@ -226,99 +266,51 @@ function runImport(startDate, endDate) {
   return { imported: imported, skipped: skipped, errors: errors, log: log };
 }
 
-// ===== タイトルパース =====
-// 形式: {セラピスト名}さん{お客様名}様{施術時間}分{指名種別}
-function parseEventTitle(title) {
-  var match = title.match(/^(.+?)さん(.+?)様(\d+)分(.*)$/);
-  if (!match) return null;
-  return {
-    therapistName:   match[1].trim(),
-    customerName:    match[2].trim(),
-    duration:        parseInt(match[3], 10),
-    designationType: match[4].trim(),
-  };
-}
-
-// ===== 指名種別テキスト → DBスラッグ変換 =====
-function mapDesignationType(text) {
-  if (!text)                       return 'free';
-  if (text.indexOf('本指名') >= 0)  return 'confirmed';
-  if (text.indexOf('初回指名') >= 0) return 'first_nomination';
-  if (text.indexOf('フリー') >= 0)   return 'free';
-  if (text.indexOf('指名') >= 0)     return 'first_nomination';
-  return 'free';
-}
-
-// ===== セラピスト名前検索（前後空白・全半角を考慮）=====
-function findTherapistByName(therapists, name) {
-  var normalized = name.trim();
-  for (var i = 0; i < therapists.length; i++) {
-    if (therapists[i].name.trim() === normalized) return therapists[i];
+// ===== 既存予約を一括取得 =====
+function fetchExistingReservations(key, startDate, endDate) {
+  var map    = {};
+  var limit  = 1000;
+  var offset = 0;
+  while (true) {
+    var rows = supabaseRequest(key, 'GET',
+      '/reservations?shop_id=eq.' + SHOP_ID +
+      '&date=gte.' + startDate + '&date=lte.' + endDate +
+      '&select=date,start_time,therapist_id' +
+      '&limit=' + limit + '&offset=' + offset
+    ) || [];
+    rows.forEach(function(r) {
+      // 秒部分を切り落として HH:mm 形式に標準化
+      var normTime = r.start_time ? r.start_time.substring(0, 5) : '';
+      map[r.date + '_' + normTime + '_' + r.therapist_id] = true;
+    });
+    if (rows.length < limit) break;
+    offset += limit;
   }
-  return null;
-}
-
-// ===== 日時フォーマット（JST）=====
-function formatDate(date) {
-  return Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy-MM-dd');
-}
-
-function formatTime(date) {
-  return Utilities.formatDate(date, 'Asia/Tokyo', 'HH:mm:ss');
-}
-
-// ===== Supabase REST APIラッパー =====
-function supabaseRequest(key, method, path, body) {
-  var options = {
-    method:             method,
-    headers: {
-      'apikey':         key,
-      'Authorization':  'Bearer ' + key,
-      'Content-Type':   'application/json',
-      'Prefer':         'return=representation',
-    },
-    muteHttpExceptions: true,
-  };
-  if (body) options.payload = JSON.stringify(body);
-
-  var response = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1' + path, options);
-  var code     = response.getResponseCode();
-  var text     = response.getContentText();
-
-  if (code >= 400) {
-    throw new Error('HTTP ' + code + ': ' + text.slice(0, 300));
-  }
-  return text ? JSON.parse(text) : null;
-}
-
-function fetchTherapists(key) {
-  return supabaseRequest(
-    key, 'GET',
-    '/therapists?shop_id=eq.' + SHOP_ID + '&is_active=eq.true&select=id,name&order=name'
-  ) || [];
-}
-
-function fetchDesignationTypeMap(key) {
-  var types = supabaseRequest(
-    key, 'GET',
-    '/designation_types?shop_id=eq.' + SHOP_ID + '&is_active=eq.true&select=id,slug'
-  ) || [];
-  var map = {};
-  types.forEach(function(t) { map[t.slug] = t.id; });
   return map;
 }
 
-function findOrCreateCustomer(key, name) {
-  // 名前で既存顧客検索（URLエンコード済みのeqフィルタ）
-  var existing = supabaseRequest(
-    key, 'GET',
-    '/customers?shop_id=eq.' + SHOP_ID +
-    '&name=eq.' + encodeURIComponent(name) +
-    '&select=id&limit=1'
-  );
-  if (existing && existing.length > 0) return existing[0].id;
+// ===== 既存顧客を全件一括取得（名前→IDのマップ）★NEW =====
+function fetchAllCustomers(key) {
+  var map    = {};
+  var limit  = 1000;
+  var offset = 0;
+  while (true) {
+    var rows = supabaseRequest(key, 'GET',
+      '/customers?shop_id=eq.' + SHOP_ID +
+      '&select=id,name' +
+      '&limit=' + limit + '&offset=' + offset
+    ) || [];
+    rows.forEach(function(r) {
+      map[r.name] = r.id;
+    });
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+  return map;
+}
 
-  // 新規顧客作成
+// ===== 新規顧客作成のみ（検索は不要、キャッシュで済む）=====
+function createCustomer(key, name) {
   var created = supabaseRequest(key, 'POST', '/customers', {
     name:    name,
     shop_id: SHOP_ID,
@@ -329,18 +321,154 @@ function findOrCreateCustomer(key, name) {
   return created[0].id;
 }
 
-function checkDuplicateReservation(key, date, startTime, therapistId) {
-  var result = supabaseRequest(
-    key, 'GET',
-    '/reservations?shop_id=eq.' + SHOP_ID +
-    '&date=eq.' + date +
-    '&start_time=eq.' + encodeURIComponent(startTime) +
-    '&therapist_id=eq.' + therapistId +
-    '&select=id&limit=1'
+// ===== タイトルパース =====
+function parseEventTitle(title) {
+  // Step1: 先頭ノイズ除去（「姫予約」も追加）
+  var cleaned = title
+    .replace(/^[\s✅🆑🆕⚠️※]+/, '')
+    .replace(/^(キャンセル|セラピスト都合|姫予約)\s*/, '')
+    .replace(/^\d{1,2}:\d{2}[〜~]\d{0,2}:?\d{0,2}\s*/, '')
+    .replace(/^\d{1,2}:\d{2}[〜~]\s*/, '');
+
+  // 追加: セラピスト名の末尾につく「15」「20」「30精算」などを除去するヘルパー
+  function cleanTherapistName(name) {
+    return name.trim().replace(/\d+(精算)?$/, '');
+  }
+
+  // パターンA: 「さん〜様〜分」標準形式
+  var matchA = cleaned.match(
+    /^(.+?)さん\s*(新規|ご新規|会員|人気)?\s*(.+?)様\s*.*?(\d+)分(.*)$/
   );
-  return result && result.length > 0;
+  if (matchA) {
+    var customerA = matchA[3].trim().replace(/^(新規|ご新規|会員|人気)\s*/, '');
+    return {
+      therapistName:   cleanTherapistName(matchA[1]), // ★クリーニング適用
+      customerName:    customerA,
+      duration:        parseInt(matchA[4], 10),
+      designationType: matchA[5].trim(),
+    };
+  }
+
+  // パターンB: 「さん」「様」なしスペース区切り
+  var matchB = cleaned.match(
+    /^(.+?)\s+(新規|ご新規|会員)?\s*([^\s]+?\d{4})\s+.*?(\d+)分?(.*)$/
+  );
+  if (matchB) {
+    var customerB = matchB[3].trim().replace(/^(新規|ご新規|会員)\s*/, '');
+    return {
+      therapistName:   cleanTherapistName(matchB[1]), // ★クリーニング適用
+      customerName:    customerB,
+      duration:        parseInt(matchB[4], 10),
+      designationType: matchB[5].trim(),
+    };
+  }
+
+  // パターンC: 会員番号と分数が連結
+  var matchC = cleaned.match(
+    /^(.+?)さん\s*(新規|ご新規|会員)?\s*([^\s]+?\d{3,4})(\d+)分(.*)$/
+  );
+  if (matchC) {
+    var customerC = matchC[3].trim().replace(/^(新規|ご新規|会員)\s*/, '');
+    return {
+      therapistName:   cleanTherapistName(matchC[1]), // ★クリーニング適用
+      customerName:    customerC,
+      duration:        parseInt(matchC[4], 10),
+      designationType: matchC[5].trim(),
+    };
+  }
+
+  return null;
+}
+
+// ===== 指名種別変換 =====
+function mapDesignationType(text) {
+  if (!text)                         return 'free';
+  if (text.indexOf('本指名') >= 0)   return 'confirmed';
+  if (text.indexOf('ほん指名') >= 0) return 'confirmed';
+  if (text.indexOf('初回指名') >= 0) return 'first_nomination';
+  if (text.indexOf('フリー') >= 0)   return 'free';
+  if (text.indexOf('指名') >= 0)     return 'first_nomination';
+  return 'free';
+}
+
+// ===== セラピスト名検索（完全一致 → 前方一致）=====
+function findTherapistByName(therapists, name) {
+  var normalized = name.trim();
+  for (var i = 0; i < therapists.length; i++) {
+    if (therapists[i].name.trim() === normalized) return therapists[i];
+  }
+  var matched = [];
+  for (var i = 0; i < therapists.length; i++) {
+    if (therapists[i].name.trim().indexOf(normalized) === 0) matched.push(therapists[i]);
+  }
+  return matched.length === 1 ? matched[0] : null;
+}
+
+// ===== 日時フォーマット =====
+function formatDate(date) {
+  return Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+function formatTime(date) {
+  return Utilities.formatDate(date, 'Asia/Tokyo', 'HH:mm'); // ★ HH:mm:ss から HH:mm に変更してアプリと統一
+}
+
+// ===== Supabase REST APIラッパー =====
+function supabaseRequest(key, method, path, body) {
+  var options = {
+    method: method,
+    headers: {
+      'apikey':        key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=representation',
+    },
+    muteHttpExceptions: true,
+  };
+  if (body) options.payload = JSON.stringify(body);
+  var response = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1' + path, options);
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+  if (code >= 400) throw new Error('HTTP ' + code + ': ' + text.slice(0, 300));
+  return text ? JSON.parse(text) : null;
+}
+
+function fetchTherapists(key) {
+  return supabaseRequest(key, 'GET',
+    '/therapists?shop_id=eq.' + SHOP_ID + '&select=id,name&order=name'
+  ) || [];
+}
+
+function fetchDesignationTypeMap(key) {
+  var types = supabaseRequest(key, 'GET',
+    '/designation_types?shop_id=eq.' + SHOP_ID + '&is_active=eq.true&select=id,slug'
+  ) || [];
+  var map = {};
+  types.forEach(function(t) { map[t.slug] = t.id; });
+  return map;
 }
 
 function insertReservation(key, data) {
   supabaseRequest(key, 'POST', '/reservations', data);
+}
+
+function fetchActiveCoursesMap(key) {
+  var rows = supabaseRequest(key, 'GET',
+    '/courses?shop_id=eq.' + SHOP_ID + '&is_active=eq.true&select=id,duration,base_price'
+  ) || [];
+  var map = {};
+  rows.forEach(function(c) {
+    map[c.duration] = { id: c.id, base_price: c.base_price };
+  });
+  return map;
+}
+
+function calculateDuration(startStr, endStr) {
+  var startParts = startStr.split(':');
+  var endParts = endStr.split(':');
+  var startMin = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
+  var endMin = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1], 10);
+  if (endMin < startMin) {
+    endMin += 24 * 60;
+  }
+  return endMin - startMin;
 }

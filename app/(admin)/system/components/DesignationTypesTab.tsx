@@ -27,6 +27,8 @@ export function DesignationTypesTab() {
   const [items, setItems] = useState<DesignationType[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const [form, setForm] = useState({
     slug: '',
@@ -93,8 +95,9 @@ export function DesignationTypesTab() {
     const existingSlugs = (data || []).map((d: DesignationType) => d.slug)
     const missing = DEFAULT_DESIGNATION_TYPES.filter(d => !existingSlugs.includes(d.slug))
     if (missing.length > 0) {
-      await supabase.from('designation_types').insert(
-        missing.map(d => ({ ...d, shop_id: selectedShop.id }))
+      await supabase.from('designation_types').upsert(
+        missing.map(d => ({ ...d, shop_id: selectedShop.id })),
+        { onConflict: 'shop_id, slug' }
       )
       // 再取得
       const { data: refetched } = await supabase
@@ -109,6 +112,43 @@ export function DesignationTypesTab() {
     setLoading(false)
   }
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newItems = [...items]
+    const draggedItem = newItems[draggedIndex]
+    newItems.splice(draggedIndex, 1)
+    newItems.splice(index, 0, draggedItem)
+
+    setDraggedIndex(index)
+    setItems(newItems)
+  }
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null)
+    if (!selectedShop) return
+
+    // Optimistically update display_order in local state
+    const updated = items.map((item, idx) => ({ ...item, display_order: idx }))
+    setItems(updated)
+
+    const promises = items.map((item, idx) =>
+      supabase.from('designation_types').update({ display_order: idx, updated_at: new Date().toISOString() }).eq('id', item.id)
+    )
+    const results = await Promise.all(promises)
+    const hasError = results.some(r => r.error)
+    if (hasError) {
+      alert('並び替え順の保存に失敗しました')
+      void fetchItems()
+    }
+  }
+
   useEffect(() => { void fetchItems() }, [selectedShop])
 
   const resetForm = () => {
@@ -121,6 +161,7 @@ export function DesignationTypesTab() {
       default_fee: 0,
       default_back_amount: 0,
     })
+    setShowForm(false)
   }
 
   const handleEdit = (item: DesignationType) => {
@@ -133,6 +174,7 @@ export function DesignationTypesTab() {
       default_fee: item.default_fee || 0,
       default_back_amount: item.default_back_amount || 0,
     })
+    setShowForm(true)
   }
 
   const handleSave = async () => {
@@ -167,143 +209,180 @@ export function DesignationTypesTab() {
   if (loading) return <div className="text-center py-10 text-slate-500">読み込み中...</div>
 
   return (
-    <div className="space-y-6">
-      {/* 追加/編集フォーム */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-base font-bold text-slate-800 mb-4">
-          {editingId ? '指名種別を編集' : '新しい指名種別を追加'}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-          <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">種別名</label>
-            <input
-              type="text"
-              value={form.display_name}
-              onChange={e => {
-                const name = e.target.value
-                const newForm = { ...form, display_name: name }
-                // 新規追加時のみスラッグを自動生成（編集時は既存のスラッグを維持）
-                if (!editingId) {
-                  newForm.slug = generateSlug(name, items)
-                }
-                setForm(newForm)
-              }}
-              placeholder="例: 本指名"
-              className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
-            />
-          </div>
-          <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">デフォルト料金</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs text-sm">¥</span>
-              <input
-                type="number"
-                value={form.default_fee}
-                onChange={e => setForm({ ...form, default_fee: Number(e.target.value) })}
-                className="w-full border border-slate-200 rounded-xl bg-indigo-50/50 pl-7 pr-3 py-2.5 text-sm font-bold text-slate-800"
-              />
-            </div>
-          </div>
-          <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-400 mb-1">デフォルトバック</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold text-sm">B</span>
-              <input
-                type="number"
-                value={form.default_back_amount}
-                onChange={e => setForm({ ...form, default_back_amount: Number(e.target.value) })}
-                className="w-full border border-slate-200 rounded-xl bg-indigo-50/50 pl-7 pr-3 py-2.5 text-sm font-bold text-indigo-600"
-              />
-            </div>
-          </div>
-          <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">順序</label>
-            <input
-              type="number"
-              value={form.display_order}
-              onChange={e => setForm({ ...form, display_order: Number(e.target.value) })}
-              className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm"
-            />
-          </div>
-          <div className="md:col-span-1 border-l border-slate-100 flex flex-col justify-end px-4">
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer mb-2">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={e => setForm({ ...form, is_active: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded"
-              />
-              有効
-            </label>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSave}
-            className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors text-sm"
-          >
-            {editingId ? '更新する' : '追加する'}
-          </button>
-          {editingId && (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5">
+      {showForm ? (
+        <form onSubmit={(e) => { e.preventDefault(); void handleSave() }} className="space-y-6">
+          {/* Header Bar */}
+          <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
             <button
+              type="button"
               onClick={resetForm}
-              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors text-sm"
+              className="p-2 -ml-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              title="一覧に戻る"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                editingId ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {editingId ? '編集選択中' : '新規登録'}
+              </span>
+              <h3 className="text-lg font-bold text-slate-800 mt-1">
+                {editingId ? `「${form.display_name}」の編集` : '新規指名種別登録'}
+              </h3>
+            </div>
+          </div>
+
+          {/* Form Body */}
+          <div className="space-y-6 max-w-2xl">
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-600">種別名</label>
+              <input
+                type="text"
+                value={form.display_name}
+                onChange={e => {
+                  const name = e.target.value
+                  const newForm = { ...form, display_name: name }
+                  if (!editingId) {
+                    newForm.slug = generateSlug(name, items)
+                  }
+                  setForm(newForm)
+                }}
+                placeholder="例: 本指名"
+                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-600">デフォルト料金</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                  <input
+                    type="number"
+                    value={form.default_fee}
+                    onChange={e => setForm({ ...form, default_fee: Number(e.target.value) })}
+                    className="w-full border border-slate-200 rounded-lg pl-8 pr-4 py-2.5 bg-white text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none font-bold"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-indigo-700">デフォルトバック額</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm font-bold">¥</span>
+                  <input
+                    type="number"
+                    value={form.default_back_amount}
+                    onChange={e => setForm({ ...form, default_back_amount: Number(e.target.value) })}
+                    className="w-full border border-indigo-200 rounded-lg pl-8 pr-4 py-2.5 bg-indigo-50/50 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm font-bold text-indigo-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  有効にする
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="pt-6 border-t border-slate-100 flex gap-3 max-w-2xl">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors text-sm"
             >
               キャンセル
             </button>
-          )}
-        </div>
-      </div>
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors text-sm"
+            >
+              {editingId ? '更新する' : '登録する'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">指名種別管理</h2>
+              <p className="text-sm text-slate-500 mt-1">指名種別（フリー、本指名、初回指名など）と、それぞれのデフォルト料金・バック額を設定します。</p>
+            </div>
+            <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+              新規登録
+            </button>
+          </div>
 
-      {/* 一覧テーブル */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <h3 className="font-bold text-slate-700">指名種別一覧（{items.length}件）</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">順序</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">種別名</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">デフォルト料金</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">デフォルトバック</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500">状態</th>
-                <th className="px-4 py-3 text-xs font-semibold text-slate-500 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {items.map(item => (
-                <tr key={item.id} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3 text-sm text-slate-600">{item.display_order}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-slate-800">{item.display_name}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-slate-700">¥{(item.default_fee || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-indigo-600">¥{(item.default_back_amount || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {item.is_active ? '有効' : '無効'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button onClick={() => handleEdit(item)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">編集</button>
-                    {!SYSTEM_SLUGS.includes(item.slug) && (
-                      <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700 text-sm font-medium">削除</button>
-                    )}
-                    {SYSTEM_SLUGS.includes(item.slug) && (
-                      <span className="text-xs text-slate-400 ml-1">デフォルト</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">指名種別が登録されていません</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[650px]">
+                <thead className="bg-slate-50">
+                  <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
+                    <th className="p-4 w-10"></th>
+                    <th className="p-4">種別名</th>
+                    <th className="p-4 w-32">デフォルト料金</th>
+                    <th className="p-4 w-32 text-indigo-600">デフォルトバック</th>
+                    <th className="p-4 w-20">状態</th>
+                    <th className="p-4 w-32 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-slate-50/50 transition-colors ${draggedIndex === index ? 'opacity-40 bg-slate-100' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                        <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
+                      </td>
+                      <td className="p-4 text-sm font-bold text-slate-800">{item.display_name}</td>
+                      <td className="p-4 text-sm font-bold text-slate-700">¥{(item.default_fee || 0).toLocaleString()}</td>
+                      <td className="p-4 text-sm font-bold text-indigo-600">¥{(item.default_back_amount || 0).toLocaleString()}</td>
+                      <td className="p-4">
+                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${item.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                          {item.is_active ? '有効' : '無効'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
+                        <button onClick={() => handleEdit(item)} className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle">編集</button>
+                        {!SYSTEM_SLUGS.includes(item.slug) ? (
+                          <button onClick={() => handleDelete(item.id)} className="font-medium text-rose-600 hover:text-rose-800 transition-colors align-middle">削除</button>
+                        ) : (
+                          <span className="text-xs text-slate-400 ml-1 align-middle">デフォルト</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {items.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">指名種別が登録されていません</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

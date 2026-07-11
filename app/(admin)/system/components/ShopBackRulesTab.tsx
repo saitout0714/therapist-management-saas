@@ -149,6 +149,9 @@ export function ShopBackRulesTab() {
       rounding_method:           form.rounding_method,
       business_day_cutoff:       form.business_day_cutoff,
       updated_at:                new Date().toISOString(),
+      course_calc_type:          'fixed',
+      option_calc_type:          'fixed',
+      nomination_calc_type:      'fixed',
     }
 
     const result = ruleId

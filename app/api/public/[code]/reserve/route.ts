@@ -19,20 +19,40 @@ type SmtpSettings = {
 }
 
 function getMailTransporter(smtpSettings?: SmtpSettings | null) {
-  const host = smtpSettings?.smtp_host || process.env.SMTP_HOST || 'smtp.example.com'
+  // データベース側でSMTPサーバー（ホスト）が登録されていない場合は、
+  // 環境変数（.env.local）の設定をすべてそのまま使用して送信する（データベースのデフォルト値による上書きを防ぐ）
+  if (!smtpSettings?.smtp_host) {
+    const host = process.env.SMTP_HOST || 'smtp.example.com'
+    const port = parseInt(process.env.SMTP_PORT || '587', 10)
+    const secure = process.env.SMTP_SECURE === 'true'
+    const user = process.env.SMTP_USER || 'test@example.com'
+    const pass = process.env.SMTP_PASS || 'password'
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+    })
+  }
+
+  const host = smtpSettings.smtp_host
   
   let port = parseInt(process.env.SMTP_PORT || '587', 10)
-  if (smtpSettings?.smtp_port !== undefined && smtpSettings?.smtp_port !== null) {
+  if (smtpSettings.smtp_port !== undefined && smtpSettings.smtp_port !== null) {
     port = smtpSettings.smtp_port
   }
 
   let secure = process.env.SMTP_SECURE === 'true'
-  if (smtpSettings?.smtp_secure !== undefined && smtpSettings?.smtp_secure !== null) {
+  if (smtpSettings.smtp_secure !== undefined && smtpSettings.smtp_secure !== null) {
     secure = smtpSettings.smtp_secure
   }
 
-  const user = smtpSettings?.smtp_user || process.env.SMTP_USER || 'test@example.com'
-  const pass = smtpSettings?.smtp_pass || process.env.SMTP_PASS || 'password'
+  const user = smtpSettings.smtp_user || process.env.SMTP_USER || 'test@example.com'
+  const pass = smtpSettings.smtp_pass || process.env.SMTP_PASS || 'password'
 
   return nodemailer.createTransport({
     host,
@@ -61,7 +81,11 @@ async function sendConfirmationEmail({
   room,
   isNewCustomer,
   shopAddressMode,
+  webReserveAddressMode,
   smtpSettings,
+  shopName,
+  hpUrl,
+  phone,
 }: {
   email: string
   customerName: string
@@ -78,35 +102,49 @@ async function sendConfirmationEmail({
   room: any | null
   isNewCustomer: boolean
   shopAddressMode: string
+  webReserveAddressMode: string
   smtpSettings?: SmtpSettings | null
+  shopName: string
+  hpUrl?: string | null
+  phone?: string | null
 }) {
   try {
     const transporter = getMailTransporter(smtpSettings)
-    const from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"予約完了通知" <noreply@example.com>'
+    
+    // 送信元（From）の生成
+    // 優先順位: 1. 店舗の個別 From 設定, 2. 環境変数の SMTP_FROM, 3. デフォルト noreply
+    let from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"予約完了通知" <noreply@example.com>'
+    
+    // 共通サーバーを使う（店舗個別 From がない、または環境変数の SMTP_FROM を使う）場合に、店舗名を動的に差し込む
+    if (!smtpSettings?.smtp_from && shopName) {
+      const emailMatch = from.match(/<([^>]+)>/)
+      const emailAddress = emailMatch ? emailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+      from = `"${shopName} 予約確認" <${emailAddress}>`
+    }
 
-    // ルーム・住所・案内文の出し分けロジック
-    let address = 'ご来店時にご案内いたします'
-    let mapUrl = ''
+    // 返信不可アドレスの抽出（Reply-To用）
+    const fromEmailMatch = from.match(/<([^>]+)>/)
+    const replyToAddress = fromEmailMatch ? fromEmailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+
+    // ルーム・案内文の出し分けロジック
     let template = ''
     let additionalNote = ''
     const commonNote = room?.sms_note_common || ''
 
     if (room) {
-      if (isNewCustomer) {
+      // WEB予約住所送信モードが「新規／会員で切替」かつ「新規顧客」の場合のみ新規様用テンプレートを使用
+      if (webReserveAddressMode === 'split_by_membership' && isNewCustomer) {
         // 新規顧客向け
-        address = (shopAddressMode === 'split_by_membership' && room.address_nearby) 
-          ? room.address_nearby 
-          : (room.address || address)
-        mapUrl = (shopAddressMode === 'split_by_membership' && room.google_map_url_nearby)
-          ? room.google_map_url_nearby
-          : (room.google_map_url || '')
-        template = room.template_new_customer || room.template_member || ''
+        // WEB予約メール自動返信用の新規様向けテンプレがあればそれを使用。なければデフォルト案内文を表示
+        template = room.template_web_new_customer || `※※ ご新規様へ重要なお知らせ ※※
+防犯上の都合により、マンションの詳しい住所や部屋番号はメールには記載しておりません。
+この後、店舗よりお客様の携帯電話番号へSMS（ショートメッセージ）にて詳細な道案内をお送りいたします。
+そちらのSMSをご確認いただき、ご返信をいただいた時点でご予約確定とさせていただきます。`
+        
         additionalNote = room.sms_note_new_customer || ''
       } else {
-        // 会員顧客向け
-        address = room.address || address
-        mapUrl = room.google_map_url || ''
-        template = room.template_member || room.template_new_customer || ''
+        // 会員顧客向け（または一律送信の場合）
+        template = room.template_web_member || ''
         additionalNote = room.sms_note_member || ''
       }
     }
@@ -115,7 +153,9 @@ async function sendConfirmationEmail({
 
     let bodyText = `【ご予約完了】ご予約ありがとうございます。
 
-※本メールはシステム自動送信によるご予約確認メールです。
+※※ 重要 ※※
+本メールは送信専用アドレスから自動送信されています。
+このメールに直接返信することはできません。お問い合わせ等がある場合は、お手数ですが店舗までお電話または公式LINEなどより直接ご連絡いただきますようお願いいたします。
 
 この度はご予約いただき誠にありがとうございます。
 ご予約内容が確定いたしましたので、詳細をご案内いたします。
@@ -138,12 +178,6 @@ async function sendConfirmationEmail({
     }
 
     bodyText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
-    if (room) {
-      bodyText += `・住所：${address}\n`
-      if (mapUrl) {
-        bodyText += `・地図：${mapUrl}\n`
-      }
-    }
 
     if (template) {
       bodyText += `\n${template}\n`
@@ -153,14 +187,28 @@ async function sendConfirmationEmail({
       bodyText += `\n${additionalNote}\n`
     }
 
-    bodyText += `
+    let footerText = `
 ------------------------
+※このメールは送信専用アドレス（noreply）のため、直接ご返信いただくことはできません。
 ※ご予約の変更・キャンセルは、お早めに店舗までご連絡ください。
 皆様のご来店を心よりお待ちしております。`
+
+    if (shopName) {
+      footerText += `\n\n【店舗情報】\n・店舗名：${shopName}`
+      if (phone) {
+        footerText += `\n・電話番号：${phone}`
+      }
+      if (hpUrl) {
+        footerText += `\n・ウェブサイト：${hpUrl}`
+      }
+    }
+
+    bodyText += footerText
 
     const mailOptions = {
       from,
       to: email,
+      replyTo: replyToAddress,
       subject: `【ご予約完了】ご予約ありがとうございます`,
       text: bodyText,
     }
@@ -169,6 +217,74 @@ async function sendConfirmationEmail({
     console.log(`[Email Sent] Confirmation successfully sent to ${email}`)
   } catch (error) {
     console.error('[Email Error] Failed to send confirmation email:', error)
+  }
+}
+
+async function sendRejectionEmail({
+  email,
+  customerName,
+  shopName,
+  phone,
+  hpUrl,
+  smtpSettings,
+}: {
+  email: string
+  customerName: string
+  shopName: string
+  phone?: string | null
+  hpUrl?: string | null
+  smtpSettings?: SmtpSettings | null
+}) {
+  try {
+    const transporter = getMailTransporter(smtpSettings)
+    
+    let from = smtpSettings?.smtp_from || process.env.SMTP_FROM || '"店舗案内" <noreply@example.com>'
+    if (!smtpSettings?.smtp_from && shopName) {
+      const emailMatch = from.match(/<([^>]+)>/)
+      const emailAddress = emailMatch ? emailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+      from = `"${shopName}" <${emailAddress}>`
+    }
+
+    const fromEmailMatch = from.match(/<([^>]+)>/)
+    const replyToAddress = fromEmailMatch ? fromEmailMatch[1] : (from.includes('@') ? from.trim() : 'noreply@example.com')
+
+    let bodyText = `${customerName} 様
+    
+この度はご予約のお申し込みをいただきありがとうございます。
+
+大変恐れ入りますが、当店は現在、WEB予約が初めてのお客様からの自動受付を制限させていただいております。
+
+WEB予約を完了することができませんでしたので、ご新規でのご予約をご希望の場合、または【お電話番号が変わられたお客様】は、大変お手数ですが直接店舗までお電話または公式LINEよりお問い合わせいただきますようお願い申し上げます。
+`
+
+    let footerText = `
+------------------------
+※このメールは送信専用アドレス（noreply）のため、直接ご返信いただくことはできません。`
+
+    if (shopName) {
+      footerText += `\n\n【店舗情報】\n・店舗名：${shopName}`
+      if (phone) {
+        footerText += `\n・電話番号：${phone}`
+      }
+      if (hpUrl) {
+        footerText += `\n・ウェブサイト：${hpUrl}`
+      }
+    }
+
+    bodyText += footerText
+
+    const mailOptions = {
+      from,
+      to: email,
+      replyTo: replyToAddress,
+      subject: `【重要】WEB予約の受付についてのご案内`,
+      text: bodyText,
+    }
+
+    await transporter.sendMail(mailOptions)
+    console.log(`[Rejection Email Sent] Sent to ${email}`)
+  } catch (error) {
+    console.error('[Rejection Email Error] Failed to send email:', error)
   }
 }
 
@@ -207,6 +323,15 @@ export async function POST(
   }
 
   const shopId = codeRow.shop_id
+
+  // 新規予約受付設定を取得
+  const { data: systemSettings } = await supabase
+    .from('system_settings')
+    .select('allow_new_customers')
+    .eq('shop_id', shopId)
+    .maybeSingle()
+  const allowNewCustomers = systemSettings?.allow_new_customers ?? true
+
   let body: ReserveBody
 
   try {
@@ -258,6 +383,44 @@ export async function POST(
       .eq('id', customerId)
       .is('furigana', null)
   } else {
+    // 新規予約制限のチェック
+    if (!allowNewCustomers) {
+      // メールアドレスが入力されている場合、お断りメールを自動送信
+      if (customer.email) {
+        try {
+          const [shopRes, settingsRes] = await Promise.all([
+            supabase.from('shops').select('name, phone').eq('id', shopId).maybeSingle(),
+            supabase
+              .from('system_settings')
+              .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url')
+              .eq('shop_id', shopId)
+              .maybeSingle()
+          ])
+
+          const shopName = shopRes.data?.name || ''
+          const shopPhone = shopRes.data?.phone || null
+          const smtpSettings = settingsRes.data
+          const hpUrl = settingsRes.data?.hp_url || null
+
+          await sendRejectionEmail({
+            email: customer.email,
+            customerName: customer.name,
+            shopName,
+            phone: shopPhone,
+            hpUrl,
+            smtpSettings,
+          })
+        } catch (emailErr) {
+          console.error('[Rejection Email Error] Failed to send rejection email:', emailErr)
+        }
+      }
+
+      return NextResponse.json(
+        { error: '当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。※会員様で予約完了できない場合もお手数ですが、お電話、公式LINEにてお問合せください。' },
+        { status: 400 }
+      )
+    }
+
     // 新規顧客作成（電話番号は数字のみに正規化して保存）
     const { data: newCustomer, error: customerError } = await supabase
       .from('customers')
@@ -279,15 +442,34 @@ export async function POST(
     isNewCustomer = true
   }
 
+  // NGセラピストチェック
+  if (!isNewCustomer && therapist_id) {
+    const { data: ngData, error: ngError } = await supabase
+      .from('customer_therapist_ng')
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('therapist_id', therapist_id)
+      .maybeSingle()
+
+    if (ngError) {
+      console.error('NGチェックエラー:', ngError)
+    } else if (ngData) {
+      return NextResponse.json(
+        { error: 'ご指定のセラピストでのご予約は承ることができません。別のセラピストを選択するか、指名なしでご予約ください。' },
+        { status: 400 }
+      )
+    }
+  }
+
   // 指名区分の自動判定
   // therapist_id なし（フリー選択）→ free
   // therapist_id あり + 既存顧客 + 同セラピスト履歴あり → confirmed（本指名）
-  // therapist_id あり + それ以外 → nomination（初回指名）
+  // therapist_id あり + それ以外 → first_nomination（初回指名）
   let designationType: string
   if (!therapist_id) {
     designationType = 'free'
   } else if (isNewCustomer) {
-    designationType = 'nomination'
+    designationType = 'first_nomination'
   } else {
     const { data: priorReservations } = await supabase
       .from('reservations')
@@ -299,7 +481,7 @@ export async function POST(
 
     designationType = priorReservations && priorReservations.length > 0
       ? 'confirmed'
-      : 'nomination'
+      : 'first_nomination'
   }
 
   // コース情報取得
@@ -354,10 +536,12 @@ export async function POST(
   let nominationFee = 0
 
   if (designationType !== 'free' && !designationTypeRow?.is_store_paid_back) {
-    if (resolvedPrice.customerPrice > (course?.base_price || 0)) {
+    const originalBase = course?.base_price || 0
+    if (resolvedPrice.customerPrice > originalBase) {
       // コース料金自体が matrix やデフォルト設定によって高くなっている場合、
-      // 指名料はすでにその customerPrice に内包されているため、追加の nominationFee は 0 とする
-      nominationFee = 0
+      // 指名料はすでにその customerPrice に内包されているため、差し引いて分離する
+      nominationFee = resolvedPrice.customerPrice - originalBase
+      basePrice = originalBase
     } else {
       // フォールバック: system_settings や therapist_pricing から取得
       const { data: systemSettings } = await supabase
@@ -438,6 +622,8 @@ export async function POST(
       course_id,
       status: 'confirmed',
       payment_method,
+      options_payment_method: 'cash',
+      extension_payment_method: 'cash',
       source: 'web',
       is_handled: false,
       base_price: basePrice,
@@ -463,16 +649,20 @@ export async function POST(
   try {
     // 1. 店舗の送信モードと個別SMTP設定を並行取得
     const [shopRes, settingsRes] = await Promise.all([
-      supabase.from('shops').select('sms_address_mode').eq('id', shopId).maybeSingle(),
+      supabase.from('shops').select('name, sms_address_mode, web_reserve_address_mode, phone').eq('id', shopId).maybeSingle(),
       supabase
         .from('system_settings')
-        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from')
+        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url')
         .eq('shop_id', shopId)
         .maybeSingle()
     ])
 
     const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
+    const webReserveAddressMode = shopRes.data?.web_reserve_address_mode || 'unified'
+    const shopName = shopRes.data?.name || ''
+    const shopPhone = shopRes.data?.phone || null
     const smtpSettings = settingsRes.data
+    const hpUrl = settingsRes.data?.hp_url || null
 
     // 2. ルーム情報を取得
     let roomInfo = null
@@ -490,6 +680,8 @@ export async function POST(
             google_map_url_nearby,
             template_new_customer,
             template_member,
+            template_web_member,
+            template_web_new_customer,
             sms_note_common,
             sms_note_new_customer,
             sms_note_member
@@ -505,9 +697,9 @@ export async function POST(
       }
     }
 
-    // 3. メール送信を実行 (非同期でバックグラウンド実行)
+    // 3. メール送信を実行 (サーバーレス環境でプロセスが終了するのを防ぐため、送信完了を待機する)
     if (customer.email) {
-      sendConfirmationEmail({
+      await sendConfirmationEmail({
         email: customer.email,
         customerName: customer.name,
         date,
@@ -523,13 +715,35 @@ export async function POST(
         room: roomInfo,
         isNewCustomer,
         shopAddressMode,
+        webReserveAddressMode,
         smtpSettings,
-      }).catch((err) => {
-        console.error('[Email Background Error] sendConfirmationEmail failed:', err)
+        shopName,
+        hpUrl,
+        phone: shopPhone,
       })
     }
   } catch (emailFetchErr) {
     console.error('[Email Info Fetch Error] Failed to fetch context for email dispatch:', emailFetchErr)
+  }
+
+  // Googleカレンダー同期APIの呼び出し（バックグラウンド実行）
+  try {
+    const protocol = req.headers.get('x-forwarded-proto') || 'http'
+    const host = req.headers.get('host')
+    const syncUrl = `${protocol}://${host}/api/calendar-sync`
+    
+    void fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reservationId: reservation.id,
+        action: 'create'
+      })
+    }).catch((syncErr) => {
+      console.error('[CalendarSync] Web予約時のカレンダー同期呼び出しに失敗しました:', syncErr)
+    })
+  } catch (syncErr) {
+    console.error('[CalendarSync] Web予約時のカレンダー同期呼び出しのセットアップに失敗しました:', syncErr)
   }
 
   return NextResponse.json({
