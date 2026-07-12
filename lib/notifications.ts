@@ -207,7 +207,7 @@ export async function sendAdminReservationNotification({
           phone,
           email
         ),
-        therapists (
+        therapists!reservations_therapist_id_fkey (
           name
         ),
         courses (
