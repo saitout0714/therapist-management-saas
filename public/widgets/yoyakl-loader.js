@@ -30,9 +30,9 @@
         visibility: hidden;
       }
       .yoyakl-widget {
-        --yk-pink: #758e7b; /* セージグリーン */
-        --yk-pink-hover: #5d7362;
-        --yk-pink-light: #f1f4f2;
+        --yk-pink: var(--yoyakl-primary, #758e7b); /* セージグリーン */
+        --yk-pink-hover: var(--yoyakl-primary-hover, #5d7362);
+        --yk-pink-light: var(--yoyakl-primary-light, #f1f4f2);
         --yk-gray-50: #f8fafc;
         --yk-gray-100: #f1f5f9;
         --yk-gray-200: #e2e8f0;
