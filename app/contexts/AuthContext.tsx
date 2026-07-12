@@ -7,7 +7,7 @@ type User = {
   id: string
   loginId: string
   name?: string | null
-  role: 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner'
+  role: 'developer' | 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner'
   shops?: Array<{
     id: string
     name: string
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (normalizedRole === 'owner') normalizedRole = 'simple_client_owner'
         if (normalizedRole === 'staff') normalizedRole = 'agency_staff'
 
-        if (normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
+        if (normalizedRole !== 'developer' && normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
           const { data: shopsData, error: shopsError } = await supabase
             .from('shop_owners')
             .select('shops(*)')
@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 3. 店舗情報を取得（system_admin と agency_staff 以外の場合）
       let shops: { id: string; name: string }[] = []
-      if (normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
+      if (normalizedRole !== 'developer' && normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
         const { data: shopsData, error: shopsError } = await supabase
           .from('shop_owners')
           .select('shops(*)')

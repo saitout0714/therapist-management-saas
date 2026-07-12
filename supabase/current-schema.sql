@@ -45,10 +45,10 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- B. システム管理者（system_admin） または 受付スタッフ（agency_staff） の場合は全アクセスを許可
+  -- B. 開発者またはシステム管理者、受付スタッフの場合は全アクセスを許可
   IF EXISTS (
     SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND role IN ('system_admin', 'agency_staff')
+    WHERE id = auth.uid() AND role IN ('developer', 'system_admin', 'agency_staff')
   ) THEN
     RETURN TRUE;
   END IF;

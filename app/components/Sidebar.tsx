@@ -34,10 +34,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
   ];
 
-  const adminItems = ["system_admin", "agency_staff"].includes(user?.role || "") ? [
+  const adminItems = ["developer", "system_admin", "agency_staff"].includes(user?.role || "") ? [
     { href: "/admin", label: "店舗管理" },
     { href: "/admin/agency-aggregation", label: "代行プラン集計" },
-    ...(user?.role === "system_admin" ? [
+    ...(["developer", "system_admin"].includes(user?.role || "") ? [
       { href: "/users", label: "アカウント管理" },
       { href: "/shifts/sync", label: "外部シフト同期" },
     ] : []),

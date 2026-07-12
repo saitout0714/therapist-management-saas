@@ -116,10 +116,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { loginId, password, name, role, shopId } = await req.json()
+    const { loginId, password, name, role, shopId, currentUserRole } = await req.json()
 
     if (!loginId || !password || !name || !role || !shopId) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+    }
+
+    if (role === 'developer' && currentUserRole !== 'developer') {
+      return NextResponse.json({ error: '開発者アカウントの作成には開発者権限が必要です' }, { status: 403 })
     }
 
     const email = loginId.includes('@') ? loginId : `${loginId}@yoyakl.tokyo`
@@ -154,8 +158,8 @@ export async function POST(req: Request) {
     }
 
     // 3. shop_owners (店舗オーナー/スタッフの関連付けテーブル) に登録
-    // システム管理者 (system_admin) および 受付スタッフ (agency_staff) は全店舗共通で紐付け不要のため登録をスキップします
-    if (role !== 'system_admin' && role !== 'agency_staff') {
+    // システム管理者 (system_admin)、受付スタッフ (agency_staff)、および開発者 (developer) は全店舗共通で紐付け不要のため登録をスキップします
+    if (role !== 'developer' && role !== 'system_admin' && role !== 'agency_staff') {
       const { error: ownerError } = await serviceSupabase
         .from('shop_owners')
         .insert([{
@@ -188,10 +192,20 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const { userId, name, role, password } = await req.json()
+    const { userId, name, role, password, currentUserRole } = await req.json()
 
     if (!userId || !name || !role) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+    }
+
+    if (role === 'developer' && currentUserRole !== 'developer') {
+      return NextResponse.json({ error: '開発者アカウントの更新には開発者権限が必要です' }, { status: 403 })
+    }
+
+    // 更新対象の現在のロールを取得してチェックする
+    const { data: targetUser } = await serviceSupabase.from('users').select('role').eq('id', userId).single()
+    if (targetUser && targetUser.role === 'developer' && currentUserRole !== 'developer') {
+      return NextResponse.json({ error: '開発者アカウントの操作には開発者権限が必要です' }, { status: 403 })
     }
 
     // 1. パスワードが入力されている場合は、Supabase Auth でパスワードを更新
@@ -247,9 +261,16 @@ export async function DELETE(req: Request) {
   try {
     const url = new URL(req.url)
     const userId = url.searchParams.get('userId')
+    const currentUserRole = url.searchParams.get('currentUserRole')
 
     if (!userId) {
       return NextResponse.json({ error: 'userId が必要です' }, { status: 400 })
+    }
+
+    // 削除対象のユーザーロールを取得
+    const { data: targetUser } = await serviceSupabase.from('users').select('role').eq('id', userId).single()
+    if (targetUser && targetUser.role === 'developer' && currentUserRole !== 'developer') {
+      return NextResponse.json({ error: '開発者アカウントの削除には開発者権限が必要です' }, { status: 403 })
     }
 
     // 1. データベース (public.users) から削除

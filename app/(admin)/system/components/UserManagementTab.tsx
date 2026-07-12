@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 type UserRow = {
   id: string
@@ -17,11 +18,12 @@ export function UserManagementTab() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingUser, setEditingUser] = useState<UserRow | null>(null)
+  const { user: currentUser } = useAuth()
   const [form, setForm] = useState({
     loginId: '',
     password: '',
     name: '',
-    role: 'agency_staff' as 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner',
+    role: 'agency_staff' as 'developer' | 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner',
   })
 
   async function fetchUsers() {
@@ -68,6 +70,7 @@ export function UserManagementTab() {
           name: form.name.trim(),
           role: form.role,
           shopId: selectedShop.id,
+          currentUserRole: currentUser?.role,
         }),
       })
 
@@ -99,6 +102,7 @@ export function UserManagementTab() {
           name: form.name.trim(),
           role: form.role,
           password: form.password || undefined,
+          currentUserRole: currentUser?.role,
         }),
       })
 
@@ -132,7 +136,7 @@ export function UserManagementTab() {
 
     try {
       setLoading(true)
-      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+      const res = await fetch(`/api/admin/users?userId=${userId}&currentUserRole=${currentUser?.role || ''}`, {
         method: 'DELETE',
       })
       const data = await res.json()
@@ -202,6 +206,7 @@ export function UserManagementTab() {
                 onChange={e => setForm({ ...form, role: e.target.value as any })}
                 className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-sm"
               >
+                {currentUser?.role === 'developer' && <option value="developer">マスター（開発者）</option>}
                 <option value="system_admin">システム管理者</option>
                 <option value="agency_staff">受付スタッフ</option>
               </select>
@@ -278,9 +283,10 @@ export function UserManagementTab() {
 
           <div className="space-y-6">
             {[
+              { role: 'developer', label: 'マスター', badgeClass: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200/60' },
               { role: 'system_admin', label: '管理者', badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200/60' },
               { role: 'agency_staff', label: '受付スタッフ', badgeClass: 'bg-slate-100 text-slate-700 border border-slate-200/60' },
-            ].map(group => {
+            ].filter(g => g.role !== 'developer' || currentUser?.role === 'developer').map(group => {
               const groupUsers = users.filter(u => u.role === group.role)
               
               return (
@@ -322,7 +328,9 @@ export function UserManagementTab() {
                               </td>
                               <td className="px-6 py-4 text-sm font-mono text-slate-600 whitespace-nowrap">{u.login_id}</td>
                               <td className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
-                                {u.role === 'system_admin' ? (
+                                {u.role === 'developer' ? (
+                                  <span className="text-fuchsia-600 font-bold bg-fuchsia-50 px-2 py-0.5 rounded-lg border border-fuchsia-200/50 whitespace-nowrap">全店舗共通（マスター）</span>
+                                ) : u.role === 'system_admin' ? (
                                   <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/50 whitespace-nowrap">全店舗共通（システム管理者）</span>
                                 ) : u.role === 'agency_staff' ? (
                                   <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/50 whitespace-nowrap">全店舗共通（受付担当）</span>
@@ -337,20 +345,26 @@ export function UserManagementTab() {
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => startEditing(u)}
-                                    className="p-2 text-slate-300 hover:text-indigo-600 transition-colors align-middle"
-                                    title="情報を編集"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636l-3.536 3.536m0 0l-1.414 1.414M15.828 4.172a4 4 0 015.656 5.656L10 17.657l-4-4L15.828 4.172z" /></svg>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    className="p-2 text-slate-300 hover:text-rose-600 transition-colors align-middle"
-                                    title="アカウントを削除"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                  </button>
+                                  {u.role !== 'developer' || currentUser?.role === 'developer' ? (
+                                    <>
+                                      <button
+                                        onClick={() => startEditing(u)}
+                                        className="p-2 text-slate-300 hover:text-indigo-600 transition-colors align-middle"
+                                        title="情報を編集"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636l-3.536 3.536m0 0l-1.414 1.414M15.828 4.172a4 4 0 015.656 5.656L10 17.657l-4-4L15.828 4.172z" /></svg>
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteUser(u.id)}
+                                        className="p-2 text-slate-300 hover:text-rose-600 transition-colors align-middle"
+                                        title="アカウントを削除"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-slate-300">操作不可</span>
+                                  )}
                                 </div>
                               </td>
                             </tr>

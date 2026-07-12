@@ -135,8 +135,8 @@ export default function ShopSwitcher() {
 
   // Filter and sort shops
   const filteredShops = shops.filter((shop) => {
-    // web予約プランの店舗は、システム管理者 (system_admin) 以外の切り替えバーには表示しない
-    if (shop.is_web_reserve_plan && user?.role !== 'system_admin') return false
+    // web予約プランの店舗は、マスター (developer) 以外の切り替えバーには表示しない
+    if (shop.is_web_reserve_plan && user?.role !== 'developer') return false
 
     const query = searchQuery.toLowerCase().trim()
     if (!query) return true
@@ -217,7 +217,26 @@ export default function ShopSwitcher() {
                     一致する店舗が見つかりません
                   </div>
                 ) : (
-                  filteredShops.map((shop) => renderShopButton(shop))
+                  <>
+                    {user?.role === 'developer' ? (
+                      <>
+                        {filteredShops.filter(s => !s.is_web_reserve_plan).length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">代行プラン</div>
+                            {filteredShops.filter(s => !s.is_web_reserve_plan).map(renderShopButton)}
+                          </>
+                        )}
+                        {filteredShops.filter(s => s.is_web_reserve_plan).length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2 border-t border-slate-100 pt-2">Web予約プラン</div>
+                            {filteredShops.filter(s => s.is_web_reserve_plan).map(renderShopButton)}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      filteredShops.map((shop) => renderShopButton(shop))
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -263,7 +282,8 @@ export default function ShopSwitcher() {
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-slate-800 text-sm truncate">{user.name || user.loginId}</p>
                 <p className="text-xs font-medium text-indigo-600 mt-0.5">
-                  {user.role === 'system_admin' ? 'システム管理者' : 
+                  {user.role === 'developer' ? 'マスター' :
+                   user.role === 'system_admin' ? 'システム管理者' : 
                    user.role === 'agency_client_owner' ? '代行プラン' : 
                    user.role === 'simple_client_owner' ? 'web予約プラン' : 
                    '代行スタッフ'}
