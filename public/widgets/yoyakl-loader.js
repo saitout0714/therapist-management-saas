@@ -699,6 +699,37 @@
   }
 
   // 各種ヘルパー関数
+  function revealVisibleCards(scope) {
+    if (typeof ScrollReveal === 'undefined') return;
+    const cards = Array.from(scope.querySelectorAll('.yk-card')).filter(card => {
+      const panel = card.closest('.yk-tab-panel');
+      if (panel && !panel.classList.contains('active')) {
+        return false;
+      }
+      if (card.getAttribute('data-sr-id')) {
+        return false;
+      }
+      return true;
+    });
+
+    if (cards.length > 0) {
+      const triggerOffset = Math.round(window.innerHeight / 3);
+      ScrollReveal().reveal(cards, {
+        origin: 'bottom',
+        distance: '25px',
+        duration: 3800,
+        delay: 350,
+        opacity: 0,
+        scale: 0.95,
+        easing: 'cubic-bezier(0.25, 1, 0.3, 1)',
+        interval: 250,
+        reset: false,
+        viewFactor: 0.05,
+        offset: triggerOffset
+      });
+    }
+  }
+
   function formatTime(timeStr) {
     if (!timeStr) return '';
     const parts = timeStr.split(':');
@@ -803,25 +834,7 @@
             revealAttempts++;
             if (typeof ScrollReveal !== 'undefined') {
               clearInterval(revealInterval);
-              const cards = widget.querySelectorAll('.yk-card');
-              if (cards.length > 0) {
-                // 画面の高さの「下1/3」にあたるピクセル数を動的計算
-                const triggerOffset = Math.round(window.innerHeight / 3);
-
-                ScrollReveal().reveal(cards, {
-                  origin: 'bottom',
-                  distance: '25px', /* 上昇距離を短くすることで、垂直方向の移動速度を圧倒的に遅く上品にする */
-                  duration: 3800,   /* アニメーション時間を3.8秒に設定し、極上のスローモーションに */
-                  delay: 350,       /* 初期ロード時のコマ飛びを防ぎ、かつスクロール時に余韻を持たせるための350msディレイ */
-                  opacity: 0,
-                  scale: 0.95,      
-                  easing: 'cubic-bezier(0.25, 1, 0.3, 1)', /* 初動が柔らかく、優雅に浮かび上がるカーブ */
-                  interval: 250,    /* カード同士の間差を250msに広げ、1枚ずつゆっくり立ち上がる心地よい時間を確保 */
-                  reset: false,
-                  viewFactor: 0.05,
-                  offset: triggerOffset /* 画面の下1/3を通過するまでは完全に非表示、通過後にエフェクト開始 */
-                });
-              }
+              revealVisibleCards(widget);
             } else if (revealAttempts > 50) { // 最大5秒で監視を解除
               clearInterval(revealInterval);
             }
@@ -837,6 +850,17 @@
   function renderWidget(container, data, mode, shopCode, therapistName, therapistId, castUrlPattern, rookieOnly = false, todayOnly = false) {
     const { shifts, therapists } = data;
     const displayTherapists = rookieOnly ? therapists.filter(t => t.is_rookie) : therapists;
+    
+    // 予約用URLの生成ヘルパー
+    const reserveUrl = container.getAttribute('data-reserve-url') || `${apiBase}/reserve/${shopCode}`;
+    function getBookUrl(therapistId, dateStr = '') {
+      const separator = reserveUrl.includes('?') ? '&' : '?';
+      let url = `${reserveUrl}${separator}therapist_id=${therapistId}`;
+      if (dateStr) {
+        url += `&date=${dateStr}`;
+      }
+      return url;
+    }
     
     // セラピスト個人用詳細ページリンクを生成するヘルパー
     function getTherapistProfileUrl(t) {
@@ -879,7 +903,7 @@
         return;
       }
 
-      container.innerHTML = renderSingleTherapistHTML(targetT, datesList, shifts, shopCode);
+      container.innerHTML = renderSingleTherapistHTML(targetT, datesList, shifts, shopCode, getBookUrl);
       
       // サムネイルクリック時のメイン画像切り替えイベント
       const thumbs = container.querySelectorAll('.yk-single-thumb');
@@ -897,12 +921,12 @@
       // セラピスト一覧ページ専用表示
       container.innerHTML = `
         <div class="yk-therapist-grid">
-          ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts)}
+          ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl)}
         </div>
       `;
     } else if (mode === 'schedule') {
       // スケジュールページ専用表示 (日付タブ付き)
-      container.innerHTML = renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl);
+      container.innerHTML = renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl, getBookUrl);
       initScheduleTabEvents(container, datesList);
     } else {
       // 複合表示（両方タブ切り替え）
@@ -927,13 +951,13 @@
         <!-- セラピスト一覧パネル -->
         <div class="yk-tab-panel active" id="yk-panel-therapists" role="tabpanel" aria-labelledby="yk-tab-btn-therapists">
           <div class="yk-therapist-grid">
-            ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts)}
+            ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl)}
           </div>
         </div>
         
         <!-- スケジュール一覧パネル -->
         <div class="yk-tab-panel" id="yk-panel-schedule" role="tabpanel" aria-labelledby="yk-tab-btn-schedule">
-          ${renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl)}
+          ${renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl, getBookUrl)}
         </div>
       `;
 
@@ -951,6 +975,9 @@
           tabScheduleBtn.setAttribute('aria-selected', 'false');
           panelTherapists.classList.add('active');
           panelSchedule.classList.remove('active');
+          setTimeout(() => {
+            revealVisibleCards(container);
+          }, 50);
         } else {
           tabTherapistsBtn.classList.remove('active');
           tabTherapistsBtn.setAttribute('aria-selected', 'false');
@@ -958,6 +985,9 @@
           tabScheduleBtn.setAttribute('aria-selected', 'true');
           panelTherapists.classList.remove('active');
           panelSchedule.classList.add('active');
+          setTimeout(() => {
+            revealVisibleCards(container);
+          }, 50);
         }
       }
 
@@ -970,7 +1000,7 @@
   }
 
   // セラピストカード一覧HTML
-  function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl, shifts = []) {
+  function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl, shifts = [], getBookUrl) {
     if (therapists.length === 0) {
       return '<div class="yk-no-shifts" style="grid-column:1/-1;">在籍セラピスト情報がありません。</div>';
     }
@@ -982,7 +1012,7 @@
       const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
       const hasPhoto = !!photoSrc;
       const profileText = formatProfileString(t);
-      const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}`;
+      const bookUrl = getBookUrl ? getBookUrl(t.id) : `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}`;
       const profileUrl = getTherapistProfileUrl(t);
 
       let rankBadgeHTML = '';
@@ -1024,7 +1054,7 @@
   }
 
   // スケジュール専用HTML（上部日付タブ ＋ アクティブ日グリッド）
-  function renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl) {
+  function renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl, getBookUrl) {
     const todayStr = getJstDateString(new Date());
     
     // 日付ごとにシフトを整理
@@ -1080,7 +1110,7 @@
                 const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
                 const hasPhoto = !!photoSrc;
                 const profileText = formatProfileString(t);
-                const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}&date=${dateStr}`;
+                const bookUrl = getBookUrl ? getBookUrl(t.id, dateStr) : `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}&date=${dateStr}`;
                 const profileUrl = getTherapistProfileUrl(t);
                 
                 let rankBadgeHTML = '';
@@ -1114,7 +1144,7 @@
                       ${profileText ? `<div class="yk-profile-str">${profileText}</div>` : ''}
                       <p class="yk-comment" title="${t.comment || ''}">${t.comment || 'よろしくお願いします。'}</p>
                       
-                      <a href="${bookUrl}" target="_blank" class="yk-card-hours-badge">
+                      <a href="${bookUrl}" target="_self" class="yk-card-hours-badge">
                         ${formatTime(s.start_time)} 〜 ${formatTime(s.end_time)} 指名予約
                       </a>
                     </div>
@@ -1139,7 +1169,7 @@
   }
 
   // 個人スケジュール＆プロフィール表示HTML
-  function renderSingleTherapistHTML(therapist, datesList, shifts, shopCode) {
+  function renderSingleTherapistHTML(therapist, datesList, shifts, shopCode, getBookUrl) {
     const todayStr = getJstDateString(new Date());
     
     // このセラピストのシフトのみを抽出
@@ -1186,8 +1216,8 @@
       
       if (shift) {
         shiftText = `<span style="color:var(--yk-pink); font-weight:700;">${formatTime(shift.start_time)} 〜 ${formatTime(shift.end_time)}</span>`;
-        const bookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}&date=${dateStr}`;
-        bookBtn = `<a href="${bookUrl}" target="_blank" class="yk-single-book-btn">予約する</a>`;
+        const bookUrl = getBookUrl ? getBookUrl(therapist.id, dateStr) : `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}&date=${dateStr}`;
+        bookBtn = `<a href="${bookUrl}" target="_self" class="yk-single-book-btn">予約する</a>`;
       }
       
       return `
@@ -1210,7 +1240,7 @@
       rankBadgeHTML = `<span class="yk-rank-badge ${badgeClass}">${rankName}</span>`;
     }
 
-    const generalBookUrl = `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}`;
+    const generalBookUrl = getBookUrl ? getBookUrl(therapist.id) : `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}`;
 
     return `
       <div class="yk-single-therapist-container">
@@ -1231,7 +1261,7 @@
             
             <div class="yk-single-comment-header">♥ 紹介文</div>
             <p class="yk-single-comment">${therapist.comment || 'よろしくお願いします。'}</p>
-            <a href="${generalBookUrl}" target="_blank" class="yk-general-book-btn-main">
+            <a href="${generalBookUrl}" target="_self" class="yk-general-book-btn-main">
               <svg style="width:16px;height:16px;margin-right:6px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -1272,6 +1302,9 @@
         dayPanels.forEach(panel => {
           if (panel.getAttribute('data-panel-date') === targetDate) {
             panel.classList.add('active');
+            setTimeout(() => {
+              revealVisibleCards(container);
+            }, 50);
           } else {
             panel.classList.remove('active');
           }
