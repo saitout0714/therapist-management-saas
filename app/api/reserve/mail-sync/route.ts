@@ -603,15 +603,17 @@ export async function POST(req: NextRequest) {
 
     console.log('[MailSync] Successfully created reservation:', reservation)
 
-    // 管理者向け自動通知（メール・LINE）の送信（バックグラウンド実行）
+    // 管理者向け自動通知（メール・LINE）の送信
     if (shopId) {
-      void sendAdminReservationNotification({
-        reservationId: reservation.id,
-        shopId: shopId,
-        supabase: supabaseAdmin,
-      }).catch((err) => {
+      try {
+        await sendAdminReservationNotification({
+          reservationId: reservation.id,
+          shopId: shopId,
+          supabase: supabaseAdmin,
+        })
+      } catch (err) {
         console.error('[MailSync Admin Notification Error] Failed to trigger admin notification:', err)
-      })
+      }
     }
 
     return NextResponse.json({

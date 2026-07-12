@@ -646,15 +646,17 @@ export async function POST(
     return NextResponse.json({ error: '予約の登録に失敗しました: ' + reservationError?.message }, { status: 500 })
   }
 
-  // 管理者向け自動通知（メール・LINE）の送信（バックグラウンド実行）
-  void sendAdminReservationNotification({
-    reservationId: reservation.id,
-    shopId,
-    supabase,
-    isNewCustomer,
-  }).catch((err) => {
+  // 管理者向け自動通知（メール・LINE）の送信
+  try {
+    await sendAdminReservationNotification({
+      reservationId: reservation.id,
+      shopId,
+      supabase,
+      isNewCustomer,
+    })
+  } catch (err) {
     console.error('[Admin Notification Error] Failed to trigger admin notification:', err)
-  })
+  }
 
   // 予約作成成功後、メール配信用データの追加フェッチと送信処理
   try {
