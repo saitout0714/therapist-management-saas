@@ -39,9 +39,14 @@ type SystemSettings = {
   google_calendar_id: string | null
   gas_calendar_sync_url: string | null
   allow_new_customers: boolean
+  enable_email_notification: boolean
+  admin_notification_email: string | null
+  enable_line_notification: boolean
+  line_channel_access_token: string | null
+  line_to_id: string | null
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'custom_templates'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'custom_templates' | 'notifications'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
@@ -50,6 +55,15 @@ export default function SystemPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Testing states for notifications
+  const [sendingTestEmail, setSendingTestEmail] = useState(false)
+  const [sendingTestLine, setSendingTestLine] = useState(false)
+  const [testEmailMessage, setTestEmailMessage] = useState<string | null>(null)
+  const [testLineMessage, setTestLineMessage] = useState<string | null>(null)
+  const [testEmailError, setTestEmailError] = useState<string | null>(null)
+  const [testLineError, setTestLineError] = useState<string | null>(null)
+
   const [form, setForm] = useState<{
     default_nomination_fee: number
     default_confirmed_nomination_fee: number
@@ -76,6 +90,11 @@ export default function SystemPage() {
     google_calendar_id: string
     gas_calendar_sync_url: string
     allow_new_customers: boolean
+    enable_email_notification: boolean
+    admin_notification_email: string
+    enable_line_notification: boolean
+    line_channel_access_token: string
+    line_to_id: string
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -102,6 +121,11 @@ export default function SystemPage() {
     google_calendar_id: '',
     gas_calendar_sync_url: '',
     allow_new_customers: true,
+    enable_email_notification: false,
+    admin_notification_email: '',
+    enable_line_notification: false,
+    line_channel_access_token: '',
+    line_to_id: '',
   })
 
   async function fetchSettings() {
@@ -146,6 +170,11 @@ export default function SystemPage() {
       google_calendar_id: row?.google_calendar_id ?? '',
       gas_calendar_sync_url: row?.gas_calendar_sync_url ?? '',
       allow_new_customers: row?.allow_new_customers ?? true,
+      enable_email_notification: row?.enable_email_notification ?? false,
+      admin_notification_email: row?.admin_notification_email ?? '',
+      enable_line_notification: row?.enable_line_notification ?? false,
+      line_channel_access_token: row?.line_channel_access_token ?? '',
+      line_to_id: row?.line_to_id ?? '',
     })
     setLoading(false)
   }
@@ -166,6 +195,9 @@ export default function SystemPage() {
       credit_payment_url: form.credit_payment_url || null,
       google_calendar_id: form.google_calendar_id || null,
       gas_calendar_sync_url: form.gas_calendar_sync_url || null,
+      admin_notification_email: form.admin_notification_email || null,
+      line_channel_access_token: form.line_channel_access_token || null,
+      line_to_id: form.line_to_id || null,
     }
 
     const [result, shopResult] = await Promise.all([
@@ -186,6 +218,81 @@ export default function SystemPage() {
 
   useEffect(() => { void fetchSettings() }, [selectedShop])
 
+  const handleSendTestEmail = async () => {
+    if (!form.admin_notification_email) {
+      alert('通知先メールアドレスを入力してください。')
+      return
+    }
+    setSendingTestEmail(true)
+    setTestEmailMessage(null)
+    setTestEmailError(null)
+
+    try {
+      const res = await fetch('/api/admin/test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'email',
+          shopId: selectedShop?.id,
+          smtpSettings: {
+            smtp_host: form.smtp_host || null,
+            smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
+            smtp_secure: form.smtp_secure,
+            smtp_user: form.smtp_user || null,
+            smtp_pass: form.smtp_pass || null,
+            smtp_from: form.smtp_from || null,
+          },
+          toEmail: form.admin_notification_email,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setTestEmailError(data.error || 'テストメールの送信に失敗しました。')
+      } else {
+        setTestEmailMessage(data.message || 'テストメールを送信しました。')
+      }
+    } catch (err: any) {
+      setTestEmailError(err.message || '送信中にエラーが発生しました。')
+    } finally {
+      setSendingTestEmail(false)
+    }
+  }
+
+  const handleSendTestLine = async () => {
+    if (!form.line_channel_access_token || !form.line_to_id) {
+      alert('LINEチャネルアクセストークンと通知先IDを入力してください。')
+      return
+    }
+    setSendingTestLine(true)
+    setTestLineMessage(null)
+    setTestLineError(null)
+
+    try {
+      const res = await fetch('/api/admin/test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'line',
+          shopId: selectedShop?.id,
+          token: form.line_channel_access_token,
+          toId: form.line_to_id,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setTestLineError(data.error || 'テストLINEメッセージの送信に失敗しました。')
+      } else {
+        setTestLineMessage(data.message || 'テストLINEメッセージを送信しました。')
+      }
+    } catch (err: any) {
+      setTestLineError(err.message || '送信中にエラーが発生しました。')
+    } finally {
+      setSendingTestLine(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="bg-gray-100 p-4 md:p-4">
@@ -199,6 +306,7 @@ export default function SystemPage() {
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'pricing_defaults', label: '基本設定' },
+    { key: 'notifications', label: '通知設定' },
     { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
     { key: 'customer_template', label: 'お客様連絡テンプレート' },
     { key: 'custom_templates', label: '追加連絡テンプレート' },
@@ -209,7 +317,6 @@ export default function SystemPage() {
     { key: 'deductions', label: '控除' },
     { key: 'ranks', label: 'ランク設定' },
     { key: 'back_amounts', label: 'ランク別 料金バック' },
-
   ]
 
   return (
@@ -474,6 +581,171 @@ export default function SystemPage() {
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
               >
                 {saving ? '保存中...' : '保存する'}
+              </button>
+              {saved && (
+                <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  保存しました
+                </span>
+              )}
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'notifications' && (
+          <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 mb-1">通知設定</h2>
+              <p className="text-sm text-slate-500">WEB予約が入った際のアラート通知を設定します。</p>
+            </div>
+
+            {/* メール通知設定 */}
+            <div className="border-b border-slate-100 pb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-700">メール通知機能</h3>
+                  <p className="text-xs text-slate-400">WEB予約が入った際に管理者宛てにメールで通知します。</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.enable_email_notification}
+                    onChange={(e) => setForm({ ...form, enable_email_notification: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              {form.enable_email_notification && (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">通知先メールアドレス</label>
+                    <input
+                      type="text"
+                      placeholder="example@example.com (複数宛先はカンマ区切り)"
+                      value={form.admin_notification_email}
+                      onChange={(e) => setForm({ ...form, admin_notification_email: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <span className="text-xs font-bold text-slate-600">メール送信テスト</span>
+                    <p className="text-xs text-slate-400">
+                      設定を保存する前に、現在の入力内容（および「基本設定」のSMTP設定）でテストメールを送信できます。
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button
+                        type="button"
+                        onClick={handleSendTestEmail}
+                        disabled={sendingTestEmail}
+                        className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 disabled:opacity-50 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        {sendingTestEmail ? '送信中...' : 'テストメールを送信'}
+                      </button>
+                      {testEmailMessage && (
+                        <span className="text-xs text-emerald-600 font-medium">{testEmailMessage}</span>
+                      )}
+                      {testEmailError && (
+                        <span className="text-xs text-rose-600 font-medium">{testEmailError}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* LINE通知設定 */}
+            <div className="border-b border-slate-100 pb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-700">LINE通知機能</h3>
+                  <p className="text-xs text-slate-400">WEB予約が入った際にLINEグループ/個人宛てに通知します。</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.enable_line_notification}
+                    onChange={(e) => setForm({ ...form, enable_line_notification: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              {form.enable_line_notification && (
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">LINE Messaging API チャネルアクセストークン</label>
+                      <input
+                        type="password"
+                        placeholder="ey..."
+                        value={form.line_channel_access_token}
+                        onChange={(e) => setForm({ ...form, line_channel_access_token: e.target.value })}
+                        className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">通知先ユーザーID / グループID</label>
+                      <input
+                        type="text"
+                        placeholder="Uxxxxxxx または Cxxxxxxx"
+                        value={form.line_to_id}
+                        onChange={(e) => setForm({ ...form, line_to_id: e.target.value })}
+                        className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* LINE設定ガイド */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-500 space-y-1.5">
+                    <span className="font-bold text-slate-600">💡 LINE通知の連携手順：</span>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>LINE Developersにて「プロバイダー」と「Messaging APIチャネル」を作成します。</li>
+                      <li>Messaging API設定タブの一番下から「チャネルアクセストークン(長期)」を発行して、本設定ページに入力します。</li>
+                      <li>通知を受け取りたいLINEグループに作成したBotアカウントを追加します。</li>
+                      <li>LINE Developersまたはwebhookログから、通知を受け取りたいグループID (Cから始まる文字列) または管理者個人のユーザーID (Uから始まる文字列) を取得し、本設定ページに入力します。</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex flex-col gap-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <span className="text-xs font-bold text-slate-600">LINE送信テスト</span>
+                    <p className="text-xs text-slate-400">
+                      設定を保存する前に、現在のトークンと通知先ID宛てにテストLINEメッセージを送信できます。
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button
+                        type="button"
+                        onClick={handleSendTestLine}
+                        disabled={sendingTestLine}
+                        className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 disabled:opacity-50 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        {sendingTestLine ? '送信中...' : 'テストLINEを送信'}
+                      </button>
+                      {testLineMessage && (
+                        <span className="text-xs text-emerald-600 font-medium">{testLineMessage}</span>
+                      )}
+                      {testLineError && (
+                        <span className="text-xs text-rose-600 font-medium">{testLineError}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 保存ボタン */}
+            <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+              >
+                {saving ? '保存中...' : '設定を保存'}
               </button>
               {saved && (
                 <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">

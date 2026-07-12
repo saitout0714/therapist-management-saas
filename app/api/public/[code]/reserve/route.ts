@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
 import nodemailer from 'nodemailer'
+import { sendAdminReservationNotification } from '@/lib/notifications'
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -644,6 +645,16 @@ export async function POST(
   if (reservationError || !reservation) {
     return NextResponse.json({ error: '予約の登録に失敗しました: ' + reservationError?.message }, { status: 500 })
   }
+
+  // 管理者向け自動通知（メール・LINE）の送信（バックグラウンド実行）
+  void sendAdminReservationNotification({
+    reservationId: reservation.id,
+    shopId,
+    supabase,
+    isNewCustomer,
+  }).catch((err) => {
+    console.error('[Admin Notification Error] Failed to trigger admin notification:', err)
+  })
 
   // 予約作成成功後、メール配信用データの追加フェッチと送信処理
   try {
