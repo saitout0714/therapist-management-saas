@@ -21,10 +21,19 @@ export default function RegisterPage() {
       return
     }
 
+    const { data: minOrderData } = await supabase
+      .from('therapists')
+      .select('order')
+      .eq('shop_id', selectedShop.id)
+      .order('order', { ascending: true })
+      .limit(1)
+    const nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null
+      ? minOrderData[0].order - 1 : 0
+
     // Supabaseにデータを送信
     const { error } = await supabase
       .from('therapists')
-      .insert([{ name: name, shop_id: selectedShop.id }])
+      .insert([{ name: name, shop_id: selectedShop.id, order: nextOrder }])
 
     if (error) {
       alert('エラーが発生しました: ' + error.message)

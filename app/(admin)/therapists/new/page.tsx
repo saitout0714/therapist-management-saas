@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -27,8 +27,8 @@ export default function NewTherapistPage() {
     }
 
     setLoading(true)
-    const { data: maxOrderData } = await supabase.from('therapists').select('order').eq('shop_id', selectedShop.id).order('order', { ascending: false }).limit(1)
-    const nextOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order !== null ? maxOrderData[0].order + 1 : 0
+    const { data: minOrderData } = await supabase.from('therapists').select('order').eq('shop_id', selectedShop.id).order('order', { ascending: true }).limit(1)
+    const nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null ? minOrderData[0].order - 1 : 0
 
     const { data: insertData, error: insertError } = await supabase
       .from('therapists')

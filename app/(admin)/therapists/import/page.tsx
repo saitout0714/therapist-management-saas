@@ -256,13 +256,14 @@ export default function ImportTherapistsPage() {
     setSaving(true)
     setSaveError(null)
 
-    const { data: maxOrderData } = await supabase
+    const { data: minOrderData } = await supabase
       .from('therapists').select('order').eq('shop_id', selectedShop.id)
-      .order('order', { ascending: false }).limit(1)
-    let nextOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order !== null
-      ? maxOrderData[0].order + 1 : 0
+      .order('order', { ascending: true }).limit(1)
 
     const toSave = [...selected].sort((a, b) => a - b).map(i => therapists[i])
+    let nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null
+      ? minOrderData[0].order - toSave.length : 0
+
     const rows = toSave.map(t => {
       const row: Record<string, unknown> = { name: t.name, shop_id: selectedShop.id, order: nextOrder++ }
       if (t.age != null) row.age = t.age
