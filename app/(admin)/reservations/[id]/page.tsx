@@ -324,7 +324,7 @@ export default function ReservationPreviewPage() {
       }
     })
     if (optionsText) {
-      optionsText = `■ オプション\n` + optionsText.trim()
+      optionsText = optionsText.trim()
     }
 
     // 割引一覧の生成
@@ -350,8 +350,7 @@ export default function ReservationPreviewPage() {
     // 備考の生成
     let notesText = ''
     if (reservation.notes) {
-      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
-      notesText = `■ ${label}\n${reservation.notes}`
+      notesText = reservation.notes
     }
 
     // 決済情報の生成
@@ -496,7 +495,7 @@ export default function ReservationPreviewPage() {
       text += `延長 +${reservation.extension_count * extensionUnitMinutes}分 (+${extensionPrice.toLocaleString()}円)\n`
     }
     if (optionsText) {
-      text += optionsText.replace('■ オプション\n', '') + '\n'
+      text += optionsText + '\n'
     }
 
     // 指名
@@ -589,8 +588,7 @@ export default function ReservationPreviewPage() {
     const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
     let notesText = ''
     if (reservation.notes) {
-      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
-      notesText = `■ ${label}\n${reservation.notes}`
+      notesText = reservation.notes
     }
 
     const extensionPrice = reservation.extension_count > 0
@@ -738,7 +736,8 @@ export default function ReservationPreviewPage() {
     }
 
     if (reservation.notes) {
-      text += `\n\n` + notesText
+      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
+      text += `\n\n■ ${label}\n` + notesText
     }
 
     return text
@@ -847,7 +846,7 @@ export default function ReservationPreviewPage() {
       }
     })
     if (optionsText) {
-      optionsText = `■ オプション\n` + optionsText.trim()
+      optionsText = optionsText.trim()
     }
 
     // 割引一覧の生成
@@ -873,8 +872,7 @@ export default function ReservationPreviewPage() {
     // 備考の生成
     let notesText = ''
     if (reservation.notes) {
-      const label = reservation.source === 'web' ? 'その他ご希望' : '備考'
-      notesText = `■ ${label}\n${reservation.notes}`
+      notesText = reservation.notes
     }
 
     // 決済情報の生成
