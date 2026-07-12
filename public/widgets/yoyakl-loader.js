@@ -52,6 +52,11 @@
         padding: 0;
         box-sizing: border-box;
       }
+      /* テーマ側の ScrollReveal 用初期非表示ルール（html.sr .yk-card { visibility: hidden; }）を打ち消し、
+         effect が無効な場合は最初から表示されるようにします */
+      html.sr .yoyakl-widget .yk-card {
+        visibility: visible;
+      }
       .yoyakl-widget * {
         box-sizing: border-box;
       }
