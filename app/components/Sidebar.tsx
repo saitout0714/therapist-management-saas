@@ -28,7 +28,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/therapists", label: "セラピスト" },
     { href: "/shifts/register", label: "シフト登録" },
     { href: "/payroll", label: "報酬・バック計算" },
-    { href: "/memos", label: "給与引継ぎメモ" },
+    { href: "/memos", label: "報酬引継ぎメモ" },
     { href: "/aggregation", label: "集計レポート" },
     { href: "/system", label: "システム管理" },
     { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },

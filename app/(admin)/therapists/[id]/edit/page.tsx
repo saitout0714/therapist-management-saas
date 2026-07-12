@@ -1169,7 +1169,7 @@ export default function EditTherapistPage() {
                                 <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex-shrink-0">精算済み</span>
                                 {memo.resolved_date && (
                                   <span className="text-[9px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 whitespace-nowrap">
-                                    {memo.resolved_date.replace(/-/g, '/')}の給与で精算
+                                    {memo.resolved_date.replace(/-/g, '/')}の報酬で精算
                                   </span>
                                 )}
                                 {memo.resolved_at && (

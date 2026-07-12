@@ -118,7 +118,7 @@ const MemoCard = ({
                 <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100 flex-shrink-0">精算済み</span>
                 {memo.resolved_date && (
                   <span className="text-[10px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded px-1.5 py-0.5 whitespace-nowrap">
-                    {memo.resolved_date.replace(/-/g, '/')}の給与で精算
+                    {memo.resolved_date.replace(/-/g, '/')}の報酬で精算
                   </span>
                 )}
                 {memo.resolved_at && (
@@ -295,8 +295,8 @@ export default function MemosPage() {
       <div className="max-w-3xl mx-auto">
         {/* ヘッダー */}
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">給与引継ぎメモ</h1>
-          <p className="text-sm text-slate-500 mt-1">給与の過不足を記録し、精算状況を管理します。</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">報酬引継ぎメモ</h1>
+          <p className="text-sm text-slate-500 mt-1">報酬の過不足を記録し、精算状況を管理します。</p>
         </div>
 
         {loading ? (

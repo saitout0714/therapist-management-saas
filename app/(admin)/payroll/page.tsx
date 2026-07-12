@@ -584,12 +584,12 @@ export default function PayrollPage() {
             text += `  - 姫予約ボーナス ¥${r.himeBonus.toLocaleString()}\n`
           }
 
-          text += `  * 給与小計: ¥${rowNet.toLocaleString()}\n`
+          text += `  * 報酬小計: ¥${rowNet.toLocaleString()}\n`
         })
 
         text += `\n[${group.shopName} 小計]\n`
         text += `・売上: ¥${shopSales.toLocaleString()}\n`
-        text += `・給与バック: ¥${shopBack.toLocaleString()}\n`
+        text += `・報酬バック: ¥${shopBack.toLocaleString()}\n`
       })
     }
 
@@ -618,7 +618,7 @@ export default function PayrollPage() {
     }
 
     text += `\n------------------------\n`
-    text += `★ お給与: ¥${netPay.toLocaleString()}\n`
+    text += `★ 報酬: ¥${netPay.toLocaleString()}\n`
     text += `★ お店: ¥${(totalSales - netPay).toLocaleString()}\n`
     if (hasCreditReservation) {
       const cashBalance = totalCashReceived - netPay
@@ -745,7 +745,7 @@ export default function PayrollPage() {
                           <span className="font-semibold text-slate-800">¥{summary.sales.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600">
-                          <span>給与小計:</span>
+                          <span>報酬小計:</span>
                           <span className="font-semibold text-indigo-600">¥{summary.back.toLocaleString()}</span>
                         </div>
                       </div>
