@@ -374,9 +374,12 @@ export async function POST(req: NextRequest) {
       // 例: "海老名805" と "海老名ルーム" -> どちらも "海老名" になり一致
       const cleanPattern = (s: string) => {
         return s
-          .replace(/[\d\s　]+/g, '')             // 全角半角の数字・スペースを除外
-          .replace(/ルーム|部屋|room/gi, '')    // 「ルーム」「部屋」「room」(大文字小文字問わず) を除外
           .toLowerCase()
+          .replace(/[\s　]+/g, '')               // スペースを除外
+          .replace(/ルーム|部屋|room/gi, '')      // 「ルーム」「部屋」「room」(大文字小文字問わず) を除外
+          .replace(/西新宿/g, '')                // 「西新宿」を除去
+          .replace(/学園通り/g, '')              // 「学園通り」を除去
+          .replace(/ツァーレ/g, '')              // 「ツァーレ」を除去
       }
 
       const patternInput = cleanPattern(cleanInput)

@@ -24,8 +24,9 @@
     const style = document.createElement('style');
     style.id = styleId;
     style.innerHTML = `
-      /* ScrollReveal用初期非表示（FOUC・表示揺れ防止対策） */
-      html.sr .yoyakl-widget .yk-card {
+      /* ScrollReveal用初期非表示（対象ウィジェットに data-effect="true" がある場合のみ適用） */
+      html.sr .yoyakl-widget[data-effect="1"] .yk-card,
+      html.sr .yoyakl-widget[data-effect="true"] .yk-card {
         visibility: hidden;
       }
       .yoyakl-widget {
@@ -701,6 +702,9 @@
   // 各種ヘルパー関数
   function revealVisibleCards(scope) {
     if (typeof ScrollReveal === 'undefined') return;
+    const enableEffect = scope.getAttribute('data-effect') === '1' || scope.getAttribute('data-effect') === 'true';
+    if (!enableEffect) return;
+
     const cards = Array.from(scope.querySelectorAll('.yk-card')).filter(card => {
       const panel = card.closest('.yk-tab-panel');
       if (panel && !panel.classList.contains('active')) {
@@ -828,17 +832,21 @@
         })
         .then(data => {
           renderWidget(widget, data, mode, shopCode, therapistName, therapistId, castUrlPattern, rookieOnly, todayOnly);
-          // ScrollRevealライブラリの読み込み完了を検知して安全に初期化するポーリング処理（非同期読み込み対応）
-          let revealAttempts = 0;
-          const revealInterval = setInterval(() => {
-            revealAttempts++;
-            if (typeof ScrollReveal !== 'undefined') {
-              clearInterval(revealInterval);
-              revealVisibleCards(widget);
-            } else if (revealAttempts > 50) { // 最大5秒で監視を解除
-              clearInterval(revealInterval);
-            }
-          }, 100);
+          
+          // data-effect が有効な場合のみ ScrollReveal の読み込み・初期化を実行
+          const enableEffect = widget.getAttribute('data-effect') === '1' || widget.getAttribute('data-effect') === 'true';
+          if (enableEffect) {
+            let revealAttempts = 0;
+            const revealInterval = setInterval(() => {
+              revealAttempts++;
+              if (typeof ScrollReveal !== 'undefined') {
+                clearInterval(revealInterval);
+                revealVisibleCards(widget);
+              } else if (revealAttempts > 50) { // 最大5秒で監視を解除
+                clearInterval(revealInterval);
+              }
+            }, 100);
+          }
         })
         .catch(error => {
           console.error('[Yoyakl] API Error:', error);

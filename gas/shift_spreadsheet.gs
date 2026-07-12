@@ -288,6 +288,18 @@ const SHOP_CONFIG = {
       "4": {
         "name": "アヴァン605",
         "color": "#FF9900"
+      },
+      "5": {
+        "name": "メインステージ304",
+        "color": "#FF00FF"
+      },
+      "6": {
+        "name": "メインステージ404",
+        "color": "#A4C2F4"
+      },
+      "7": {
+        "name": "メインステージ1004",
+        "color": "#D9EAD3"
       }
     },
     "staffList": [
@@ -1022,6 +1034,14 @@ const SHOP_CONFIG = {
       "1": {
         "name": "エスコート203",
         "color": "#00FFFF"
+      },
+      "2": {
+        "name": "エスコート204",
+        "color": "#FFFF00"
+      },
+      "3": {
+        "name": "アヴァン605",
+        "color": "#00FF00"
       }
     },
     "staffList": [
@@ -1659,7 +1679,10 @@ function normalizeRoomName(name) {
     .toLowerCase()
     .replace(/[\s\u3000]+/g, '') // 空白・全角スペースを除去
     .replace(/ルーム/g, '')      // 「ルーム」を除去
-    .replace(/room/g, '');       // 「room」を除去
+    .replace(/room/g, '')        // 「room」を除去
+    .replace(/西新宿/g, '')      // 「西新宿」を除去
+    .replace(/学園通り/g, '')    // 「学園通り」を除去
+    .replace(/ツァーレ/g, '');    // 「ツァーレ」を除去
 }
 
 function findRoomId(roomName, configRooms) {
