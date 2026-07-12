@@ -558,14 +558,14 @@ export default function ReservationPreviewPage() {
     ) ?? []
     let optionsText = ''
     if (allOptions.length > 0) {
-      optionsText = `■ オプション\n`
       allOptions.forEach(ro => {
         if (ro.option_id && ro.options) {
-          optionsText += `${ro.options.name} ${ro.options.price.toLocaleString()}円\n`
+          optionsText += `${ro.options.name}\n`
         } else if (!ro.option_id && ro.custom_name) {
-          optionsText += `${ro.custom_name} ${ro.price.toLocaleString()}円\n`
+          optionsText += `${ro.custom_name}\n`
         }
       })
+      optionsText = optionsText.trim()
     }
 
     // 割引
@@ -721,7 +721,7 @@ export default function ReservationPreviewPage() {
     text += `\n\n`
 
     if (optionsText) {
-      text += optionsText + `\n`
+      text += `■ オプション\n` + optionsText + `\n\n`
     }
 
     if (discountsText) {
