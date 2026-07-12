@@ -22,6 +22,7 @@ SHOPS = [
     {"name": "secret_moment",    "caskan_id": 1823, "supabase_id": "a0000001-0000-0000-0000-000000000002"},
     {"name": "spa_rich",         "caskan_id": 1857, "supabase_id": "a0000001-0000-0000-0000-000000000001"},
     {"name": "kamigami",         "caskan_id": 1971, "supabase_id": "3d4e98bd-ed3f-4bea-8327-4891d65c427c"},
+    {"name": "kujira_spa",       "caskan_id": 2031, "supabase_id": "471f85f5-c9dd-4ed4-812a-9c5001f6903b"},
 ]
 
 CASKAN_ROOM_MAP = {

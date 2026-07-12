@@ -19,6 +19,7 @@ export const SHOPS: ShopConfig[] = [
   { name: 'secret_moment', caskanId: 1823, supabaseId: 'a0000001-0000-0000-0000-000000000002' },
   { name: 'spa_rich', caskanId: 1857, supabaseId: 'a0000001-0000-0000-0000-000000000001' },
   { name: 'kamigami', caskanId: 1971, supabaseId: '3d4e98bd-ed3f-4bea-8327-4891d65c427c' },
+  { name: 'kujira_spa', caskanId: 2031, supabaseId: '471f85f5-c9dd-4ed4-812a-9c5001f6903b' },
 ]
 
 const CASKAN_ROOM_MAP: Record<string, string> = {
