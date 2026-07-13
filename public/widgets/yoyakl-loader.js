@@ -748,12 +748,16 @@
     return timeStr;
   }
 
-  function resolvePhotoUrl(photoUrl, base) {
+  function resolvePhotoUrl(photoUrl, base, width = null) {
     if (!photoUrl) return null;
-    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || photoUrl.startsWith('data:')) {
-      return photoUrl;
+    let absoluteUrl = photoUrl;
+    if (!photoUrl.startsWith('http://') && !photoUrl.startsWith('https://') && !photoUrl.startsWith('data:')) {
+      absoluteUrl = `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
     }
-    return `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
+    if (width && base && !absoluteUrl.startsWith('data:')) {
+      return `${base}/_next/image?url=${encodeURIComponent(absoluteUrl)}&w=${width}&q=75`;
+    }
+    return absoluteUrl;
   }
 
   function getJstDateString(date) {
@@ -1022,7 +1026,7 @@
 
     return therapists.map(t => {
       const isWorkingToday = shifts.some(s => s.therapists && s.therapists.id === t.id && s.date === todayStr);
-      const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
+      const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase, 384);
       const hasPhoto = !!photoSrc;
       const profileText = formatProfileString(t);
       const bookUrl = getBookUrl ? getBookUrl(t.id) : `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}`;
@@ -1120,7 +1124,7 @@
               dayShifts.map(s => {
                 const t = s.therapists;
                 if (!t) return '';
-                const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase);
+                const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase, 384);
                 const hasPhoto = !!photoSrc;
                 const profileText = formatProfileString(t);
                 const bookUrl = getBookUrl ? getBookUrl(t.id, dateStr) : `${apiBase}/reserve/${shopCode}?therapist_id=${t.id}&date=${dateStr}`;
@@ -1199,7 +1203,7 @@
       }
     });
 
-    const photoSrc = resolvePhotoUrl(therapist.photo_url || (therapist.photos && therapist.photos[0]), apiBase);
+    const photoSrc = resolvePhotoUrl(therapist.photo_url || (therapist.photos && therapist.photos[0]), apiBase, 640);
     const hasPhoto = !!photoSrc;
     const profileText = formatProfileString(therapist);
 
@@ -1210,7 +1214,7 @@
       thumbnailsHTML = `
         <div class="yk-single-thumbnails">
           ${photos.map((p, idx) => `
-            <img src="${resolvePhotoUrl(p, apiBase)}" 
+            <img src="${resolvePhotoUrl(p, apiBase, 256)}" 
                  alt="${therapist.name} サムネイル ${idx + 1}" 
                  class="yk-single-thumb ${idx === 0 ? 'active' : ''}" 
                  data-index="${idx}" />
