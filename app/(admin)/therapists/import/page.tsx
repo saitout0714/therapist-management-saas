@@ -36,6 +36,7 @@ type ExistingTherapist = {
   photo_url: string | null
   photo_urls?: string[] | null
   errorMsg: string | null
+  currentPhotoCount?: number
 }
 
 type ProfileTherapist = {
@@ -324,7 +325,7 @@ export default function ImportTherapistsPage() {
     setPhotoScrapeError(null)
     setExistingTherapists([])
 
-    // 写真なしの既存セラピストを取得
+    // 既存セラピストを取得
     const { data: allTherapists } = await supabase
       .from('therapists')
       .select('id, name, hp_url')
@@ -343,15 +344,16 @@ export default function ImportTherapistsPage() {
       .select('therapist_id')
       .in('therapist_id', allTherapists.map((t: { id: string }) => t.id))
 
-    const withPhotoIds = new Set((withPhotosData || []).map((p: { therapist_id: string }) => p.therapist_id))
-    const withoutPhotos = (allTherapists as { id: string; name: string; hp_url: string | null }[])
-      .filter(t => !withPhotoIds.has(t.id))
-
-    if (withoutPhotos.length === 0) {
-      setPhotoScrapeError('写真なしのセラピストはいません')
-      setPhotoScraping(false)
-      return
+    // 各セラピストごとの登録済み写真枚数をカウント
+    const photoCounts = new Map<string, number>()
+    if (withPhotosData) {
+      for (const p of withPhotosData) {
+        photoCounts.set(p.therapist_id, (photoCounts.get(p.therapist_id) || 0) + 1)
+      }
     }
+
+    // すべてのセラピストを対象とする
+    const targetTherapists = (allTherapists as { id: string; name: string; hp_url: string | null }[])
 
     // 一覧ページをスクレイプ
     let scraped: Array<{ name: string; profile_url?: string | null }> = []
@@ -373,7 +375,7 @@ export default function ImportTherapistsPage() {
     }
 
     // 名前マッチング
-    const result: ExistingTherapist[] = withoutPhotos.map(existing => {
+    const result: ExistingTherapist[] = targetTherapists.map(existing => {
       const en = normalizeName(existing.name)
       const match = scraped.find(s => {
         const sn = normalizeName(s.name)
@@ -388,6 +390,7 @@ export default function ImportTherapistsPage() {
         status: 'idle' as const,
         photo_url: null,
         errorMsg: null,
+        currentPhotoCount: photoCounts.get(existing.id) || 0,
       }
     })
 
@@ -434,7 +437,9 @@ export default function ImportTherapistsPage() {
         return
       }
 
-      // 2. 写真をダウンロードしてStorageに保存
+      // 2. 写真をダウンロードしてStorageに保存（既存の写真は削除して置き換える）
+      await supabase.from('therapist_photos').delete().eq('therapist_id', therapistId)
+
       let lastSavedUrl = null
       const savedUrls: string[] = []
       for (const u of urls) {
@@ -1147,7 +1152,12 @@ export default function ImportTherapistsPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-slate-800">{t.name}</p>
+                          <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                            {t.name}
+                            <span className="text-xs text-slate-400 font-normal">
+                              （現在 {t.currentPhotoCount ?? 0}枚）
+                            </span>
+                          </p>
                           {t.matched && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">HP照合済</span>
                           )}
