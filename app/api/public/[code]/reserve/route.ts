@@ -17,6 +17,7 @@ type SmtpSettings = {
   smtp_user?: string | null
   smtp_pass?: string | null
   smtp_from?: string | null
+  email_template_web_success?: string | null
 }
 
 function getMailTransporter(smtpSettings?: SmtpSettings | null) {
@@ -66,6 +67,35 @@ function getMailTransporter(smtpSettings?: SmtpSettings | null) {
   })
 }
 
+function formatShortDate(dateStr: string) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const m = d.getMonth() + 1
+  const date = d.getDate()
+  const days = ['日', '月', '火', '水', '木', '金', '土']
+  const day = days[d.getDay()]
+  return `${m}/${date}(${day})`
+}
+
+function formatKanjiDate(dateStr: string) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const m = d.getMonth() + 1
+  const date = d.getDate()
+  const days = ['日', '月', '火', '水', '木', '金', '土']
+  const day = days[d.getDay()]
+  return `${m}月${date}日(${day})`
+}
+
+function toKanjiTime(timeStr: string) {
+  if (!timeStr) return ''
+  const parts = timeStr.split(':')
+  if (parts.length >= 2) {
+    return `${parseInt(parts[0], 10)}時${parseInt(parts[1], 10)}分`
+  }
+  return timeStr
+}
+
 async function sendConfirmationEmail({
   email,
   customerName,
@@ -87,6 +117,7 @@ async function sendConfirmationEmail({
   shopName,
   hpUrl,
   phone,
+  creditPaymentUrl,
 }: {
   email: string
   customerName: string
@@ -108,6 +139,7 @@ async function sendConfirmationEmail({
   shopName: string
   hpUrl?: string | null
   phone?: string | null
+  creditPaymentUrl?: string | null
 }) {
   try {
     const transporter = getMailTransporter(smtpSettings)
@@ -152,7 +184,80 @@ async function sendConfirmationEmail({
 
     const paymentLabel = paymentMethod === 'credit' ? 'クレジットカード決済' : '現地決済（現金）'
 
-    let bodyText = `【ご予約完了】ご予約ありがとうございます。
+    // ルームの道案内テキスト組み立て
+    let directionsText = ''
+    if (commonNote) {
+      directionsText += `${commonNote}\n\n`
+    }
+    directionsText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
+    if (template) {
+      directionsText += `\n${template}\n`
+    }
+    if (additionalNote) {
+      directionsText += `\n${additionalNote}\n`
+    }
+    directionsText = directionsText.trim()
+
+    // クレジット決済情報の組み立て
+    let creditInfoText = ''
+    if (paymentMethod === 'credit' && creditPaymentUrl) {
+      creditInfoText += `下記のサイトから決済手数料等込みの金額`
+      creditInfoText += ` ${totalPrice.toLocaleString()}円\n`
+      creditInfoText += `でご決済をご入室前までにお願い致します\n\n`
+      creditInfoText += `${creditPaymentUrl}\n`
+      creditInfoText = creditInfoText.trim()
+    }
+
+    const dateVal = formatShortDate(date)
+    const dateKanjiVal = formatKanjiDate(date)
+    const startTimeVal = startTime.slice(0, 5)
+    const startTimeKanjiVal = toKanjiTime(startTime)
+    const endTimeVal = endTime.slice(0, 5)
+    const endTimeKanjiVal = toKanjiTime(endTime)
+    const roomVal = room?.name || '未定'
+    const customerPrefix = isNewCustomer ? '新規' : '会員'
+    const custNameVal = customerName || '未設定'
+    const therapistNameVal = therapistName || 'フリー（指名なし）'
+    const courseNameVal = courseName || '未設定'
+    const courseDurationVal = `${courseDuration}分`
+    const coursePriceVal = `${basePrice.toLocaleString()}円`
+    const designationVal = nominationFee > 0 ? '指名あり' : 'フリー'
+    const nominationFeeVal = `${nominationFee.toLocaleString()}円`
+    const totalVal = `${totalPrice.toLocaleString()}円`
+
+    let bodyText = ''
+    const customEmailTemplate = smtpSettings?.email_template_web_success
+
+    if (customEmailTemplate) {
+      bodyText = customEmailTemplate
+        .replace(/\[日付\]/g, dateVal)
+        .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
+        .replace(/\[開始時刻\]/g, startTimeVal)
+        .replace(/\[開始時刻\(漢字\)\]/g, startTimeKanjiVal)
+        .replace(/\[終了時刻\]/g, endTimeVal)
+        .replace(/\[終了時刻\(漢字\)\]/g, endTimeKanjiVal)
+        .replace(/\[ルーム\]/g, roomVal)
+        .replace(/\[お客様区分\]/g, customerPrefix)
+        .replace(/\[お客様名\]/g, custNameVal)
+        .replace(/\[セラピスト名\]/g, therapistNameVal)
+        .replace(/\[コース\]/g, courseNameVal)
+        .replace(/\[コース時間\]/g, courseDurationVal)
+        .replace(/\[コース料金\]/g, coursePriceVal)
+        .replace(/\[指名区分\]/g, designationVal)
+        .replace(/\[指名料金\]/g, nominationFeeVal)
+        .replace(/\[支払方法\]/g, paymentLabel)
+        .replace(/\[合計料金\]/g, totalVal)
+        .replace(/\[道案内\]/g, directionsText)
+
+      // クレジット決済情報がない場合は、[決済情報]タグが含まれる行全体を削除する
+      if (!creditInfoText) {
+        bodyText = bodyText.replace(/^[^\n]*\[決済情報\][^\n]*\n?/gm, '')
+      } else {
+        bodyText = bodyText.replace(/\[決済情報\]/g, creditInfoText)
+      }
+    } else {
+      // デフォルトの文面
+      bodyText = `【ご予約完了】ご予約ありがとうございます。
 
 ※※ 重要 ※※
 本メールは送信専用アドレスから自動送信されています。
@@ -174,37 +279,38 @@ async function sendConfirmationEmail({
 ■ ルームの場所・ご案内
 `
 
-    if (commonNote) {
-      bodyText += `${commonNote}\n\n`
-    }
+      if (commonNote) {
+        bodyText += `${commonNote}\n\n`
+      }
 
-    bodyText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
+      bodyText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
 
-    if (template) {
-      bodyText += `\n${template}\n`
-    }
+      if (template) {
+        bodyText += `\n${template}\n`
+      }
 
-    if (additionalNote) {
-      bodyText += `\n${additionalNote}\n`
-    }
+      if (additionalNote) {
+        bodyText += `\n${additionalNote}\n`
+      }
 
-    let footerText = `
+      let footerText = `
 ------------------------
 ※このメールは送信専用アドレス（noreply）のため、直接ご返信いただくことはできません。
 ※ご予約の変更・キャンセルは、お早めに店舗までご連絡ください。
 皆様のご来店を心よりお待ちしております。`
 
-    if (shopName) {
-      footerText += `\n\n【店舗情報】\n・店舗名：${shopName}`
-      if (phone) {
-        footerText += `\n・電話番号：${phone}`
+      if (shopName) {
+        footerText += `\n\n【店舗情報】\n・店舗名：${shopName}`
+        if (phone) {
+          footerText += `\n・電話番号：${phone}`
+        }
+        if (hpUrl) {
+          footerText += `\n・ウェブサイト：${hpUrl}`
+        }
       }
-      if (hpUrl) {
-        footerText += `\n・ウェブサイト：${hpUrl}`
-      }
-    }
 
-    bodyText += footerText
+      bodyText += footerText
+    }
 
     const mailOptions = {
       from,
@@ -665,7 +771,7 @@ export async function POST(
       supabase.from('shops').select('name, sms_address_mode, web_reserve_address_mode, phone').eq('id', shopId).maybeSingle(),
       supabase
         .from('system_settings')
-        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url')
+        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url, email_template_web_success, credit_payment_url')
         .eq('shop_id', shopId)
         .maybeSingle()
     ])
@@ -733,6 +839,7 @@ export async function POST(
         shopName,
         hpUrl,
         phone: shopPhone,
+        creditPaymentUrl: settingsRes.data?.credit_payment_url || null,
       })
     }
   } catch (emailFetchErr) {

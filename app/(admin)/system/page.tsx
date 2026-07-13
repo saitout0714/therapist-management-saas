@@ -10,6 +10,7 @@ import { CourseBackAmountsTab } from './components/CourseBackAmountsTab'
 import { DesignationTypesTab } from './components/DesignationTypesTab'
 import { TherapistTemplateTab } from './components/TherapistTemplateTab'
 import { CustomerTemplateTab } from './components/CustomerTemplateTab'
+import { WebReserveEmailTemplateTab } from './components/WebReserveEmailTemplateTab'
 import { CustomTemplatesTab } from './components/CustomTemplatesTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -44,9 +45,10 @@ type SystemSettings = {
   enable_line_notification: boolean
   line_channel_access_token: string | null
   line_to_id: string | null
+  email_template_web_success: string | null
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'custom_templates' | 'notifications'
+type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'web_email_template' | 'custom_templates' | 'notifications'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
@@ -309,6 +311,7 @@ export default function SystemPage() {
     { key: 'notifications', label: '通知設定' },
     { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
     { key: 'customer_template', label: 'お客様連絡テンプレート' },
+    { key: 'web_email_template', label: 'WEB予約完了メール' },
     { key: 'custom_templates', label: '追加連絡テンプレート' },
     { key: 'courses', label: 'コース管理' },
     { key: 'designation_types', label: '指名種別' },
@@ -352,6 +355,7 @@ export default function SystemPage() {
         {activeTab === 'deductions' && <DeductionRulesTab />}
         {activeTab === 'therapist_template' && <TherapistTemplateTab />}
         {activeTab === 'customer_template' && <CustomerTemplateTab />}
+        {activeTab === 'web_email_template' && <WebReserveEmailTemplateTab />}
         {activeTab === 'custom_templates' && <CustomTemplatesTab />}
 
         {activeTab === 'pricing_defaults' && (
