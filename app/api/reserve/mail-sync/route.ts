@@ -541,7 +541,8 @@ export async function POST(req: NextRequest) {
     // growからのメールは即時確定(confirmed)、その他は仮予約(pending)
     const isGrow = sourceType === 'grow'
     const status = isGrow ? 'confirmed' : 'pending'
-    const isHandled = isGrow ? true : false
+    // セラピスト連絡が送信完了するまでは、Grow等の自動登録であっても未対応（is_handled: false）として登録します
+    const isHandled = false
 
     let warningNotes = ''
     if (isConflict) {
