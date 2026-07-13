@@ -773,15 +773,21 @@ export default function ReservationPreviewPage() {
     if (!reservation) return
     const field = type === 'customer' ? 'customer_notified' : 'therapist_notified'
     
+    // セラピストに送信完了したら is_handled も自動的に true にする（未送信に戻したら false）
+    const updatePayload: any = { [field]: value }
+    if (type === 'therapist') {
+      updatePayload.is_handled = value
+    }
+
     const { error } = await supabase
       .from('reservations')
-      .update({ [field]: value })
+      .update(updatePayload)
       .eq('id', reservation.id)
       
     if (error) {
       console.error('Failed to update notification status:', error.message)
     } else {
-      setReservation(prev => prev ? { ...prev, [field]: value } : null)
+      setReservation(prev => prev ? { ...prev, ...updatePayload } : null)
     }
   }
 

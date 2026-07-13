@@ -775,6 +775,7 @@ export async function POST(
       extension_payment_method: 'cash',
       source: 'web',
       is_handled: false,
+      customer_notified: true,
       base_price: basePrice,
       nomination_fee: nominationFee,
       total_price: basePrice + nominationFee,
