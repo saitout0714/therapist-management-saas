@@ -26,7 +26,7 @@ function extractImageUrls(html: string, baseUrl: string): string[] {
       urls.add(abs)
     }
   }
-  return [...urls].slice(0, 20)
+  return [...urls].slice(0, 50)
 }
 
 export async function POST(req: NextRequest) {
@@ -87,7 +87,7 @@ ${imageSection}
 - rank: ランク・コース・クラス表記（例: "A", "プレミアム", "姫" など、なければnull）
 - comment: 自己紹介・プロフィールコメント（100文字以内の日本語文字列、なければnull）
 - photo_url: プロフィール写真のURL（上記の画像URL候補の中から最も代表的な本人の写真を1つ、なければnull）
-- photo_urls: プロフィール写真のURL配列（上記の画像URL候補の中から、本人の写真と思われるものを全て（最大10個程度）配列に含めてください。なければ空の配列 []）
+- photo_urls: プロフィール写真のURL配列（上記の画像URL候補の中から、本人の写真と思われるものを全て（最大30個程度）配列に含めてください。なければ空の配列 []）
 例: {"age":22,"height":158,"bust":86,"bust_cup":"D","waist":58,"hip":84,"rank":"プレミアム","comment":"よろしくお願いします！","photo_url":"https://example.com/cast/img/abc.jpg","photo_urls":["https://example.com/cast/img/abc.jpg","https://example.com/cast/img/abc_2.jpg"]}
 テキスト:
 ${pageText}`
