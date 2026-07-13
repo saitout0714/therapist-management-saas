@@ -48,34 +48,9 @@ export default async function ReservePage({ params }: PageProps) {
   const nextWeek = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000 + jstOffset)
   const nextWeekStr = nextWeek.toISOString().split('T')[0]
 
-  // 3. 各データを並行取得
-  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes] = await Promise.all([
+  // 2. 店舗基本情報と設定のみを並行取得（軽量クエリ）
+  const [shopRes, settingsRes] = await Promise.all([
     supabase.from('shops').select('id, name, short_name, description').eq('id', shopId).single(),
-    supabase
-      .from('courses')
-      .select('id, name, duration, base_price')
-      .eq('shop_id', shopId)
-      .eq('is_active', true)
-      .order('display_order', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('shifts')
-      .select(`
-        id, date, start_time, end_time,
-        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, rank_id, is_active, is_rookie, reservation_interval_minutes,
-          therapist_ranks (name))
-      `)
-      .eq('shop_id', shopId)
-      .gte('date', todayStr)
-      .lte('date', nextWeekStr)
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true }),
-    supabase
-      .from('reservations')
-      .select('therapist_id, date, start_time, end_time, status')
-      .eq('shop_id', shopId)
-      .gte('date', todayStr)
-      .lte('date', nextWeekStr)
-      .in('status', ['confirmed', 'blocked']),
     supabase
       .from('system_settings')
       .select('reservation_interval_minutes, allow_new_customers')
@@ -93,50 +68,12 @@ export default async function ReservePage({ params }: PageProps) {
     )
   }
 
-  // 4. therapist_photos の取得
-  const shiftsData = shiftsRes.data || []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeShifts = shiftsData.filter((s: any) => {
-    const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
-    return t?.is_active !== false
-  })
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const therapistIds = [...new Set(activeShifts.map((s: any) => {
-    const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
-    return t?.id
-  }).filter(Boolean))] as string[]
-
-  const photosMap: Record<string, string[]> = {}
-  if (therapistIds.length > 0) {
-    const { data: photosData } = await supabase
-      .from('therapist_photos')
-      .select('therapist_id, photo_url, display_order')
-      .in('therapist_id', therapistIds)
-      .order('display_order', { ascending: true })
-
-    for (const row of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
-      if (!photosMap[row.therapist_id]) photosMap[row.therapist_id] = []
-      photosMap[row.therapist_id].push(row.photo_url)
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const shiftsWithPhotos = activeShifts.map((s: any) => {
-    const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
-    if (!t) return s
-    return {
-      ...s,
-      therapists: { ...t, photos: photosMap[t.id] || [] },
-    }
-  })
-
-  // 5. ReserveClient に渡す initialData の構築
+  // 3. 最小限の初期データを構築してクライアントに渡す
   const initialData = {
     shop: shopRes.data,
-    courses: coursesRes.data || [],
-    shifts: shiftsWithPhotos,
-    reservations: reservationsRes.data || [],
+    courses: [],
+    shifts: [],
+    reservations: [],
     system_interval_minutes: settingsRes.data?.reservation_interval_minutes ?? 20,
     allow_new_customers: settingsRes.data?.allow_new_customers ?? true,
     code,

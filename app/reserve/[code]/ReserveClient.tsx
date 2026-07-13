@@ -320,6 +320,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
   const [step, setStep] = useState<Step>('attendance')
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -403,7 +404,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   }, [searchParams, shifts])
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
+    setDataLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/public/${code}`)
@@ -421,9 +422,24 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     } catch {
       setError('データの取得に失敗しました')
     } finally {
-      setLoading(false)
+      setDataLoading(false)
     }
   }, [code])
+
+  // マウント時にデータを非同期取得
+  useEffect(() => {
+    void fetchData()
+  }, [fetchData])
+
+  // 読み込み完了後に最初の日付を選択
+  useEffect(() => {
+    if (shifts.length > 0) {
+      const available = [...new Set(shifts.map(s => s.date))].sort()
+      if (available.length > 0 && !available.includes(selectedDate)) {
+        setSelectedDate(available[0])
+      }
+    }
+  }, [shifts, selectedDate])
 
   // therapist_id がパラメータで渡された場合に自動遷移させる処理
   useEffect(() => {
@@ -602,7 +618,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
   const currentShift = selectedShift ?? freeVirtualShift
 
-  if (loading) {
+  if (loading && !shop) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -699,7 +715,16 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             </div>
 
             {/* 日付タブ */}
-            {availableDates.length > 0 && (
+            {dataLoading ? (
+              <div className="grid grid-cols-7 gap-1 w-full animate-pulse">
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="flex flex-col items-center justify-center py-5 bg-slate-100 rounded-xl">
+                    <div className="h-3 bg-slate-200 rounded w-8 mb-1.5" />
+                    <div className="h-2.5 bg-slate-200 rounded w-6" />
+                  </div>
+                ))}
+              </div>
+            ) : availableDates.length > 0 && (
               <div className="grid grid-cols-7 gap-1 w-full">
                 {availableDates.map(dateStr => {
                   const d = new Date(dateStr + 'T00:00:00')
@@ -727,7 +752,18 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               </div>
             )}
 
-            {todayShifts.length === 0 ? (
+            {dataLoading ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm animate-pulse p-3 space-y-3">
+                    <div className="aspect-[3/4] bg-slate-100 rounded-xl" />
+                    <div className="h-4 bg-slate-200 rounded w-2/3" />
+                    <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    <div className="h-3 bg-slate-200 rounded w-3/4" />
+                  </div>
+                ))}
+              </div>
+            ) : todayShifts.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
                 <p className="text-slate-400 text-sm">本日の出勤情報はありません</p>
               </div>
