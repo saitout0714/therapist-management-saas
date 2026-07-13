@@ -125,7 +125,7 @@ export default function ReservationPreviewPage() {
   const searchParams = useSearchParams()
   const reservationId = params.id as string
   const fromPage = searchParams.get('from')
-  const { selectedShop } = useShop()
+  const { selectedShop, shops, setSelectedShop } = useShop()
 
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null)
@@ -145,9 +145,9 @@ export default function ReservationPreviewPage() {
   }, [selectedShop, reservationId])
 
   const fetchReservationAndRoom = async () => {
-    if (!selectedShop || !reservationId) return
+    if (!reservationId) return
     try {
-      // 1. Fetch Reservation
+      // 1. Fetch Reservation (店舗ID絞り込みなしでIDのみで検索)
       const { data: resData, error: resError } = await supabase
         .from('reservations')
         .select(`
@@ -167,14 +167,27 @@ export default function ReservationPreviewPage() {
           )
         `)
         .eq('id', reservationId)
-        .eq('shop_id', selectedShop.id)
         .maybeSingle()
 
       if (resError) throw resError
       if (!resData) {
-        // 店舗切替などで該当予約が見つからない場合はシフト管理に遷移
+        // 該当予約が見つからない場合はシフト管理に遷移
         router.push('/shifts')
         return
+      }
+
+      // 予約の店舗IDと現在の選択店舗が不一致の場合は自動で切り替える
+      if (!selectedShop || selectedShop.id !== resData.shop_id) {
+        const targetShop = shops.find(s => s.id === resData.shop_id)
+        if (targetShop) {
+          setSelectedShop(targetShop)
+          // selectedShopが変わると再度この関数がトリガーされるので、今回は処理を中断
+          return
+        } else {
+          // アカウントにその店舗へのアクセス権がない場合はシフト管理に遷移
+          router.push('/shifts')
+          return
+        }
       }
 
       setReservation(resData as unknown as Reservation)
