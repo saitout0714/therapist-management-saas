@@ -23,6 +23,7 @@ type ScrapedTherapist = {
   rank?: string | null
   rank_id?: string | null
   photo_url?: string | null
+  photo_urls?: string[] | null
 }
 
 type ExistingTherapist = {
@@ -33,6 +34,7 @@ type ExistingTherapist = {
   matched: boolean        // 一覧URLから自動マッチできたか
   status: 'idle' | 'fetching' | 'done' | 'error'
   photo_url: string | null
+  photo_urls?: string[] | null
   errorMsg: string | null
 }
 
@@ -224,6 +226,7 @@ export default function ImportTherapistsPage() {
                   rank: detail.rank ?? p.rank,
                   rank_id: newRankId ?? p.rank_id,
                   photo_url: detail.photo_url ?? p.photo_url,
+                  photo_urls: detail.photo_urls ?? p.photo_urls,
                 }
               : p
           ))
@@ -281,21 +284,31 @@ export default function ImportTherapistsPage() {
     const { data: inserted, error } = await supabase.from('therapists').insert(rows).select('id, name')
     if (error) { setSaveError('登録に失敗しました: ' + error.message); setSaving(false); return }
 
-    // 写真をアップロード（photo_urlがあるセラピストのみ）
-    const photoJobs = (inserted || []).map((th: { id: string; name: string }) => {
+    // 写真をアップロード（photo_urls または photo_url があるセラピストのみ）
+    const jobs = (inserted || []).map((th: { id: string; name: string }) => {
       const src = toSave.find(t => t.name === th.name)
-      return src?.photo_url ? { therapist_id: th.id, photo_url: src.photo_url } : null
-    }).filter(Boolean) as { therapist_id: string; photo_url: string }[]
+      if (!src) return null
+      const urls = src.photo_urls && src.photo_urls.length > 0
+        ? src.photo_urls
+        : (src.photo_url ? [src.photo_url] : [])
+      return { therapist_id: th.id, urls }
+    }).filter(Boolean) as { therapist_id: string; urls: string[] }[]
 
-    if (photoJobs.length > 0) {
+    if (jobs.length > 0) {
+      // 各セラピストの写真アップロード処理を並行して行い、
+      // 同一セラピストの中では display_order の順序（連番）が崩れないよう直列で順次処理する
       await Promise.allSettled(
-        photoJobs.map(job =>
-          fetch('/api/save-photo-from-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(job),
-          })
-        )
+        jobs.map(async (job) => {
+          for (const u of job.urls) {
+            try {
+              await fetch('/api/save-photo-from-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ therapist_id: job.therapist_id, photo_url: u }),
+              })
+            } catch { /* 個別失敗は無視 */ }
+          }
+        })
       )
     }
 
@@ -410,7 +423,11 @@ export default function ImportTherapistsPage() {
       })
       const detail = await detailRes.json()
 
-      if (!detail.photo_url) {
+      const urls = detail.photo_urls && detail.photo_urls.length > 0
+        ? detail.photo_urls
+        : (detail.photo_url ? [detail.photo_url] : [])
+
+      if (urls.length === 0) {
         setExistingTherapists(prev => prev.map(t =>
           t.id === therapistId ? { ...t, status: 'error', errorMsg: '写真が見つかりませんでした' } : t
         ))
@@ -418,22 +435,36 @@ export default function ImportTherapistsPage() {
       }
 
       // 2. 写真をダウンロードしてStorageに保存
-      const saveRes = await fetch('/api/save-photo-from-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: detail.photo_url, therapist_id: therapistId }),
-      })
-      const saveData = await saveRes.json()
+      let lastSavedUrl = null
+      const savedUrls: string[] = []
+      for (const u of urls) {
+        try {
+          const saveRes = await fetch('/api/save-photo-from-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photo_url: u, therapist_id: therapistId }),
+          })
+          const saveData = await saveRes.json()
 
-      if (!saveRes.ok) {
+          if (saveRes.ok) {
+            const publicUrl = saveData.photo?.photo_url || u
+            savedUrls.push(publicUrl)
+            if (!lastSavedUrl) {
+              lastSavedUrl = publicUrl
+            }
+          }
+        } catch { /* 個別失敗は無視して次に進む */ }
+      }
+
+      if (savedUrls.length === 0) {
         setExistingTherapists(prev => prev.map(t =>
-          t.id === therapistId ? { ...t, status: 'error', errorMsg: saveData.error || '保存に失敗しました' } : t
+          t.id === therapistId ? { ...t, status: 'error', errorMsg: '画像の保存に失敗しました' } : t
         ))
         return
       }
 
       setExistingTherapists(prev => prev.map(t =>
-        t.id === therapistId ? { ...t, status: 'done', photo_url: saveData.photo?.photo_url || detail.photo_url } : t
+        t.id === therapistId ? { ...t, status: 'done', photo_url: lastSavedUrl, photo_urls: savedUrls } : t
       ))
     } catch (e) {
       const msg = e instanceof Error ? e.message : '不明なエラー'
@@ -614,7 +645,7 @@ export default function ImportTherapistsPage() {
     setProfileTherapists(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
   }
 
-  const photoCount = therapists.filter(t => t.photo_url).length
+  const photoCount = therapists.filter(t => t.photo_url || (t.photo_urls && t.photo_urls.length > 0)).length
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
@@ -758,9 +789,13 @@ export default function ImportTherapistsPage() {
                           ) : t.rank ? (
                             <span className="text-xs text-slate-400">「{t.rank}」→ 未一致</span>
                           ) : null}
-                          {t.photo_url && (
+                          {t.photo_urls && t.photo_urls.length > 0 ? (
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                              写真 {t.photo_urls.length}枚
+                            </span>
+                          ) : t.photo_url ? (
                             <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">写真あり</span>
-                          )}
+                          ) : null}
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
                           {[
@@ -1117,7 +1152,9 @@ export default function ImportTherapistsPage() {
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">HP照合済</span>
                           )}
                           {t.status === 'done' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">完了</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
+                              完了{t.photo_urls && t.photo_urls.length > 0 ? `（${t.photo_urls.length}枚）` : ''}
+                            </span>
                           )}
                         </div>
                         {t.status === 'done' ? (

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const imageSection = imageUrls.length > 0
-      ? `\nページ内の画像URL（プロフィール写真と思われるものを photo_url に1つ選んでください）:\n${imageUrls.join('\n')}\n`
+      ? `\nページ内の画像URL候補:\n${imageUrls.join('\n')}\n`
       : ''
 
     const prompt = `以下はセラピスト「${name ?? ''}」の個人プロフィールページのテキストです。
@@ -86,8 +86,9 @@ ${imageSection}
 - hip: ヒップcm（数値またはnull）
 - rank: ランク・コース・クラス表記（例: "A", "プレミアム", "姫" など、なければnull）
 - comment: 自己紹介・プロフィールコメント（100文字以内の日本語文字列、なければnull）
-- photo_url: プロフィール写真のURL（上記の画像URL候補の中から最も本人らしいものを1つ、なければnull）
-例: {"age":22,"height":158,"bust":86,"bust_cup":"D","waist":58,"hip":84,"rank":"プレミアム","comment":"よろしくお願いします！","photo_url":"https://example.com/cast/img/abc.jpg"}
+- photo_url: プロフィール写真のURL（上記の画像URL候補の中から最も代表的な本人の写真を1つ、なければnull）
+- photo_urls: プロフィール写真のURL配列（上記の画像URL候補の中から、本人の写真と思われるものを全て（最大10個程度）配列に含めてください。なければ空の配列 []）
+例: {"age":22,"height":158,"bust":86,"bust_cup":"D","waist":58,"hip":84,"rank":"プレミアム","comment":"よろしくお願いします！","photo_url":"https://example.com/cast/img/abc.jpg","photo_urls":["https://example.com/cast/img/abc.jpg","https://example.com/cast/img/abc_2.jpg"]}
 テキスト:
 ${pageText}`
 
@@ -102,6 +103,12 @@ ${pageText}`
         const photoUrl = data.photo_url && (imageUrls.includes(data.photo_url) || data.photo_url.startsWith('http'))
           ? data.photo_url
           : null
+
+        // photo_urls のハルシネーション対策
+        const rawPhotoUrls = Array.isArray(data.photo_urls) ? data.photo_urls : []
+        const photoUrls = rawPhotoUrls
+          .filter((u: any) => typeof u === 'string' && (imageUrls.includes(u) || u.startsWith('http'))) as string[]
+
         return NextResponse.json({
           age: data.age ?? null,
           height: data.height ?? null,
@@ -112,13 +119,14 @@ ${pageText}`
           rank: data.rank ?? null,
           comment: data.comment ?? null,
           photo_url: photoUrl,
+          photo_urls: photoUrls.length > 0 ? photoUrls : (photoUrl ? [photoUrl] : []),
         })
       }
     } catch {
       // パース失敗はnullで返す
     }
 
-    return NextResponse.json({ age: null, height: null, bust: null, bust_cup: null, waist: null, hip: null, rank: null, comment: null, photo_url: null })
+    return NextResponse.json({ age: null, height: null, bust: null, bust_cup: null, waist: null, hip: null, rank: null, comment: null, photo_url: null, photo_urls: [] })
   } catch (e) {
     const msg = e instanceof Error ? e.message : '不明なエラー'
     return NextResponse.json({ error: `サーバーエラー: ${msg}` }, { status: 500 })
