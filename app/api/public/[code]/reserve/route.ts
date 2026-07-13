@@ -118,6 +118,9 @@ async function sendConfirmationEmail({
   hpUrl,
   phone,
   creditPaymentUrl,
+  creditFeeAmount,
+  designationType,
+  designationMap,
 }: {
   email: string
   customerName: string
@@ -140,6 +143,9 @@ async function sendConfirmationEmail({
   hpUrl?: string | null
   phone?: string | null
   creditPaymentUrl?: string | null
+  creditFeeAmount?: number
+  designationType?: string | null
+  designationMap?: Record<string, string> | null
 }) {
   try {
     const transporter = getMailTransporter(smtpSettings)
@@ -200,8 +206,9 @@ async function sendConfirmationEmail({
     // クレジット決済情報の組み立て
     let creditInfoText = ''
     if (paymentMethod === 'credit' && creditPaymentUrl) {
+      const creditTotal = totalPrice + (creditFeeAmount || 0)
       creditInfoText += `下記のサイトから決済手数料等込みの金額`
-      creditInfoText += ` ${totalPrice.toLocaleString()}円\n`
+      creditInfoText += ` ${creditTotal.toLocaleString()}円\n`
       creditInfoText += `でご決済をご入室前までにお願い致します\n\n`
       creditInfoText += `${creditPaymentUrl}\n`
       creditInfoText = creditInfoText.trim()
@@ -220,9 +227,27 @@ async function sendConfirmationEmail({
     const courseNameVal = courseName || '未設定'
     const courseDurationVal = `${courseDuration}分`
     const coursePriceVal = `${basePrice.toLocaleString()}円`
-    const designationVal = nominationFee > 0 ? '指名あり' : 'フリー'
+    let designationVal = 'フリー'
+    if (designationType) {
+      if (designationMap && designationMap[designationType]) {
+        designationVal = designationMap[designationType]
+      } else {
+        switch (designationType) {
+          case 'free': designationVal = 'フリー'; break
+          case 'nomination': designationVal = '指名'; break
+          case 'first_nomination': designationVal = '初回指名'; break
+          case 'confirmed': designationVal = '本指名'; break
+          case 'princess': designationVal = '姫予約'; break
+          default: designationVal = designationType; break
+        }
+      }
+    } else if (nominationFee > 0) {
+      designationVal = '指名'
+    }
     const nominationFeeVal = `${nominationFee.toLocaleString()}円`
-    const totalVal = `${totalPrice.toLocaleString()}円`
+    const totalVal = paymentMethod === 'credit'
+      ? `${(totalPrice + (creditFeeAmount || 0)).toLocaleString()}円`
+      : `${totalPrice.toLocaleString()}円`
 
     let bodyText = ''
     const customEmailTemplate = smtpSettings?.email_template_web_success
@@ -255,6 +280,21 @@ async function sendConfirmationEmail({
         bodyText = bodyText.replace(/\[決済情報\]/g, creditInfoText)
       }
     } else {
+      // デフォルトの支払情報の表示の出し分け
+      let paymentSection = ''
+      if (paymentMethod === 'credit') {
+        const totalWithFee = totalPrice + (creditFeeAmount || 0)
+        paymentSection = `■ お支払い金額
+・合計金額：¥${totalWithFee.toLocaleString()} (税込)
+  (内訳: 基本料金 ¥${basePrice.toLocaleString()} / 指名料 ¥${nominationFee.toLocaleString()} / クレジット手数料 ¥${(creditFeeAmount || 0).toLocaleString()})
+·お支払い方法：${paymentLabel}`
+      } else {
+        paymentSection = `■ お支払い金額
+・合計金額：¥${totalPrice.toLocaleString()} (税込)
+  (内訳: 基本料金 ¥${basePrice.toLocaleString()} / 指名料 ¥${nominationFee.toLocaleString()})
+·お支払い方法：${paymentLabel}`
+      }
+
       // デフォルトの文面
       bodyText = `【ご予約完了】ご予約ありがとうございます。
 
@@ -270,10 +310,7 @@ async function sendConfirmationEmail({
 ・コース：${courseName} (${courseDuration}分)
 ・担当セラピスト：${therapistName}
 
-■ お支払い金額
-・合計金額：¥${totalPrice.toLocaleString()} (税込)
-  (内訳: 基本料金 ¥${basePrice.toLocaleString()} / 指名料 ¥${nominationFee.toLocaleString()})
-・お支払い方法：${paymentLabel}
+${paymentSection}
 
 ■ ルームの場所・ご案内
 `
@@ -772,14 +809,18 @@ export async function POST(
 
   // 予約作成成功後、メール配信用データの追加フェッチと送信処理
   try {
-    // 1. 店舗の送信モードと個別SMTP設定を並行取得
-    const [shopRes, settingsRes] = await Promise.all([
+    // 1. 店舗の送信モードと個別SMTP設定、指名種別を並行取得
+    const [shopRes, settingsRes, designationTypesRes] = await Promise.all([
       supabase.from('shops').select('name, sms_address_mode, web_reserve_address_mode, phone').eq('id', shopId).maybeSingle(),
       supabase
         .from('system_settings')
         .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, hp_url, email_template_web_success, credit_payment_url')
         .eq('shop_id', shopId)
-        .maybeSingle()
+        .maybeSingle(),
+      supabase
+        .from('designation_types')
+        .select('slug, display_name')
+        .eq('shop_id', shopId)
     ])
 
     const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
@@ -788,6 +829,13 @@ export async function POST(
     const shopPhone = shopRes.data?.phone || null
     const smtpSettings = settingsRes.data
     const hpUrl = settingsRes.data?.hp_url || null
+
+    const designationMap: Record<string, string> = {}
+    if (designationTypesRes?.data) {
+      designationTypesRes.data.forEach((d: { slug: string; display_name: string }) => {
+        designationMap[d.slug] = d.display_name
+      })
+    }
 
     // 2. ルーム情報を取得
     let roomInfo = null
@@ -846,6 +894,9 @@ export async function POST(
         hpUrl,
         phone: shopPhone,
         creditPaymentUrl: settingsRes.data?.credit_payment_url || null,
+        creditFeeAmount,
+        designationType,
+        designationMap,
       })
     }
   } catch (emailFetchErr) {
