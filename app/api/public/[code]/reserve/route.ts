@@ -189,9 +189,8 @@ async function sendConfirmationEmail({
     if (commonNote) {
       directionsText += `${commonNote}\n\n`
     }
-    directionsText += `・お部屋：${room?.name || '未定（ご来店時にご案内します）'}\n`
     if (template) {
-      directionsText += `\n${template}\n`
+      directionsText += `${template}\n`
     }
     if (additionalNote) {
       directionsText += `\n${additionalNote}\n`
@@ -434,7 +433,7 @@ export async function POST(
   // 新規予約受付設定を取得
   const { data: systemSettings } = await supabase
     .from('system_settings')
-    .select('allow_new_customers')
+    .select('allow_new_customers, credit_card_fee_rate')
     .eq('shop_id', shopId)
     .maybeSingle()
   const allowNewCustomers = systemSettings?.allow_new_customers ?? true
@@ -716,6 +715,12 @@ export async function POST(
     }
   }
 
+  // クレジット決済手数料の算出
+  const creditCardFeeRate = systemSettings?.credit_card_fee_rate ?? 10
+  const creditFeeAmount = payment_method === 'credit'
+    ? Math.round((basePrice + nominationFee) * (creditCardFeeRate / 100))
+    : 0
+
   // 予約作成
   const { data: reservation, error: reservationError } = await supabase
     .from('reservations')
@@ -736,6 +741,7 @@ export async function POST(
       base_price: basePrice,
       nomination_fee: nominationFee,
       total_price: basePrice + nominationFee,
+      credit_fee_amount: creditFeeAmount,
       discount_amount: 0,
       designation_type: designationType,
       designation_type_id: designationTypeId,
