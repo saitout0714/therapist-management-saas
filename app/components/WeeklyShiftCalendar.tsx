@@ -39,6 +39,11 @@ function formatDate(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 /** HH:MM 形式（24:00+ 含む）を分に変換 */
 const toMinutes = (t: string): number => {
   const [h, m] = t.split(':').map(Number)
@@ -245,22 +250,50 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full">
       {/* ナビゲーションバー */}
-      <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70 flex-shrink-0">
-        <button
-          className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() - 7 * 86400000))}
-        >
-          ← 前の週
-        </button>
-        <h2 className="font-bold text-slate-800 text-sm md:text-base">
-          {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
-        </h2>
-        <button
-          className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() + 7 * 86400000))}
-        >
-          次の週 →
-        </button>
+      <div className="flex flex-col sm:flex-row items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70 flex-shrink-0 gap-3">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+          <button
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-200 transition-colors shadow-sm flex items-center gap-1"
+            onClick={() => setWeekStartDate(new Date())}
+          >
+            今日
+          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() - 7 * 86400000))}
+            >
+              ← 前の週
+            </button>
+            <button
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              onClick={() => setWeekStartDate(new Date(weekStartDate.getTime() + 7 * 86400000))}
+            >
+              次の週 →
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-center sm:justify-end">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="calendar-start-date-input" className="text-xs text-slate-500 font-medium whitespace-nowrap">日付指定:</label>
+            <input
+              id="calendar-start-date-input"
+              type="date"
+              value={formatDate(weekStartDate)}
+              onChange={(e) => {
+                const val = e.target.value
+                if (val) {
+                  setWeekStartDate(parseLocalDate(val))
+                }
+              }}
+              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white shadow-sm font-medium text-slate-700 cursor-pointer"
+            />
+          </div>
+          <h2 className="font-bold text-slate-800 text-sm md:text-base whitespace-nowrap border-l border-slate-200 pl-3">
+            {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
+          </h2>
+        </div>
       </div>
 
       {/* セラピスト検索バー */}
