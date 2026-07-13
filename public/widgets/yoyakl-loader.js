@@ -1209,12 +1209,12 @@
     if (photos.length > 1) {
       thumbnailsHTML = `
         <div class="yk-single-thumbnails">
-          \${photos.map((p, idx) => \`
-            <img src="\${resolvePhotoUrl(p, apiBase)}" 
-                 alt="\${therapist.name} サムネイル \${idx + 1}" 
-                 class="yk-single-thumb \${idx === 0 ? 'active' : ''}" 
-                 data-index="\${idx}" />
-          \`).join('')}
+          ${photos.map((p, idx) => `
+            <img src="${resolvePhotoUrl(p, apiBase)}" 
+                 alt="${therapist.name} サムネイル ${idx + 1}" 
+                 class="yk-single-thumb ${idx === 0 ? 'active' : ''}" 
+                 data-index="${idx}" />
+          `).join('')}
         </div>
       `;
     }
