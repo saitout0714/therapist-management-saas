@@ -66,7 +66,7 @@ export type CustomerForm = {
 }
 
 export type InitialReserveData = {
-  shop: Shop
+  shop: Shop | null
   courses: Course[]
   shifts: Shift[]
   reservations: ExistingReservation[]
@@ -329,6 +329,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const [shifts, setShifts] = useState<Shift[]>(initialData.shifts)
   const [existingReservations, setExistingReservations] = useState<ExistingReservation[]>(initialData.reservations)
   const [systemIntervalMinutes, setSystemIntervalMinutes] = useState(initialData.system_interval_minutes)
+  const [allowNewCustomers, setAllowNewCustomers] = useState(initialData.allow_new_customers ?? true)
 
   const [selectedDate, setSelectedDate] = useState(() => {
     if (initialData.shifts.length > 0) {
@@ -407,7 +408,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     setDataLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/public/${code}`)
+      const res = await fetch(`/api/public/${code}`, { credentials: 'omit' })
       if (!res.ok) {
         const data = await res.json()
         setError(data.error || 'データの取得に失敗しました')
@@ -419,6 +420,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
       setShifts(data.shifts)
       setExistingReservations(data.reservations || [])
       setSystemIntervalMinutes(data.system_interval_minutes ?? 20)
+      setAllowNewCustomers(data.allow_new_customers ?? true)
     } catch {
       setError('データの取得に失敗しました')
     } finally {
@@ -700,7 +702,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         {/* Step 1: 出勤情報 */}
         {step === 'attendance' && (
           <div className="space-y-5">
-            {initialData.allow_new_customers === false && (
+            {allowNewCustomers === false && (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm whitespace-pre-wrap leading-relaxed">
 {`⚠️ 会員限定予約のお知らせ
 
@@ -1274,7 +1276,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               </div>
             </div>
 
-            {initialData.allow_new_customers === false && (
+            {allowNewCustomers === false && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 whitespace-pre-wrap leading-relaxed">
 {`⚠️ 会員限定予約のお知らせ
 

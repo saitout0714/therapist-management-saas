@@ -51,7 +51,7 @@ export async function GET(
   nextWeek.setDate(today.getDate() + 6)
   const nextWeekStr = nextWeek.toISOString().split('T')[0]
 
-  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes, therapistsRes] = await Promise.all([
+  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes, therapistsRes, photosRes] = await Promise.all([
     supabase.from('shops').select('id, name, short_name, description').eq('id', shopId).single(),
     supabase
       .from('courses')
@@ -80,7 +80,7 @@ export async function GET(
       .in('status', ['confirmed', 'blocked']),
     supabase
       .from('system_settings')
-      .select('reservation_interval_minutes')
+      .select('reservation_interval_minutes, allow_new_customers')
       .eq('shop_id', shopId)
       .maybeSingle(),
     supabase
@@ -89,6 +89,14 @@ export async function GET(
       .eq('shop_id', shopId)
       .eq('is_active', true)
       .order('name', { ascending: true }),
+    supabase
+      .from('therapist_photos')
+      .select(`
+        therapist_id, photo_url, display_order,
+        therapists!inner (shop_id)
+      `)
+      .eq('therapists.shop_id', shopId)
+      .order('display_order', { ascending: true })
   ])
 
   if (shopRes.error) {
@@ -101,24 +109,9 @@ export async function GET(
     return t?.is_active !== false
   })
 
-  // シフトに出勤しているセラピストIDと、全アクティブセラピストのIDを収集して写真を取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const shiftsTherapistIds = shifts.map((s: any) => {
-    const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
-    return t?.id
-  }).filter(Boolean) as string[]
-
-  const allTherapistIds = (therapistsRes.data || []).map((t: any) => t.id) as string[]
-  const therapistIds = [...new Set([...shiftsTherapistIds, ...allTherapistIds])] as string[]
-
   const photosMap: Record<string, string[]> = {}
-  if (therapistIds.length > 0) {
-    const { data: photosData } = await supabase
-      .from('therapist_photos')
-      .select('therapist_id, photo_url, display_order')
-      .in('therapist_id', therapistIds)
-      .order('display_order', { ascending: true })
-    for (const row of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
+  if (photosRes.data) {
+    for (const row of (photosRes.data || []) as unknown as { therapist_id: string; photo_url: string }[]) {
       if (!photosMap[row.therapist_id]) photosMap[row.therapist_id] = []
       photosMap[row.therapist_id].push(row.photo_url)
     }
@@ -147,7 +140,8 @@ export async function GET(
     courses: coursesRes.data || [],
     shifts: shiftsWithPhotos,
     reservations: reservationsRes.data || [],
-    system_interval_minutes: (settingsRes.data as { reservation_interval_minutes?: number } | null)?.reservation_interval_minutes ?? 20,
+    system_interval_minutes: (settingsRes.data as any)?.reservation_interval_minutes ?? 20,
+    allow_new_customers: (settingsRes.data as any)?.allow_new_customers ?? true,
     therapists: therapistsWithPhotos,
   }, {
     headers: CORS_HEADERS
