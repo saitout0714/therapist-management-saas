@@ -1161,6 +1161,10 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           <div className="grid grid-cols-4 gap-2">
                             {slotsWithAvailability
                               .filter((s, _, arr) => {
+                                // 最短の案内枠（最初の空き枠）は30分刻みでなくても常に表示する
+                                const firstAvailable = arr.find(item => item.available)
+                                if (firstAvailable && s.time === firstAvailable.time) return true
+
                                 const [h, m] = s.time.split(':').map(Number)
                                 if (m % 30 === 0) return true
 
