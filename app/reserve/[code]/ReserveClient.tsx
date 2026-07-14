@@ -839,20 +839,51 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         {t.therapist_ranks && (
                           <p className="text-xs text-[#b89035] font-semibold mt-0.5">{t.therapist_ranks.name}</p>
                         )}
-                        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {formatTime(shift.start_time)} 〜 {formatTime(shift.end_time)}
+                        <div className="mt-3 space-y-2 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                          {/* 出勤時間 */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-medium">出勤時間</span>
+                            <span className="text-xs text-slate-600 font-semibold">{formatTime(shift.start_time)} 〜 {formatTime(shift.end_time)}</span>
+                          </div>
+                          
+                          {/* 最短案内 */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-medium">最短案内</span>
+                            {!isAvailable ? (
+                              <span className="text-xs text-red-500 font-bold">ご予約満了</span>
+                            ) : (shift as any).isImmediate ? (
+                              <span className="text-[11px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">今すぐご案内</span>
+                            ) : (shift as any).firstAvailableTime ? (
+                              <span className="text-xs text-emerald-600 font-bold">{(shift as any).firstAvailableTime} 〜</span>
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </div>
                         </div>
-                        {(t.age || t.height) && (
-                          <p className="text-xs text-slate-400 mt-1">
-                            {t.age && `${t.age}歳`}{t.age && t.height && ' / '}{t.height && `${t.height}cm`}
-                          </p>
+
+                        {(t.age || t.height || t.comment) && (
+                          <div className="mt-2 text-xs text-slate-400">
+                            {(t.age || t.height) && (
+                              <p>{t.age && `${t.age}歳`}{t.age && t.height && ' / '}{t.height && `${t.height}cm`}</p>
+                            )}
+                            {t.comment && (
+                              <p className="mt-1 line-clamp-2">{t.comment}</p>
+                            )}
+                          </div>
                         )}
-                        {t.comment && (
-                          <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{t.comment}</p>
-                        )}
+
+                        <div className="mt-3">
+                          <button 
+                            disabled={!isAvailable}
+                            className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                              isAvailable 
+                                ? 'bg-[#789280] text-white hover:bg-[#5d7362] active:scale-95' 
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                          >
+                            {isAvailable ? '予約する' : '受付終了'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
