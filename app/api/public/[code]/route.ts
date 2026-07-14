@@ -44,14 +44,17 @@ export async function GET(
 
   const shopId = codeRow.shop_id
 
-  // 店舗情報・コース・本日から7日分のシフトを並行取得
-  const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
-  const nextWeek = new Date(today)
-  nextWeek.setDate(today.getDate() + 6)
-  const nextWeekStr = nextWeek.toISOString().split('T')[0]
+  // JSTでの本日・昨日・1週間後の日付を計算（タイムゾーンと深夜営業対策）
+  const now = new Date()
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  
+  const jstYesterday = new Date(jst.getTime() - 24 * 60 * 60 * 1000)
+  const yesterdayStr = `${jstYesterday.getUTCFullYear()}-${String(jstYesterday.getUTCMonth() + 1).padStart(2, '0')}-${String(jstYesterday.getUTCDate()).padStart(2, '0')}`
+  
+  const nextWeek = new Date(jst.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const nextWeekStr = `${nextWeek.getUTCFullYear()}-${String(nextWeek.getUTCMonth() + 1).padStart(2, '0')}-${String(nextWeek.getUTCDate()).padStart(2, '0')}`
 
-  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes, therapistsRes, photosRes] = await Promise.all([
+  const [shopRes, coursesRes, shiftsRes, reservationsRes, settingsRes, therapistsRes, photosRes, backRulesRes] = await Promise.all([
     supabase.from('shops').select('id, name, short_name, description').eq('id', shopId).single(),
     supabase
       .from('courses')
@@ -67,7 +70,7 @@ export async function GET(
           therapist_ranks (name))
       `)
       .eq('shop_id', shopId)
-      .gte('date', todayStr)
+      .gte('date', yesterdayStr)
       .lte('date', nextWeekStr)
       .order('date', { ascending: true })
       .order('start_time', { ascending: true }),
@@ -75,7 +78,7 @@ export async function GET(
       .from('reservations')
       .select('therapist_id, date, start_time, end_time, status')
       .eq('shop_id', shopId)
-      .gte('date', todayStr)
+      .gte('date', yesterdayStr)
       .lte('date', nextWeekStr)
       .in('status', ['confirmed', 'blocked']),
     supabase
@@ -96,7 +99,12 @@ export async function GET(
         therapists!inner (shop_id)
       `)
       .eq('therapists.shop_id', shopId)
-      .order('display_order', { ascending: true })
+      .order('display_order', { ascending: true }),
+    supabase
+      .from('shop_back_rules')
+      .select('business_day_cutoff')
+      .eq('shop_id', shopId)
+      .maybeSingle()
   ])
 
   if (shopRes.error) {
@@ -135,6 +143,9 @@ export async function GET(
     }
   })
 
+  // business_day_cutoffを取得 (HH:MM:SS 形式から HH:MM に整形)
+  const business_day_cutoff = (backRulesRes.data as any)?.business_day_cutoff?.substring(0, 5) ?? '06:00'
+
   return NextResponse.json({
     shop: shopRes.data,
     courses: coursesRes.data || [],
@@ -143,6 +154,7 @@ export async function GET(
     system_interval_minutes: (settingsRes.data as any)?.reservation_interval_minutes ?? 20,
     allow_new_customers: (settingsRes.data as any)?.allow_new_customers ?? true,
     therapists: therapistsWithPhotos,
+    business_day_cutoff,
   }, {
     headers: CORS_HEADERS
   })

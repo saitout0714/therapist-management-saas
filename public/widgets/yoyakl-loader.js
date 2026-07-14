@@ -866,7 +866,26 @@
 
   function renderWidget(container, data, mode, shopCode, therapistName, therapistId, castUrlPattern, rookieOnly = false, todayOnly = false) {
     const { shifts, therapists } = data;
+    const cutoff = data.business_day_cutoff || '06:00';
     const displayTherapists = rookieOnly ? therapists.filter(t => t.is_rookie) : therapists;
+    
+    // タイムゾーンセーフなJST現在日時の取得と営業日切替判定
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const jstDate = new Date(utcTime + (3600000 * 9));
+    
+    const cutoffParts = cutoff.split(':');
+    const cutH = parseInt(cutoffParts[0] || '6', 10);
+    const cutM = parseInt(cutoffParts[1] || '0', 10);
+    
+    const currentJstMinutes = jstDate.getHours() * 60 + jstDate.getMinutes();
+    const cutoffMinutes = cutH * 60 + cutM;
+    
+    const businessDate = new Date(jstDate);
+    if (currentJstMinutes < cutoffMinutes) {
+      businessDate.setDate(businessDate.getDate() - 1);
+    }
+    const todayStr = getJstDateString(businessDate);
     
     // 予約用URLの生成ヘルパー
     const reserveUrl = container.getAttribute('data-reserve-url') || `${apiBase}/reserve/${shopCode}`;
@@ -893,11 +912,10 @@
 
     // 日付スケジュール枠の作成
     const datesList = [];
-    const today = new Date();
     const daysCount = todayOnly ? 1 : 7;
     for (let i = 0; i < daysCount; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
+      const d = new Date(businessDate);
+      d.setDate(businessDate.getDate() + i);
       datesList.push(getJstDateString(d));
     }
 
@@ -1022,8 +1040,6 @@
       return '<div class="yk-no-shifts" style="grid-column:1/-1;">在籍セラピスト情報がありません。</div>';
     }
 
-    const todayStr = getJstDateString(new Date());
-
     return therapists.map(t => {
       const isWorkingToday = shifts.some(s => s.therapists && s.therapists.id === t.id && s.date === todayStr);
       const photoSrc = resolvePhotoUrl(t.photo_url || (t.photos && t.photos[0]), apiBase, 384);
@@ -1072,7 +1088,6 @@
 
   // スケジュール専用HTML（上部日付タブ ＋ アクティブ日グリッド）
   function renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl, getBookUrl) {
-    const todayStr = getJstDateString(new Date());
     
     // 日付ごとにシフトを整理
     const shiftsByDate = {};
@@ -1187,7 +1202,6 @@
 
   // 個人スケジュール＆プロフィール表示HTML
   function renderSingleTherapistHTML(therapist, datesList, shifts, shopCode, getBookUrl) {
-    const todayStr = getJstDateString(new Date());
     
     // このセラピストのシフトのみを抽出
     const myShifts = {};

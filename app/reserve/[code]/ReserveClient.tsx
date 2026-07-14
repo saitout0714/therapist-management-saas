@@ -97,6 +97,19 @@ function addMinutes(time: string, mins: number) {
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
 }
 
+// JSTの日付と時刻文字列を合成してDateオブジェクトを生成するヘルパー関数
+function getJstDateFromDateTime(dateStr: string, timeStr: string): Date {
+  const [yyyy, mm, dd] = dateStr.split('-').map(Number)
+  let [h, m] = timeStr.split(':').map(Number)
+  let extraDays = 0
+  if (h >= 24) {
+    extraDays = Math.floor(h / 24)
+    h = h % 24
+  }
+  const utcMs = Date.UTC(yyyy, mm - 1, dd + extraDays, h, m) - 9 * 60 * 60 * 1000
+  return new Date(utcMs)
+}
+
 function timeToMinutes(t: string) {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
@@ -330,6 +343,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const [existingReservations, setExistingReservations] = useState<ExistingReservation[]>(initialData.reservations)
   const [systemIntervalMinutes, setSystemIntervalMinutes] = useState(initialData.system_interval_minutes)
   const [allowNewCustomers, setAllowNewCustomers] = useState(initialData.allow_new_customers ?? true)
+  const [businessDayCutoff, setBusinessDayCutoff] = useState('06:00')
 
   const [selectedDate, setSelectedDate] = useState(() => {
     if (initialData.shifts.length > 0) {
@@ -421,6 +435,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
       setExistingReservations(data.reservations || [])
       setSystemIntervalMinutes(data.system_interval_minutes ?? 20)
       setAllowNewCustomers(data.allow_new_customers ?? true)
+      setBusinessDayCutoff(data.business_day_cutoff ?? '06:00')
     } catch {
       setError('データの取得に失敗しました')
     } finally {
@@ -481,7 +496,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const todayShifts = useMemo(() => {
     const rawShifts = shifts.filter(s => s.date === selectedDate)
     const now = new Date()
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const minAllowedTime = now.getTime() + 20 * 60 * 1000 // 20分後
 
     const shiftsWithAvailability = rawShifts.map(shift => {
       const t = shift.therapists
@@ -492,20 +507,12 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         r => r.therapist_id === t.id && r.date === shift.date
       )
 
-      const isToday = shift.date === todayStr
-      const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
-      const shiftStartSimpleMin = timeToMinutes(shift.start_time)
-      const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
-      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-      const minStartAbsMin = (isToday && inOrNearShift)
-        ? timeToMinutesAbsolute(currentTimeStr, shift.start_time) + 20
-        : -Infinity
-
       // 最短コースで枠生成を試す
       const allSlots = generateSlots(shift.start_time, shift.end_time, minCourseDuration, 5)
       const hasAnyAvailable = allSlots.some(slot => {
         const isAvail = isSlotAvailable(slot, minCourseDuration, therapistReservations, interval, shift.start_time)
-        const isTimeValid = minStartAbsMin === -Infinity || timeToMinutesAbsolute(slot, shift.start_time) >= minStartAbsMin
+        const slotJstDate = getJstDateFromDateTime(shift.date, slot)
+        const isTimeValid = slotJstDate.getTime() >= minAllowedTime
         return isAvail && isTimeValid
       })
 
@@ -521,7 +528,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
       if (!a.hasAvailableSlot && b.hasAvailableSlot) return 1
       return 0
     })
-  }, [shifts, selectedDate, courses, existingReservations, systemIntervalMinutes, minCourseDuration])
+  }, [shifts, selectedDate, systemIntervalMinutes, existingReservations, minCourseDuration])
 
   // 利用可能な日付一覧（シフトがある日）
   const availableDates = [...new Set(shifts.map(s => s.date))].sort()
@@ -941,15 +948,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 r => r.therapist_id === selectedTherapist!.id && r.date === currentShift.date
               )
               const now = new Date()
-              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-              const isToday = currentShift.date === todayStr
-              const currentSimpleMin = now.getHours() * 60 + now.getMinutes()
-              const shiftStartSimpleMin = timeToMinutes(currentShift.start_time)
-              const inOrNearShift = currentSimpleMin >= shiftStartSimpleMin - 60 || now.getHours() < 6
-              const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-              const minStartAbsMin = (isToday && inOrNearShift)
-                ? timeToMinutesAbsolute(currentTimeStr, currentShift.start_time) + 20
-                : -Infinity
+              const minAllowedTime = now.getTime() + 20 * 60 * 1000 // 20分後
 
               const shiftStartMin = timeToMinutes(currentShift.start_time)
               const shiftEndMin = timeToMinutesAbsolute(currentShift.end_time, currentShift.start_time)
@@ -961,7 +960,8 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, currentShift.start_time)) {
                   return { time: slot, available: false }
                 }
-                if (minStartAbsMin > -Infinity && timeToMinutesAbsolute(slot, currentShift.start_time) < minStartAbsMin) {
+                const slotJstDate = getJstDateFromDateTime(currentShift.date, slot)
+                if (slotJstDate.getTime() < minAllowedTime) {
                   return { time: slot, available: false }
                 }
                 return { time: slot, available: true }
@@ -1010,9 +1010,11 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 : null
               const selectedWidth = (selectedCourse.duration / totalMin) * 100
 
-              const pastEndPct = (isToday && inOrNearShift && minStartAbsMin > -Infinity)
-                ? Math.min(100, Math.max(0, ((minStartAbsMin - shiftStartMin) / totalMin) * 100))
-                : 0
+              const shiftStartDate = getJstDateFromDateTime(currentShift.date, currentShift.start_time)
+              const shiftEndDate = getJstDateFromDateTime(currentShift.date, currentShift.end_time)
+              const totalShiftMin = (shiftEndDate.getTime() - shiftStartDate.getTime()) / (60 * 1000)
+              const elapsedMin = (now.getTime() + 20 * 60 * 1000 - shiftStartDate.getTime()) / (60 * 1000)
+              const pastEndPct = Math.min(100, Math.max(0, (elapsedMin / totalShiftMin) * 100))
 
               const hourLabels = (() => {
                 const result: { label: string; leftPct: number }[] = []
