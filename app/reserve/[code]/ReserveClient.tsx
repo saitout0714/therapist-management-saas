@@ -1034,10 +1034,8 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               const selectedWidth = (selectedCourse.duration / totalMin) * 100
 
               const shiftStartDate = getJstDateFromDateTime(currentShift.date, currentShift.start_time)
-              const shiftEndDate = getJstDateFromDateTime(currentShift.date, currentShift.end_time)
-              const totalShiftMin = (shiftEndDate.getTime() - shiftStartDate.getTime()) / (60 * 1000)
               const elapsedMin = (now.getTime() + 20 * 60 * 1000 - shiftStartDate.getTime()) / (60 * 1000)
-              const pastEndPct = Math.min(100, Math.max(0, (elapsedMin / totalShiftMin) * 100))
+              const pastEndPct = Math.min(100, Math.max(0, (elapsedMin / totalMin) * 100))
 
               const hourLabels = (() => {
                 const result: { label: string; leftPct: number }[] = []
