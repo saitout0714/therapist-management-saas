@@ -533,16 +533,26 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
       // 最短コースで枠生成を試す
       const allSlots = generateSlots(shift.start_time, shift.end_time, minCourseDuration, 5)
-      const hasAnyAvailable = allSlots.some(slot => {
+      let isImmediate = false
+      const firstAvailSlot = allSlots.find(slot => {
         const isAvail = isSlotAvailable(slot, minCourseDuration, therapistReservations, interval, shift.start_time)
         const slotJstDate = getJstDateFromDateTime(shift.date, slot)
         const isTimeValid = slotJstDate.getTime() >= minAllowedTime
-        return isAvail && isTimeValid
+        
+        if (isAvail && isTimeValid) {
+          if (slotJstDate.getTime() <= now.getTime() + 35 * 60 * 1000) {
+            isImmediate = true
+          }
+          return true
+        }
+        return false
       })
 
       return {
         ...shift,
-        hasAvailableSlot: hasAnyAvailable
+        hasAvailableSlot: !!firstAvailSlot,
+        firstAvailableTime: firstAvailSlot || null,
+        isImmediate
       }
     })
 
