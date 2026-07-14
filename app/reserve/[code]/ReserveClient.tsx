@@ -367,6 +367,33 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const mainRef = useRef<HTMLDivElement>(null)
   const hasInitializedFromUrl = useRef(false)
 
+  // 現在の営業日の基準日付 (JSTタイムゾーンセーフ、深夜営業時間考慮)
+  const currentBusinessDateStr = useMemo(() => {
+    const now = new Date()
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+    const jstDate = new Date(utcTime + (9 * 3600000))
+    
+    const [cutH, cutM] = businessDayCutoff.split(':').map(Number)
+    const currentJstMinutes = jstDate.getHours() * 60 + jstDate.getMinutes()
+    const cutoffMinutes = (cutH ?? 6) * 60 + (cutM ?? 0)
+    
+    const businessDate = new Date(jstDate)
+    if (currentJstMinutes < cutoffMinutes) {
+      businessDate.setDate(businessDate.getDate() - 1)
+    }
+    
+    const y = businessDate.getFullYear()
+    const m = String(businessDate.getMonth() + 1).padStart(2, '0')
+    const d = String(businessDate.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }, [businessDayCutoff])
+
+  // 利用可能な日付一覧（現在の営業日以降で、シフトがある日）
+  const availableDates = useMemo(() => {
+    const uniqueDates = [...new Set(shifts.map(s => s.date))].sort()
+    return uniqueDates.filter(dateStr => dateStr >= currentBusinessDateStr)
+  }, [shifts, currentBusinessDateStr])
+
   useEffect(() => {
     if (!isEmbed) return
     const el = mainRef.current
@@ -450,13 +477,10 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
   // 読み込み完了後に最初の日付を選択
   useEffect(() => {
-    if (shifts.length > 0) {
-      const available = [...new Set(shifts.map(s => s.date))].sort()
-      if (available.length > 0 && !available.includes(selectedDate)) {
-        setSelectedDate(available[0])
-      }
+    if (availableDates.length > 0 && !availableDates.includes(selectedDate)) {
+      setSelectedDate(availableDates[0])
     }
-  }, [shifts, selectedDate])
+  }, [availableDates, selectedDate])
 
   // therapist_id がパラメータで渡された場合に自動遷移させる処理
   useEffect(() => {
@@ -530,8 +554,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     })
   }, [shifts, selectedDate, systemIntervalMinutes, existingReservations, minCourseDuration])
 
-  // 利用可能な日付一覧（シフトがある日）
-  const availableDates = [...new Set(shifts.map(s => s.date))].sort()
+  // (availableDates is defined above)
 
   const endTime = selectedStartTime && selectedCourse
     ? addMinutes(selectedStartTime, selectedCourse.duration)
