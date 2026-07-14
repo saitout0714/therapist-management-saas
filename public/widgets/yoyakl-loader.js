@@ -116,11 +116,15 @@
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 12px;
+        justify-content: center;
       }
       @media (min-width: 600px) {
         .yk-therapist-grid {
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(180px, 240px));
           gap: 20px;
+          justify-content: center;
+          max-width: 1280px; /* 5 columns of 240px + 4 gaps of 20px = 1280px */
+          margin: 0 auto;
         }
       }
       .yk-card {
