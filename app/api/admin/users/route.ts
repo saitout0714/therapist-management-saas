@@ -192,10 +192,24 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const { userId, name, role, password, currentUserRole } = await req.json()
+    const { userId, loginId, name, role, password, currentUserRole } = await req.json()
 
     if (!userId || !name || !role) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+    }
+
+    if (loginId) {
+      // ログインIDが変更される場合、重複をチェックする
+      const { data: existingUser } = await serviceSupabase
+        .from('users')
+        .select('id')
+        .eq('login_id', loginId.trim())
+        .neq('id', userId)
+        .limit(1)
+
+      if (existingUser && existingUser.length > 0) {
+        return NextResponse.json({ error: 'このログインIDは既に他のアカウントで使用されています' }, { status: 400 })
+      }
     }
 
     if (role === 'developer' && currentUserRole !== 'developer') {
@@ -219,24 +233,32 @@ export async function PUT(req: Request) {
     // 2. メタデータの更新（Authテーブル側）
     // (Auth側にユーザーが存在しない等の不整合があっても、メインのDB更新処理を妨げないように安全に処理します)
     try {
-      const { error: authUpdateError } = await serviceSupabase.auth.admin.updateUserById(userId, {
-        user_metadata: { name: name.trim(), role },
-      })
+      const updateData: any = { user_metadata: { name: name.trim(), role } }
+      if (loginId) {
+        updateData.email = loginId.includes('@') ? loginId : `${loginId.trim()}@yoyakl.tokyo`
+      }
+      
+      const { error: authUpdateError } = await serviceSupabase.auth.admin.updateUserById(userId, updateData)
       if (authUpdateError) {
-        console.warn('Authメタデータの更新に失敗 (処理は継続します):', authUpdateError.message)
+        console.warn('Authの更新に失敗 (処理は継続します):', authUpdateError.message)
       }
     } catch (authErr: any) {
-      console.warn('Authメタデータ更新中に例外が発生 (処理は継続します):', authErr.message)
+      console.warn('Auth更新中に例外が発生 (処理は継続します):', authErr.message)
     }
 
     // 3. データベース側の情報を直接更新 (トリガーは新規挿入時のみのため、更新は直接実行)
+    const updatePayload: any = {
+      name: name.trim(),
+      role: role,
+      updated_at: new Date().toISOString()
+    }
+    if (loginId) {
+      updatePayload.login_id = loginId.trim()
+    }
+
     const { error: dbUpdateError } = await serviceSupabase
       .from('users')
-      .update({
-        name: name.trim(),
-        role: role,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', userId)
 
     if (dbUpdateError) throw dbUpdateError

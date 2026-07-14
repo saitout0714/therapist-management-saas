@@ -1129,7 +1129,7 @@ export default function EditReservationPage() {
                     )}
                   </div>
                   <select
-                    value={formData.course_id}
+                    value={formData.course_id || ""}
                     onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                     required
@@ -1444,7 +1444,7 @@ export default function EditReservationPage() {
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">受付区分</label>
                   <select
-                    value={formData.reception_source}
+                    value={formData.reception_source || ""}
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
                     className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >

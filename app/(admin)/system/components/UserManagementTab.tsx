@@ -99,6 +99,7 @@ export function UserManagementTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: editingUser.id,
+          loginId: form.loginId.trim(),
           name: form.name.trim(),
           role: form.role,
           password: form.password || undefined,
@@ -218,14 +219,12 @@ export function UserManagementTab() {
                 type="text"
                 value={form.loginId}
                 onChange={e => setForm({ ...form, loginId: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
-                disabled={editingUser !== null}
-                className={`w-full px-4 py-2.5 rounded-lg text-sm outline-none border transition-all ${
-                  editingUser
-                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                    : 'bg-white border-slate-200 focus:ring-2 focus:ring-indigo-500/50'
-                }`}
+                className="w-full px-4 py-2.5 rounded-lg text-sm outline-none border transition-all bg-white border-slate-200 focus:ring-2 focus:ring-indigo-500/50"
                 required
               />
+              {editingUser && (
+                <p className="text-[10px] text-rose-500 mt-1 font-medium">※ 変更すると次回からのログインIDが変わりますのでご注意ください。</p>
+              )}
             </div>
 
             <div className="space-y-1">
