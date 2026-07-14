@@ -210,6 +210,8 @@ export function UserManagementTab() {
                 {currentUser?.role === 'developer' && <option value="developer">マスター（開発者）</option>}
                 <option value="system_admin">システム管理者</option>
                 <option value="agency_staff">受付スタッフ</option>
+                <option value="agency_client_owner">店舗オーナー (代理店用)</option>
+                <option value="simple_client_owner">店舗オーナー</option>
               </select>
             </div>
 
@@ -285,6 +287,8 @@ export function UserManagementTab() {
               { role: 'developer', label: 'マスター', badgeClass: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200/60' },
               { role: 'system_admin', label: '管理者', badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200/60' },
               { role: 'agency_staff', label: '受付スタッフ', badgeClass: 'bg-slate-100 text-slate-700 border border-slate-200/60' },
+              { role: 'agency_client_owner', label: '店舗オーナー (代理店用)', badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' },
+              { role: 'simple_client_owner', label: '店舗オーナー', badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' },
             ].filter(g => g.role !== 'developer' || currentUser?.role === 'developer').map(group => {
               const groupUsers = users.filter(u => u.role === group.role)
               
