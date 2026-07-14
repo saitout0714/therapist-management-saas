@@ -89,7 +89,7 @@
         gap: 8px;
       }
       .yk-tab-btn:hover {
-        color: var(--yk-gray-800);
+        color: var(--yk-gray-900);
       }
       .yk-tab-btn.active {
         background: #ffffff;
@@ -126,6 +126,68 @@
           max-width: 1280px; /* 5 columns of 240px + 4 gaps of 20px = 1280px */
           margin: 0 auto;
         }
+      }
+      .yk-shift-times-container {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+        border-top: 1px dashed var(--yk-gray-200);
+        padding-top: 10px;
+      }
+      .yk-shift-hours {
+        font-size: 0.85rem;
+        color: var(--yk-gray-500);
+        text-align: center;
+      }
+      .yk-immediate-badge {
+        background-color: #fef2f2;
+        color: #ef4444;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-align: center;
+        padding: 6px;
+        border-radius: var(--yk-radius-md);
+        border: 1px solid #fca5a5;
+        animation: pulse 2s infinite;
+      }
+      .yk-available-time {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--yk-gray-700);
+        text-align: center;
+      }
+      .yk-unavailable-time {
+        font-size: 0.9rem;
+        color: var(--yk-gray-400);
+        text-align: center;
+      }
+      .yk-reserve-btn {
+        display: block;
+        width: 100%;
+        text-align: center;
+        background-color: var(--yk-pink);
+        color: white;
+        padding: 10px;
+        border-radius: var(--yk-radius-md);
+        font-weight: bold;
+        text-decoration: none;
+        transition: background-color 0.2s;
+        box-sizing: border-box;
+      }
+      .yk-reserve-btn:hover {
+        background-color: var(--yk-pink-hover);
+        color: white;
+      }
+      .yk-reserve-btn.disabled {
+        background-color: var(--yk-gray-200);
+        color: var(--yk-gray-500);
+        cursor: not-allowed;
+        text-decoration: none;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
       }
       .yk-card {
         background: rgba(255, 255, 255, 0.15); /* 透明度を15%に引き上げ、究極のシースルー・ガラス板を再現 */
@@ -1179,11 +1241,22 @@
                         <a href="${profileUrl}" target="_self" class="yk-name-link" title="${t.name}の個人ページを見る">${t.name}</a>
                       </div>
                       ${profileText ? `<div class="yk-profile-str">${profileText}</div>` : ''}
-                      <p class="yk-comment" title="${t.comment || ''}">${t.comment || 'よろしくお願いします。'}</p>
-                      
-                      <a href="${bookUrl}" target="_self" class="yk-card-hours-badge">
-                        ${formatTime(s.start_time)} 〜 ${formatTime(s.end_time)} 指名予約
-                      </a>
+                      <div class="yk-shift-times-container">
+                        <div class="yk-shift-hours">
+                          出勤：${formatTime(s.start_time)} 〜 ${formatTime(s.end_time)}
+                        </div>
+                        ${s.is_immediate ? 
+                          `<div class="yk-immediate-badge">今すぐご案内</div>` 
+                          : (s.first_available_time ? 
+                            `<div class="yk-available-time">最短案内 ${formatTime(s.first_available_time)} 〜</div>` 
+                            : `<div class="yk-unavailable-time">本日受付終了</div>`
+                          )
+                        }
+                        ${s.first_available_time ? 
+                          `<a href="${bookUrl}" target="_self" class="yk-reserve-btn">WEB予約する</a>`
+                          : `<button disabled class="yk-reserve-btn disabled">予約不可</button>`
+                        }
+                      </div>
                     </div>
                   </div>
                 `;
@@ -1252,9 +1325,21 @@
       let bookBtn = '';
       
       if (shift) {
-        shiftText = `<span style="color:var(--yk-pink); font-weight:700;">${formatTime(shift.start_time)} 〜 ${formatTime(shift.end_time)}</span>`;
+        shiftText = `<div style="display:flex;flex-direction:column;gap:4px;"><span style="color:var(--yk-pink); font-weight:700;">出勤: ${formatTime(shift.start_time)} 〜 ${formatTime(shift.end_time)}</span>`;
+        if (shift.is_immediate) {
+           shiftText += `<span class="yk-immediate-badge" style="width:fit-content;padding:2px 8px;font-size:12px;display:inline-block;">今すぐご案内</span>`;
+        } else if (shift.first_available_time) {
+           shiftText += `<span style="font-weight:700;font-size:14px;color:var(--yk-gray-700)">最短案内 ${formatTime(shift.first_available_time)} 〜</span>`;
+        } else {
+           shiftText += `<span style="font-size:13px;color:var(--yk-gray-500)">本日受付終了</span>`;
+        }
+        shiftText += `</div>`;
         const bookUrl = getBookUrl ? getBookUrl(therapist.id, dateStr) : `${apiBase}/reserve/${shopCode}?therapist_id=${therapist.id}&date=${dateStr}`;
-        bookBtn = `<a href="${bookUrl}" target="_self" class="yk-single-book-btn">予約する</a>`;
+        if (shift.has_available_slot) {
+          bookBtn = `<a href="${bookUrl}" target="_self" class="yk-single-book-btn">予約する</a>`;
+        } else {
+          bookBtn = `<button disabled class="yk-single-book-btn disabled" style="background:var(--yk-gray-200);color:var(--yk-gray-500);cursor:not-allowed;border:none;">予約不可</button>`;
+        }
       }
       
       return `

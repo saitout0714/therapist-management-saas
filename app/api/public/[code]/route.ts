@@ -125,12 +125,92 @@ export async function GET(
     }
   }
 
+  // helper functions
+  const timeToMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + m
+  }
+  const timeToMinutesAbsolute = (t: string, shiftStart: string) => {
+    const [h, m] = t.split(':').map(Number)
+    const [sh] = shiftStart.split(':').map(Number)
+    let mins = h * 60 + m
+    if (mins < sh * 60 - 60) mins += 24 * 60
+    return mins
+  }
+  const generateSlots = (shiftStart: string, shiftEnd: string, durationMin: number, intervalMin: number) => {
+    const slots: string[] = []
+    const base = timeToMinutes(shiftStart)
+    let current = base
+    const end = timeToMinutesAbsolute(shiftEnd, shiftStart)
+    while (current + durationMin <= end) {
+      const h = Math.floor(current / 60)
+      const m = current % 60
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      current += intervalMin
+    }
+    return slots
+  }
+  const isSlotAvailable = (slotStart: string, duration: number, reservations: any[], interval: number, shiftStart: string) => {
+    const sStart = timeToMinutesAbsolute(slotStart, shiftStart)
+    const sEnd = sStart + duration
+    for (const res of reservations) {
+      const rStart = timeToMinutesAbsolute(res.start_time, shiftStart)
+      const rEnd = timeToMinutesAbsolute(res.end_time, shiftStart)
+      if (res.status === 'blocked') {
+        if (sStart < rEnd && sEnd > rStart) return false
+      } else {
+        if (sStart < rEnd + interval && sEnd + interval > rStart) return false
+      }
+    }
+    return true
+  }
+  const getJstDateFromDateTime = (dateStr: string, timeStr: string) => {
+    const [yyyy, mm, dd] = dateStr.split('-').map(Number)
+    let [h, m] = timeStr.split(':').map(Number)
+    let extraDays = 0
+    if (h >= 24) {
+      extraDays = Math.floor(h / 24)
+      h = h % 24
+    }
+    const utcMs = Date.UTC(yyyy, mm - 1, dd + extraDays, h, m) - 9 * 60 * 60 * 1000
+    return new Date(utcMs)
+  }
+
+  const systemIntervalMinutes = (settingsRes.data as any)?.reservation_interval_minutes ?? 20
+  const minCourseDuration = coursesRes.data && coursesRes.data.length > 0 ? Math.min(...coursesRes.data.map((c:any) => c.duration)) : 60
+  const existingReservations = reservationsRes.data || []
+  const minAllowedTime = now.getTime() + 20 * 60 * 1000
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const shiftsWithPhotos = shifts.map((s: any) => {
     const t = Array.isArray(s.therapists) ? s.therapists[0] : s.therapists
     if (!t) return s
+
+    const interval = t.reservation_interval_minutes || systemIntervalMinutes
+    const therapistReservations = existingReservations.filter(
+      (r: any) => r.therapist_id === t.id && r.date === s.date
+    )
+
+    const allSlots = generateSlots(s.start_time, s.end_time, minCourseDuration, 5)
+    let isImmediate = false
+    const firstAvailSlot = allSlots.find((slot: string) => {
+      const isAvail = isSlotAvailable(slot, minCourseDuration, therapistReservations, interval, s.start_time)
+      const slotJstDate = getJstDateFromDateTime(s.date, slot)
+      const isTimeValid = slotJstDate.getTime() >= minAllowedTime
+      if (isAvail && isTimeValid) {
+        if (slotJstDate.getTime() <= now.getTime() + 35 * 60 * 1000) {
+          isImmediate = true
+        }
+        return true
+      }
+      return false
+    })
+
     return {
       ...s,
+      first_available_time: firstAvailSlot ? firstAvailSlot.slice(0,5) : null,
+      is_immediate: isImmediate,
+      has_available_slot: !!firstAvailSlot,
       therapists: { ...t, photos: photosMap[t.id] || [] },
     }
   })
@@ -151,7 +231,7 @@ export async function GET(
     courses: coursesRes.data || [],
     shifts: shiftsWithPhotos,
     reservations: reservationsRes.data || [],
-    system_interval_minutes: (settingsRes.data as any)?.reservation_interval_minutes ?? 20,
+    system_interval_minutes: systemIntervalMinutes,
     allow_new_customers: (settingsRes.data as any)?.allow_new_customers ?? true,
     therapists: therapistsWithPhotos,
     business_day_cutoff,
