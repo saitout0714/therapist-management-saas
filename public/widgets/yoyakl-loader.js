@@ -956,7 +956,7 @@
       // セラピスト一覧ページ専用表示
       container.innerHTML = `
         <div class="yk-therapist-grid">
-          ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl)}
+          ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl, todayStr)}
         </div>
       `;
     } else if (mode === 'schedule') {
@@ -986,7 +986,7 @@
         <!-- セラピスト一覧パネル -->
         <div class="yk-tab-panel active" id="yk-panel-therapists" role="tabpanel" aria-labelledby="yk-tab-btn-therapists">
           <div class="yk-therapist-grid">
-            ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl)}
+            ${renderTherapistListHTML(displayTherapists, shopCode, getTherapistProfileUrl, shifts, getBookUrl, todayStr)}
           </div>
         </div>
         
@@ -1035,7 +1035,7 @@
   }
 
   // セラピストカード一覧HTML
-  function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl, shifts = [], getBookUrl) {
+  function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl, shifts = [], getBookUrl, todayStr) {
     if (therapists.length === 0) {
       return '<div class="yk-no-shifts" style="grid-column:1/-1;">在籍セラピスト情報がありません。</div>';
     }
@@ -1088,6 +1088,7 @@
 
   // スケジュール専用HTML（上部日付タブ ＋ アクティブ日グリッド）
   function renderScheduleOnlyHTML(datesList, shifts, shopCode, getTherapistProfileUrl, getBookUrl) {
+    const todayStr = datesList[0];
     
     // 日付ごとにシフトを整理
     const shiftsByDate = {};
@@ -1202,6 +1203,7 @@
 
   // 個人スケジュール＆プロフィール表示HTML
   function renderSingleTherapistHTML(therapist, datesList, shifts, shopCode, getBookUrl) {
+    const todayStr = datesList[0];
     
     // このセラピストのシフトのみを抽出
     const myShifts = {};
