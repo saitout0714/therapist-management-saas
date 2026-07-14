@@ -470,7 +470,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   </div>
 
                   {/* 2段目: 出勤時間 */}
-                  <div className="text-[8px] sm:text-[9px] font-semibold leading-tight flex-shrink-0 mt-0.5">
+                  <div className="text-[9px] sm:text-[11px] font-semibold leading-tight flex-shrink-0 mt-0.5">
                     {therapist.id === 'unassigned' ? (
                       null
                     ) : isOff ? (
@@ -492,7 +492,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   <div className="min-w-0 flex-1 flex flex-col justify-center py-0.2 sm:py-0.5">
                     {therapist.room ? (
                       <span
-                        className="text-[8px] sm:text-[9px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
+                        className="text-[9px] sm:text-[11px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
                         onMouseEnter={(e) => {
                           if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -509,7 +509,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         </span>
                       </span>
                     ) : (
-                      <span className="text-[8px] sm:text-[9px] text-slate-300 italic">未定</span>
+                      <span className="text-[9px] sm:text-[11px] text-slate-300 italic">未定</span>
                     )}
                   </div>
 
@@ -517,7 +517,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 min-w-0">
                       {therapist.id !== 'unassigned' && (
-                        <span className="text-[7px] sm:text-[8px] font-medium px-0.5 sm:px-1 py-0.2 leading-none rounded bg-slate-50 sm:bg-slate-100 text-slate-500 border border-slate-200 w-fit">
+                        <span className="text-[9px] sm:text-[11px] font-medium px-0.5 sm:px-1 py-0.2 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 w-fit">
                           {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? (
                             <>
                               <span className="sm:hidden">{therapist.intervalMinutes}m</span>
@@ -532,7 +532,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         </span>
                       )}
                       {therapist.notes && (
-                        <span className="text-[7px] sm:text-[8px] text-amber-600 font-bold max-w-[50px] sm:max-w-[45px] truncate" title={therapist.notes}>
+                        <span className="text-[9px] sm:text-[11px] text-amber-600 font-semibold max-w-[50px] sm:max-w-[45px] truncate" title={therapist.notes}>
                           {therapist.notes}
                         </span>
                       )}

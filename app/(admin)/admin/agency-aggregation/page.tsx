@@ -45,27 +45,46 @@ export default function AgencyAggregationPage() {
       const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-21`
       const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-20`
 
-      const [{ data: shopData, error: shopError }, { data: resData, error: resError }] = await Promise.all([
-        supabase
-          .from('shops')
-          .select('id, name, is_active')
-          .eq('is_active', true)
-          .order('order', { ascending: true, nullsFirst: false }),
-        supabase
+      // 1. 店舗一覧を取得
+      const { data: shopData, error: shopError } = await supabase
+        .from('shops')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+        .order('order', { ascending: true, nullsFirst: false })
+
+      if (shopError) throw shopError
+      setShops(shopData || [])
+
+      // 2. 予約データをページネーションしながら全件取得 (Supabaseの1000件リミット回避)
+      let allResData: any[] = []
+      let from = 0
+      const limit = 1000
+      let hasMore = true
+
+      while (hasMore) {
+        const { data: resData, error: resError } = await supabase
           .from('reservations')
           .select('shop_id, date, business_date, reception_source, status')
           .eq('reception_source', 'staff')
           .neq('status', 'cancelled')
           .neq('status', 'blocked')
           .or(`and(business_date.gte.${startStr},business_date.lte.${endStr}),and(business_date.is.null,date.gte.${startStr},date.lte.${endStr})`)
-      ])
+          .range(from, from + limit - 1)
 
-      if (shopError) throw shopError
-      if (resError) throw resError
+        if (resError) throw resError
 
-      setShops(shopData || [])
+        if (resData && resData.length > 0) {
+          allResData = [...allResData, ...resData]
+          from += limit
+          if (resData.length < limit) {
+            hasMore = false
+          }
+        } else {
+          hasMore = false
+        }
+      }
 
-      const formattedReservations = (resData || []).map((res: any) => ({
+      const formattedReservations = allResData.map((res: any) => ({
         shop_id: res.shop_id,
         targetDate: res.business_date || res.date
       }))
