@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['playwright'],
+  serverExternalPackages: ['playwright', 'playwright-core', '@sparticuz/chromium'],
   images: {
     remotePatterns: [
       {
