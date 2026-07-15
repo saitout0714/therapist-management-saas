@@ -53,9 +53,11 @@ export async function syncShiftsToEstheRanking(
     // 2. ログイン処理
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
-    await page.click('form[action="/login/"] button[type="submit"]');
     
-    await page.waitForLoadState('networkidle');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+      page.click('form[action="/login/"] button[type="submit"]')
+    ]);
 
     // ログイン成功確認（エラーメッセージ等のチェック）
     const loginError = await page.$('.alert-danger, .error-message');
@@ -86,8 +88,9 @@ export async function syncShiftsToEstheRanking(
       console.log(`[EstheRankingSync] Processing ${currentDate}`);
       
       const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${currentDate}/`;
-      await page.goto(targetUrl);
-      await page.waitForLoadState('networkidle');
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+      // フォームがレンダリングされるまで少し待機
+      await page.waitForSelector(`form[action="/shop/schedule/${currentDate}/"]`, { timeout: 10000 }).catch(() => {});
 
       const scheduleForm = await page.$(`form[action="/shop/schedule/${currentDate}/"]`);
       if (!scheduleForm) {
@@ -138,9 +141,11 @@ export async function syncShiftsToEstheRanking(
         }
       }
 
-      // 保存ボタンをクリック
-      await page.click('form button.btn-success[type="submit"]');
-      await page.waitForLoadState('networkidle');
+      // 保存ボタンをクリックし、ナビゲーションを待つ
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        page.click('form button.btn-success[type="submit"]')
+      ]);
     }
 
 
