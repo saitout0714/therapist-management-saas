@@ -31,6 +31,7 @@ export default function SyncPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [autoMatching, setAutoMatching] = useState(false)
+  const [syncProgressText, setSyncProgressText] = useState('')
   const [isSyncing, setIsSyncing] = useState(false)
 
   // Load shop settings
@@ -149,32 +150,68 @@ export default function SyncPage() {
     }
 
     const msg = isAll 
-      ? `今日から14日間のシフト情報をすべてランキングサイトに同期しますか？\n※バックグラウンドでブラウザ処理が走るため約1〜2分かかります。` 
-      : `${start} 〜 ${end} のシフト情報をランキングサイトに同期しますか？\n※バックグラウンドでブラウザ処理が走ります。期間により数十秒かかります。`;
+      ? `今日から14日間のシフト情報をランキングサイトに同期しますか？\n※タイムアウト防止のため数回に分けて自動実行されます。` 
+      : `${start} 〜 ${end} のシフト情報をランキングサイトに同期しますか？\n※処理に数十秒〜数分かかります。`;
 
     if (!confirm(msg)) return;
     
     setIsSyncing(true);
+    setSyncProgressText('同期の準備中...');
+
     try {
-      const res = await fetch('/api/sync/esthe-ranking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopId: selectedShop.id, startDate: start, endDate: end }),
-      });
-      if (!res.ok) {
-        let errorData;
-        try {
-          errorData = await res.json();
-        } catch (e) {
-          throw new Error('サーバーからの応答が不正です。タイムアウトした可能性があります（処理は裏で続いている場合があります）。');
-        }
-        throw new Error(errorData?.error || '同期リクエストの送信に失敗しました');
+      // タイムアウトを回避するため、最大4日ずつのチャンクに分割してAPIを呼び出す
+      const dates: string[] = [];
+      let current = new Date(start);
+      const endDt = new Date(end);
+      while (current <= endDt) {
+        const yyyy = current.getFullYear();
+        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const dd = String(current.getDate()).padStart(2, '0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
+        current.setDate(current.getDate() + 1);
       }
-      alert('同期が正常に完了しました！');
+
+      const chunkSize = 4;
+      const chunks: {start: string, end: string}[] = [];
+      for (let i = 0; i < dates.length; i += chunkSize) {
+        const chunkDates = dates.slice(i, i + chunkSize);
+        chunks.push({
+          start: chunkDates[0],
+          end: chunkDates[chunkDates.length - 1]
+        });
+      }
+
+      let successCount = 0;
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        setSyncProgressText(`${chunks.length}ステップ中 ${i + 1}番目を同期中... (${chunk.start}〜${chunk.end})`);
+        
+        const res = await fetch('/api/sync/esthe-ranking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shopId: selectedShop.id, startDate: chunk.start, endDate: chunk.end }),
+        });
+        
+        if (!res.ok) {
+          let errorData;
+          try {
+            errorData = await res.json();
+          } catch (e) {
+            throw new Error(`サーバーエラー: ${chunk.start}〜 の同期がタイムアウトしました。`);
+          }
+          throw new Error(errorData?.error || '同期リクエストの送信に失敗しました');
+        }
+        successCount += chunk.end === chunk.start ? 1 : Math.floor((new Date(chunk.end).getTime() - new Date(chunk.start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      }
+      
+      setSyncProgressText('');
+      alert(`同期が正常に完了しました！（計 ${successCount} 日分）`);
     } catch (err: any) {
-      alert(err.message);
+      setSyncProgressText('');
+      alert(err.message + `\n（途中まで完了している場合があります）`);
     } finally {
       setIsSyncing(false);
+      setSyncProgressText('');
     }
   };
 
@@ -252,7 +289,7 @@ export default function SyncPage() {
                       disabled={isSyncing || !form.esthe_ranking_shop_url}
                       className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
                     >
-                      {isSyncing ? '同期処理中...' : '今日から14日間を一括同期'}
+                      {isSyncing ? (syncProgressText || '同期処理中...') : '今日から14日間を一括同期'}
                     </button>
                   </div>
 
@@ -284,7 +321,7 @@ export default function SyncPage() {
                       {isSyncing ? (
                         <>
                           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          処理中...
+                          {syncProgressText || '処理中...'}
                         </>
                       ) : (
                         '指定した期間を同期'
