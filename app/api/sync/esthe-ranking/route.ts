@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase'; // Assuming service role or similar is set up, or standard client
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 
+export const maxDuration = 60; // Vercel timeout対策 (最大60秒)
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();

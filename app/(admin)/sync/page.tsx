@@ -93,10 +93,15 @@ export default function SyncPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shopId: selectedShop.id })
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error('サーバーからの応答が不正です。タイムアウトした可能性があります（処理は裏で続いている場合があります）。');
+      }
       
       if (!res.ok) {
-        throw new Error(data.error || '自動マッチングに失敗しました');
+        throw new Error(data?.error || '自動マッチングに失敗しました');
       }
       
       alert(data.message || '自動マッチングが完了しました');
@@ -123,8 +128,13 @@ export default function SyncPage() {
         body: JSON.stringify({ shopId: selectedShop.id, date: syncDate }),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || '同期リクエストの送信に失敗しました');
+        let errorData;
+        try {
+          errorData = await res.json();
+        } catch (e) {
+          throw new Error('サーバーからの応答が不正です。タイムアウトした可能性があります（処理は裏で続いている場合があります）。');
+        }
+        throw new Error(errorData?.error || '同期リクエストの送信に失敗しました');
       }
       alert('同期をバックグラウンドで開始しました。');
     } catch (err: any) {
