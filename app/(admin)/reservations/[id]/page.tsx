@@ -360,6 +360,9 @@ export default function ReservationPreviewPage() {
       discountsText = discountsText.trim()
     }
 
+    const optionsPriceVal = reservation.options_price > 0 ? `${reservation.options_price.toLocaleString()}円` : ''
+    const discountPriceVal = reservation.discount_amount > 0 ? `-${reservation.discount_amount.toLocaleString()}円` : ''
+
     // 備考の生成
     let notesText = ''
     if (reservation.notes) {
@@ -460,11 +463,23 @@ export default function ReservationPreviewPage() {
         finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
       }
 
+      if (!discountPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[割引金額\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[割引金額\]/g, discountPriceVal)
+      }
+
       // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
       if (!optionsText) {
         finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
       } else {
         finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+      }
+
+      if (!optionsPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション金額\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[オプション金額\]/g, optionsPriceVal)
       }
 
       // 備考がない場合は、[備考]タグが含まれる行全体を削除する
@@ -597,6 +612,9 @@ export default function ReservationPreviewPage() {
       }
     }
 
+    const optionsPriceVal = reservation.options_price > 0 ? `${reservation.options_price.toLocaleString()}円` : ''
+    const discountPriceVal = reservation.discount_amount > 0 ? `-${reservation.discount_amount.toLocaleString()}円` : ''
+
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
     let notesText = ''
@@ -678,11 +696,23 @@ export default function ReservationPreviewPage() {
         finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
       }
 
+      if (!discountPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[割引金額\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[割引金額\]/g, discountPriceVal)
+      }
+
       // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
       if (!optionsText) {
         finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
       } else {
         finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+      }
+
+      if (!optionsPriceVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション金額\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[オプション金額\]/g, optionsPriceVal)
       }
 
       // 備考がない場合は、[備考]タグが含まれる行全体を削除する
@@ -888,6 +918,9 @@ export default function ReservationPreviewPage() {
       discountsText = discountsText.trim()
     }
 
+    const optionsPriceVal = reservation.options_price > 0 ? `${reservation.options_price.toLocaleString()}円` : ''
+    const discountPriceVal = reservation.discount_amount > 0 ? `-${reservation.discount_amount.toLocaleString()}円` : ''
+
     // 備考の生成
     let notesText = ''
     if (reservation.notes) {
@@ -988,11 +1021,23 @@ export default function ReservationPreviewPage() {
       finalTemplate = finalTemplate.replace(/\[割引\]/g, discountsText)
     }
 
+    if (!discountPriceVal) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[割引金額\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[割引金額\]/g, discountPriceVal)
+    }
+
     // オプションがない場合は、[オプション]タグが含まれる行全体を削除する
     if (!optionsText) {
       finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション\][^\n]*\n?/gm, '')
     } else {
       finalTemplate = finalTemplate.replace(/\[オプション\]/g, optionsText)
+    }
+
+    if (!optionsPriceVal) {
+      finalTemplate = finalTemplate.replace(/^[^\n]*\[オプション金額\][^\n]*\n?/gm, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[オプション金額\]/g, optionsPriceVal)
     }
 
     // 備考がない場合は、[備考]タグが含まれる行全体を削除する
