@@ -313,9 +313,14 @@ export default function WebReservationNotifier() {
                 className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 hover:bg-indigo-50/50 hover:border-indigo-200 transition-all duration-200 cursor-pointer text-left space-y-1 group"
               >
                 <div className="flex justify-between items-start">
-                  <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black">
-                    {notif.source === 'mail_sync' ? 'メール予約' : 'WEB予約'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black">
+                      {notif.source === 'mail_sync' ? 'メール予約' : 'WEB予約'}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600 truncate max-w-[130px]" title={notif.shopName}>
+                      {notif.shopName}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-slate-400 font-medium">
                     {notif.receivedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
                   </span>
