@@ -12,6 +12,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@google/generative-ai": "^0.24.1",
+    "@sparticuz/chromium": "^149.0.0",
+    "@sparticuz/chromium-min": "^149.0.0",
     "@supabase/supabase-js": "^2.89.0",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
@@ -22,6 +24,7 @@
     "nodemailer": "^8.0.7",
     "pg": "^8.21.0",
     "playwright": "^1.59.1",
+    "playwright-core": "^1.61.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

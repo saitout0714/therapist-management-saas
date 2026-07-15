@@ -1,4 +1,21 @@
-import { chromium } from 'playwright';
+import { chromium as playwrightLocal } from 'playwright';
+import { chromium as playwrightCore } from 'playwright-core';
+import chromium from '@sparticuz/chromium';
+
+async function getBrowser() {
+  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
+
+  if (isLocal) {
+    return await playwrightLocal.launch({ headless: true });
+  } else {
+    // Vercel Serverless Function 等での実行用
+    return await playwrightCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+}
 
 export interface SyncResult {
   success: boolean;
@@ -21,7 +38,7 @@ export async function syncShiftsToEstheRanking(
   date: string,
   shifts: any[]
 ): Promise<SyncResult> {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await getBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -138,7 +155,7 @@ export async function fetchTherapistsFromEstheRanking(
   loginId: string,
   password: string
 ): Promise<{ id: string; name: string }[]> {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await getBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
