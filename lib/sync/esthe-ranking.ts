@@ -44,7 +44,10 @@ export async function syncShiftsToEstheRanking(
   shifts: any[]
 ): Promise<SyncResult> {
   const browser = await getBrowser();
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    viewport: { width: 1280, height: 800 }
+  });
   const page = await context.newPage();
 
   try {
@@ -189,7 +192,10 @@ export async function fetchTherapistsFromEstheRanking(
     console.log(`[EstheRankingSync] Launching browser...`);
     browser = await getBrowser();
     console.log(`[EstheRankingSync] Creating browser context...`);
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 800 }
+    });
     const page = await context.newPage();
  
     console.log(`[EstheRankingSync] Fetching therapists...`);
