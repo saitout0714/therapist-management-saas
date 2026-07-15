@@ -48,7 +48,7 @@ export async function syncShiftsToEstheRanking(
     console.log(`[EstheRankingSync] Starting sync from ${startDate} to ${endDate}`);
     
     // 1. ログイン画面へのアクセス
-    await page.goto(shopUrl);
+    await page.goto(shopUrl, { timeout: 10000 });
     
     // 2. ログイン処理
     await page.fill('input[name="loginname"]', loginId);
@@ -88,7 +88,7 @@ export async function syncShiftsToEstheRanking(
       console.log(`[EstheRankingSync] Processing ${currentDate}`);
       
       const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${currentDate}/`;
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
       // フォームがレンダリングされるまで少し待機
       await page.waitForSelector(`form[action="/shop/schedule/${currentDate}/"]`, { timeout: 10000 }).catch(() => {});
 
@@ -192,7 +192,7 @@ export async function fetchTherapistsFromEstheRanking(
     console.log(`[EstheRankingSync] Fetching therapists...`);
     
     console.log(`[EstheRankingSync] Navigating to ${shopUrl}...`);
-    await page.goto(shopUrl);
+    await page.goto(shopUrl, { timeout: 10000 });
     console.log(`[EstheRankingSync] Filling login credentials...`);
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
@@ -222,7 +222,7 @@ export async function fetchTherapistsFromEstheRanking(
     
     const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${dateStr}/`;
     console.log(`[EstheRankingSync] Navigating to schedule page: ${targetUrl}...`);
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
     console.log(`[EstheRankingSync] Waiting for table rows...`);
     await page.waitForSelector('tr.tr-admin-linkcheck', { timeout: 10000 }).catch((e: any) => {
       console.warn(`[EstheRankingSync] Table selector timed out:`, e);
