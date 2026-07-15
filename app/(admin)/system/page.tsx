@@ -583,47 +583,6 @@ export default function SystemPage() {
               </div>
             </div>
 
-            {/* メンズエステランキング同期設定 */}
-            <div className="border-b border-slate-100 pb-6 space-y-5">
-              <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">メンズエステランキング 同期設定</h3>
-                <p className="text-xs text-slate-400 mb-4">メンズエステランキング（esthe-ranking.jp）の店舗管理画面のログイン情報を設定します。設定すると、出勤情報などを自動同期できます。</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">管理画面URL（ログインページ）</label>
-                    <input
-                      type="text"
-                      placeholder="https://www.esthe-ranking.jp/shop/login/"
-                      value={form.esthe_ranking_shop_url}
-                      onChange={(e) => setForm({ ...form, esthe_ranking_shop_url: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">ログインID</label>
-                    <input
-                      type="text"
-                      placeholder="ログインID"
-                      value={form.esthe_ranking_login_id}
-                      onChange={(e) => setForm({ ...form, esthe_ranking_login_id: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">パスワード</label>
-                    <input
-                      type="password"
-                      placeholder="パスワード"
-                      value={form.esthe_ranking_password}
-                      onChange={(e) => setForm({ ...form, esthe_ranking_password: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
               <button
                 type="submit"

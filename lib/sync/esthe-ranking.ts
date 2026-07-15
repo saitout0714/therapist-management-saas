@@ -129,3 +129,64 @@ function formatTime(timeStr: string | null | undefined): string {
   }
   return '0';
 }
+
+/**
+ * メンズエステランキングからセラピスト一覧を取得する
+ */
+export async function fetchTherapistsFromEstheRanking(
+  shopUrl: string,
+  loginId: string,
+  password: string
+): Promise<{ id: string; name: string }[]> {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  try {
+    console.log(`[EstheRankingSync] Fetching therapists...`);
+    
+    await page.goto(shopUrl);
+    await page.fill('input[name="loginname"]', loginId);
+    await page.fill('input[name="password"]', password);
+    await page.click('form[action="/login/"] button[type="submit"]');
+    
+    await page.waitForLoadState('networkidle');
+
+    const loginError = await page.$('.alert-danger, .error-message');
+    if (loginError) {
+      const errorText = await loginError.textContent();
+      throw new Error(`ログインに失敗しました: ${errorText?.trim()}`);
+    }
+
+    // 本日の日付のスケジュールページへ遷移 (確実にリストを取得するため)
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    
+    const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${dateStr}/`;
+    await page.goto(targetUrl);
+    await page.waitForLoadState('networkidle');
+
+    // テーブル行からIDと名前を抽出
+    const therapists = await page.$$eval('tr.tr-admin-linkcheck', (rows) => {
+      return rows.map((tr) => {
+        const id = tr.getAttribute('data-girl-id') || '';
+        // 2番目のtdの中にあるspanを探す
+        const nameSpan = tr.querySelector('td:nth-child(2) span');
+        const name = nameSpan ? nameSpan.textContent?.trim() || '' : '';
+        return { id, name };
+      }).filter(t => t.id && t.name);
+    });
+
+    console.log(`[EstheRankingSync] Found ${therapists.length} therapists on portal.`);
+    return therapists;
+  } catch (error: any) {
+    console.error('[EstheRankingSync] Error fetching therapists:', error);
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+

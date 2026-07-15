@@ -39,6 +39,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/admin/agency-aggregation", label: "代行プラン集計" },
     ...(["developer", "system_admin"].includes(user?.role || "") ? [
       { href: "/users", label: "アカウント管理" },
+      { href: "/sync", label: "サイト同期" },
       { href: "/shifts/sync", label: "外部シフト同期" },
     ] : []),
   ] : [];
