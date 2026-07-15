@@ -191,9 +191,10 @@ export async function fetchTherapistsFromEstheRanking(
     await page.goto(shopUrl);
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
-    await page.click('form[action="/login/"] button[type="submit"]');
-    
-    await page.waitForLoadState('networkidle');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+      page.click('form[action="/login/"] button[type="submit"]')
+    ]);
 
     const loginError = await page.$('.alert-danger, .error-message');
     if (loginError) {
@@ -209,8 +210,9 @@ export async function fetchTherapistsFromEstheRanking(
     const dateStr = `${yyyy}-${mm}-${dd}`;
     
     const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${dateStr}/`;
-    await page.goto(targetUrl);
-    await page.waitForLoadState('networkidle');
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+    // スケジュールページの読み込みを少し待つ
+    await page.waitForSelector('tr.tr-admin-linkcheck', { timeout: 10000 }).catch(() => {});
 
     // テーブル行からIDと名前を抽出
     const therapists = await page.$$eval('tr.tr-admin-linkcheck', (rows) => {
