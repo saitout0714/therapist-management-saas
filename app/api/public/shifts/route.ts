@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
           start_time,
           end_time,
           notes,
-          therapists (id, name, comment, reservation_interval_minutes),
+          therapists (id, name, comment, reservation_interval_minutes, x_url),
           rooms (id, name)
         `)
         .eq('shop_id', shop_id)

@@ -285,6 +285,26 @@
         filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.15));
         z-index: 2;
       }
+      .yk-x-badge-link {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+        display: block;
+        transition: transform 0.2s ease;
+      }
+      .yk-x-badge-link:hover {
+        transform: scale(1.1);
+      }
+      .yk-x-badge-img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));
+      }
+      .yk-x-badge-img[data-has-rookie="true"] {
+        margin-top: 46px;
+      }
       .yk-today-work-badge {
         position: absolute;
         bottom: 8px;
@@ -1138,6 +1158,7 @@
             </a>
             ${rankBadgeHTML}
             ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${t.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
             ${isWorkingToday ? `<span class="yk-today-work-badge">本日出勤</span>` : ''}
           </div>
           <div class="yk-card-info">
@@ -1235,6 +1256,7 @@
                       </a>
                       ${rankBadgeHTML}
                       ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${t.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
                     </div>
                     <div class="yk-card-info">
                       <div class="yk-name">
@@ -1374,6 +1396,7 @@
             }
             ${rankBadgeHTML}
             ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
           </div>
           ${thumbnailsHTML}
           

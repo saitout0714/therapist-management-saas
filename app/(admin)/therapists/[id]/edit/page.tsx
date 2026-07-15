@@ -30,6 +30,7 @@ export default function EditTherapistPage() {
     is_active: true,
     is_rookie: false,
     ng_course_ids: [] as string[],
+    x_url: "",
   });
   const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -248,6 +249,7 @@ export default function EditTherapistPage() {
           is_active: therapist.is_active !== false,
           is_rookie: !!therapist.is_rookie,
           ng_course_ids: therapist.ng_course_ids || [],
+          x_url: therapist.x_url || "",
         });
         // 写真一覧を取得
         const { data: photoData } = await supabase
@@ -381,6 +383,7 @@ export default function EditTherapistPage() {
         has_fee_override: hasOverrides,
         is_active: profile.is_active,
         is_rookie: profile.is_rookie || false,
+        x_url: profile.x_url || null,
       })
       .eq("id", therapistId);
 
@@ -741,6 +744,20 @@ export default function EditTherapistPage() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">バスト数値の隣のドロップダウンでカップを選択</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    X (Twitter) URL
+                  </label>
+                  <input
+                    type="url"
+                    name="x_url"
+                    value={profile.x_url}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="https://x.com/username"
+                  />
                 </div>
 
                 <div>
