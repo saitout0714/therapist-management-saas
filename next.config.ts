@@ -13,7 +13,10 @@ const nextConfig: any = {
   },
   experimental: {
     outputFileTracingIncludes: {
-      '/api/**/*': ['./node_modules/playwright-core/browsers.json'],
+      '/api/**/*': [
+        './node_modules/playwright-core/browsers.json',
+        './node_modules/@sparticuz/chromium/bin/**/*',
+      ],
     },
   },
 };
