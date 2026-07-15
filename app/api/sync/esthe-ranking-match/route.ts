@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { fetchTherapistsFromEstheRanking } from '@/lib/sync/esthe-ranking';
 
-export const maxDuration = 60; // Vercel timeout対策 (最大60秒)
+export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
 
 export async function POST(req: Request) {
   try {
