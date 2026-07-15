@@ -171,7 +171,7 @@ export default function SyncPage() {
         current.setDate(current.getDate() + 1);
       }
 
-      const chunkSize = 4;
+      const chunkSize = 1;
       const chunks: {start: string, end: string}[] = [];
       for (let i = 0; i < dates.length; i += chunkSize) {
         const chunkDates = dates.slice(i, i + chunkSize);
@@ -184,7 +184,7 @@ export default function SyncPage() {
       let successCount = 0;
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        setSyncProgressText(`${chunks.length}ステップ中 ${i + 1}番目を同期中... (${chunk.start}〜${chunk.end})`);
+        setSyncProgressText(`${chunks.length}ステップ中 ${i + 1}番目を同期中... (${chunk.start})`);
         
         const res = await fetch('/api/sync/esthe-ranking', {
           method: 'POST',
