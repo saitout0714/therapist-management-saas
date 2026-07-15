@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
+const nextConfig: any = {
   serverExternalPackages: ['playwright', 'playwright-core', '@sparticuz/chromium'],
   images: {
     remotePatterns: [
@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/**/*': ['./node_modules/playwright-core/browsers.json'],
+    },
   },
 };
 
