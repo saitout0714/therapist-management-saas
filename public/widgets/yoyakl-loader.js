@@ -250,8 +250,8 @@
       
       .yk-rank-badge {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 6px;
+        right: 6px;
         padding: 3px 10px;
         border-radius: 9999px;
         font-size: 10px;
@@ -279,31 +279,40 @@
         position: absolute;
         top: 6px;
         right: 6px;
-        width: 50px;
+        width: 45px;
         height: auto;
         pointer-events: none;
         filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.15));
         z-index: 2;
       }
+      .yk-rookie-badge-img[data-has-rank="true"] {
+        top: 36px;
+      }
       .yk-x-badge-link {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 6px;
+        right: 6px;
         z-index: 2;
         display: block;
         transition: transform 0.2s ease;
+      }
+      .yk-x-badge-link[data-has-rank="true"] {
+        top: 36px;
+      }
+      .yk-x-badge-link[data-has-rookie="true"] {
+        top: 51px;
+      }
+      .yk-x-badge-link[data-has-rank="true"][data-has-rookie="true"] {
+        top: 81px;
       }
       .yk-x-badge-link:hover {
         transform: scale(1.1);
       }
       .yk-x-badge-img {
-        width: 28px;
-        height: 28px;
+        width: 42px;
+        height: 42px;
         border-radius: 50%;
         filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));
-      }
-      .yk-x-badge-img[data-has-rookie="true"] {
-        margin-top: 46px;
       }
       .yk-today-work-badge {
         position: absolute;
@@ -1135,7 +1144,9 @@
       const profileUrl = getTherapistProfileUrl(t);
 
       let rankBadgeHTML = '';
+      let hasRank = false;
       if (t.therapist_ranks && t.therapist_ranks.name) {
+        hasRank = true;
         const rankName = t.therapist_ranks.name;
         const isPremium = rankName.includes('プレミアム') || rankName.includes('Premium');
         const badgeClass = isPremium ? 'yk-rank-badge-premium' : 'yk-rank-badge-standard';
@@ -1157,8 +1168,8 @@
               }
             </a>
             ${rankBadgeHTML}
-            ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${t.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
+            ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
+            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
             ${isWorkingToday ? `<span class="yk-today-work-badge">本日出勤</span>` : ''}
           </div>
           <div class="yk-card-info">
@@ -1234,7 +1245,9 @@
                 const profileUrl = getTherapistProfileUrl(t);
                 
                 let rankBadgeHTML = '';
+                let hasRank = false;
                 if (t.therapist_ranks && t.therapist_ranks.name) {
+                  hasRank = true;
                   const rankName = t.therapist_ranks.name;
                   const isPremium = rankName.includes('プレミアム') || rankName.includes('Premium');
                   const badgeClass = isPremium ? 'yk-rank-badge-premium' : 'yk-rank-badge-standard';
@@ -1255,8 +1268,8 @@
                         }
                       </a>
                       ${rankBadgeHTML}
-                      ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${t.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
+                      ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
+                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
                     </div>
                     <div class="yk-card-info">
                       <div class="yk-name">
@@ -1377,7 +1390,9 @@
     }).join('');
 
     let rankBadgeHTML = '';
+    let hasRank = false;
     if (therapist.therapist_ranks && therapist.therapist_ranks.name) {
+      hasRank = true;
       const rankName = therapist.therapist_ranks.name;
       const isPremium = rankName.includes('プレミアム') || rankName.includes('Premium');
       const badgeClass = isPremium ? 'yk-rank-badge-premium' : 'yk-rank-badge-standard';
@@ -1395,8 +1410,8 @@
               `<div class="yk-single-avatar-placeholder">${therapist.name ? therapist.name.charAt(0) : 'T'}</div>`
             }
             ${rankBadgeHTML}
-            ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} /></a>` : ''}
+            ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
+            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
           </div>
           ${thumbnailsHTML}
           
