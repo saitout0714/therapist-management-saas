@@ -97,6 +97,9 @@ export default function SystemPage() {
     enable_line_notification: boolean
     line_channel_access_token: string
     line_to_id: string
+    esthe_ranking_login_id: string
+    esthe_ranking_password: string
+    esthe_ranking_shop_url: string
   }>({
     default_nomination_fee: 0,
     default_confirmed_nomination_fee: 0,
@@ -128,6 +131,9 @@ export default function SystemPage() {
     enable_line_notification: false,
     line_channel_access_token: '',
     line_to_id: '',
+    esthe_ranking_login_id: '',
+    esthe_ranking_password: '',
+    esthe_ranking_shop_url: '',
   })
 
   async function fetchSettings() {
@@ -135,7 +141,7 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url').eq('id', selectedShop.id).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
@@ -177,6 +183,9 @@ export default function SystemPage() {
       enable_line_notification: row?.enable_line_notification ?? false,
       line_channel_access_token: row?.line_channel_access_token ?? '',
       line_to_id: row?.line_to_id ?? '',
+      esthe_ranking_login_id: shopRes.data?.esthe_ranking_login_id ?? '',
+      esthe_ranking_password: shopRes.data?.esthe_ranking_password ?? '',
+      esthe_ranking_shop_url: shopRes.data?.esthe_ranking_shop_url ?? '',
     })
     setLoading(false)
   }
@@ -186,7 +195,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, ...systemSettingsPayload } = form
+    const { sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -206,7 +215,7 @@ export default function SystemPage() {
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ special_rules, therapist_line_mode, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
@@ -574,9 +583,46 @@ export default function SystemPage() {
               </div>
             </div>
 
-
-
-
+            {/* メンズエステランキング同期設定 */}
+            <div className="border-b border-slate-100 pb-6 space-y-5">
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">メンズエステランキング 同期設定</h3>
+                <p className="text-xs text-slate-400 mb-4">メンズエステランキング（esthe-ranking.jp）の店舗管理画面のログイン情報を設定します。設定すると、出勤情報などを自動同期できます。</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">管理画面URL（ログインページ）</label>
+                    <input
+                      type="text"
+                      placeholder="https://www.esthe-ranking.jp/shop/login/"
+                      value={form.esthe_ranking_shop_url}
+                      onChange={(e) => setForm({ ...form, esthe_ranking_shop_url: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">ログインID</label>
+                    <input
+                      type="text"
+                      placeholder="ログインID"
+                      value={form.esthe_ranking_login_id}
+                      onChange={(e) => setForm({ ...form, esthe_ranking_login_id: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">パスワード</label>
+                    <input
+                      type="password"
+                      placeholder="パスワード"
+                      value={form.esthe_ranking_password}
+                      onChange={(e) => setForm({ ...form, esthe_ranking_password: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
               <button
