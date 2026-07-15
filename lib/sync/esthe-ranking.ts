@@ -28,14 +28,16 @@ export interface SyncResult {
  * @param shopUrl 管理画面URL
  * @param loginId ログインID
  * @param password パスワード
- * @param date 同期対象日 (YYYY-MM-DD)
- * @param shifts 同期するシフトデータ
+ * @param startDate 同期開始日 (YYYY-MM-DD)
+ * @param endDate 同期終了日 (YYYY-MM-DD)
+ * @param shifts 同期するシフトデータ (全日分)
  */
 export async function syncShiftsToEstheRanking(
   shopUrl: string,
   loginId: string,
   password: string,
-  date: string,
+  startDate: string,
+  endDate: string,
   shifts: any[]
 ): Promise<SyncResult> {
   const browser = await getBrowser();
@@ -43,7 +45,7 @@ export async function syncShiftsToEstheRanking(
   const page = await context.newPage();
 
   try {
-    console.log(`[EstheRankingSync] Starting sync for date ${date}`);
+    console.log(`[EstheRankingSync] Starting sync from ${startDate} to ${endDate}`);
     
     // 1. ログイン画面へのアクセス
     await page.goto(shopUrl);
@@ -62,66 +64,85 @@ export async function syncShiftsToEstheRanking(
       throw new Error(`ログインに失敗しました: ${errorText?.trim()}`);
     }
 
-    // 3. 出勤情報更新ページへの遷移
-    // dateフォーマットが YYYY-MM-DD なので、そのままURLに利用できるか確認
-    // 通常は https://www.esthe-ranking.jp/shop/schedule/2026-07-15/ のような形式
-    const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${date}/`;
-    await page.goto(targetUrl);
-    await page.waitForLoadState('networkidle');
-
-    const scheduleForm = await page.$(`form[action="/shop/schedule/${date}/"]`);
-    if (!scheduleForm) {
-      throw new Error(`対象日(${date})のスケジュールフォームが見つかりませんでした。`);
-    }
-
-    // シフト設定の反映
-    console.log(`[EstheRankingSync] Syncing ${shifts.length} shifts...`);
+    // 期間内の日付を配列で生成
+    const datesToSync: string[] = [];
+    const current = new Date(startDate);
+    const end = new Date(endDate);
     
-    // ページ上のすべてのセラピストIDを取得
-    const idInputs = await page.$$('input[name$="[id]"]');
-    const therapistIdsOnPage = [];
-    for (const input of idInputs) {
-      const name = await input.getAttribute('name');
-      if (name) {
-        const match = name.match(/^(\d+)\[id\]$/);
-        if (match) {
-          therapistIdsOnPage.push(match[1]);
-        }
-      }
+    // 無限ループ防止のため最大31日に制限
+    let safetyCounter = 0;
+    while (current <= end && safetyCounter < 31) {
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      datesToSync.push(`${yyyy}-${mm}-${dd}`);
+      current.setDate(current.getDate() + 1);
+      safetyCounter++;
     }
 
-    for (const rankingId of therapistIdsOnPage) {
-      const shift = shifts.find(s => s.therapists?.esthe_ranking_therapist_id === rankingId);
+    console.log(`[EstheRankingSync] Syncing ${datesToSync.length} days...`);
 
-      if (shift) {
-        // 出勤として設定
-        const startTime = formatTime(shift.start_time);
-        const endTime = formatTime(shift.end_time);
-        
-        await page.selectOption(`select[name="${rankingId}[start_work]"]`, startTime).catch(() => {});
-        await page.selectOption(`select[name="${rankingId}[end_work]"]`, endTime).catch(() => {});
-        
-        // delete_flagのチェックボックスがあれば外す
-        const deleteFlagCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[delete_flag]"]`);
-        if (deleteFlagCheckbox) {
-          await deleteFlagCheckbox.uncheck();
+    for (const currentDate of datesToSync) {
+      console.log(`[EstheRankingSync] Processing ${currentDate}`);
+      
+      const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${currentDate}/`;
+      await page.goto(targetUrl);
+      await page.waitForLoadState('networkidle');
+
+      const scheduleForm = await page.$(`form[action="/shop/schedule/${currentDate}/"]`);
+      if (!scheduleForm) {
+        console.warn(`対象日(${currentDate})のスケジュールフォームが見つかりませんでした。スキップします。`);
+        continue;
+      }
+
+      // ページ上のすべてのセラピストIDを取得
+      const idInputs = await page.$$('input[name$="[id]"]');
+      const therapistIdsOnPage = [];
+      for (const input of idInputs) {
+        const name = await input.getAttribute('name');
+        if (name) {
+          const match = name.match(/^(\d+)\[id\]$/);
+          if (match) {
+            therapistIdsOnPage.push(match[1]);
+          }
         }
-      } else {
-        // 出勤解除または未設定にする
-        const deleteFlagCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[delete_flag]"]`);
-        if (deleteFlagCheckbox) {
-          await deleteFlagCheckbox.check();
+      }
+
+      // その日のシフトのみを抽出
+      const todayShifts = shifts.filter(s => s.date === currentDate);
+
+      for (const rankingId of therapistIdsOnPage) {
+        const shift = todayShifts.find(s => s.therapists?.esthe_ranking_therapist_id === rankingId);
+
+        if (shift) {
+          // 出勤として設定
+          const startTime = formatTime(shift.start_time);
+          const endTime = formatTime(shift.end_time);
+          
+          await page.selectOption(`select[name="${rankingId}[start_work]"]`, startTime).catch(() => {});
+          await page.selectOption(`select[name="${rankingId}[end_work]"]`, endTime).catch(() => {});
+          
+          const deleteFlagCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[delete_flag]"]`);
+          if (deleteFlagCheckbox) {
+            await deleteFlagCheckbox.uncheck();
+          }
         } else {
-          // 削除チェックボックスが無い場合は「0」（未設定）を選択
-          await page.selectOption(`select[name="${rankingId}[start_work]"]`, '0').catch(() => {});
-          await page.selectOption(`select[name="${rankingId}[end_work]"]`, '0').catch(() => {});
+          // 出勤解除または未設定にする
+          const deleteFlagCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[delete_flag]"]`);
+          if (deleteFlagCheckbox) {
+            await deleteFlagCheckbox.check();
+          } else {
+            await page.selectOption(`select[name="${rankingId}[start_work]"]`, '0').catch(() => {});
+            await page.selectOption(`select[name="${rankingId}[end_work]"]`, '0').catch(() => {});
+          }
         }
       }
+
+      // 保存ボタンをクリック
+      await page.click('form button.btn-success[type="submit"]');
+      await page.waitForLoadState('networkidle');
     }
 
-    // 保存ボタンをクリック
-    await page.click('form button.btn-success[type="submit"]');
-    await page.waitForLoadState('networkidle');
 
     console.log(`[EstheRankingSync] Sync completed successfully.`);
     return { success: true, message: 'メンズエステランキングへの出勤情報同期が完了しました。' };

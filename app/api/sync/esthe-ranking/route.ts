@@ -7,10 +7,20 @@ export const maxDuration = 60; // Vercel timeout対策 (最大60秒)
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { shopId, date } = body;
+    const { shopId, startDate, endDate } = body;
 
-    if (!shopId || !date) {
-      return NextResponse.json({ error: 'shopId と date は必須です' }, { status: 400 });
+    if (!shopId || !startDate || !endDate) {
+      return NextResponse.json({ error: 'shopId と startDate, endDate は必須です' }, { status: 400 });
+    }
+
+    // 期間のバリデーション（最大14日）
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 14) {
+      return NextResponse.json({ error: '一度に同期できるのは最大14日間までです' }, { status: 400 });
     }
 
     // 1. 店舗のログイン情報を取得
@@ -41,7 +51,8 @@ export async function POST(req: Request) {
         )
       `)
       .eq('shop_id', shopId)
-      .eq('date', date);
+      .gte('date', startDate)
+      .lte('date', endDate);
 
     if (shiftsError) {
       return NextResponse.json({ error: 'シフト情報の取得に失敗しました' }, { status: 500 });
@@ -55,7 +66,8 @@ export async function POST(req: Request) {
       shop.esthe_ranking_shop_url,
       shop.esthe_ranking_login_id,
       shop.esthe_ranking_password,
-      date,
+      startDate,
+      endDate,
       shifts || []
     );
 
