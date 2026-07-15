@@ -1,6 +1,4 @@
 import { chromium as playwrightLocal } from 'playwright';
-import { chromium as playwrightCore } from 'playwright-core';
-import chromium from '@sparticuz/chromium';
 
 async function getBrowser() {
   const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
@@ -9,6 +7,11 @@ async function getBrowser() {
     return await playwrightLocal.launch({ headless: true });
   } else {
     // Vercel Serverless Function 等での実行用
+    console.log('[EstheRankingSync] Dynamically importing playwright-core and @sparticuz/chromium...');
+    const { chromium: playwrightCore } = await import('playwright-core');
+    const chromium = (await import('@sparticuz/chromium')).default;
+    
+    console.log('[EstheRankingSync] Launching playwrightCore...');
     return await playwrightCore.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
