@@ -72,19 +72,19 @@ export async function syncShiftsToEstheRanking(
       throw new Error(`ログインに失敗しました: ${errorText?.trim()}`);
     }
 
-    // 期間内の日付を配列で生成
+    // 期間内の日付を配列で生成 (タイムゾーンに影響されないようUTCメソッドを使用)
     const datesToSync: string[] = [];
-    const current = new Date(startDate);
-    const end = new Date(endDate);
+    const current = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
     
     // 無限ループ防止のため最大31日に制限
     let safetyCounter = 0;
     while (current <= end && safetyCounter < 31) {
-      const yyyy = current.getFullYear();
-      const mm = String(current.getMonth() + 1).padStart(2, '0');
-      const dd = String(current.getDate()).padStart(2, '0');
+      const yyyy = current.getUTCFullYear();
+      const mm = String(current.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(current.getUTCDate()).padStart(2, '0');
       datesToSync.push(`${yyyy}-${mm}-${dd}`);
-      current.setDate(current.getDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1);
       safetyCounter++;
     }
 
@@ -131,6 +131,15 @@ export async function syncShiftsToEstheRanking(
           await page.selectOption(`select[name="${rankingId}[start_work]"]`, startTime).catch(() => {});
           await page.selectOption(`select[name="${rankingId}[end_work]"]`, endTime).catch(() => {});
           
+          // 「出勤時間未定」チェックボックスがオンの場合は解除する
+          const isTimeNotSetCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[is_time_not_set]"]`);
+          if (isTimeNotSetCheckbox) {
+            const isChecked = await isTimeNotSetCheckbox.isChecked().catch(() => false);
+            if (isChecked) {
+              await isTimeNotSetCheckbox.uncheck().catch(() => {});
+            }
+          }
+
           const deleteFlagCheckbox = await page.$(`input[type="checkbox"][name="${rankingId}[delete_flag]"]`);
           if (deleteFlagCheckbox) {
             await deleteFlagCheckbox.uncheck();
