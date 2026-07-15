@@ -251,7 +251,7 @@
       .yk-rank-badge {
         position: absolute;
         top: 6px;
-        right: 6px;
+        left: 6px;
         padding: 3px 10px;
         border-radius: 9999px;
         font-size: 10px;
@@ -285,9 +285,6 @@
         filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.15));
         z-index: 2;
       }
-      .yk-rookie-badge-img[data-has-rank="true"] {
-        top: 36px;
-      }
       .yk-x-badge-link {
         position: absolute;
         top: 6px;
@@ -296,14 +293,8 @@
         display: block;
         transition: transform 0.2s ease;
       }
-      .yk-x-badge-link[data-has-rank="true"] {
-        top: 36px;
-      }
       .yk-x-badge-link[data-has-rookie="true"] {
         top: 51px;
-      }
-      .yk-x-badge-link[data-has-rank="true"][data-has-rookie="true"] {
-        top: 81px;
       }
       .yk-x-badge-link:hover {
         transform: scale(1.1);
@@ -1168,8 +1159,8 @@
               }
             </a>
             ${rankBadgeHTML}
-            ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
-            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+            ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
             ${isWorkingToday ? `<span class="yk-today-work-badge">本日出勤</span>` : ''}
           </div>
           <div class="yk-card-info">
@@ -1268,8 +1259,8 @@
                         }
                       </a>
                       ${rankBadgeHTML}
-                      ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
-                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+                      ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
                     </div>
                     <div class="yk-card-info">
                       <div class="yk-name">
@@ -1410,8 +1401,8 @@
               `<div class="yk-single-avatar-placeholder">${therapist.name ? therapist.name.charAt(0) : 'T'}</div>`
             }
             ${rankBadgeHTML}
-            ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" ${hasRank ? 'data-has-rank="true"' : ''} />` : ''}
-            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${hasRank ? 'data-has-rank="true"' : ''} ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+            ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
+            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
           </div>
           ${thumbnailsHTML}
           
