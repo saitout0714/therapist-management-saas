@@ -32,6 +32,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/aggregation", label: "集計レポート" },
     { href: "/system", label: "システム管理" },
     { href: "/rooms", label: "ルーム ＆ 送信テンプレ" },
+    { href: "/sync", label: "サイト同期" },
   ];
 
   const adminItems = ["developer", "system_admin", "agency_staff"].includes(user?.role || "") ? [
@@ -39,7 +40,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/admin/agency-aggregation", label: "代行プラン集計" },
     ...(["developer", "system_admin"].includes(user?.role || "") ? [
       { href: "/users", label: "アカウント管理" },
-      { href: "/sync", label: "サイト同期" },
       { href: "/shifts/sync", label: "外部シフト同期" },
     ] : []),
   ] : [];
