@@ -42,6 +42,7 @@ export async function POST(req: Request) {
     const { data: shifts, error: shiftsError } = await supabase
       .from('shifts')
       .select(`
+        date,
         start_time,
         end_time,
         therapists!inner (
