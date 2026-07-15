@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase'; // Assuming service role or similar is set up, or standard client
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 
 export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
