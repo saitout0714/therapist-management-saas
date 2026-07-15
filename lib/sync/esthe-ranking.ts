@@ -158,10 +158,14 @@ export async function syncShiftsToEstheRanking(
     console.log(`[EstheRankingSync] Sync completed successfully.`);
     return { success: true, message: 'メンズエステランキングへの出勤情報同期が完了しました。' };
   } catch (error: any) {
-    console.error('[EstheRankingSync] Error:', error);
-    return { success: false, error: error.message };
+    const pageTitle = await page.title().catch(() => 'unknown');
+    const pageUrl = page.url();
+    console.error('[EstheRankingSync] Error:', error, 'Page Title:', pageTitle, 'URL:', pageUrl);
+    return { success: false, error: `${error.message} (画面タイトル: ${pageTitle}, URL: ${pageUrl})` };
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
@@ -188,6 +192,7 @@ export async function fetchTherapistsFromEstheRanking(
   password: string
 ): Promise<{ id: string; name: string }[]> {
   let browser: any;
+  let page: any;
   try {
     console.log(`[EstheRankingSync] Launching browser...`);
     browser = await getBrowser();
@@ -196,7 +201,7 @@ export async function fetchTherapistsFromEstheRanking(
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
     });
-    const page = await context.newPage();
+    page = await context.newPage();
  
     console.log(`[EstheRankingSync] Fetching therapists...`);
     
@@ -252,8 +257,10 @@ export async function fetchTherapistsFromEstheRanking(
     console.log(`[EstheRankingSync] Found ${therapists.length} therapists on portal.`);
     return therapists;
   } catch (error: any) {
-    console.error('[EstheRankingSync] Error fetching therapists:', error);
-    throw error;
+    const pageTitle = page ? await page.title().catch(() => 'unknown') : 'unknown';
+    const pageUrl = page ? page.url() : 'unknown';
+    console.error('[EstheRankingSync] Error fetching therapists:', error, 'Page Title:', pageTitle, 'URL:', pageUrl);
+    throw new Error(`${error.message} (画面タイトル: ${pageTitle}, URL: ${pageUrl})`);
   } finally {
     if (browser) {
       await browser.close();
