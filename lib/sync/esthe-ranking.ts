@@ -181,26 +181,37 @@ export async function fetchTherapistsFromEstheRanking(
   loginId: string,
   password: string
 ): Promise<{ id: string; name: string }[]> {
-  const browser = await getBrowser();
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
+  let browser: any;
   try {
+    console.log(`[EstheRankingSync] Launching browser...`);
+    browser = await getBrowser();
+    console.log(`[EstheRankingSync] Creating browser context...`);
+    const context = await browser.newContext();
+    const page = await context.newPage();
+ 
     console.log(`[EstheRankingSync] Fetching therapists...`);
     
+    console.log(`[EstheRankingSync] Navigating to ${shopUrl}...`);
     await page.goto(shopUrl);
+    console.log(`[EstheRankingSync] Filling login credentials...`);
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
+    console.log(`[EstheRankingSync] Submitting login form...`);
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch((e: any) => {
+        console.warn(`[EstheRankingSync] Login navigation timed out:`, e);
+      }),
       page.click('form[action="/login/"] button[type="submit"]')
     ]);
-
+ 
+    console.log(`[EstheRankingSync] Checking for login errors...`);
     const loginError = await page.$('.alert-danger, .error-message');
     if (loginError) {
       const errorText = await loginError.textContent();
+      console.error(`[EstheRankingSync] Login failed:`, errorText);
       throw new Error(`ログインに失敗しました: ${errorText?.trim()}`);
     }
+    console.log(`[EstheRankingSync] Login successful!`);
 
     // 本日の日付のスケジュールページへ遷移 (確実にリストを取得するため)
     const today = new Date();
@@ -210,19 +221,23 @@ export async function fetchTherapistsFromEstheRanking(
     const dateStr = `${yyyy}-${mm}-${dd}`;
     
     const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${dateStr}/`;
+    console.log(`[EstheRankingSync] Navigating to schedule page: ${targetUrl}...`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
-    // スケジュールページの読み込みを少し待つ
-    await page.waitForSelector('tr.tr-admin-linkcheck', { timeout: 10000 }).catch(() => {});
+    console.log(`[EstheRankingSync] Waiting for table rows...`);
+    await page.waitForSelector('tr.tr-admin-linkcheck', { timeout: 10000 }).catch((e: any) => {
+      console.warn(`[EstheRankingSync] Table selector timed out:`, e);
+    });
+    console.log(`[EstheRankingSync] Scraping table rows...`);
 
     // テーブル行からIDと名前を抽出
-    const therapists = await page.$$eval('tr.tr-admin-linkcheck', (rows) => {
-      return rows.map((tr) => {
+    const therapists = await page.$$eval('tr.tr-admin-linkcheck', (rows: any[]) => {
+      return rows.map((tr: any) => {
         const id = tr.getAttribute('data-girl-id') || '';
         // 2番目のtdの中にあるspanを探す
         const nameSpan = tr.querySelector('td:nth-child(2) span');
         const name = nameSpan ? nameSpan.textContent?.trim() || '' : '';
         return { id, name };
-      }).filter(t => t.id && t.name);
+      }).filter((t: any) => t.id && t.name);
     });
 
     console.log(`[EstheRankingSync] Found ${therapists.length} therapists on portal.`);
@@ -231,7 +246,9 @@ export async function fetchTherapistsFromEstheRanking(
     console.error('[EstheRankingSync] Error fetching therapists:', error);
     throw error;
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
