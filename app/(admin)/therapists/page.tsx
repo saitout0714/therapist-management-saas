@@ -34,7 +34,7 @@ export default function TherapistsPage() {
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
   const [linkedShopsMap, setLinkedShopsMap] = useState<Map<string, string[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
@@ -112,52 +112,37 @@ export default function TherapistsPage() {
     setUnresolvedMemoCounts(counts);
   };
 
-  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, therapistId: string) => {
-    setDraggedId(therapistId);
+  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+    setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
-    // ドラッグ画像をカーソル位置に合わせて自然に見せる
-    const target = e.currentTarget;
-    e.dataTransfer.setDragImage(target, e.clientX - target.getBoundingClientRect().left, e.clientY - target.getBoundingClientRect().top);
   };
 
-  const handleDragEnd = () => {
-    setDraggedId(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLLIElement>, index: number) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLLIElement>, targetTherapist: TherapistItem) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetTherapist.id) {
-      setDraggedId(null);
-      return;
-    }
-
-    const draggedIndex = therapists.findIndex((t) => t.id === draggedId);
-    const targetIndex = therapists.findIndex((t) => t.id === targetTherapist.id);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      return;
-    }
+    if (draggedIndex === null || draggedIndex === index) return;
 
     const newTherapists = [...therapists];
-    const [draggedItem] = newTherapists.splice(draggedIndex, 1);
-    newTherapists.splice(targetIndex, 0, draggedItem);
+    const draggedItem = newTherapists[draggedIndex];
+    newTherapists.splice(draggedIndex, 1);
+    newTherapists.splice(index, 0, draggedItem);
 
+    setDraggedIndex(index);
     setTherapists(newTherapists);
+  };
 
-    for (let i = 0; i < newTherapists.length; i++) {
-      await supabase
-        .from("therapists")
-        .update({ order: i })
-        .eq("id", newTherapists[i].id);
+  const handleDragEnd = async () => {
+    setDraggedIndex(null);
+    if (!selectedShop) return;
+
+    const promises = therapists.map((t, i) =>
+      supabase.from("therapists").update({ order: i }).eq("id", t.id)
+    );
+    const results = await Promise.all(promises);
+    const hasError = results.some((r) => r.error);
+    if (hasError) {
+      alert("並び替え順の保存に失敗しました");
+      void fetchTherapists();
     }
-
-    setDraggedId(null);
   };
 
   const handleDeleteClick = async (therapist: TherapistItem) => {
@@ -213,7 +198,7 @@ export default function TherapistsPage() {
   const filteredInactive = filterByQuery(inactiveTherapists);
   const isSearching = searchQuery.trim().length > 0;
 
-  const TherapistRow = ({ therapist }: { therapist: TherapistItem }) => {
+  const TherapistRow = ({ therapist, index }: { therapist: TherapistItem; index: number }) => {
     const isActive = therapist.is_active !== false;
     const rankName = therapist.therapist_ranks?.name;
     const photoUrl = photosMap.get(therapist.id);
@@ -231,13 +216,12 @@ export default function TherapistsPage() {
       <li
         key={therapist.id}
         draggable={isActive}
-        onDragStart={(e) => isActive && handleDragStart(e, therapist.id)}
+        onDragStart={(e) => isActive && handleDragStart(e, index)}
         onDragEnd={handleDragEnd}
-        onDragOver={(e) => isActive && handleDragOver(e)}
-        onDrop={(e) => isActive && handleDrop(e, therapist)}
+        onDragOver={(e) => isActive && handleDragOver(e, index)}
         className={`p-4 bg-white border rounded-xl flex justify-between items-start transition-all group ${
           isActive
-            ? `border-slate-200 hover:bg-slate-50 hover:border-indigo-200 hover:shadow-sm ${draggedId === therapist.id ? "opacity-20 border-dashed border-indigo-400" : ""}`
+            ? `border-slate-200 hover:bg-slate-50 hover:border-indigo-200 hover:shadow-sm ${draggedIndex === index ? "opacity-40 bg-slate-100" : ""}`
             : "border-slate-100 bg-slate-50/50 opacity-70"
         }`}
       >
@@ -456,7 +440,7 @@ export default function TherapistsPage() {
             {filteredActive.length > 0 ? (
               <ul className="space-y-3">
                 {filteredActive.map((therapist) => (
-                  <TherapistRow key={therapist.id} therapist={therapist} />
+                  <TherapistRow key={therapist.id} therapist={therapist} index={therapists.indexOf(therapist)} />
                 ))}
               </ul>
             ) : isSearching ? (
@@ -492,7 +476,7 @@ export default function TherapistsPage() {
               {filteredInactive.length > 0 ? (
                 <ul className="space-y-3">
                   {filteredInactive.map((therapist) => (
-                    <TherapistRow key={therapist.id} therapist={therapist} />
+                    <TherapistRow key={therapist.id} therapist={therapist} index={therapists.indexOf(therapist)} />
                   ))}
                 </ul>
               ) : (
