@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -35,6 +35,8 @@ export default function TherapistsPage() {
   const [linkedShopsMap, setLinkedShopsMap] = useState<Map<string, string[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const draggedIndexRef = useRef<number | null>(null);
+  const therapistsRef = useRef<TherapistItem[]>([]);
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -113,29 +115,38 @@ export default function TherapistsPage() {
     setUnresolvedMemoCounts(counts);
   };
 
+  // refを常に最新のtherapistsと同期させる
+  therapistsRef.current = therapists;
+
   const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+    draggedIndexRef.current = index;
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLLIElement>, index: number) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+    // refを使って常に最新の値を参照（stale closure回避）
+    if (draggedIndexRef.current === null || draggedIndexRef.current === index) return;
 
-    const newTherapists = [...therapists];
-    const draggedItem = newTherapists[draggedIndex];
-    newTherapists.splice(draggedIndex, 1);
+    const newTherapists = [...therapistsRef.current];
+    const draggedItem = newTherapists[draggedIndexRef.current];
+    newTherapists.splice(draggedIndexRef.current, 1);
     newTherapists.splice(index, 0, draggedItem);
 
+    draggedIndexRef.current = index;
+    therapistsRef.current = newTherapists;
     setDraggedIndex(index);
     setTherapists(newTherapists);
   };
 
   const handleDragEnd = async () => {
+    const finalTherapists = therapistsRef.current;
+    draggedIndexRef.current = null;
     setDraggedIndex(null);
     if (!selectedShop) return;
 
-    const promises = therapists.map((t, i) =>
+    const promises = finalTherapists.map((t, i) =>
       supabase.from("therapists").update({ order: i }).eq("id", t.id)
     );
     const results = await Promise.all(promises);
