@@ -6,7 +6,6 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { resolveCustomerPrice, calculateBack, calculateShiftAllowances, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
-import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -199,21 +198,13 @@ export default function EditReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
-      console.log('Customer Search Request (edit/page):', { q, normalized, shopId: selectedShop.id })
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason, memo, created_at')
+        .select('id, name, email, phone, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
         .limit(50)
-      console.log('Customer Search Response (edit/page):', { data, error })
-      if (data) {
-        data.forEach((c, index) => {
-          console.log(`  [${index}] name: "${c.name}", phone: "${c.phone}", status: "${c.status}"`)
-        })
-      }
-      if (error) console.error('Customer Search Error Details (edit/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)
     }, 300)
@@ -301,7 +292,7 @@ export default function EditReservationPage() {
       if (reservation.customer_id) {
         const { data: customerData } = await supabase
           .from('customers')
-          .select('id, name, email, phone, status, ng_reason, memo, created_at')
+          .select('id, name, email, phone, status, ng_reason, memo')
           .eq('id', reservation.customer_id)
           .single()
         if (customerData) {
@@ -563,8 +554,8 @@ export default function EditReservationPage() {
       return
     }
 
-    // NGセラピストチェック（キャンセル時はパス、それ以外は確認ダイアログを表示して強制保存可能にする）
-    if (formData.customer_id && formData.therapist_id && formData.status !== 'cancelled') {
+    // NGセラピストチェック
+    if (formData.customer_id && formData.therapist_id) {
       try {
         const { data: ngData, error: ngError } = await supabase
           .from('customer_therapist_ng')
@@ -575,10 +566,8 @@ export default function EditReservationPage() {
 
         if (ngError) throw ngError
         if (ngData && ngData.length > 0) {
-          const proceed = window.confirm('【警告】このセラピストはこのお客様に対してNG登録されています。本当にこのまま保存しますか？')
-          if (!proceed) {
-            return
-          }
+          alert('このセラピストはこのお客様に対してNG登録されています。予約を登録できません。')
+          return
         }
       } catch (err: any) {
         console.error('NGチェックエラー:', err)
@@ -816,7 +805,7 @@ export default function EditReservationPage() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2 order-2 sm:order-1 space-y-3 pb-24 sm:pb-0">
           {/* 1: お客様 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0">
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0">
             <div className="flex items-center gap-2 pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-indigo-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">お客様</h2>
               {formData.customer_id && (
@@ -980,7 +969,7 @@ export default function EditReservationPage() {
           </section>
 
           {/* 2: セラピスト・指名 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0 relative z-20">
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
             <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-cyan-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">セラピスト・指名</h2>
               {formData.therapist_id && (
@@ -990,12 +979,20 @@ export default function EditReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
               <div>
                 <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
-                <SearchableTherapistSelect
+                <select
                   value={formData.therapist_id}
-                  onChange={(val) => setFormData({ ...formData, therapist_id: val })}
-                  therapists={therapists}
+                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   required
-                />
+                >
+                  <option value="">選択してください</option>
+                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
+                  {therapists.map(therapist => (
+                    <option key={therapist.id} value={therapist.id}>
+                      {therapist.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1104,7 +1101,7 @@ export default function EditReservationPage() {
                       setFormData({ ...formData, start_time: v, end_time: dur > 0 ? calcEndTime(v, dur) : formData.end_time });
                     }}
                     placeholder
-                    minHour={6}
+                    minHour={0}
                     required
                   />
                 </div>
@@ -1114,7 +1111,7 @@ export default function EditReservationPage() {
                     value={formData.end_time}
                     onChange={v => setFormData({ ...formData, end_time: v })}
                     placeholder
-                    minHour={6}
+                    minHour={0}
                     required
                   />
                 </div>
@@ -1129,7 +1126,7 @@ export default function EditReservationPage() {
                     )}
                   </div>
                   <select
-                    value={formData.course_id || ""}
+                    value={formData.course_id}
                     onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                     required
@@ -1444,7 +1441,7 @@ export default function EditReservationPage() {
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">受付区分</label>
                   <select
-                    value={formData.reception_source || ""}
+                    value={formData.reception_source}
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
                     className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >

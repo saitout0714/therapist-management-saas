@@ -115,6 +115,9 @@ export default function TherapistsPage() {
   const handleDragStart = (e: React.DragEvent<HTMLLIElement>, therapistId: string) => {
     setDraggedId(therapistId);
     e.dataTransfer.effectAllowed = "move";
+    // ドラッグ画像をカーソル位置に合わせて自然に見せる
+    const target = e.currentTarget;
+    e.dataTransfer.setDragImage(target, e.clientX - target.getBoundingClientRect().left, e.clientY - target.getBoundingClientRect().top);
   };
 
   const handleDragEnd = () => {
@@ -234,7 +237,7 @@ export default function TherapistsPage() {
         onDrop={(e) => isActive && handleDrop(e, therapist)}
         className={`p-4 bg-white border rounded-xl flex justify-between items-start transition-all group ${
           isActive
-            ? `border-slate-200 hover:bg-slate-50 hover:border-indigo-200 hover:shadow-sm ${draggedId === therapist.id ? "opacity-50 scale-95 border-dashed border-indigo-400 bg-indigo-50/50" : ""}`
+            ? `border-slate-200 hover:bg-slate-50 hover:border-indigo-200 hover:shadow-sm ${draggedId === therapist.id ? "opacity-20 border-dashed border-indigo-400" : ""}`
             : "border-slate-100 bg-slate-50/50 opacity-70"
         }`}
       >

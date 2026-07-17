@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
-import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -306,21 +305,13 @@ export default function NewReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
-      console.log('Customer Search Request (new/page):', { q, normalized, shopId: selectedShop.id })
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason, memo, created_at')
+        .select('id, name, email, phone, status, ng_reason, memo')
         .eq('shop_id', selectedShop.id)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
         .limit(50)
-      console.log('Customer Search Response (new/page):', { data, error })
-      if (data) {
-        data.forEach((c, index) => {
-          console.log(`  [${index}] name: "${c.name}", phone: "${c.phone}", status: "${c.status}"`)
-        })
-      }
-      if (error) console.error('Customer Search Error Details (new/page):', error)
       setCustomerSearchResults(data || [])
       setCustomerSearchLoading(false)
     }, 300)
@@ -1033,7 +1024,7 @@ export default function NewReservationPage() {
         <div className="sm:col-span-2 order-2 sm:order-1 space-y-3 pt-0">
 
           {/* 1: お客様 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0">
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0">
             <div className="flex items-center gap-2 pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-indigo-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">お客様</h2>
               {formData.customer_id && (
@@ -1195,7 +1186,7 @@ export default function NewReservationPage() {
           </section>
 
           {/* 2: セラピスト・指名 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0 relative z-20">
+          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
             <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-cyan-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">セラピスト・指名</h2>
               {formData.therapist_id && (
@@ -1205,14 +1196,24 @@ export default function NewReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
               <div>
                 <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">セラピスト <span className="text-rose-500">*</span></label>
-                <SearchableTherapistSelect
+                <select
                   value={formData.therapist_id}
-                  onChange={(val) => setFormData({ ...formData, therapist_id: val })}
-                  therapists={availableTherapists}
-                  availableShiftText={availableShiftText}
-                  disabled={availableTherapists.length === 0}
+                  onChange={(e) => setFormData({ ...formData, therapist_id: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   required
-                />
+                  disabled={availableTherapists.length === 0}
+                >
+                  <option value="">選択してください</option>
+                  <option value="unassigned" className="font-bold text-amber-700 bg-amber-50">フリー予約（未割当）</option>
+                  {availableTherapists.map(therapist => (
+                    <option key={therapist.id} value={therapist.id}>
+                      {therapist.name}
+                      {availableShiftText(therapist.id)
+                        ? ` (${availableShiftText(therapist.id)})`
+                        : ''}
+                    </option>
+                  ))}
+                </select>
                 {!noShiftsRegistered && availableTherapists.length === 0 && (
                   <p className="mt-1.5 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-center">
                     <svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1221,12 +1222,12 @@ export default function NewReservationPage() {
                     選択した日付に出勤セラピストがいません
                   </p>
                 )}
-                 {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
+                {formData.therapist_id && customerNgTherapistIds.has(formData.therapist_id) && (
                   <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
                     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
-                    <span className="font-bold">このお客様は{therapists.find(t => t.id === formData.therapist_id)?.name || ''}さんNGです！</span>
+                    <span className="font-bold">このセラピストはお客様のNGリストに登録されています。</span>
                   </div>
                 )}
               </div>
@@ -1325,7 +1326,7 @@ export default function NewReservationPage() {
                     value={formData.start_time}
                     onChange={v => setFormData({ ...formData, start_time: v })}
                     placeholder
-                    minHour={6}
+                    minHour={0}
                     required
                   />
                 </div>
@@ -1335,7 +1336,7 @@ export default function NewReservationPage() {
                     value={formData.end_time}
                     onChange={v => setFormData({ ...formData, end_time: v })}
                     placeholder
-                    minHour={6}
+                    minHour={0}
                     required
                   />
                 </div>
@@ -1350,7 +1351,7 @@ export default function NewReservationPage() {
                     )}
                   </div>
                   <select
-                    value={formData.course_id || ""}
+                    value={formData.course_id}
                     onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                     required
@@ -1659,7 +1660,7 @@ export default function NewReservationPage() {
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">受付区分</label>
                   <select
-                    value={formData.reception_source || ""}
+                    value={formData.reception_source}
                     onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
                     className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
                   >

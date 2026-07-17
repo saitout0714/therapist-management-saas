@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { sendAdminReservationNotification } from '@/lib/notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +14,6 @@ interface ParsedReservation {
   courseName: string;
   price: number;
   shopNameRaw: string;
-  designationRaw?: string;
 }
 
 // 深夜帯（00:00〜05:59）を 24:00〜29:59 に補正する終了時間計算ヘルパー
@@ -43,20 +41,6 @@ function formatTimeToDb(t: string): string {
   const h = String(parseInt(parts[0], 10)).padStart(2, '0')
   const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0')
   return `${h}:${m}:00`
-}
-
-function getDesignationSlug(text: string): string {
-  const cleanText = text.trim()
-  if (cleanText.includes('本指名') || cleanText.includes('本指') || cleanText === '指名') {
-    return 'confirmed'
-  }
-  if (cleanText.includes('初回指名') || cleanText.includes('初回')) {
-    return 'first_nomination'
-  }
-  if (cleanText.includes('フリー') || cleanText.includes('指名なし') || cleanText.includes('なし')) {
-    return 'free'
-  }
-  return 'free' // デフォルトはフリー
 }
 
 // 媒体の自動判別
@@ -113,9 +97,7 @@ function parseEstheDamashii(body: string): ParsedReservation {
   
   const shopNameRaw = body.match(/お店番号：\d+\][ \t]*([^\n\r]*様)/)?.[1]?.replace(/様$/, '')?.trim() || ''
 
-  const designationRaw = body.match(/(?:指名|指名区分|■ご希望指名区分|■指名)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
-
-  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
+  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw }
 }
 
 // B. growパーサー
@@ -160,9 +142,7 @@ function parseGrow(body: string): ParsedReservation {
   const priceStr = courseName.match(/([\d,]+)\s*yen/i)?.[1] || '0'
   const price = parseInt(priceStr.replace(/,/g, ''), 10)
   
-  const designationRaw = body.match(/(?:指名|指名区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
-
-  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
+  return { date, startTime, endTime, customerName: name, phone, email, therapistName, courseName, price, shopNameRaw }
 }
 
 // C. 全国メンズエステランキングパーサー
@@ -217,9 +197,7 @@ function parseEstheRanking(body: string): ParsedReservation {
   const priceStr = body.match(/合計：\s*([\d,]+)円/)?.[1] || '0'
   const price = parseInt(priceStr.replace(/,/g, ''), 10)
   
-  const designationRaw = getValueAfterKey('【指名区分】') || getValueAfterKey('【指名】') || body.match(/(?:指名|指名区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
-
-  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price, shopNameRaw, designationRaw }
+  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price, shopNameRaw }
 }
 
 // D. フォールバックパーサー
@@ -267,9 +245,8 @@ function parseFallback(body: string): ParsedReservation {
     endTime = calcEndTime(startTime, duration)
     startTime = formatTimeToDb(startTime)
   }
-  const designationRaw = body.match(/(?:指名|指名区分|選考|区分)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
-
-  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw: '', designationRaw }
+  
+  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw: '' }
 }
 
 export async function POST(req: NextRequest) {
@@ -307,26 +284,6 @@ export async function POST(req: NextRequest) {
       default:
         parsed = parseFallback(body)
         break
-    }
-
-    // 深夜時間帯 (00:00 〜 05:59) の予約を、前日の営業日（例: 24:40等）へ自動補正する
-    if (parsed.date && parsed.startTime) {
-      const [hStr, mStr] = parsed.startTime.split(':')
-      const h = parseInt(hStr, 10)
-      if (h >= 0 && h < 6) {
-        const dateObj = new Date(parsed.date)
-        dateObj.setDate(dateObj.getDate() - 1)
-        const y = dateObj.getFullYear()
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0')
-        const d = String(dateObj.getDate()).padStart(2, '0')
-        
-        parsed.date = `${y}-${m}-${d}`
-        
-        const newH = h + 24
-        parsed.startTime = `${String(newH).padStart(2, '0')}:${mStr}:00`
-        
-        console.log(`[MailSync] Adjusted midnight reservation: date=${parsed.date}, startTime=${parsed.startTime}, endTime=${parsed.endTime}`)
-      }
     }
 
     console.log('[MailSync] Parsed data:', parsed)
@@ -541,35 +498,11 @@ export async function POST(req: NextRequest) {
     // growからのメールは即時確定(confirmed)、その他は仮予約(pending)
     const isGrow = sourceType === 'grow'
     const status = isGrow ? 'confirmed' : 'pending'
-    // セラピスト連絡が送信完了するまでは、Grow等の自動登録であっても未対応（is_handled: false）として登録します
-    const isHandled = false
+    const isHandled = isGrow ? true : false
 
     let warningNotes = ''
     if (isConflict) {
       warningNotes = `【⚠️警告: 予約重複（ダブルブッキング）の可能性あり】\n${conflictDetails}\nこの時間は既にセラピストの確定予約が入っています。お客様への連絡と時間調整の交渉を行ってください。\n\n`
-    }
-
-    // 5.5. 指名区分の特定
-    let designationTypeId = null
-    let dbDesignationType = 'free'
-
-    if (parsed.designationRaw) {
-      dbDesignationType = getDesignationSlug(parsed.designationRaw)
-    }
-
-    if (shopId) {
-      const { data: destTypes } = await supabaseAdmin
-        .from('designation_types')
-        .select('id, slug')
-        .eq('shop_id', shopId)
-        .eq('is_active', true)
-
-      if (destTypes) {
-        const matchedType = destTypes.find(dt => dt.slug === dbDesignationType)
-        if (matchedType) {
-          designationTypeId = matchedType.id
-        }
-      }
     }
 
     // 6. 予約の挿入
@@ -586,8 +519,6 @@ export async function POST(req: NextRequest) {
       is_handled: isHandled,
       base_price: basePrice,
       total_price: basePrice,
-      designation_type: dbDesignationType,
-      designation_type_id: designationTypeId,
       notes: `${warningNotes}【メール同期自動登録】\n媒体: ${sourceType}\n元のメール本文:\n${body}`
     }
 
@@ -603,19 +534,6 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[MailSync] Successfully created reservation:', reservation)
-
-    // 管理者向け自動通知（メール・LINE）の送信
-    if (shopId) {
-      try {
-        await sendAdminReservationNotification({
-          reservationId: reservation.id,
-          shopId: shopId,
-          supabase: supabaseAdmin,
-        })
-      } catch (err) {
-        console.error('[MailSync Admin Notification Error] Failed to trigger admin notification:', err)
-      }
-    }
 
     return NextResponse.json({
       success: true,

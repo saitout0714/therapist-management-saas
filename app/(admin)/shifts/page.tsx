@@ -66,8 +66,6 @@ interface TherapistRow {
   hip?: number | null;
   comment?: string | null;
   linked_therapist_group_id?: string | null;
-  therapist_ranks?: { name: string } | { name: string }[] | null;
-  is_rookie?: boolean;
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -105,8 +103,6 @@ interface Therapist {
   unresolvedMemos?: TherapistMemo[];
   linked_therapist_group_id?: string | null;
   linked_shop_names?: string[];
-  rankName?: string | null;
-  isRookie?: boolean;
 }
 
 interface AvailableCourse {
@@ -241,6 +237,10 @@ function ShiftsContent() {
   const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({});
   const [shopOptions, setShopOptions] = useState<{name: string, price: number, duration: number, type: string}[]>([]);
+
+
+
+
 
   // 予約不可編集モーダル
   const [blockedModal, setBlockedModal] = useState<{
@@ -629,14 +629,14 @@ function ShiftsContent() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id, therapist_ranks(name), is_rookie')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
         const { data: basicData } = await supabase
           .from('therapists')
-          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie')
+          .select('id, name, linked_therapist_group_id')
           .eq('shop_id', selectedShop.id)
           .order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
@@ -720,10 +720,6 @@ function ShiftsContent() {
           notes: shift?.notes ?? null,
           linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
           linked_shop_names: therapist.linked_therapist_group_id ? (linkedMap.get(therapist.linked_therapist_group_id) || []) : [],
-          rankName: Array.isArray(therapist.therapist_ranks)
-            ? therapist.therapist_ranks[0]?.name || null
-            : (therapist.therapist_ranks as { name: string } | null)?.name || null,
-          isRookie: !!therapist.is_rookie,
         };
       });
 
@@ -994,38 +990,37 @@ function ShiftsContent() {
       return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
     };
 
-    const getRankColors = (rank: number) => {
-      switch (rank) {
-        case 0: // 1番短い（最小）
-          return {
-            bg: '#d1fae5', // emerald-100
-            border: '#10b981', // emerald-500
-            text: '#065f46', // emerald-800
-          };
-        case 1: // 2番目に短い
-          return {
-            bg: '#dbeafe', // blue-100
-            border: '#3b82f6', // blue-500
-            text: '#1e3a8a', // blue-800
-          };
-        case 2: // 3番目に短い
-          return {
-            bg: '#f3e8ff', // purple-100
-            border: '#a855f7', // purple-500
-            text: '#581c87', // purple-800
-          };
-        case 3: // 4番目に短い
-          return {
-            bg: '#fae8ff', // fuchsia-100
-            border: '#d946ef', // fuchsia-500
-            text: '#701a75', // fuchsia-800
-          };
-        default:
-          return {
-            bg: '#f1f5f9', // slate-100
-            border: '#cbd5e1', // slate-300
-            text: '#475569', // slate-600
-          };
+    const getCourseColors = (duration: number) => {
+      if (duration >= 150) {
+        return {
+          bg: '#fbcfe8', // pink-200
+          border: '#ec4899', // pink-500
+          text: '#831843', // pink-900
+        };
+      } else if (duration >= 120) {
+        return {
+          bg: '#e9d5ff', // purple-200
+          border: '#a855f7', // purple-500
+          text: '#581c87', // purple-900
+        };
+      } else if (duration >= 90) {
+        return {
+          bg: '#bae6fd', // sky-200
+          border: '#0ea5e9', // sky-500
+          text: '#0c4a6e', // sky-900
+        };
+      } else if (duration >= 60) {
+        return {
+          bg: '#a7f3d0', // emerald-200
+          border: '#10b981', // emerald-500
+          text: '#064e3b', // emerald-900
+        };
+      } else {
+        return {
+          bg: '#fef08a', // yellow-200
+          border: '#eab308', // yellow-500
+          text: '#713f12', // yellow-900
+        };
       }
     };
 
@@ -1037,8 +1032,7 @@ function ShiftsContent() {
     return sorted.map(d => {
       const latestStartMin = endMin - d;
       const latestStartStr = formatMinToHHMM(latestStartMin);
-      const rank = selectedDurations.indexOf(d);
-      const colors = getRankColors(rank);
+      const colors = getCourseColors(d);
       return {
         duration: d,
         startTime: latestStartStr,
@@ -1321,9 +1315,9 @@ function ShiftsContent() {
 
     const unassignedTherapist: Therapist = {
       id: 'unassigned',
-      name: 'フリー',
+      name: 'フリー（未割当）',
       intervalMinutes: shopIntervalMinutes,
-      notes: undefined,
+      notes: '未割当のフリー予約枠',
     };
 
     let sortedOthers = [...withShift];
