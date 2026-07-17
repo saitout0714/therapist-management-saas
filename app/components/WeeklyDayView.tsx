@@ -594,18 +594,25 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 </div>
                               )}
  
-                              {/* 出勤時間 */}
-                              <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
-                                {therapist.id === 'unassigned' ? (
-                                  <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                                ) : isOff ? (
-                                  <span className="text-slate-400 line-through">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
-                                ) : (
-                                  <span className="text-emerald-600">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
+                              {/* 出勤時間 + インターバル */}
+                              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                <p className="text-[11px] font-semibold leading-none">
+                                  {therapist.id === 'unassigned' ? (
+                                    <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                                  ) : isOff ? (
+                                    <span className="text-slate-400 line-through">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
+                                  ) : (
+                                    <span className="text-emerald-600">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
+                                  )}
+                                </p>
+                                {therapist.id !== 'unassigned' && (
+                                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 ${isOff ? 'opacity-40' : ''}`}>
+                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
+                                  </span>
                                 )}
-                              </p>
+                              </div>
  
-                              {/* ルーム + インターバル */}
+                              {/* ルーム */}
                               <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
                                 {roomName && (
                                   <span
@@ -630,11 +637,6 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                   >
                                     <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                                     {roomName}
-                                  </span>
-                                )}
-                                {therapist.id !== 'unassigned' && (
-                                  <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                                    {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
                                   </span>
                                 )}
                               </div>

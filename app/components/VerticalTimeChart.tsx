@@ -122,7 +122,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 640) {
-        setColumnWidth(76);
+        setColumnWidth(80);
       } else {
         setColumnWidth(110);
       }
@@ -469,22 +469,39 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     </div>
                   </div>
 
-                  {/* 2段目: 出勤時間 */}
-                  <div className="text-[9px] sm:text-[11px] font-semibold leading-tight flex-shrink-0 mt-0.5">
-                    {therapist.id === 'unassigned' ? (
-                      null
-                    ) : isOff ? (
-                      <span className="text-slate-400 line-through">
-                        <span className="sm:hidden">{therapist.shiftStart ? `${therapist.shiftStart}-${therapist.shiftEnd}` : ''}</span>
-                        <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                  {/* 2段目: 出勤時間 + インターバル */}
+                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] sm:text-[11px] font-semibold leading-tight flex-shrink-0 mt-0.5">
+                    <span>
+                      {therapist.id === 'unassigned' ? (
+                        null
+                      ) : isOff ? (
+                        <span className="text-slate-400 line-through">
+                          <span className="sm:hidden">{therapist.shiftStart ? `${therapist.shiftStart}-${therapist.shiftEnd}` : ''}</span>
+                          <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        </span>
+                      ) : therapist.shiftStart && therapist.shiftEnd ? (
+                        <span className="text-emerald-600">
+                          <span className="sm:hidden">{`${therapist.shiftStart}-${therapist.shiftEnd}`}</span>
+                          <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">未設定</span>
+                      )}
+                    </span>
+                    {therapist.id !== 'unassigned' && (
+                      <span className={`flex-shrink-0 font-medium px-0.5 sm:px-1 py-0.2 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 w-fit ${isOff ? 'opacity-40' : ''}`}>
+                        {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? (
+                          <>
+                            <span className="sm:hidden">{therapist.intervalMinutes}m</span>
+                            <span className="hidden sm:inline">{therapist.intervalMinutes}分</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="sm:hidden">20m</span>
+                            <span className="hidden sm:inline">20分</span>
+                          </>
+                        )}
                       </span>
-                    ) : therapist.shiftStart && therapist.shiftEnd ? (
-                      <span className="text-emerald-600">
-                        <span className="sm:hidden">{`${therapist.shiftStart}-${therapist.shiftEnd}`}</span>
-                        <span className="hidden sm:inline">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">未設定</span>
                     )}
                   </div>
 
@@ -513,26 +530,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     )}
                   </div>
 
-                  {/* 4段目: インターバル + メモ/編集ボタン */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 min-w-0">
-                      {therapist.id !== 'unassigned' && (
-                        <span className="text-[9px] sm:text-[11px] font-medium px-0.5 sm:px-1 py-0.2 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 w-fit">
-                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? (
-                            <>
-                              <span className="sm:hidden">{therapist.intervalMinutes}m</span>
-                              <span className="hidden sm:inline">{therapist.intervalMinutes}分</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="sm:hidden">20m</span>
-                              <span className="hidden sm:inline">20分</span>
-                            </>
-                          )}
-                        </span>
-                      )}
+                  {/* 4段目: notes + 編集ボタン */}
+                  <div className="flex items-center justify-between gap-0.5 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
+                    <div className="flex items-center gap-0.5 min-w-0">
                       {therapist.notes && (
-                        <span className="text-[9px] sm:text-[11px] text-amber-600 font-semibold max-w-[50px] sm:max-w-[45px] truncate" title={therapist.notes}>
+                        <span className="text-[9px] sm:text-[11px] text-amber-600 font-semibold max-w-[50px] sm:max-w-[65px] truncate" title={therapist.notes}>
                           {therapist.notes}
                         </span>
                       )}
@@ -544,7 +546,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           onShiftEditOpen(therapist.id, date);
                         }}
                         title="シフトを編集"
-                        className="hidden sm:flex w-4 h-4 rounded hover:text-indigo-500 hover:bg-indigo-50 items-center justify-center text-slate-400 transition-colors"
+                        className="flex w-4 h-4 rounded hover:text-indigo-500 hover:bg-indigo-50 items-center justify-center text-slate-400 transition-colors active:scale-90"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>

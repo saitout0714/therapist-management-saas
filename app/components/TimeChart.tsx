@@ -354,7 +354,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
     >
       <div className="flex min-w-max">
         {/* Left Column (Therapists) */}
-        <div style={{ width: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[82px] sm:w-auto">
+        <div style={{ width: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[96px] sm:w-auto">
           {/* Header (Date) */}
           <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-1 sm:px-3 text-center">
             <div className="font-bold text-slate-800 text-[10px] sm:text-sm tracking-tight truncate max-w-full">
@@ -552,7 +552,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         onShiftEditOpen(therapist.id);
                       }}
                       title="シフトを編集"
-                      className="hidden sm:flex flex-shrink-0 items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                      className="flex flex-shrink-0 items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all active:scale-90"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
