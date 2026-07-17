@@ -349,8 +349,16 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     if (initialData.shifts.length > 0) {
       return initialData.shifts[0].date
     }
-    const jstNow = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
-    return jstNow.toISOString().split('T')[0]
+    const now = new Date()
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+    const jstDate = new Date(utcTime + (9 * 3600000))
+    if (jstDate.getHours() < 6) {
+      jstDate.setDate(jstDate.getDate() - 1)
+    }
+    const y = jstDate.getFullYear()
+    const m = String(jstDate.getMonth() + 1).padStart(2, '0')
+    const d = String(jstDate.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   })
 
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)

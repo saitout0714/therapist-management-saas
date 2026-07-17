@@ -1104,7 +1104,7 @@ export default function EditReservationPage() {
                       setFormData({ ...formData, start_time: v, end_time: dur > 0 ? calcEndTime(v, dur) : formData.end_time });
                     }}
                     placeholder
-                    minHour={0}
+                    minHour={6}
                     required
                   />
                 </div>
@@ -1114,7 +1114,7 @@ export default function EditReservationPage() {
                     value={formData.end_time}
                     onChange={v => setFormData({ ...formData, end_time: v })}
                     placeholder
-                    minHour={0}
+                    minHour={6}
                     required
                   />
                 </div>
