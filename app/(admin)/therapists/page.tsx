@@ -35,6 +35,7 @@ export default function TherapistsPage() {
   const [linkedShopsMap, setLinkedShopsMap] = useState<Map<string, string[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
@@ -198,11 +199,11 @@ export default function TherapistsPage() {
   const filteredInactive = filterByQuery(inactiveTherapists);
   const isSearching = searchQuery.trim().length > 0;
 
-  const TherapistRow = ({ therapist, index }: { therapist: TherapistItem; index: number }) => {
+  const renderTherapistItem = (therapist: TherapistItem, index: number) => {
     const isActive = therapist.is_active !== false;
     const rankName = therapist.therapist_ranks?.name;
     const photoUrl = photosMap.get(therapist.id);
-    const [imageError, setImageError] = useState(false);
+    const imageError = imageErrorIds.has(therapist.id);
 
     const sizeLabel = (() => {
       const parts: string[] = [];
@@ -237,13 +238,13 @@ export default function TherapistsPage() {
         {/* アバター */}
         <div className={`w-9 h-12 flex-shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-lg mt-0.5 ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
           {photoUrl && !imageError ? (
-            <Image 
-              src={photoUrl} 
-              alt={therapist.name} 
-              fill 
-              className="object-cover" 
-              unoptimized 
-              onError={() => setImageError(true)} 
+            <Image
+              src={photoUrl}
+              alt={therapist.name}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => setImageErrorIds(prev => new Set(prev).add(therapist.id))}
             />
           ) : (
             therapist.name.charAt(0)
@@ -300,8 +301,6 @@ export default function TherapistsPage() {
               ) : null}
             </div>
           )}
-
-
         </div>
 
         {/* アクションボタン */}
@@ -439,9 +438,9 @@ export default function TherapistsPage() {
           <div className="p-4 md:p-5">
             {filteredActive.length > 0 ? (
               <ul className="space-y-3">
-                {filteredActive.map((therapist) => (
-                  <TherapistRow key={therapist.id} therapist={therapist} index={therapists.indexOf(therapist)} />
-                ))}
+                {filteredActive.map((therapist) =>
+                  renderTherapistItem(therapist, therapists.indexOf(therapist))
+                )}
               </ul>
             ) : isSearching ? (
               <div className="text-center py-10">
@@ -475,9 +474,9 @@ export default function TherapistsPage() {
             <div className="p-4 md:p-5">
               {filteredInactive.length > 0 ? (
                 <ul className="space-y-3">
-                  {filteredInactive.map((therapist) => (
-                    <TherapistRow key={therapist.id} therapist={therapist} index={therapists.indexOf(therapist)} />
-                  ))}
+                  {filteredInactive.map((therapist) =>
+                    renderTherapistItem(therapist, therapists.indexOf(therapist))
+                  )}
                 </ul>
               ) : (
                 <div className="text-center py-6">
