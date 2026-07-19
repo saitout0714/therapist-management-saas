@@ -379,18 +379,54 @@ export default function PayrollPage() {
       hime += resHime
       baseNetTotal += result.totalBack + resHime
 
-      if (res.payment_method === 'credit') {
+      if (res.payment_method === 'credit' || res.options_payment_method === 'credit' || res.extension_payment_method === 'credit') {
         hasCredit = true
-        if (res.options_payment_method === 'cash') {
-          cashReceived += res.options_price || 0
-        }
-        if (res.extension_payment_method === 'cash' && res.extension_count > 0) {
-          const extensionPrice = Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
-          cashReceived += extensionPrice
+      }
+
+      const extensionPrice = (res.extension_count > 0)
+        ? Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
+        : 0
+
+      let creditBase = 0
+      let cashBase = 0
+
+      if (res.payment_method === 'credit') {
+        creditBase += (res.base_price || 0) + (res.nomination_fee || 0)
+      } else {
+        cashBase += (res.base_price || 0) + (res.nomination_fee || 0)
+      }
+
+      if (res.extension_payment_method === 'credit') {
+        creditBase += extensionPrice
+      } else {
+        cashBase += extensionPrice
+      }
+
+      if (res.options_payment_method === 'credit') {
+        creditBase += (res.options_price || 0)
+      } else {
+        cashBase += (res.options_price || 0)
+      }
+
+      const dynamicDiscount = res.discount_amount || 0
+      if (res.payment_method === 'credit') {
+        creditBase -= dynamicDiscount
+        if (creditBase < 0) {
+          cashBase += creditBase
+          creditBase = 0
         }
       } else {
-        cashReceived += result.totalPrice
+        cashBase -= dynamicDiscount
+        if (cashBase < 0) {
+          creditBase += cashBase
+          cashBase = 0
+        }
       }
+
+      creditBase = Math.max(0, creditBase)
+      cashBase = Math.max(0, cashBase)
+
+      cashReceived += cashBase
     })
 
     // 手動選択された控除・手当を計算
@@ -619,12 +655,11 @@ export default function PayrollPage() {
 
     text += `\n------------------------\n`
     text += `★ 報酬: ¥${netPay.toLocaleString()}\n`
-    text += `★ お店: ¥${(totalSales - netPay).toLocaleString()}\n`
+    const storeCash = totalCashReceived - netPay
+    text += `★ お店: ${storeCash < 0 ? `-¥${Math.abs(storeCash).toLocaleString()}` : `¥${storeCash.toLocaleString()}`}\n`
     if (hasCreditReservation) {
-      const cashBalance = totalCashReceived - netPay
       const creditAmount = totalSales - totalCashReceived
-      text += `★ クレジット: -¥${creditAmount.toLocaleString()}\n`
-      text += `★ 入金: ${cashBalance < 0 ? `-¥${Math.abs(cashBalance).toLocaleString()}` : `¥${cashBalance.toLocaleString()}`}\n`
+      text += `★ クレジット: ¥${creditAmount.toLocaleString()}\n`
     }
     text += `------------------------\n`
     text += `\nご確認よろしくお願いいたします！`
@@ -826,13 +861,35 @@ export default function PayrollPage() {
                           </div>
                         </div>
 
-                        {res.payment_method === 'credit' && (() => {
+                        {(res.payment_method === 'credit' || res.options_payment_method === 'credit' || res.extension_payment_method === 'credit') && (() => {
                           const optionsCash = res.options_payment_method === 'cash' ? (res.options_price || 0) : 0
                           const extPrice = res.extension_count > 0
                             ? Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
                             : 0
                           const extensionCash = res.extension_payment_method === 'cash' ? extPrice : 0
-                          const customerCash = optionsCash + extensionCash
+                          
+                          let mainCash = 0
+                          let mainCredit = 0
+                          if (res.payment_method === 'cash') mainCash = (res.base_price || 0) + (res.nomination_fee || 0)
+                          else mainCredit = (res.base_price || 0) + (res.nomination_fee || 0)
+                          
+                          const dynamicDiscount = res.discount_amount || 0
+                          if (res.payment_method === 'credit') {
+                            mainCredit -= dynamicDiscount
+                            if (mainCredit < 0) {
+                              mainCash += mainCredit
+                              mainCredit = 0
+                            }
+                          } else {
+                            mainCash -= dynamicDiscount
+                            if (mainCash < 0) {
+                              mainCredit += mainCash
+                              mainCash = 0
+                            }
+                          }
+                          mainCash = Math.max(0, mainCash)
+
+                          const customerCash = mainCash + optionsCash + extensionCash
                           const cashBalance = customerCash - r.netBack
                           return (
                             <div className="mt-2.5 pt-2.5 border-t border-slate-100">
