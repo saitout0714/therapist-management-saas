@@ -455,21 +455,44 @@ export default function EditReservationPage() {
     const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
     let creditFeeAmount = 0
     let creditBase = 0
+    let cashBase = 0
+
     if (formData.payment_method === 'credit') {
       creditBase += basePrice + nominationFee
+    } else {
+      cashBase += basePrice + nominationFee
     }
+
     if (formData.extension_payment_method === 'credit') {
       creditBase += extensionPrice
+    } else {
+      cashBase += extensionPrice
     }
+
     if (formData.options_payment_method === 'credit') {
       creditBase += optionsPrice
+    } else {
+      cashBase += optionsPrice
     }
+
+    if (formData.payment_method === 'credit') {
+      creditBase -= dynamicDiscount
+      if (creditBase < 0) {
+        cashBase += creditBase
+        creditBase = 0
+      }
+    } else {
+      cashBase -= dynamicDiscount
+      if (cashBase < 0) {
+        creditBase += cashBase
+        cashBase = 0
+      }
+    }
+
+    creditBase = Math.max(0, creditBase)
+    cashBase = Math.max(0, cashBase)
+
     if (creditBase > 0) {
-      const subtotalForRatio = basePrice + optionsPrice + extensionPrice + nominationFee
-      const creditRatio = subtotalForRatio > 0 ? creditBase / subtotalForRatio : 1
-      const discountForCredit = Math.floor(dynamicDiscount * creditRatio)
-      
-      creditBase = Math.max(0, creditBase - discountForCredit)
       creditFeeAmount = Math.floor(creditBase * feeRate)
     }
 
@@ -1390,10 +1413,9 @@ export default function EditReservationPage() {
                     <span className="font-bold text-xs">クレジット</span>
                   </label>
                 </div>
-                {formData.payment_method === 'credit' && (
-                  <div className="mt-3 bg-amber-50 rounded-xl p-3 border border-amber-100 space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-2">オプションの支払方法</label>
+                <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">オプションの支払方法</label>
                       <div className="flex gap-3">
                         <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                           <input type="radio" name="options_payment_method" value="cash" checked={formData.options_payment_method === 'cash'} onChange={() => setFormData({ ...formData, options_payment_method: 'cash' })} className="w-3.5 h-3.5 accent-slate-600" />
@@ -1418,14 +1440,15 @@ export default function EditReservationPage() {
                         </label>
                       </div>
                     </div>
-                    <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
-                      手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
-                      {calculatedPrice.creditFeeAmount > 0 && (
-                        <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
-                      )}
-                    </div>
+                    {(formData.payment_method === 'credit' || formData.options_payment_method === 'credit' || formData.extension_payment_method === 'credit') && (
+                      <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
+                        手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
+                        {calculatedPrice.creditFeeAmount > 0 && (
+                          <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
               </div>
 
             </div>

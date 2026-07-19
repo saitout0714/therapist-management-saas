@@ -755,7 +755,7 @@ export async function POST(
   // クレジット決済手数料の算出
   const creditCardFeeRate = systemSettings?.credit_card_fee_rate ?? 10
   const creditFeeAmount = payment_method === 'credit'
-    ? Math.round((basePrice + nominationFee) * (creditCardFeeRate / 100))
+    ? Math.floor((basePrice + nominationFee) * (creditCardFeeRate / 100))
     : 0
 
   // 予約作成

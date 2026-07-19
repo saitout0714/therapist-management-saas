@@ -835,10 +835,16 @@
   }
 
   function resolvePhotoUrl(photoUrl, base, width = null) {
-    if (!photoUrl) return null;
+    if (!photoUrl) {
+      const wpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      return `${wpOrigin}/wp-content/themes/kokorolinse/images/noimg.jpg`;
+    }
     let absoluteUrl = photoUrl;
     if (!photoUrl.startsWith('http://') && !photoUrl.startsWith('https://') && !photoUrl.startsWith('data:')) {
       absoluteUrl = `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
+    }
+    if (absoluteUrl.includes('/wp-content/')) {
+      return absoluteUrl;
     }
     if (width && base && !absoluteUrl.startsWith('data:')) {
       return `${base}/_next/image?url=${encodeURIComponent(absoluteUrl)}&w=${width}&q=75`;
