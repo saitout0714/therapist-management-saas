@@ -311,11 +311,14 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
   }
 
+  // effectiveNominationFee: 実際の指名料（予約登録時の値 or フォールバック）
   const effectiveNominationFee = input.nominationFee > 0
     ? input.nominationFee
     : (implicitNominationFee > 0 ? implicitNominationFee : fallbackNominationFee)
 
-  const courseOnlyPrice = effectiveCoursePrice - (matrixIncludesNominationFee ? 0 : effectiveNominationFee)
+  // courseOnlyPrice: 指名料を除いたコース料金
+  // matrixIncludesNominationFee=true → customer_priceに指名料込みなので差し引く
+  const courseOnlyPrice = effectiveCoursePrice - effectiveNominationFee
   const nominationFeeForBack = effectiveNominationFee
 
 
@@ -372,7 +375,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
     const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
 
-    const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + (matrixIncludesNominationFee ? 0 : nominationFeeForBack)
+    const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack
     return {
       courseBack: courseHalfBack,
       extensionBack: extensionBack,
@@ -553,8 +556,25 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
   // マトリクスの back_amount を使用した場合でも指名料バックを別途計算する
   if (nominationFeeForBack > 0) {
-    // designation_types の default_back_amount が設定されている場合はそれを優先
-    if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
+    // matrixIncludesNominationFee=true（course_back_amounts.customer_priceに指名料込み）の場合、
+    // designation_types.default_back_amount を指名料バックとして使用する。
+    // shop_back_rules.nomination_calc_type には頼らない（指名料はマトリクス設定外扱い）。
+    if (matrixIncludesNominationFee) {
+      const { data: dtBack } = await client
+        .from('designation_types')
+        .select('default_back_amount')
+        .eq('shop_id', input.shopId)
+        .eq('slug', input.designationType)
+        .eq('is_active', true)
+        .limit(1)
+      if (dtBack && dtBack.length > 0 && dtBack[0].default_back_amount != null) {
+        nominationBack = dtBack[0].default_back_amount
+      } else {
+        // designation_types に設定がない場合は指名料をそのままバックとする
+        nominationBack = nominationFeeForBack
+      }
+    } else if (implicitNominationFee > 0 && resolved_price.backAmount !== null) {
+      // designation_types の default_fee がコース料金に折り込まれている場合
       nominationBack = resolved_price.backAmount
     } else {
       switch (shopRule.nomination_calc_type) {
@@ -562,7 +582,10 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
           nominationBack = nominationFeeForBack
           break
         case 'fixed':
-          nominationBack = shopRule.nomination_back_amount ?? 0
+          // fixed で back_amount が 0 の場合はフルバックにフォールバック
+          nominationBack = shopRule.nomination_back_amount && shopRule.nomination_back_amount > 0
+            ? shopRule.nomination_back_amount
+            : nominationFeeForBack
           break
         case 'percentage':
           const nomRate = resolved.nominationRate ?? shopRule.nomination_back_rate
@@ -615,9 +638,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
-  // matrixIncludesNominationFee（customer_priceに指名料が含まれている）場合は
-  // courseOnlyPrice = effectiveCoursePrice（指名料込み）なので nomination_fee を加算しない（二重計上防止）
-  const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + (matrixIncludesNominationFee ? 0 : nominationFeeForBack) - totalDiscount
+  // courseOnlyPrice は常に指名料を除いた金額なので、nominationFeeForBack を加算して合計を作る
+  const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack - totalDiscount
 
   const himeBonus = input.himeBonus ?? 0
   const netBack = totalBack - deductionResult.deductions + deductionResult.allowances + himeBonus
