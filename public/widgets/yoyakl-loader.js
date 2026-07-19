@@ -18,6 +18,8 @@
     apiBase = window.location.origin;
   }
 
+  let globalNoImageUrl = '';
+
   // CSSスタイルの注入 (スコープ限定・セージグリーンテーマ)
   const styleId = 'yoyakl-widget-styles';
   if (!document.getElementById(styleId)) {
@@ -836,8 +838,9 @@
 
   function resolvePhotoUrl(photoUrl, base, width = null) {
     if (!photoUrl) {
+      if (globalNoImageUrl) return globalNoImageUrl;
       const wpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-      return `${wpOrigin}/wp-content/themes/kokorolinse/images/noimg.jpg`;
+      return `${wpOrigin}/wp-content/themes/kokorolinse/images/unnamed.jpg`;
     }
     let absoluteUrl = photoUrl;
     if (!photoUrl.startsWith('http://') && !photoUrl.startsWith('https://') && !photoUrl.startsWith('data:')) {
@@ -902,6 +905,10 @@
       widget.dataset.initialized = 'true';
 
       const shopCode = widget.getAttribute('data-shop-code');
+      const noImageUrl = widget.getAttribute('data-no-image-url') || '';
+      if (noImageUrl) {
+        globalNoImageUrl = noImageUrl;
+      }
       const mode = widget.getAttribute('data-mode') || 'all';
       const therapistName = widget.getAttribute('data-therapist-name');
       const therapistId = widget.getAttribute('data-therapist-id');
