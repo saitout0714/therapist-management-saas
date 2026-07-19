@@ -18,9 +18,10 @@ type BackAmount = {
   back_amount: number
   customer_price: number | null
   course_price_override: number | null
+  nomination_back_amount: number | null
 }
 
-type DesignationTypeItem = { value: string; label: string }
+type DesignationTypeItem = { value: string; label: string; default_fee: number; default_back_amount: number }
 
 export function CourseBackAmountsTab() {
   const { selectedShop } = useShop()
@@ -32,8 +33,8 @@ export function CourseBackAmountsTab() {
   const [saving, setSaving] = useState(false)
   const [selectedRank, setSelectedRank] = useState<string>('')
   
-  // editableCells: key = `${rankId}-${courseId}-${designation_type}` => { course_price, back_amount, customer_price }
-  const [editableCells, setEditableCells] = useState<Record<string, { course_price: string; back_amount: string; customer_price: string }>>({})
+  // editableCells: key = `${rankId}-${courseId}-${designation_type}` => { course_price, customer_price, course_back, nomination_back }
+  const [editableCells, setEditableCells] = useState<Record<string, { course_price: string; customer_price: string; course_back: string; nomination_back: string }>>({})
   
   const [extensionRankPrices, setExtensionRankPrices] = useState<ExtensionRankPrice[]>([])
   const [extensionDefaults, setExtensionDefaults] = useState({ price: 0, back: 0 })
@@ -52,7 +53,7 @@ export function CourseBackAmountsTab() {
       supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
       supabase.from('course_back_amounts').select('*').eq('shop_id', selectedShop.id),
-      supabase.from('designation_types').select('slug, display_name').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+      supabase.from('designation_types').select('slug, display_name, default_fee, default_back_amount').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
       supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
       supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id).limit(1),
       supabase.from('discount_policies').select('id, name, therapist_burden_amount, is_active').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
@@ -62,15 +63,20 @@ export function CourseBackAmountsTab() {
     const c = (coursesRes.data as Course[]) || []
     const r = (ranksRes.data as Rank[]) || []
     const a = (amountsRes.data as BackAmount[]) || []
-    const dt = ((dtRes.data || []) as { slug: string; display_name: string }[]).map(d => ({ value: d.slug, label: d.display_name }))
+    const dt = ((dtRes.data || []) as { slug: string; display_name: string; default_fee: number | null; default_back_amount: number | null }[]).map(d => ({
+      value: d.slug,
+      label: d.display_name,
+      default_fee: d.default_fee || 0,
+      default_back_amount: d.default_back_amount || 0
+    }))
 
     setCourses(c)
     setRanks(r)
     setAmounts(a)
     const activeDt = dt.length > 0 ? dt : [
-      { value: 'free', label: 'フリー' },
-      { value: 'first_nomination', label: '初指名' },
-      { value: 'confirmed', label: '本指名' },
+      { value: 'free', label: 'フリー', default_fee: 0, default_back_amount: 0 },
+      { value: 'first_nomination', label: '初指名', default_fee: 1000, default_back_amount: 1000 },
+      { value: 'confirmed', label: '本指名', default_fee: 2000, default_back_amount: 2000 },
     ]
     setDesignationTypes(activeDt)
 
@@ -112,7 +118,7 @@ export function CourseBackAmountsTab() {
 
   // 全てのランク×コース×指名種別の組み合わせの初期入力値を設定
   useEffect(() => {
-    const cells: Record<string, { course_price: string; back_amount: string; customer_price: string }> = {}
+    const cells: Record<string, { course_price: string; customer_price: string; course_back: string; nomination_back: string }> = {}
 
     for (const r of ranks) {
       for (const c of courses) {
@@ -123,10 +129,44 @@ export function CourseBackAmountsTab() {
               a.rank_id === r.id &&
               a.designation_type === dt.value
           )
+
+          let nominationBack = ''
+          let courseBack = ''
+
+          if (existing) {
+            if (existing.nomination_back_amount != null) {
+              nominationBack = String(existing.nomination_back_amount)
+              courseBack = String(Math.max(0, existing.back_amount - existing.nomination_back_amount))
+            } else {
+              // 古いデータで nomination_back_amount が NULL の場合
+              // デフォルトの比率または店舗設定を適用して分離する
+              const defaultBack = dt.default_back_amount
+              const defaultFee = dt.default_fee
+              if (dt.value === 'free') {
+                nominationBack = '0'
+                courseBack = String(existing.back_amount)
+              } else if (defaultFee > 0 && defaultBack > 0) {
+                const ratio = defaultBack / defaultFee
+                // コース料金と合計請求額の差額（=指名料）
+                const coursePriceOverride = existing.course_price_override != null ? existing.course_price_override : c.base_price
+                const customerPrice = existing.customer_price != null ? existing.customer_price : coursePriceOverride
+                const nominationFee = Math.max(0, customerPrice - coursePriceOverride)
+                const calculatedNomBack = Math.round(nominationFee * ratio)
+
+                nominationBack = String(calculatedNomBack)
+                courseBack = String(Math.max(0, existing.back_amount - calculatedNomBack))
+              } else {
+                nominationBack = '0'
+                courseBack = String(existing.back_amount)
+              }
+            }
+          }
+
           cells[key] = {
             course_price: existing?.course_price_override != null ? String(existing.course_price_override) : '',
-            back_amount: existing ? String(existing.back_amount) : '',
             customer_price: existing?.customer_price != null ? String(existing.customer_price) : '',
+            course_back: courseBack,
+            nomination_back: nominationBack,
           }
         }
       }
@@ -134,7 +174,7 @@ export function CourseBackAmountsTab() {
     setEditableCells(cells)
   }, [amounts, designationTypes, courses, ranks])
 
-  const handleCellChange = (rankId: string, courseId: string, designationType: string, field: 'course_price' | 'back_amount' | 'customer_price', value: string) => {
+  const handleCellChange = (rankId: string, courseId: string, designationType: string, field: 'course_price' | 'customer_price' | 'course_back' | 'nomination_back', value: string) => {
     const key = `${rankId}-${courseId}-${designationType}`
     setEditableCells(prev => ({
       ...prev,
@@ -234,8 +274,9 @@ export function CourseBackAmountsTab() {
           if (!cell) continue
 
           const coursePriceOverride = cell.course_price !== '' ? parseInt(cell.course_price, 10) : null
-          const backAmount = cell.back_amount !== '' ? parseInt(cell.back_amount, 10) : null
           const customerPrice = cell.customer_price !== '' ? parseInt(cell.customer_price, 10) : null
+          const courseBack = cell.course_back !== '' ? parseInt(cell.course_back, 10) : null
+          const nominationBack = cell.nomination_back !== '' ? parseInt(cell.nomination_back, 10) : null
 
           const existing = amounts.find(
             a => a.course_id === c.id &&
@@ -244,7 +285,7 @@ export function CourseBackAmountsTab() {
           )
 
           // 項目がすべて空の場合
-          if (cell.course_price === '' && cell.back_amount === '' && cell.customer_price === '') {
+          if (cell.course_price === '' && cell.customer_price === '' && cell.course_back === '' && cell.nomination_back === '') {
             // もし既存設定がある場合は、設定がクリアされたとみなして削除する
             if (existing) {
               promises.push(supabase.from('course_back_amounts').delete().eq('id', existing.id))
@@ -252,13 +293,15 @@ export function CourseBackAmountsTab() {
             continue
           }
 
-          const finalBackAmount = backAmount !== null ? backAmount : 0
+          const finalBackAmount = (courseBack || 0) + (nominationBack || 0)
+          const finalNominationBackAmount = nominationBack !== null ? nominationBack : null
 
           if (existing) {
             promises.push(
               supabase.from('course_back_amounts')
                 .update({
                   back_amount: finalBackAmount,
+                  nomination_back_amount: finalNominationBackAmount,
                   customer_price: customerPrice,
                   course_price_override: coursePriceOverride,
                   updated_at: new Date().toISOString()
@@ -274,6 +317,7 @@ export function CourseBackAmountsTab() {
                   rank_id: selectedRank,
                   designation_type: dt.value,
                   back_amount: finalBackAmount,
+                  nomination_back_amount: finalNominationBackAmount,
                   customer_price: customerPrice,
                   course_price_override: coursePriceOverride,
                 }])
@@ -483,14 +527,16 @@ export function CourseBackAmountsTab() {
 
               {/* カードボディ：マトリクス表 */}
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left min-w-[700px]">
+                <table className="w-full border-collapse text-left min-w-[850px]">
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="p-3 w-32">指名種別</th>
-                      <th className="p-3 w-32">コース料金</th>
-                      <th className="p-3 w-36">指名料</th>
-                      <th className="p-3 w-36">合計請求額</th>
-                      <th className="p-3 w-36 text-indigo-600">給与バック額</th>
+                      <th className="p-3 w-28">指名種別</th>
+                      <th className="p-3 w-28">コース料金</th>
+                      <th className="p-3 w-28">指名料</th>
+                      <th className="p-3 w-32">合計請求額</th>
+                      <th className="p-3 w-32 text-indigo-600">コースバック</th>
+                      <th className="p-3 w-32 text-indigo-600">指名バック</th>
+                      <th className="p-3 w-28 text-slate-500">給与バック合計</th>
                       <th className="p-3 w-28">店利益</th>
                       <th className="p-3 w-14"></th>
                     </tr>
@@ -498,16 +544,18 @@ export function CourseBackAmountsTab() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {designationTypes.map(dt => {
                       const cellKey = `${selectedRank}-${course.id}-${dt.value}`
-                      const cell = editableCells[cellKey] || { course_price: '', back_amount: '', customer_price: '' }
+                      const cell = editableCells[cellKey] || { course_price: '', customer_price: '', course_back: '', nomination_back: '' }
                       
                       const baseCoursePrice = course.base_price
                       const coursePrice = cell.course_price !== '' ? (parseInt(cell.course_price, 10) || 0) : baseCoursePrice
                       const currentTotalPrice = cell.customer_price !== '' ? (parseInt(cell.customer_price, 10) || 0) : coursePrice
                       const nominationFee = currentTotalPrice - coursePrice
 
-                      const backNum = parseInt(cell.back_amount, 10) || 0
-                      const shopProfit = currentTotalPrice - backNum
-                      const hasValue = cell.back_amount !== '' || cell.customer_price !== '' || cell.course_price !== ''
+                      const courseBackNum = cell.course_back !== '' ? (parseInt(cell.course_back, 10) || 0) : 0
+                      const nominationBackNum = cell.nomination_back !== '' ? (parseInt(cell.nomination_back, 10) || 0) : 0
+                      const totalBackNum = (cell.course_back !== '' || cell.nomination_back !== '') ? (courseBackNum + nominationBackNum) : null
+                      const shopProfit = totalBackNum !== null ? (currentTotalPrice - totalBackNum) : (currentTotalPrice - 0)
+                      const hasValue = cell.course_price !== '' || cell.customer_price !== '' || cell.course_back !== '' || cell.nomination_back !== ''
 
                       const handleNominationFeeChangeLocal = (valStr: string) => {
                         const nh = parseInt(valStr, 10) || 0
@@ -579,12 +627,33 @@ export function CourseBackAmountsTab() {
                               <input
                                 type="number"
                                 min={0}
-                                value={cell.back_amount}
-                                onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'back_amount', e.target.value)}
+                                value={cell.course_back}
+                                onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'course_back', e.target.value)}
                                 placeholder="未設定"
                                 className="w-full border border-emerald-100 rounded px-6 py-1.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700"
                               />
                             </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">¥</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={dt.value === 'free' ? '0' : cell.nomination_back}
+                                disabled={dt.value === 'free'}
+                                onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'nomination_back', e.target.value)}
+                                placeholder={dt.value === 'free' ? '0' : String(dt.default_back_amount)}
+                                className="w-full border border-emerald-100 rounded px-6 py-1.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700 disabled:bg-slate-100/50 disabled:text-slate-400"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3 font-bold text-indigo-800 text-sm text-center">
+                            {totalBackNum !== null ? (
+                              <span>¥{totalBackNum.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
                           </td>
                           <td className="p-3 font-semibold">
                             {hasValue && (

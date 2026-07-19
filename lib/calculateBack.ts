@@ -45,6 +45,7 @@ type CourseBackAmount = {
   back_amount: number
   customer_price: number | null
   course_price_override: number | null
+  nomination_back_amount?: number | null
 }
 
 type OptionBackRule = {
@@ -164,14 +165,14 @@ export async function resolveCustomerPrice(
   designationSlug: string,
   fallbackBasePrice: number,
   customClient?: any
-): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; source: 'matrix' | 'default' | 'fallback' }> {
+): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; nominationBackAmount: number | null; source: 'matrix' | 'default' | 'fallback' }> {
   const client = getDbClient(customClient)
 
   // 1. ランク指定ありで検索（マトリクス表）
   if (rankId) {
     const { data } = await client
       .from('course_back_amounts')
-      .select('back_amount, customer_price, course_price_override')
+      .select('back_amount, customer_price, course_price_override, nomination_back_amount')
       .eq('shop_id', shopId)
       .eq('course_id', courseId)
       .eq('rank_id', rankId)
@@ -183,6 +184,7 @@ export async function resolveCustomerPrice(
         customerPrice: row.customer_price ?? row.course_price_override ?? fallbackBasePrice,
         backAmount: row.back_amount,
         coursePriceOverride: row.course_price_override,
+        nominationBackAmount: row.nomination_back_amount ?? null,
         source: 'matrix'
       }
     }
@@ -202,12 +204,13 @@ export async function resolveCustomerPrice(
       customerPrice: fallbackBasePrice + (dt.default_fee || 0),
       backAmount: dt.default_back_amount ?? null,
       coursePriceOverride: null,
+      nominationBackAmount: null,
       source: 'default'
     }
   }
 
   // 3. 最終フォールバック（courses.base_price）
-  return { customerPrice: fallbackBasePrice, backAmount: null, coursePriceOverride: null, source: 'fallback' }
+  return { customerPrice: fallbackBasePrice, backAmount: null, coursePriceOverride: null, nominationBackAmount: null, source: 'fallback' }
 }
 
 
@@ -556,19 +559,30 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 4: 指名料バック額の算出（暗黙の指名料も含めて計算）
   // マトリクスの back_amount を使用した場合でも指名料バックを別途計算する
   if (nominationFeeForBack > 0) {
-    // matrixIncludesNominationFee=true（course_back_amounts.customer_priceに指名料込み）の場合、
-    // designation_types.default_back_amount を指名料バックとして使用する。
-    // shop_back_rules.nomination_calc_type には頼らない（指名料はマトリクス設定外扱い）。
-    if (matrixIncludesNominationFee) {
+    if (resolved_price.source === 'matrix' && resolved_price.nominationBackAmount !== null) {
+      // マトリクス側に個別の指名バック額が登録されている場合は、最優先でそれを適用する
+      nominationBack = resolved_price.nominationBackAmount
+    } else if (matrixIncludesNominationFee) {
+      // matrixIncludesNominationFee=true（course_back_amounts.customer_priceに指名料込み）の場合、
+      // designation_types.default_back_amount を指名料バックとして使用する。
+      // shop_back_rules.nomination_calc_type には頼らない（指名料はマトリクス設定外扱い）。
       const { data: dtBack } = await client
         .from('designation_types')
-        .select('default_back_amount')
+        .select('default_fee, default_back_amount')
         .eq('shop_id', input.shopId)
         .eq('slug', input.designationType)
         .eq('is_active', true)
         .limit(1)
-      if (dtBack && dtBack.length > 0 && dtBack[0].default_back_amount != null) {
-        nominationBack = dtBack[0].default_back_amount
+      if (dtBack && dtBack.length > 0) {
+        const dt = dtBack[0]
+        const defaultFee = dt.default_fee || 0
+        const defaultBack = dt.default_back_amount != null ? dt.default_back_amount : defaultFee
+        if (defaultFee > 0) {
+          const ratio = defaultBack / defaultFee
+          nominationBack = applyRounding(nominationFeeForBack * ratio, shopRule.rounding_method)
+        } else {
+          nominationBack = nominationFeeForBack
+        }
       } else {
         // designation_types に設定がない場合は指名料をそのままバックとする
         nominationBack = nominationFeeForBack
@@ -625,9 +639,9 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   }
 
   // マトリクス詳細設定が使用されている場合かつ customer_price に指名料が折り込まれているとき、
+  // またはマトリクスに明示的な指名バック額が登録されているとき、
   // コースバックの内訳から指名料バック分を差し引く（合計額は維持する）。
-  // customer_price が NULL（コース料金と同値）のときは差し引かない。
-  if (matrixIncludesNominationFee) {
+  if (matrixIncludesNominationFee || (resolved_price.source === 'matrix' && resolved_price.nominationBackAmount !== null)) {
     courseBack = Math.max(0, courseBack - nominationBack)
   }
 
