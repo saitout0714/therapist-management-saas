@@ -291,7 +291,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // input.nominationFee（予約登録時に保存された指名料）が 0 かつ フリー以外の場合、
   // マトリクス設定の customer_price が指名料を含んでいない可能性があるため
-  // system_settings のデフォルト指名料をフォールバックとして取得する。
+  // designation_types の default_fee（システム管理→指名種別タブの設定値）をフォールバックとして取得する。
   let fallbackNominationFee = 0
   if (
     input.nominationFee === 0 &&
@@ -299,20 +299,15 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     !matrixIncludesNominationFee &&
     input.designationType !== 'free'
   ) {
-    const { data: sysSettingsData } = await client
-      .from('system_settings')
-      .select('default_nomination_fee, default_confirmed_nomination_fee, default_princess_reservation_fee')
+    const { data: dtFeeData } = await client
+      .from('designation_types')
+      .select('default_fee, default_back_amount')
       .eq('shop_id', input.shopId)
+      .eq('slug', input.designationType)
+      .eq('is_active', true)
       .limit(1)
-    if (sysSettingsData && sysSettingsData.length > 0) {
-      const ss = sysSettingsData[0]
-      if (input.designationType === 'nomination' || input.designationType === 'first_nomination') {
-        fallbackNominationFee = ss.default_nomination_fee || 0
-      } else if (input.designationType === 'confirmed') {
-        fallbackNominationFee = ss.default_confirmed_nomination_fee || 0
-      } else if (input.designationType === 'princess') {
-        fallbackNominationFee = ss.default_princess_reservation_fee || 0
-      }
+    if (dtFeeData && dtFeeData.length > 0) {
+      fallbackNominationFee = dtFeeData[0].default_fee || 0
     }
   }
 
