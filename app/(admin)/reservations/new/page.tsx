@@ -549,6 +549,7 @@ export default function NewReservationPage() {
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
         .eq('shop_id', selectedShop.id)
+        .neq('status', 'cancelled')
         .limit(1)
 
       if (error) throw error
@@ -586,6 +587,7 @@ export default function NewReservationPage() {
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
         .eq('shop_id', selectedShop.id)
+        .neq('status', 'cancelled')
         .limit(1)
 
       if (error) throw error
@@ -1097,7 +1099,7 @@ export default function NewReservationPage() {
                                     .select('id')
                                     .eq('customer_id', customer.id)
                                     .eq('shop_id', selectedShop.id)
-                                    .limit(1)
+                                    .neq('status', 'cancelled').limit(1)
                                   const hasPastReservation = resHistory && resHistory.length > 0
                                   setFormData(prev => ({ ...prev, customer_type_override: hasPastReservation ? 'member' : 'new' }))
                                 } catch {
