@@ -37,6 +37,8 @@ interface Therapist {
   unresolvedMemos?: TherapistMemo[];
   linked_therapist_group_id?: string | null;
   linked_shop_names?: string[];
+  rankName?: string | null;
+  isRookie?: boolean;
 }
 
 interface AvailableCourse {
@@ -392,8 +394,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                   {/* 1段目: 写真(丸型22px) + 名前 */}
                   <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-                    {/* 写真 — 円形 (小型化: width 22px) */}
-                    <div className="w-[22px] h-[22px] flex-shrink-0">
+                    {/* 写真 — 円形 (スマホ表示時は非表示) */}
+                    <div className="hidden sm:block w-[22px] h-[22px] flex-shrink-0">
                       <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
                         {therapist.id === 'unassigned' ? (
                           <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
@@ -425,7 +427,15 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
                         }}
                       >
+                        {therapist.isRookie && (
+                          <span className="text-[9px] sm:text-[10px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                        )}
                         <span>{therapist.name}</span>
+                        {therapist.rankName && (
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                            {therapist.rankName}
+                          </span>
+                        )}
                         {therapist.linked_therapist_group_id && (
                           <span className="text-sky-500 font-bold text-[10px]" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                         )}

@@ -66,6 +66,8 @@ interface TherapistRow {
   hip?: number | null;
   comment?: string | null;
   linked_therapist_group_id?: string | null;
+  therapist_ranks?: { name: string } | { name: string }[] | null;
+  is_rookie?: boolean;
 }
 
 type SortMode = 'shift' | 'room' | 'reservation'
@@ -103,6 +105,8 @@ interface Therapist {
   unresolvedMemos?: TherapistMemo[];
   linked_therapist_group_id?: string | null;
   linked_shop_names?: string[];
+  rankName?: string | null;
+  isRookie?: boolean;
 }
 
 interface AvailableCourse {
@@ -629,14 +633,14 @@ function ShiftsContent() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id, therapist_ranks(name), is_rookie')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
       if (therapistsError) {
         const { data: basicData } = await supabase
           .from('therapists')
-          .select('id, name, linked_therapist_group_id')
+          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie')
           .eq('shop_id', selectedShop.id)
           .order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
@@ -720,6 +724,10 @@ function ShiftsContent() {
           notes: shift?.notes ?? null,
           linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
           linked_shop_names: therapist.linked_therapist_group_id ? (linkedMap.get(therapist.linked_therapist_group_id) || []) : [],
+          rankName: Array.isArray(therapist.therapist_ranks)
+            ? (therapist.therapist_ranks[0] as any)?.name || null
+            : (therapist.therapist_ranks as any)?.name || null,
+          isRookie: !!therapist.is_rookie,
         };
       });
 
@@ -1440,6 +1448,8 @@ function ShiftsContent() {
     unresolvedMemos: t.unresolvedMemos,
     linked_therapist_group_id: t.linked_therapist_group_id ?? null,
     linked_shop_names: t.linked_shop_names || [],
+    rankName: t.rankName,
+    isRookie: t.isRookie,
   }));
 
   return (
