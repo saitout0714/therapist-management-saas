@@ -1061,11 +1061,26 @@ export default function NewReservationPage() {
                           <button
                             key={customer.id}
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               setSelectedCustomerObj(customer)
-                              const isNew = new Date(customer.created_at || new Date()).toDateString() === new Date().toDateString()
-                              setFormData({ ...formData, customer_id: customer.id, customer_type_override: isNew ? 'new' : 'member' })
                               setCustomerSearch(customer.phone || '')
+                              // まず新規としてセット（非同期判定中のデフォルト）
+                              setFormData({ ...formData, customer_id: customer.id, customer_type_override: 'new' })
+                              // reservationsテーブルで予約履歴を確認して新規/会員を自動判定
+                              if (selectedShop) {
+                                try {
+                                  const { data: resHistory } = await supabase
+                                    .from('reservations')
+                                    .select('id')
+                                    .eq('customer_id', customer.id)
+                                    .eq('shop_id', selectedShop.id)
+                                    .limit(1)
+                                  const hasPastReservation = resHistory && resHistory.length > 0
+                                  setFormData(prev => ({ ...prev, customer_type_override: hasPastReservation ? 'member' : 'new' }))
+                                } catch {
+                                  // 失敗時は新規のまま
+                                }
+                              }
                             }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                           >
