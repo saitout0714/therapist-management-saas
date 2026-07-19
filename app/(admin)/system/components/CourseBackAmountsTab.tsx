@@ -527,21 +527,21 @@ export function CourseBackAmountsTab() {
 
               {/* カードボディ：マトリクス表 */}
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left min-w-[850px]">
+                <table className="w-full border-collapse text-left table-fixed min-w-[850px] md:min-w-0">
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="p-3 w-28">指名種別</th>
-                      <th className="p-3 w-28">コース料金</th>
-                      <th className="p-3 w-28">指名料</th>
-                      <th className="p-3 w-32">合計請求額</th>
-                      <th className="p-3 w-32 text-indigo-600">コースバック</th>
-                      <th className="p-3 w-32 text-indigo-600">指名バック</th>
-                      <th className="p-3 w-28 text-slate-500">給与バック合計</th>
-                      <th className="p-3 w-28">店利益</th>
-                      <th className="p-3 w-14"></th>
+                      <th className="p-1.5 w-[8%] min-w-[65px]">指名種別</th>
+                      <th className="p-1.5 w-[13%] min-w-[85px]">コース料金</th>
+                      <th className="p-1.5 w-[11%] min-w-[75px]">指名料</th>
+                      <th className="p-1.5 w-[14%] min-w-[95px]">合計請求額</th>
+                      <th className="p-1.5 w-[14%] min-w-[95px] text-indigo-600">コースバック</th>
+                      <th className="p-1.5 w-[14%] min-w-[95px] text-indigo-600">指名バック</th>
+                      <th className="p-1.5 w-[12%] min-w-[85px] text-slate-500 text-center">給与合計</th>
+                      <th className="p-1.5 w-[10%] min-w-[70px]">店利益</th>
+                      <th className="p-1.5 w-[4%] min-w-[25px]"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
+                  <tbody className="divide-y divide-slate-100 text-[11px]">
                     {designationTypes.map(dt => {
                       const cellKey = `${selectedRank}-${course.id}-${dt.value}`
                       const cell = editableCells[cellKey] || { course_price: '', customer_price: '', course_back: '', nomination_back: '' }
@@ -574,8 +574,8 @@ export function CourseBackAmountsTab() {
 
                       return (
                         <tr key={dt.value} className="hover:bg-slate-50/30 transition-colors">
-                          <td className="p-3">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${
+                          <td className="p-1">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${
                               dt.value === 'free' ? 'bg-slate-100 text-slate-700' :
                               dt.value === 'confirmed' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
                               dt.value === 'first_nomination' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
@@ -584,59 +584,59 @@ export function CourseBackAmountsTab() {
                               {dt.label}
                             </span>
                           </td>
-                          <td className="p-3">
+                          <td className="p-1">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">¥</span>
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">¥</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={cell.course_price}
                                 onChange={(e) => handleCoursePriceChangeLocal(e.target.value)}
                                 placeholder={String(baseCoursePrice)}
-                                className="w-full border border-slate-200 rounded px-6 py-1.5 bg-slate-50/60 focus:ring-1 focus:ring-slate-400 outline-none text-slate-600 font-medium"
+                                className="w-full border border-slate-200 rounded pl-4 pr-0.5 py-0.5 bg-slate-50/60 focus:ring-1 focus:ring-slate-400 outline-none text-slate-600 font-medium text-[11px]"
                               />
                             </div>
                           </td>
-                          <td className="p-3">
+                          <td className="p-1">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">¥</span>
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">¥</span>
                               <input
                                 type="number"
                                 value={nominationFee}
                                 onChange={(e) => handleNominationFeeChangeLocal(e.target.value)}
-                                className="w-full border border-slate-200 rounded px-6 py-1.5 bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 font-medium"
+                                className="w-full border border-slate-200 rounded pl-4 pr-0.5 py-0.5 bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 font-medium text-[11px]"
                               />
                             </div>
                           </td>
-                          <td className="p-3">
+                          <td className="p-1">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">Σ</span>
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[9px]">Σ</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={cell.customer_price}
                                 onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'customer_price', e.target.value)}
                                 placeholder={String(coursePrice)}
-                                className="w-full border border-indigo-100 rounded px-6 py-1.5 bg-indigo-50/30 focus:ring-1 focus:ring-indigo-500 outline-none font-bold text-slate-800"
+                                className="w-full border border-indigo-100 rounded pl-4 pr-0.5 py-0.5 bg-indigo-50/30 focus:ring-1 focus:ring-indigo-500 outline-none font-bold text-slate-800 text-[11px]"
                               />
                             </div>
                           </td>
-                          <td className="p-3">
+                          <td className="p-1">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">¥</span>
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-[9px]">¥</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={cell.course_back}
                                 onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'course_back', e.target.value)}
                                 placeholder="未設定"
-                                className="w-full border border-emerald-100 rounded px-6 py-1.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700"
+                                className="w-full border border-emerald-100 rounded pl-4 pr-0.5 py-0.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700 text-[11px]"
                               />
                             </div>
                           </td>
-                          <td className="p-3">
+                          <td className="p-1">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">¥</span>
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-[9px]">¥</span>
                               <input
                                 type="number"
                                 min={0}
@@ -644,25 +644,25 @@ export function CourseBackAmountsTab() {
                                 disabled={dt.value === 'free'}
                                 onChange={(e) => handleCellChange(selectedRank, course.id, dt.value, 'nomination_back', e.target.value)}
                                 placeholder={dt.value === 'free' ? '0' : String(dt.default_back_amount)}
-                                className="w-full border border-emerald-100 rounded px-6 py-1.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700 disabled:bg-slate-100/50 disabled:text-slate-400"
+                                className="w-full border border-emerald-100 rounded pl-4 pr-0.5 py-0.5 bg-emerald-50/30 focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-indigo-700 text-[11px] disabled:bg-slate-100/50 disabled:text-slate-400"
                               />
                             </div>
                           </td>
-                          <td className="p-3 font-bold text-indigo-800 text-sm text-center">
+                          <td className="p-1 font-bold text-indigo-800 text-[11px] text-center">
                             {totalBackNum !== null ? (
                               <span>¥{totalBackNum.toLocaleString()}</span>
                             ) : (
                               <span className="text-slate-300">-</span>
                             )}
                           </td>
-                          <td className="p-3 font-semibold">
+                          <td className="p-1.5 font-semibold">
                             {hasValue && (
                               <span className={shopProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
                                 ¥{shopProfit.toLocaleString()}
                               </span>
                             )}
                           </td>
-                          <td className="p-3 text-right">
+                          <td className="p-1.5 text-right">
                             {hasValue && (
                               <button
                                 onClick={() => void handleDelete(selectedRank, course.id, dt.value)}
