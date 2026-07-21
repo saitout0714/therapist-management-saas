@@ -486,7 +486,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {therapist.room && (
                           <span
-                            className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-0.5 cursor-default leading-none max-w-[45px] sm:max-w-none"
+                            className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-0.5 cursor-default leading-none max-w-[60px] sm:max-w-none"
                             onMouseEnter={(e) => {
                               if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -504,7 +504,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                               roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
                             }}
                           >
-                            <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            <svg className="hidden sm:block w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                             {therapist.room}
                           </span>
                         )}
