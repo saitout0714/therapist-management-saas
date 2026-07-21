@@ -276,7 +276,7 @@ def resolve_room(room_name: str, rooms: list):
             # より文字列長が近いものを優先（誤マッチを防ぐ）
             candidates.sort(key=lambda r: abs(len(r["name"]) - len(room_name)))
             return candidates[0]["id"]
-        return None
+        return rooms[0]["id"]
     return rooms[0]["id"]
 
 

@@ -243,7 +243,7 @@ function resolveRoom(roomName: string, rooms: Room[]): string | null {
       candidates.sort((a, b) => Math.abs(a.name.length - roomName.length) - Math.abs(b.name.length - roomName.length))
       return candidates[0].id
     }
-    return null
+    return rooms[0].id
   }
   return rooms[0].id
 }
