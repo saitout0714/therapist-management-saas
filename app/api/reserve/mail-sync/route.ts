@@ -47,10 +47,10 @@ function formatTimeToDb(t: string): string {
 
 function getDesignationSlug(text: string): string {
   const cleanText = text.trim()
-  if (cleanText.includes('本指名') || cleanText.includes('本指') || cleanText === '指名') {
+  if (cleanText.includes('本指名') || cleanText.includes('本指')) {
     return 'confirmed'
   }
-  if (cleanText.includes('初回指名') || cleanText.includes('初回')) {
+  if (cleanText.includes('初回指名') || cleanText.includes('初回') || cleanText === '指名') {
     return 'first_nomination'
   }
   if (cleanText.includes('フリー') || cleanText.includes('指名なし') || cleanText.includes('なし')) {
