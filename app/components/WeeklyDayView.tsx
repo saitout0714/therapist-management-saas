@@ -761,6 +761,16 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           {/* Row 1: 時間 & 未送信バッジ */}
                                           <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
                                             <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
+                                            {res.booking_method && res.booking_method !== 'web' && (
+                                              <span className="bg-white/20 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-white/10">
+                                                {res.booking_method === 'phone' ? '📞 電話' :
+                                                 res.booking_method === 'sms' ? '💬 SMS' :
+                                                 res.booking_method === 'line' ? '💬 LINE' :
+                                                 res.booking_method === 'media' ? '📰 広告' :
+                                                 res.booking_method === 'hime' ? '💖 姫予約' :
+                                                 res.booking_method === 'other' ? '✏️ その他' : res.booking_method}
+                                              </span>
+                                            )}
                                             {isWeb && (
                                               <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
                                                 🌐 WEB予約

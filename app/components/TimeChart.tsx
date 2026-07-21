@@ -958,6 +958,16 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         <div className="text-[10px] font-medium leading-none flex items-center gap-1 flex-wrap">
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                           <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
+                          {schedule.bookingMethod && schedule.bookingMethod !== 'web' && (
+                            <span className="bg-amber-800/10 text-amber-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap border border-amber-800/20">
+                              {schedule.bookingMethod === 'phone' ? '📞 電話' :
+                               schedule.bookingMethod === 'sms' ? '💬 SMS' :
+                               schedule.bookingMethod === 'line' ? '💬 LINE' :
+                               schedule.bookingMethod === 'media' ? '📰 広告' :
+                               schedule.bookingMethod === 'hime' ? '💖 姫予約' :
+                               schedule.bookingMethod === 'other' ? '✏️ その他' : schedule.bookingMethod}
+                            </span>
+                          )}
                           {(schedule.bookingMethod === 'web' || schedule.source === 'web' || schedule.receptionSource === 'client') && (
                             <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow border border-emerald-400 leading-none">
                               🌐 WEB予約
@@ -1026,6 +1036,16 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       {/* Row 1: Time & Notification status */}
                       <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                        {schedule.bookingMethod && schedule.bookingMethod !== 'web' && (
+                          <span className="bg-white/20 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-white/10">
+                            {schedule.bookingMethod === 'phone' ? '📞 電話' :
+                             schedule.bookingMethod === 'sms' ? '💬 SMS' :
+                             schedule.bookingMethod === 'line' ? '💬 LINE' :
+                             schedule.bookingMethod === 'media' ? '📰 広告' :
+                             schedule.bookingMethod === 'hime' ? '💖 姫予約' :
+                             schedule.bookingMethod === 'other' ? '✏️ その他' : schedule.bookingMethod}
+                          </span>
+                        )}
                         {isWeb && (
                           <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
                             🌐 WEB予約
