@@ -746,7 +746,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 
                                     const isNewCustomer = res.isNewCustomer
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
-                                    const isWeb = res.source === 'web' || res.booking_method === 'web'
+                                    const isWeb = res.booking_method === 'web' || (!res.booking_method && res.source === 'web');
                                     const cardBgClass = isNotificationUnsent
                                       ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
                                       : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
@@ -762,7 +762,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
                                             <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
                                             {res.booking_method && res.booking_method !== 'web' && (
-                                              <span className="bg-white/20 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-white/10">
+                                              <span className="bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-white/30 leading-none">
                                                 {res.booking_method === 'phone' ? '📞 電話' :
                                                  res.booking_method === 'sms' ? '💬 SMS' :
                                                  res.booking_method === 'line' ? '💬 LINE' :
