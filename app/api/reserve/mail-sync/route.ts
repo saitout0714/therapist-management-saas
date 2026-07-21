@@ -587,6 +587,7 @@ export async function POST(req: NextRequest) {
       end_time: parsed.endTime,
       status: status,
       source: 'web',
+      booking_method: 'web',
       is_handled: isHandled,
       base_price: basePrice,
       total_price: basePrice,
