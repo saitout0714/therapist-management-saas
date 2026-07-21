@@ -272,7 +272,18 @@ export default function WebReservationNotifier() {
 
     channelRef.current = channel
 
+    // 同じ画面内での削除を即座に反映するためのカスタムイベントリスナー
+    const handleLocalDelete = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const deletedId = customEvent.detail?.id
+      if (deletedId) {
+        setItems(prev => prev.filter(item => item.id !== deletedId))
+      }
+    }
+    window.addEventListener('reservation-deleted', handleLocalDelete)
+
     return () => {
+      window.removeEventListener('reservation-deleted', handleLocalDelete)
       void supabase.removeChannel(channel)
       channelRef.current = null
     }

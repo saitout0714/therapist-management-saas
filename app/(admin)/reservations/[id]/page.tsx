@@ -1185,6 +1185,9 @@ export default function ReservationPreviewPage() {
     if (error) {
       alert('削除に失敗しました: ' + error.message)
     } else {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reservation-deleted', { detail: { id: reservationId } }))
+      }
       if (eventId && calendarId) {
         try {
           void fetch('/api/calendar-sync', {

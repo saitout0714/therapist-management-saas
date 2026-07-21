@@ -207,6 +207,11 @@ export default function ReservationsPage() {
       return
     }
 
+    // 削除成功時にカスタムイベントを発火して通知コンポーネントなどに知らせる
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('reservation-deleted', { detail: { id } }))
+    }
+
     // 削除に成功したら非同期でカレンダーから削除
     if (eventId && calendarId) {
       try {
