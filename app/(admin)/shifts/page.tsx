@@ -189,6 +189,14 @@ function ShiftsContent() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [activeTooltip, setActiveTooltip] = useState<'rules' | 'hotels' | null>(null);
+
+  useEffect(() => {
+    const handleClose = () => setActiveTooltip(null);
+    document.addEventListener('click', handleClose);
+    return () => document.removeEventListener('click', handleClose);
+  }, []);
+
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
   const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30);
   const [filterDate, setFilterDate] = useState(() => {
@@ -1480,7 +1488,13 @@ function ShiftsContent() {
             <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
               スケジュール
               {/* 店舗ルールツールチップ */}
-              <div className="relative group cursor-pointer ml-3">
+              <div 
+                className="relative group cursor-pointer ml-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTooltip(prev => prev === 'rules' ? null : 'rules');
+                }}
+              >
                 <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
                   <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1490,7 +1504,12 @@ function ShiftsContent() {
                   <span className="text-blue-600">料金システム</span>
                 </span>
                 {/* ツールチップの内容 */}
-                <div className="absolute left-0 top-full mt-2 w-80 p-4 bg-white border border-slate-200 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-sm max-h-[80vh] overflow-y-auto">
+                <div 
+                  className={`absolute left-0 top-full mt-2 w-80 p-4 bg-white border border-slate-200 shadow-xl rounded-xl transition-all z-50 text-sm max-h-[80vh] overflow-y-auto ${
+                    activeTooltip === 'rules' ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{selectedShop?.name} 店舗ルール</h3>
                   
                   {/* 特殊ルール・注意事項 */}
@@ -1590,7 +1609,13 @@ function ShiftsContent() {
                 </div>
               </div>
               {selectedShop?.is_dispatch_enabled && (
-                <div className="relative group cursor-pointer ml-2">
+                <div 
+                  className="relative group cursor-pointer ml-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTooltip(prev => prev === 'hotels' ? null : 'hotels');
+                  }}
+                >
                   <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
                     <svg className="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -1599,7 +1624,12 @@ function ShiftsContent() {
                   </span>
                   
                   {/* ホテル一覧のツールチップ内容 */}
-                  <div className="absolute left-0 top-full mt-2 w-[26rem] p-4 bg-white border border-slate-200 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-sm max-h-[80vh] overflow-y-auto font-normal tracking-normal text-slate-700">
+                  <div 
+                    className={`absolute left-0 top-full mt-2 w-[26rem] p-4 bg-white border border-slate-200 shadow-xl rounded-xl transition-all z-50 text-sm max-h-[80vh] overflow-y-auto font-normal tracking-normal text-slate-700 ${
+                      activeTooltip === 'hotels' ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1 flex justify-between items-center">
                       <span>🏨 登録ホテル一覧</span>
                       <span className="text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded font-black">
