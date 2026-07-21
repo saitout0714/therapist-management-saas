@@ -843,18 +843,25 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           <div className="text-[10px] font-medium text-amber-800 leading-none flex items-center gap-1 flex-wrap">
                             <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                             <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
-                            {schedule.bookingMethod && schedule.bookingMethod !== 'web' && (
-                              <span className="bg-amber-800/10 text-amber-900 font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-amber-800/20 leading-none">
-                                {schedule.bookingMethod === 'phone' ? '📞 電話' :
-                                 schedule.bookingMethod === 'sms' ? '💬 SMS' :
-                                 schedule.bookingMethod === 'line' ? '💬 LINE' :
-                                 schedule.bookingMethod === 'media' ? '📰 広告' :
-                                 schedule.bookingMethod === 'hime' ? '💖 姫' :
-                                 schedule.bookingMethod === 'other' ? '✏️ 他' : schedule.bookingMethod}
-                              </span>
-                            )}
+                            {(() => {
+                              if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
+                              const methods: Record<string, { label: string, colorClass: string }> = {
+                                phone: { label: '📞 電話', colorClass: 'bg-blue-500 border-blue-400 text-white' },
+                                sms: { label: '💬 SMS', colorClass: 'bg-sky-500 border-sky-400 text-white' },
+                                line: { label: '💬 LINE', colorClass: 'bg-[#06C755] border-[#06C755] text-white' },
+                                media: { label: '📰 広告', colorClass: 'bg-purple-500 border-purple-400 text-white' },
+                                hime: { label: '💖 姫予約', colorClass: 'bg-pink-500 border-pink-400 text-white' },
+                                other: { label: '✏️ その他', colorClass: 'bg-slate-500 border-slate-400 text-white' },
+                              };
+                              const config = methods[schedule.bookingMethod] || { label: schedule.bookingMethod, colorClass: 'bg-slate-500 border-slate-400 text-white' };
+                              return (
+                                <span className={`${config.colorClass} font-bold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border leading-none`}>
+                                  {config.label}
+                                </span>
+                              );
+                            })()}
                             {(schedule.bookingMethod === 'web' || (!schedule.bookingMethod && (schedule.source === 'web' || schedule.receptionSource === 'client'))) && (
-                              <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow border border-emerald-400 leading-none">
+                              <span className="bg-emerald-500 text-white font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
                                 🌐 WEB予約
                               </span>
                             )}
@@ -921,18 +928,25 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         {/* Row 1: Time & Notification status */}
                         <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
-                          {schedule.bookingMethod && schedule.bookingMethod !== 'web' && (
-                            <span className="bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-white/30 leading-none">
-                              {schedule.bookingMethod === 'phone' ? '📞 電話' :
-                               schedule.bookingMethod === 'sms' ? '💬 SMS' :
-                               schedule.bookingMethod === 'line' ? '💬 LINE' :
-                               schedule.bookingMethod === 'media' ? '📰 広告' :
-                               schedule.bookingMethod === 'hime' ? '💖 姫' :
-                               schedule.bookingMethod === 'other' ? '✏️ 他' : schedule.bookingMethod}
-                            </span>
-                          )}
+                          {(() => {
+                            if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
+                            const methods: Record<string, { label: string, colorClass: string }> = {
+                              phone: { label: '📞 電話', colorClass: 'bg-blue-500 border-blue-400 text-white' },
+                              sms: { label: '💬 SMS', colorClass: 'bg-sky-500 border-sky-400 text-white' },
+                              line: { label: '💬 LINE', colorClass: 'bg-[#06C755] border-[#06C755] text-white' },
+                              media: { label: '📰 広告', colorClass: 'bg-purple-500 border-purple-400 text-white' },
+                              hime: { label: '💖 姫予約', colorClass: 'bg-pink-500 border-pink-400 text-white' },
+                              other: { label: '✏️ その他', colorClass: 'bg-slate-500 border-slate-400 text-white' },
+                            };
+                            const config = methods[schedule.bookingMethod] || { label: schedule.bookingMethod, colorClass: 'bg-slate-500 border-slate-400 text-white' };
+                            return (
+                              <span className={`${config.colorClass} font-bold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border leading-none`}>
+                                {config.label}
+                              </span>
+                            );
+                          })()}
                           {isWeb && (
-                            <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
+                            <span className="bg-emerald-500 text-white font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
                               🌐 WEB予約
                             </span>
                           )}

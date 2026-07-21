@@ -761,18 +761,25 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           {/* Row 1: 時間 & 未送信バッジ */}
                                           <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
                                             <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
-                                            {res.booking_method && res.booking_method !== 'web' && (
-                                              <span className="bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-white/30 leading-none">
-                                                {res.booking_method === 'phone' ? '📞 電話' :
-                                                 res.booking_method === 'sms' ? '💬 SMS' :
-                                                 res.booking_method === 'line' ? '💬 LINE' :
-                                                 res.booking_method === 'media' ? '📰 広告' :
-                                                 res.booking_method === 'hime' ? '💖 姫予約' :
-                                                 res.booking_method === 'other' ? '✏️ その他' : res.booking_method}
-                                              </span>
-                                            )}
+                                            {(() => {
+                                              if (!res.booking_method || res.booking_method === 'web') return null;
+                                              const methods: Record<string, { label: string, colorClass: string }> = {
+                                                phone: { label: '📞 電話', colorClass: 'bg-blue-500 border-blue-400 text-white' },
+                                                sms: { label: '💬 SMS', colorClass: 'bg-sky-500 border-sky-400 text-white' },
+                                                line: { label: '💬 LINE', colorClass: 'bg-[#06C755] border-[#06C755] text-white' },
+                                                media: { label: '📰 広告', colorClass: 'bg-purple-500 border-purple-400 text-white' },
+                                                hime: { label: '💖 姫予約', colorClass: 'bg-pink-500 border-pink-400 text-white' },
+                                                other: { label: '✏️ その他', colorClass: 'bg-slate-500 border-slate-400 text-white' },
+                                              };
+                                              const config = methods[res.booking_method] || { label: res.booking_method, colorClass: 'bg-slate-500 border-slate-400 text-white' };
+                                              return (
+                                                <span className={`${config.colorClass} font-bold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border leading-none`}>
+                                                  {config.label}
+                                                </span>
+                                              );
+                                            })()}
                                             {isWeb && (
-                                              <span className="bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
+                                              <span className="bg-emerald-500 text-white font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-emerald-400 leading-none">
                                                 🌐 WEB予約
                                               </span>
                                             )}
