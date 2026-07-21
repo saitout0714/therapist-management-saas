@@ -613,6 +613,16 @@ export default function EditReservationPage() {
         if (resError) throw resError
 
         const warnings: string[] = []
+
+        // セラピストの対応不可（NG）コースチェック
+        if (formData.course_id && formData.course_id !== '__blocked__') {
+          const selectedCourse = courses.find(c => c.id === formData.course_id)
+          const isNgCourse = therapist?.ng_course_ids?.includes(formData.course_id)
+          if (selectedCourse && isNgCourse) {
+            warnings.push(`選択したコース（${selectedCourse.name}）はセラピストの対応不可（NG）コースに指定されています。`)
+          }
+        }
+
         const baseTime = (shifts && shifts.length > 0) ? shifts[0].start_time : formData.start_time
 
         const timeToMinutes = (t: string) => {
@@ -1282,7 +1292,7 @@ export default function EditReservationPage() {
                     {courses.map(course => {
                       const isNg = therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids?.includes(course.id)
                       return (
-                        <option key={course.id} value={course.id} disabled={isNg} style={isNg ? { color: '#dc2626', backgroundColor: '#fef2f2' } : {}}>
+                        <option key={course.id} value={course.id} style={isNg ? { color: '#dc2626', backgroundColor: '#fef2f2' } : {}}>
                           {course.name} - {course.duration}分 ¥{course.base_price.toLocaleString()}{isNg ? ' (NG)' : ''}
                         </option>
                       )
