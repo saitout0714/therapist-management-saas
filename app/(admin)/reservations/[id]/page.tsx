@@ -123,6 +123,7 @@ type RoomInfo = {
   address?: string | null
   google_map_url?: string | null
   memo?: string | null
+  type?: string | null
 }
 
 export default function ReservationPreviewPage() {
@@ -224,7 +225,7 @@ export default function ReservationPreviewPage() {
       if (resData.room_id) {
         const { data: roomData, error: roomError } = await supabase
           .from('rooms')
-          .select('name, display_name, template_member, template_new_customer, address, google_map_url, memo')
+          .select('name, display_name, template_member, template_new_customer, address, google_map_url, memo, type')
           .eq('id', resData.room_id)
           .maybeSingle();
 
@@ -237,7 +238,8 @@ export default function ReservationPreviewPage() {
             address: roomData.address || null,
             google_map_url: roomData.google_map_url || null,
             memo: roomData.memo || null,
-          } as any);
+            type: roomData.type || 'room',
+          });
           roomFetched = true;
         }
       }
@@ -245,7 +247,7 @@ export default function ReservationPreviewPage() {
       if (!roomFetched) {
         const { data: shiftData, error: shiftError } = await supabase
           .from('shifts')
-          .select('rooms(name, display_name, template_member, template_new_customer, address, google_map_url, memo)')
+          .select('rooms(name, display_name, template_member, template_new_customer, address, google_map_url, memo, type)')
           .eq('therapist_id', resData.therapist_id)
           .eq('date', resData.business_date || resData.date)
           .eq('shop_id', selectedShop.id)
@@ -263,7 +265,8 @@ export default function ReservationPreviewPage() {
             address: room?.address || null,
             google_map_url: room?.google_map_url || null,
             memo: room?.memo || null,
-          } as any);
+            type: room?.type || 'room',
+          });
         }
       }
 
@@ -681,7 +684,7 @@ export default function ReservationPreviewPage() {
     const himeVal = reservation.is_hime ? '姫予約' : ''
 
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
-    if (therapistTemplate) {
+    if (therapistTemplate && therapistTemplate.trim() !== '') {
       const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
       const dateKanjiVal = formatKanjiDate(reservation.business_date || reservation.date || '')
       const startTimeVal = toDisplayTime(reservation.start_time)
@@ -690,22 +693,42 @@ export default function ReservationPreviewPage() {
       const endTimeKanjiVal = toKanjiTime(reservation.end_time)
       const dispatch = parseDispatchFromNotes(reservation.notes)
       let roomVal = roomInfo?.name || '未定'
-      if (selectedShop?.is_dispatch_enabled) {
-        if (dispatch.dispatch_type === 'hotel') {
-          const hotelName = roomInfo?.display_name || roomInfo?.name || 'ホテル'
-          const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}` : ''
-          roomVal = `${hotelName}${roomNo}`
-        } else if (dispatch.dispatch_type === 'home') {
-          const staffMap: Record<string, string> = {
-            'none': '不要',
-            'hanamoto': '花本',
-            'fukunaga': '福永',
-            'takahashi': '高橋',
-            'reject': 'お断り'
-          }
-          const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
-          roomVal = `自宅 (送迎: ${staffText})`
+      let addressVal = roomInfo?.address || ''
+      let mapUrlVal = roomInfo?.google_map_url || ''
+
+      const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || roomInfo?.type === 'hotel')
+      const isHome = selectedShop?.is_dispatch_enabled && dispatch.dispatch_type === 'home'
+
+      if (isHotel) {
+        const hotelName = roomInfo?.display_name || roomInfo?.name || 'ホテル'
+        const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}` : ''
+        addressVal = roomInfo?.address || ''
+        mapUrlVal = roomInfo?.google_map_url || ''
+
+        let val = `${hotelName}${roomNo}`
+        if (!therapistTemplate.includes('[住所]')) {
+          if (addressVal) val += `\n住所: ${addressVal}`
+          if (mapUrlVal) val += `\n地図: ${mapUrlVal}`
         }
+        roomVal = val
+      } else if (isHome) {
+        const staffMap: Record<string, string> = {
+          'none': '不要',
+          'hanamoto': '花本',
+          'fukunaga': '福永',
+          'takahashi': '高橋',
+          'reject': 'お断り'
+        }
+        const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
+        addressVal = dispatch.home_address || ''
+        mapUrlVal = dispatch.home_address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dispatch.home_address)}` : ''
+
+        let val = `自宅 (送迎: ${staffText})`
+        if (!therapistTemplate.includes('[住所]')) {
+          if (addressVal) val += `\n住所: ${addressVal}`
+          if (mapUrlVal) val += `\n地図: ${mapUrlVal}`
+        }
+        roomVal = val
       }
       const custNameVal = reservation.customers?.name || '未設定'
       const therapistNameVal = reservation.therapists?.name || 'フリー'
@@ -719,6 +742,13 @@ export default function ReservationPreviewPage() {
       const totalVal = `${reservation.total_price.toLocaleString()}円`
 
       let finalTemplate = therapistTemplate
+      if (isHotel) {
+        finalTemplate = finalTemplate.replace(/■ ルーム/g, '■ 派遣先ホテル')
+      } else if (isHome) {
+        finalTemplate = finalTemplate.replace(/■ ルーム/g, '■ 派遣先（自宅）')
+      }
+
+      finalTemplate = finalTemplate
         .replace(/\[日付\]/g, dateVal)
         .replace(/\[日付\(漢字\)\]/g, dateKanjiVal)
         .replace(/\[開始時刻\]/g, startTimeVal)
@@ -736,6 +766,18 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      if (!addressVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[住所\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[住所\]/g, addressVal)
+      }
+
+      if (!mapUrlVal) {
+        finalTemplate = finalTemplate.replace(/^[^\n]*\[地図\][^\n]*\n?/gm, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[地図\]/g, mapUrlVal)
+      }
 
       // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
       if (!himeVal) {
@@ -804,8 +846,47 @@ export default function ReservationPreviewPage() {
     // 時間
     text += `■ 時間\n${toDisplayTime(reservation.start_time)}-${toDisplayTime(reservation.end_time)}\n\n`
 
-    // ルーム
-    text += `■ ルーム\n${roomInfo?.name || '未定'}\n\n`
+    // ルーム・派遣先詳細
+    const dispatch = parseDispatchFromNotes(reservation.notes)
+    const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || roomInfo?.type === 'hotel')
+    const isHome = selectedShop?.is_dispatch_enabled && dispatch.dispatch_type === 'home'
+
+    if (isHotel) {
+      const hotelName = roomInfo?.name || 'ホテル未定'
+      const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}号室` : ''
+      text += `■ 派遣先ホテル\n${hotelName}${roomNo}\n`
+      if (roomInfo?.address) {
+        text += `住所: ${roomInfo.address}\n`
+      }
+      if (roomInfo?.google_map_url) {
+        text += `地図: ${roomInfo.google_map_url}\n`
+      }
+      text += `\n`
+    } else if (isHome) {
+      const staffMap: Record<string, string> = {
+        'none': '不要',
+        'hanamoto': '花本',
+        'fukunaga': '福永',
+        'takahashi': '高橋',
+        'reject': 'お断り'
+      }
+      const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
+      text += `■ 派遣先（自宅）\n`
+      if (dispatch.home_address) {
+        text += `住所: ${dispatch.home_address}\n`
+        text += `地図: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dispatch.home_address)}\n`
+      }
+      text += `送迎: ${staffText}\n\n`
+    } else {
+      text += `■ ルーム\n${roomInfo?.name || '未定'}\n`
+      if (roomInfo?.address) {
+        text += `住所: ${roomInfo.address}\n`
+      }
+      if (roomInfo?.google_map_url) {
+        text += `地図: ${roomInfo.google_map_url}\n`
+      }
+      text += `\n`
+    }
 
     // お客様（新規/会員 + 氏名）
     text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様`

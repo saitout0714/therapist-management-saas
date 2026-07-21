@@ -54,6 +54,10 @@ interface Room {
   id: string;
   name: string;
   linked_room_group_id?: string | null;
+  type?: string;
+  address?: string | null;
+  memo?: string | null;
+  google_map_url?: string | null;
 }
 
 interface TherapistRow {
@@ -569,14 +573,22 @@ function ShiftsContent() {
     if (!selectedShop || authLoading || !user) return;
     supabase
       .from('rooms')
-      .select('id, name, order, linked_room_group_id')
+      .select('id, name, order, linked_room_group_id, type, address, memo, google_map_url')
       .eq('shop_id', selectedShop.id)
       .order('order', { ascending: true, nullsFirst: false })
       .then(({ data }) => {
         const map = new Map<string, number>();
         (data || []).forEach((r: any, i: number) => map.set(r.id, r.order ?? i));
         setRoomOrderMap(map);
-        setRooms((data || []).map((r: any) => ({ id: r.id, name: r.name, linked_room_group_id: r.linked_room_group_id })));
+        setRooms((data || []).map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          linked_room_group_id: r.linked_room_group_id,
+          type: r.type,
+          address: r.address,
+          memo: r.memo,
+          google_map_url: r.google_map_url
+        })));
       });
   }, [selectedShop, refreshCounter, authLoading, user]);
 
@@ -1577,6 +1589,58 @@ function ShiftsContent() {
                   </div>
                 </div>
               </div>
+              {selectedShop?.is_dispatch_enabled && (
+                <div className="relative group cursor-pointer ml-2">
+                  <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
+                    <svg className="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span className="text-violet-600">ホテル一覧</span>
+                  </span>
+                  
+                  {/* ホテル一覧のツールチップ内容 */}
+                  <div className="absolute left-0 top-full mt-2 w-[26rem] p-4 bg-white border border-slate-200 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-sm max-h-[80vh] overflow-y-auto font-normal tracking-normal text-slate-700">
+                    <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1 flex justify-between items-center">
+                      <span>🏨 登録ホテル一覧</span>
+                      <span className="text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded font-black">
+                        {rooms.filter(r => r.type === 'hotel').length}軒
+                      </span>
+                    </h3>
+                    <div className="space-y-2">
+                      {rooms.filter(r => r.type === 'hotel').length > 0 ? (
+                        rooms.filter(r => r.type === 'hotel').map((h, i) => (
+                          <div key={i} className="text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <div className="flex justify-between items-center mb-1 gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-bold text-slate-800 whitespace-nowrap">{h.name}</span>
+                                {h.google_map_url && (
+                                  <a
+                                    href={h.google_map_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center text-slate-400 hover:text-blue-600 transition-colors text-sm flex-shrink-0"
+                                    title="地図アプリで確認"
+                                  >
+                                    🗺️
+                                  </a>
+                                )}
+                              </div>
+                              {h.memo && (
+                                <span className="text-[9px] bg-rose-50 border border-rose-100 text-rose-600 px-1.5 py-0.5 rounded font-bold whitespace-nowrap flex-shrink-0">
+                                  {h.memo}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 break-all leading-normal">{h.address}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-400 italic py-2 text-center">登録されているホテルはありません。</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </h1>
             <p className="text-xs md:text-sm text-slate-500 mt-0.5">
               {viewMode === 'day' ? 'タイムチャート横表示' : viewMode === 'vertical' ? 'タイムチャート縦表示' : '週間表示'}
