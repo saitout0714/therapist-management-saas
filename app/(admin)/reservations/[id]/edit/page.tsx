@@ -1196,10 +1196,19 @@ export default function EditReservationPage() {
                     type="button"
                     onClick={() => {
                       const nextBookingMethod = opt.value;
-                      setFormData({
-                        ...formData,
+                      const updates: any = {
                         booking_method: nextBookingMethod,
                         is_hime: nextBookingMethod === 'hime'
+                      };
+                      if (nextBookingMethod && nextBookingMethod !== 'web' && formData.reception_source === 'client') {
+                        updates.reception_source = 'staff';
+                      }
+                      if (nextBookingMethod === 'web') {
+                        updates.reception_source = 'client';
+                      }
+                      setFormData({
+                        ...formData,
+                        ...updates
                       });
                     }}
                     className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-all cursor-pointer ${

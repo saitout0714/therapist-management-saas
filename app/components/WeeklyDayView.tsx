@@ -773,7 +773,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                               };
                                               const config = methods[res.booking_method] || { label: res.booking_method, colorClass: 'bg-slate-500 border-slate-400 text-white' };
                                               return (
-                                                <span className={`${config.colorClass} font-bold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border leading-none`}>
+                                                <span className={`${config.colorClass} font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border leading-none`}>
                                                   {config.label}
                                                 </span>
                                               );
