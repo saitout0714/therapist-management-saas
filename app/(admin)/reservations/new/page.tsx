@@ -141,6 +141,7 @@ export default function NewReservationPage() {
     manual_therapist_burden: 0,
     notes: '',
     reception_source: 'staff' as 'staff' | 'client' | 'therapist' | 'owner',
+    booking_method: '',
     payment_method: 'cash' as 'cash' | 'credit',
     options_payment_method: 'cash' as 'cash' | 'credit',
     extension_payment_method: 'cash' as 'cash' | 'credit',
@@ -984,6 +985,7 @@ export default function NewReservationPage() {
           status: 'confirmed',
           created_by_id: user?.id,
           reception_source: formData.reception_source,
+          booking_method: formData.booking_method || null,
           payment_method: formData.payment_method,
           options_payment_method: formData.options_payment_method,
           extension_payment_method: formData.extension_payment_method,
@@ -1394,6 +1396,63 @@ export default function NewReservationPage() {
               </div>
 
               <div>
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">予約方法</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: '', label: '未設定' },
+                    { value: 'phone', label: '電話' },
+                    { value: 'sms', label: 'sms' },
+                    { value: 'line', label: 'LINE' },
+                    { value: 'web', label: 'web予約' },
+                    { value: 'media', label: '広告媒体' },
+                    { value: 'hime', label: '姫予約' },
+                    { value: 'other', label: 'その他' }
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        const nextBookingMethod = opt.value;
+                        setFormData({
+                          ...formData,
+                          booking_method: nextBookingMethod,
+                          is_hime: nextBookingMethod === 'hime'
+                        });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-all cursor-pointer ${
+                        formData.booking_method === opt.value
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {formData.booking_method === 'hime' && (
+                  <div className="bg-pink-50 border border-pink-100 rounded-xl p-3 mt-2.5">
+                    <label className="block text-[11px] sm:text-xs font-bold text-pink-700 mb-1">
+                      💖 姫予約ボーナス金額 (円)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={formData.hime_bonus}
+                        onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
+                        min={0}
+                        step={100}
+                        className="w-40 px-2.5 py-1.5 bg-white border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-400/50 outline-none transition-all text-xs placeholder:text-[10px]"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-pink-600 font-semibold">
+                        ※この予約に対するセラピストのボーナス支給額
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-[11px] sm:text-xs font-semibold text-slate-500">指名タイプ <span className="text-rose-500">*</span></label>
                   <button
@@ -1417,7 +1476,7 @@ export default function NewReservationPage() {
                           name="designation_type"
                           value={dt.slug}
                           checked={formData.designation_type === dt.slug}
-                          onChange={() => setFormData({ ...formData, designation_type: dt.slug, is_hime: dt.slug === 'princess' ? true : formData.is_hime })}
+                          onChange={() => setFormData({ ...formData, designation_type: dt.slug })}
                           className="w-3 h-3 accent-indigo-600"
                         />
                         <span className="font-bold text-[11px] sm:text-xs whitespace-nowrap">{dt.display_name}</span>
@@ -1428,35 +1487,6 @@ export default function NewReservationPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-
-              {/* 姫予約 */}
-              <div className="border-t border-slate-100 pt-2.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_hime}
-                    onChange={(e) => setFormData({ ...formData, is_hime: e.target.checked })}
-                    className="w-4 h-4 rounded accent-pink-500 cursor-pointer appearance-auto"
-                  />
-                  <span className="text-xs font-semibold text-slate-700">
-                    <span className="text-pink-500 mr-1">♥</span>姫予約（セラピスト直受け）
-                  </span>
-                </label>
-                {formData.is_hime && (
-                  <div className="mt-2 ml-6">
-                    <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">ボーナス金額 (円)</label>
-                    <input
-                      type="number"
-                      value={formData.hime_bonus}
-                      onChange={(e) => setFormData({ ...formData, hime_bonus: Number(e.target.value) })}
-                      min={0}
-                      step={100}
-                      className="w-40 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-pink-400/50 outline-none transition-all text-xs placeholder:text-[10px]"
-                      placeholder="0"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </section>
@@ -1817,26 +1847,36 @@ export default function NewReservationPage() {
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">受付・備考</h2>
             </div>
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">受付区分</label>
-                  <select
-                    value={formData.reception_source}
-                    onChange={e => setFormData({...formData, reception_source: e.target.value as any})}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs"
-                  >
-                    <option value="staff">mts</option>
-                    <option value="owner">オーナー</option>
-                    <option value="therapist">姫予約</option>
-                  </select>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1.5">受付区分</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: 'staff', label: 'mts' },
+                    { value: 'owner', label: 'オーナー' },
+                    { value: 'therapist', label: '姫予約' }
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, reception_source: opt.value as any })}
+                      className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-all cursor-pointer ${
+                        formData.reception_source === opt.value
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-end justify-end pb-1">
-                  <div className="text-[10px] text-slate-400 flex items-center">
-                    <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-20">{user?.name || user?.loginId || 'ログインユーザー'}</span>
-                  </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 pt-2.5">
+                <div className="flex items-center">
+                  <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-40">{user?.name || user?.loginId || 'ログインユーザー'}</span>
                 </div>
               </div>
               <div>

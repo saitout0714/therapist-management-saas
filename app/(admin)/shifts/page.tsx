@@ -41,6 +41,8 @@ interface Reservation {
   courses: { name: string; duration: number } | null;
   is_handled?: boolean;
   source?: string;
+  reception_source?: string | null;
+  booking_method?: string | null;
   customer_notified?: boolean;
   therapist_notified?: boolean;
   extension_count?: number;
@@ -139,6 +141,8 @@ interface Schedule {
   isPending?: boolean;
   isHandled?: boolean;
   source?: string;
+  receptionSource?: string | null;
+  bookingMethod?: string | null;
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
@@ -873,6 +877,8 @@ function ShiftsContent() {
           shop_id,
           room_id,
           customer_type_override,
+          reception_source,
+          booking_method,
           customers(name, created_at),
           courses(name, duration),
           therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
@@ -1100,6 +1106,8 @@ function ShiftsContent() {
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,
         source: reservation.source,
+        receptionSource: reservation.reception_source,
+        bookingMethod: reservation.booking_method,
         paymentMethod: reservation.payment_method,
         customerNotified: reservation.customer_notified,
         therapistNotified: reservation.therapist_notified,

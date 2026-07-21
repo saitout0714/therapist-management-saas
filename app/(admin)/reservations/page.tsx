@@ -22,6 +22,7 @@ type Reservation = {
   created_by: { name: string } | null
   is_handled?: boolean
   source?: string
+  booking_method?: string | null
   customer_notified?: boolean
   therapist_notified?: boolean
 }
@@ -119,7 +120,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,customer_notified,therapist_notified,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -456,12 +457,25 @@ export default function ReservationsPage() {
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-slate-700 whitespace-nowrap">
                           {r.customer ? (
-                            <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1">
-                              {r.customer.name}
-                              {ngCustomerIds.has(r.customer.id) && (
-                                <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                            <div className="flex flex-col">
+                              <Link href={`/customers/${r.customer.id}`} style={{ color: '#2196f3' }} className="font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1">
+                                {r.customer.name}
+                                {ngCustomerIds.has(r.customer.id) && (
+                                  <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
+                                )}
+                              </Link>
+                              {r.booking_method && (
+                                <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                  {r.booking_method === 'phone' ? '📞 電話' :
+                                   r.booking_method === 'sms' ? '💬 SMS' :
+                                   r.booking_method === 'line' ? '💬 LINE' :
+                                   r.booking_method === 'web' ? '🌐 WEB予約' :
+                                   r.booking_method === 'media' ? '📰 広告媒体' :
+                                   r.booking_method === 'hime' ? '💖 姫予約' :
+                                   r.booking_method === 'other' ? '✏️ その他' : r.booking_method}
+                                </span>
                               )}
-                            </Link>
+                            </div>
                           ) : (
                             '-'
                           )}

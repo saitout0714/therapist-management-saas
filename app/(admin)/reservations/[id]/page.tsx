@@ -106,6 +106,8 @@ type Reservation = {
   reservation_discounts: ReservationDiscount[]
   is_handled?: boolean
   source?: string
+  reception_source?: string | null
+  booking_method?: string | null
   customer_notified?: boolean
   therapist_notified?: boolean
   customer_type_override?: 'new' | 'member' | null
@@ -1611,6 +1613,29 @@ export default function ReservationPreviewPage() {
                   <div className="text-slate-500 font-medium">ルーム</div>
                   <div className="col-span-2 text-slate-800 font-bold">
                     {roomInfo?.display_name || roomInfo?.name || '未定'}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-slate-500 font-medium">受付区分</div>
+                  <div className="col-span-2 text-slate-800 font-bold">
+                    {reservation.reception_source === 'staff' ? 'mts' :
+                     reservation.reception_source === 'owner' ? 'オーナー' :
+                     reservation.reception_source === 'therapist' ? '姫予約' :
+                     reservation.reception_source === 'client' ? 'WEB予約' : (reservation.reception_source || 'mts')}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-slate-500 font-medium">予約方法</div>
+                  <div className="col-span-2 text-slate-800 font-bold">
+                    {reservation.booking_method === 'phone' ? '📞 電話' :
+                     reservation.booking_method === 'sms' ? '💬 SMS' :
+                     reservation.booking_method === 'line' ? '💬 LINE' :
+                     reservation.booking_method === 'web' ? '🌐 web予約' :
+                     reservation.booking_method === 'media' ? '📰 広告媒体' :
+                     reservation.booking_method === 'hime' ? '💖 姫予約' :
+                     reservation.booking_method === 'other' ? '✏️ その他' : (reservation.booking_method || '未設定')}
                   </div>
                 </div>
               </div>

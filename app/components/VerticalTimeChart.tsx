@@ -71,6 +71,8 @@ interface Schedule {
   isPending?: boolean;
   isHandled?: boolean;
   source?: string;
+  receptionSource?: string | null;
+  bookingMethod?: string | null;
   paymentMethod?: string | null;
   customerNotified?: boolean;
   therapistNotified?: boolean;
@@ -838,9 +840,20 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         onClick={handleScheduleClick}
                       >
                         <div className="w-full h-full flex flex-col justify-start gap-1 overflow-hidden py-1.5">
-                          <div className="text-[10px] font-medium text-amber-800 leading-none flex items-center gap-1">
+                          <div className="text-[10px] font-medium text-amber-800 leading-none flex items-center gap-1 flex-wrap">
                             <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                             <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
+                            {schedule.bookingMethod && (
+                              <span className="bg-amber-800/10 text-amber-900 font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap border border-amber-800/20">
+                                {schedule.bookingMethod === 'phone' ? '📞 電話' :
+                                 schedule.bookingMethod === 'sms' ? '💬 SMS' :
+                                 schedule.bookingMethod === 'line' ? '💬 LINE' :
+                                 schedule.bookingMethod === 'web' ? '🌐 WEB' :
+                                 schedule.bookingMethod === 'media' ? '📰 広告' :
+                                 schedule.bookingMethod === 'hime' ? '💖 姫' :
+                                 schedule.bookingMethod === 'other' ? '✏️ 他' : schedule.bookingMethod}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-start justify-start gap-1 min-w-0">
                             <span className="font-bold text-[13px] text-amber-950 leading-tight break-all">
@@ -874,21 +887,28 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
                   // 4. Normal reservation
                   const isNotificationUnsent = isReservation && !schedule.isPending && (!schedule.customerNotified || !schedule.therapistNotified);
-                  const isWeb = schedule.source === 'web';
+                  const isWeb = schedule.source === 'web' || schedule.receptionSource === 'client';
+                  const isHime = schedule.receptionSource === 'therapist';
+                  const isOwner = schedule.receptionSource === 'owner';
+
                   const bgClasses = schedule.color
                     ? ''
                     : isReservation
-                      ? schedule.isHime
+                      ? isHime
                         ? isNotificationUnsent
                           ? 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-amber-400 shadow-md shadow-amber-500/20 animate-pulse-subtle'
                           : 'bg-gradient-to-br from-[#e27396] to-[#c35175] border border-[#c35175]/30'
-                        : isWeb
+                        : isOwner
                           ? isNotificationUnsent
-                            ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
-                            : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/30'
-                          : isNotificationUnsent
-                            ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
-                            : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/30'
+                            ? 'bg-gradient-to-br from-[#a78bfa] to-[#7c3aed] border border-amber-400 shadow-md shadow-amber-500/20 animate-pulse-subtle'
+                            : 'bg-gradient-to-br from-[#a78bfa] to-[#7c3aed] border border-[#7c3aed]/30'
+                          : isWeb
+                            ? isNotificationUnsent
+                              ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
+                              : 'bg-gradient-to-br from-teal-600 to-emerald-700 border border-teal-500/30'
+                            : isNotificationUnsent
+                              ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
+                              : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/30'
                       : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500';
 
                   return (
@@ -911,6 +931,17 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         {/* Row 1: Time & Notification status */}
                         <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                          {schedule.bookingMethod && (
+                            <span className="bg-white/20 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-white/10">
+                              {schedule.bookingMethod === 'phone' ? '📞 電話' :
+                               schedule.bookingMethod === 'sms' ? '💬 SMS' :
+                               schedule.bookingMethod === 'line' ? '💬 LINE' :
+                               schedule.bookingMethod === 'web' ? '🌐 WEB' :
+                               schedule.bookingMethod === 'media' ? '📰 広告' :
+                               schedule.bookingMethod === 'hime' ? '💖 姫' :
+                               schedule.bookingMethod === 'other' ? '✏️ 他' : schedule.bookingMethod}
+                            </span>
+                          )}
                           {isReservation && !schedule.isPending && !schedule.customerNotified && (
                             <span className="bg-rose-500 text-white font-extrabold px-1 rounded-sm text-[8px] scale-90 origin-left whitespace-nowrap shadow-sm border border-rose-400" title="お客様未送信">客未</span>
                           )}

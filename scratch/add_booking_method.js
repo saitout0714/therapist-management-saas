@@ -11,14 +11,9 @@ async function runMigration(dbUrl, name) {
   try {
     await client.connect();
     console.log(`[${name}] Connected successfully.`);
-    console.log(`[${name}] Dropping existing constraint...`);
+    console.log(`[${name}] Adding booking_method column to reservations table...`);
     await client.query(`
-      ALTER TABLE reservations DROP CONSTRAINT IF EXISTS reservations_reception_source_check;
-    `);
-    console.log(`[${name}] Adding updated constraint including "owner"...`);
-    await client.query(`
-      ALTER TABLE reservations ADD CONSTRAINT reservations_reception_source_check 
-      CHECK (reception_source IN ('staff', 'client', 'therapist', 'owner'));
+      ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booking_method VARCHAR(50);
     `);
     console.log(`[${name}] Migration completed successfully!`);
   } catch (err) {
