@@ -44,6 +44,7 @@ type Therapist = {
   back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
   therapist_ranks?: { name: string } | null
   ng_course_ids?: string[]
+  reservation_interval_minutes: number | null
 }
 
 type DesignationTypeItem = {
@@ -72,6 +73,7 @@ type SystemSettings = {
   extension_unit_minutes?: number
   extension_unit_price?: number
   extension_unit_back?: number
+  reservation_interval_minutes?: number | null
 }
 
 type ExtensionRankPrice = {
@@ -335,7 +337,7 @@ export default function NewReservationPage() {
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
@@ -745,6 +747,115 @@ export default function NewReservationPage() {
     if (!selectedShop) {
       alert('店舗を選択してください')
       return
+    }
+
+    // 重複および出勤はみ出しチェック（セラピストが選択されている場合）
+    if (formData.therapist_id && formData.therapist_id !== 'unassigned') {
+      try {
+        setLoading(true)
+        
+        // 1. セラピストのインターバル時間の取得
+        const therapist = therapists.find(t => t.id === formData.therapist_id)
+        const systemInterval = systemSettings?.reservation_interval_minutes ?? 20
+        const therapistInterval = (therapist && therapist.reservation_interval_minutes !== undefined && therapist.reservation_interval_minutes !== null)
+          ? therapist.reservation_interval_minutes
+          : systemInterval
+
+        // 2. 出勤シフトの取得
+        const { data: shifts, error: shiftError } = await supabase
+          .from('shifts')
+          .select('start_time, end_time')
+          .eq('shop_id', selectedShop.id)
+          .eq('therapist_id', formData.therapist_id)
+          .eq('date', formData.date)
+
+        if (shiftError) throw shiftError
+
+        // 3. 既存予約の取得（キャンセル以外）
+        const { data: existingReservations, error: resError } = await supabase
+          .from('reservations')
+          .select('id, start_time, end_time, status, customer_id')
+          .eq('shop_id', selectedShop.id)
+          .eq('therapist_id', formData.therapist_id)
+          .eq('date', formData.date)
+          .neq('status', 'cancelled')
+
+        if (resError) throw resError
+
+        const warnings: string[] = []
+        const baseTime = (shifts && shifts.length > 0) ? shifts[0].start_time : formData.start_time
+
+        const timeToMinutes = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          return h * 60 + m
+        }
+
+        const timeToMinutesAbsolute = (t: string, base: string) => {
+          let mins = timeToMinutes(t)
+          const baseMins = timeToMinutes(base)
+          if (mins < baseMins - 60) mins += 24 * 60
+          return mins
+        }
+
+        const newStartAbs = timeToMinutesAbsolute(formData.start_time, baseTime)
+        const newEndAbs = timeToMinutesAbsolute(formData.end_time, baseTime)
+
+        // 4. 出勤時間のはみ出しチェック
+        if (!shifts || shifts.length === 0) {
+          warnings.push('選択したセラピストの当日の出勤シフトが登録されていません。')
+        } else {
+          const shift = shifts[0]
+          const shiftStartAbs = timeToMinutesAbsolute(shift.start_time, baseTime)
+          const shiftEndAbs = timeToMinutesAbsolute(shift.end_time, baseTime)
+
+          if (newStartAbs < shiftStartAbs || newEndAbs > shiftEndAbs) {
+            warnings.push(`予約時間が出勤時間（${shift.start_time}〜${shift.end_time}）からはみ出しています。`)
+          }
+        }
+
+        // 5. 重複チェック（インターバル含む）
+        if (existingReservations && existingReservations.length > 0) {
+          for (const res of existingReservations) {
+            const rStartAbs = timeToMinutesAbsolute(res.start_time, baseTime)
+            const rEndAbs = timeToMinutesAbsolute(res.end_time, baseTime)
+
+            let overlap = false
+            if (res.status === 'blocked') {
+              if (newStartAbs < rStartAbs && newEndAbs > rStartAbs) {
+                overlap = true
+              }
+            } else {
+              if (newStartAbs < rEndAbs + therapistInterval && newEndAbs + therapistInterval > rStartAbs) {
+                overlap = true
+              }
+            }
+
+            if (overlap) {
+              const resCustomer = customers.find(c => c.id === res.customer_id)
+              const customerName = resCustomer ? resCustomer.name : 'ゲスト'
+              const typeLabel = res.status === 'blocked' ? '予約不可（ブロック）' : `予約（${customerName}様）`
+              warnings.push(`${typeLabel} [${res.start_time}〜${res.end_time}] と時間が重なっています（インターバル: ${therapistInterval}分）。`)
+            }
+          }
+        }
+
+        if (warnings.length > 0) {
+          const confirmMsg = `【警告】以下の問題が検出されました：\n\n` + 
+            warnings.map(w => `・ ${w}`).join('\n') + 
+            `\n\nこのまま保存しますか？`
+          if (!window.confirm(confirmMsg)) {
+            setLoading(false)
+            return
+          }
+        }
+      } catch (err: any) {
+        console.error('重複チェックエラー:', err)
+        alert('重複・シフトチェック中にエラーが発生しました: ' + err.message)
+        setLoading(false)
+        return
+      } finally {
+        setLoading(false)
+      }
     }
 
     // NGセラピストチェック
