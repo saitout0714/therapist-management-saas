@@ -104,6 +104,7 @@ type Shift = {
   therapist_id: string
   start_time: string
   end_time: string
+  room_id?: string
 }
 
 export default function NewReservationPage() {
@@ -289,6 +290,16 @@ export default function NewReservationPage() {
     autoSelectConfirmedDesignation()
   }, [formData.customer_id, formData.therapist_id])
 
+  // 選択されたセラピストの出勤シフトに割り当てられているルームを自動選択
+  useEffect(() => {
+    if (formData.therapist_id && availableShifts.length > 0) {
+      const shift = availableShifts.find(s => s.therapist_id === formData.therapist_id)
+      if (shift?.room_id) {
+        setSelectedRoomId(shift.room_id)
+      }
+    }
+  }, [formData.therapist_id, availableShifts])
+
   useEffect(() => {
     if (!formData.customer_id) {
       setCustomerNgTherapistIds(new Set())
@@ -353,7 +364,7 @@ export default function NewReservationPage() {
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
-        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('display_order'),
+        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('order'),
       ])
 
       // クリティカルなテーブルのみエラーをスロー（テーブル名付きログで診断しやすく）
@@ -634,7 +645,7 @@ export default function NewReservationPage() {
     try {
       const { data, error } = await supabase
         .from('shifts')
-        .select('therapist_id, start_time, end_time')
+        .select('therapist_id, start_time, end_time, room_id')
         .eq('shop_id', selectedShop.id)
         .eq('date', fetchDate)
 

@@ -257,7 +257,7 @@ export default function EditReservationPage() {
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
-        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('display_order'),
+        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('order'),
       ])
 
       if (customersRes.error)  { console.error('customers:', customersRes.error.message, customersRes.error);  throw new Error('顧客データ: ' + customersRes.error.message) }

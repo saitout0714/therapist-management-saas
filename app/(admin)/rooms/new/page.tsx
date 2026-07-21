@@ -119,7 +119,7 @@ export default function NewRoomPage() {
             )}
 
             <form onSubmit={handleSave} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={selectedShop?.is_dispatch_enabled ? "grid grid-cols-1 sm:grid-cols-3 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
                     ルーム名 <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
@@ -134,20 +134,22 @@ export default function NewRoomPage() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    区分 <span className="ml-1 text-xs text-slate-400 font-normal">店舗用か派遣ホテルか</span>
-                  </label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  >
-                    <option value="room">店舗内ルーム</option>
-                    <option value="hotel">登録ホテル</option>
-                  </select>
-                </div>
+                {selectedShop?.is_dispatch_enabled && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      区分 <span className="ml-1 text-xs text-slate-400 font-normal">店舗用か派遣ホテルか</span>
+                    </label>
+                    <select
+                      name="type"
+                      value={formData.type}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    >
+                      <option value="room">店舗内ルーム</option>
+                      <option value="hotel">登録ホテル</option>
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     表示用マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">タイムチャート等に表示</span>
