@@ -207,6 +207,7 @@ function parseFallback(body: string): ParsedReservation {
   const email = body.match(/(?:メールアドレス|E-mail|メール)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
   const therapistName = body.match(/(?:セラピスト|担当|指名)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
   const courseName = body.match(/(?:コース|メニュー)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
+  const shopNameRaw = body.match(/(?:店舗|店名|お店|サロン)[：:]\s*([^\n\r]+)/)?.[1]?.trim() || ''
   
   let date = ''
   let startTime = ''
@@ -246,7 +247,7 @@ function parseFallback(body: string): ParsedReservation {
     startTime = formatTimeToDb(startTime)
   }
   
-  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw: '' }
+  return { date, startTime, endTime, customerName, phone, email, therapistName, courseName, price: 0, shopNameRaw }
 }
 
 export async function POST(req: NextRequest) {
@@ -300,8 +301,11 @@ export async function POST(req: NextRequest) {
 
     // 1. 店舗の特定
     let shopId = defaultShopId || null
-    if (parsed.shopNameRaw) {
-      const rawLower = parsed.shopNameRaw.toLowerCase()
+    // shopNameRaw が抽出できなかった場合は本文全体を検索対象にする
+    const searchTarget = parsed.shopNameRaw || body
+
+    if (searchTarget) {
+      const rawLower = searchTarget.toLowerCase()
       
       // 特殊ルール：同じオーナーで同じメールを利用している「レジェンド」「タイガーリリー」「レジェンド目白」の振り分け
       if (rawLower.includes('目白')) {
