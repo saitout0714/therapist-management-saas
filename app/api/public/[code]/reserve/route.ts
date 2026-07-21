@@ -774,6 +774,7 @@ export async function POST(
       options_payment_method: 'cash',
       extension_payment_method: 'cash',
       source: 'web',
+      booking_method: 'web',
       is_handled: false,
       customer_notified: true,
       base_price: basePrice,
