@@ -190,9 +190,19 @@ function ShiftsContent() {
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeTooltip, setActiveTooltip] = useState<'rules' | 'hotels' | null>(null);
+  const rulesRef = useRef<HTMLDivElement>(null);
+  const hotelsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClose = () => setActiveTooltip(null);
+    const handleClose = (e: MouseEvent) => {
+      if (
+        (rulesRef.current && rulesRef.current.contains(e.target as Node)) ||
+        (hotelsRef.current && hotelsRef.current.contains(e.target as Node))
+      ) {
+        return;
+      }
+      setActiveTooltip(null);
+    };
     document.addEventListener('click', handleClose);
     return () => document.removeEventListener('click', handleClose);
   }, []);
@@ -1489,6 +1499,7 @@ function ShiftsContent() {
               スケジュール
               {/* 店舗ルールツールチップ */}
               <div 
+                ref={rulesRef}
                 className="relative group cursor-pointer ml-3"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1610,6 +1621,7 @@ function ShiftsContent() {
               </div>
               {selectedShop?.is_dispatch_enabled && (
                 <div 
+                  ref={hotelsRef}
                   className="relative group cursor-pointer ml-2"
                   onClick={(e) => {
                     e.stopPropagation();
