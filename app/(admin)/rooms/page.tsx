@@ -15,6 +15,7 @@ interface Room {
   template_web_new_customer: string | null
   created_at: string
   order: number | null
+  type?: string
 }
 
 export default function RoomsList() {
@@ -248,6 +249,7 @@ export default function RoomsList() {
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-sm font-medium text-slate-600">
                     <th className="w-10 px-3 py-4"></th>
                     <th className="px-6 py-4 whitespace-nowrap">ルーム名</th>
+                    <th className="px-6 py-4 whitespace-nowrap">区分</th>
                     <th className="px-6 py-4 whitespace-nowrap">マンション名</th>
                     <th className="px-6 py-4 whitespace-nowrap hidden md:table-cell">テンプレ</th>
                     <th className="px-6 py-4 whitespace-nowrap w-32 text-center">操作</th>
@@ -276,6 +278,17 @@ export default function RoomsList() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-medium text-slate-800">{room.name}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {room.type === 'hotel' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                            🏨 ホテル
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            🏠 ルーム
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                         {room.display_name || <span className="text-slate-400 italic">未設定</span>}
@@ -344,7 +357,18 @@ export default function RoomsList() {
                   >
                     {/* 1行目: ルーム名 ＆ 操作 */}
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-slate-800 text-sm whitespace-nowrap truncate">{room.name}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-slate-800 text-sm whitespace-nowrap truncate">{room.name}</span>
+                        {room.type === 'hotel' ? (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-50 text-violet-700 border border-violet-200 shrink-0">
+                            ホテル
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                            ルーム
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <Link
                           href={`/rooms/${room.id}/edit`}

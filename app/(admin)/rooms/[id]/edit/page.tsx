@@ -23,6 +23,7 @@ export default function EditRoomPage() {
     template_new_customer: '',
     template_web_member: '',
     template_web_new_customer: '',
+    type: 'room',
   });
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -41,7 +42,7 @@ export default function EditRoomPage() {
         setInitializing(true);
         const { data, error: fetchError } = await supabase
           .from('rooms')
-          .select('shop_id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer, linked_room_group_id')
+          .select('shop_id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, template_web_member, template_web_new_customer, linked_room_group_id, type')
           .eq('id', roomId)
           .single();
 
@@ -58,6 +59,7 @@ export default function EditRoomPage() {
             template_new_customer: data.template_new_customer || '',
             template_web_member: data.template_web_member || '',
             template_web_new_customer: data.template_web_new_customer || '',
+            type: data.type || 'room',
           });
 
           setRoomShopId(data.shop_id || "");
@@ -145,6 +147,7 @@ export default function EditRoomPage() {
         template_new_customer: formData.template_new_customer || null,
         template_web_member: formData.template_web_member || null,
         template_web_new_customer: formData.template_web_new_customer || null,
+        type: formData.type,
       })
       .eq('id', roomId);
 
@@ -262,7 +265,7 @@ export default function EditRoomPage() {
             )}
 
             <form onSubmit={handleSave} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
                     ルーム名 <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
@@ -279,7 +282,21 @@ export default function EditRoomPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">シフト・タイムチャート等に表示</span>
+                    区分 <span className="ml-1 text-xs text-slate-400 font-normal">店舗用か派遣ホテルか</span>
+                  </label>
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                  >
+                    <option value="room">店舗内ルーム</option>
+                    <option value="hotel">登録ホテル</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    表示用マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">シフト・タイムチャート等に表示</span>
                   </label>
                   <input
                     type="text"

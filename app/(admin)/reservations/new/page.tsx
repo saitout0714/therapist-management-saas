@@ -353,7 +353,7 @@ export default function NewReservationPage() {
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
-        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer').eq('shop_id', selectedShop.id).order('display_order'),
+        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('display_order'),
       ])
 
       // クリティカルなテーブルのみエラーをスロー（テーブル名付きログで診断しやすく）
@@ -1681,11 +1681,20 @@ export default function NewReservationPage() {
                         className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/50 outline-none transition-all text-xs"
                       >
                         <option value="">選択してください</option>
-                        {rooms.map(room => (
-                          <option key={room.id} value={room.id}>
-                            {room.display_name || room.name}
-                          </option>
-                        ))}
+                        {rooms
+                          .filter(room => {
+                            if (dispatchType === 'store') {
+                              return room.type !== 'hotel'
+                            } else {
+                              return room.type === 'hotel'
+                            }
+                          })
+                          .map(room => (
+                            <option key={room.id} value={room.id}>
+                              {room.display_name || room.name}
+                            </option>
+                          ))
+                        }
                       </select>
                     </div>
 
