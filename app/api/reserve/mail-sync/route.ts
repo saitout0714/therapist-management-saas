@@ -502,7 +502,7 @@ export async function POST(req: NextRequest) {
     // growからのメールは即時確定(confirmed)、その他は仮予約(pending)
     const isGrow = sourceType === 'grow'
     const status = isGrow ? 'confirmed' : 'pending'
-    const isHandled = isGrow ? true : false
+    const isHandled = false // 全てのメール連携予約は未対応(通知未送信)として扱う
 
     let warningNotes = ''
     if (isConflict) {
