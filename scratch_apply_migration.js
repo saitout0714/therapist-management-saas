@@ -9,7 +9,7 @@ async function runMigration() {
   await client.connect();
 
   try {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase', 'add-esthe-ranking-sync.sql'), 'utf-8');
+    const sql = fs.readFileSync(path.join(__dirname, 'supabase', 'add-dispatch-enabled-to-shops.sql'), 'utf-8');
     await client.query(sql);
     console.log("Migration successful.");
   } catch (err) {

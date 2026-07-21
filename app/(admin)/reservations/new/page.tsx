@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib/calculateBack'
 import TimeSelectHM from '@/app/components/TimeSelectHM'
+import { updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
 
 type Customer = {
   id: string
@@ -151,6 +152,14 @@ export default function NewReservationPage() {
   })
 
   const [fromPage, setFromPage] = useState<string | null>(null)
+
+  const [rooms, setRooms] = useState<any[]>([])
+  const [dispatchType, setDispatchType] = useState<'store' | 'hotel' | 'home'>('store')
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('')
+  const [hotelRoomNumber, setHotelRoomNumber] = useState<string>('')
+  const [homeAddress, setHomeAddress] = useState<string>('')
+  const [parkingAvailable, setParkingAvailable] = useState<'yes' | 'no'>('yes')
+  const [pickupStaff, setPickupStaff] = useState<'none' | 'hanamoto' | 'fukunaga' | 'takahashi' | 'reject'>('none')
 
   // セクション自動スクロール用 ref
   const sectionRef1 = useRef<HTMLDivElement>(null)
@@ -334,7 +343,7 @@ export default function NewReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
-      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes] = await Promise.all([
+      const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
@@ -344,6 +353,7 @@ export default function NewReservationPage() {
         supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+        supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer').eq('shop_id', selectedShop.id).order('display_order'),
       ])
 
       // クリティカルなテーブルのみエラーをスロー（テーブル名付きログで診断しやすく）
@@ -370,6 +380,7 @@ export default function NewReservationPage() {
         { id: 'default-confirmed',        slug: 'confirmed',        display_name: '本指名',  display_order: 3, is_store_paid_back: false, treats_as_confirmed: false },
       ])
       setExtensionRankPrices((extRankPricesRes.data || []) as ExtensionRankPrice[])
+      setRooms(roomsRes.data || [])
 
       // discount_rank_overrides は補助データなので独立してフェッチ（失敗しても他に影響しない）
       try {
@@ -963,6 +974,23 @@ export default function NewReservationPage() {
       // 指名種別IDをlookup
       const selectedDesignationType = designationTypes.find(d => d.slug === formData.designation_type)
 
+      let finalNotes = formData.notes
+      let finalRoomId = null
+      if (selectedShop?.is_dispatch_enabled) {
+        const dispatchInfo: DispatchInfo = {
+          dispatch_type: dispatchType,
+          hotel_room_number: dispatchType === 'hotel' ? hotelRoomNumber : undefined,
+          home_address: dispatchType === 'home' ? homeAddress : undefined,
+          parking_available: dispatchType === 'home' ? parkingAvailable : undefined,
+          pickup_staff: dispatchType === 'home' && parkingAvailable === 'no' ? pickupStaff : undefined,
+        }
+        finalNotes = updateNotesWithDispatch(formData.notes, dispatchInfo)
+        
+        if (dispatchType === 'store' || dispatchType === 'hotel') {
+          finalRoomId = selectedRoomId || null
+        }
+      }
+
       const { data: createdRes, error } = await supabase
         .from('reservations')
         .insert([{
@@ -981,7 +1009,8 @@ export default function NewReservationPage() {
           discount_amount: calculatedPrice.discountAmount,
           designation_type: formData.designation_type,
           designation_type_id: (selectedDesignationType?.id && !selectedDesignationType.id.startsWith('default-')) ? selectedDesignationType.id : null,
-          notes: formData.notes,
+          notes: finalNotes,
+          room_id: finalRoomId,
           status: 'confirmed',
           created_by_id: user?.id,
           reception_source: formData.reception_source,
@@ -1595,6 +1624,158 @@ export default function NewReservationPage() {
 
             </div>
           </section>
+
+          {/* 3.5: 派遣先・ルーム */}
+          {selectedShop?.is_dispatch_enabled && (
+            <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
+              <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-violet-500 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
+                <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">派遣先・ルーム</h2>
+              </div>
+              <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3">
+                {/* 派遣種別ラジオボタン */}
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">派遣種別</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { value: 'store', label: '店舗内（サロン）' },
+                      { value: 'hotel', label: 'ホテル派遣' },
+                      { value: 'home', label: '自宅派遣' },
+                    ].map(opt => (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center justify-center gap-1 px-1.5 py-2 border rounded-lg cursor-pointer transition-all select-none text-center ${
+                          dispatchType === opt.value
+                            ? 'bg-violet-600 border-violet-600 text-white font-bold'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="dispatch_type"
+                          value={opt.value}
+                          checked={dispatchType === opt.value}
+                          onChange={() => {
+                            setDispatchType(opt.value as any)
+                            if (opt.value === 'home') {
+                              setSelectedRoomId('')
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <span className="text-xs">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 店舗内 or ホテル派遣 */}
+                {(dispatchType === 'store' || dispatchType === 'hotel') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">
+                        {dispatchType === 'store' ? 'ルーム選択' : 'ホテル選択'}
+                      </label>
+                      <select
+                        value={selectedRoomId}
+                        onChange={(e) => setSelectedRoomId(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/50 outline-none transition-all text-xs"
+                      >
+                        <option value="">選択してください</option>
+                        {rooms.map(room => (
+                          <option key={room.id} value={room.id}>
+                            {room.display_name || room.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {dispatchType === 'hotel' && (
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">部屋番号</label>
+                        <input
+                          type="text"
+                          value={hotelRoomNumber}
+                          onChange={(e) => setHotelRoomNumber(e.target.value)}
+                          placeholder="例: 305号室"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/50 outline-none transition-all text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 自宅派遣 */}
+                {dispatchType === 'home' && (
+                  <div className="space-y-3 bg-violet-50/30 p-2.5 rounded-xl border border-violet-100/50">
+                    <div>
+                      <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">自宅住所</label>
+                      <input
+                        type="text"
+                        value={homeAddress}
+                        onChange={(e) => setHomeAddress(e.target.value)}
+                        placeholder="例: 山口市湯田温泉1-2-3"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/50 outline-none transition-all text-xs font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">駐車スペース</label>
+                        <div className="flex gap-2">
+                          {[
+                            { value: 'yes', label: 'あり' },
+                            { value: 'no', label: 'なし' },
+                          ].map(opt => (
+                            <label
+                              key={opt.value}
+                              className={`flex-1 flex items-center justify-center gap-1 py-1.5 border rounded-lg cursor-pointer transition-all select-none text-center ${
+                                parkingAvailable === opt.value
+                                  ? 'bg-violet-600 border-violet-600 text-white font-bold'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="parking_available"
+                                value={opt.value}
+                                checked={parkingAvailable === opt.value}
+                                onChange={() => {
+                                  setParkingAvailable(opt.value as any)
+                                  if (opt.value === 'yes') {
+                                    setPickupStaff('none')
+                                  }
+                                }}
+                                className="sr-only"
+                              />
+                              <span className="text-xs">{opt.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {parkingAvailable === 'no' && (
+                        <div>
+                          <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">送迎スタッフ / 判断</label>
+                          <select
+                            value={pickupStaff}
+                            onChange={(e) => setPickupStaff(e.target.value as any)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/50 outline-none transition-all text-xs font-bold text-slate-700"
+                          >
+                            <option value="none">不要（未選択）</option>
+                            <option value="hanamoto">花本</option>
+                            <option value="fukunaga">福永</option>
+                            <option value="takahashi">高橋</option>
+                            <option value="reject">お断り</option>
+                          </select>
+                          <p className="text-[10px] text-amber-600 mt-1 font-medium">※ 駐車場「なし」のため送迎指定、またはお断りが必要です。</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* 4: オプション・割引・支払 */}
           <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">

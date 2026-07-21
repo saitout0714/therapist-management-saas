@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
+import { parseDispatchFromNotes, DispatchInfo } from '@/lib/dispatchUtils'
 
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -119,6 +120,9 @@ type RoomInfo = {
   display_name: string | null
   template_member: string | null
   template_new_customer: string | null
+  address?: string | null
+  google_map_url?: string | null
+  memo?: string | null
 }
 
 export default function ReservationPreviewPage() {
@@ -215,25 +219,52 @@ export default function ReservationPreviewPage() {
         setDesignationMap(map)
       }
 
-      // 4. Fetch Room from Shift
-      const { data: shiftData, error: shiftError } = await supabase
-        .from('shifts')
-        .select('rooms(name, display_name, template_member, template_new_customer)')
-        .eq('therapist_id', resData.therapist_id)
-        .eq('date', resData.business_date || resData.date)
-        .eq('shop_id', selectedShop.id)
-        .maybeSingle()
+      // 4. Fetch Room (Priority: reservation.room_id, Fallback: Shift room_id)
+      let roomFetched = false;
+      if (resData.room_id) {
+        const { data: roomData, error: roomError } = await supabase
+          .from('rooms')
+          .select('name, display_name, template_member, template_new_customer, address, google_map_url, memo')
+          .eq('id', resData.room_id)
+          .maybeSingle();
 
-      if (shiftError) {
-        console.warn('ルーム取得エラー:', shiftError.message)
-      } else if (shiftData?.rooms) {
-        const room = Array.isArray(shiftData.rooms) ? shiftData.rooms[0] : shiftData.rooms
-        setRoomInfo({
-          name: room?.name || '',
-          display_name: room?.display_name || null,
-          template_member: room?.template_member || null,
-          template_new_customer: room?.template_new_customer || null,
-        })
+        if (!roomError && roomData) {
+          setRoomInfo({
+            name: roomData.name || '',
+            display_name: roomData.display_name || null,
+            template_member: roomData.template_member || null,
+            template_new_customer: roomData.template_new_customer || null,
+            address: roomData.address || null,
+            google_map_url: roomData.google_map_url || null,
+            memo: roomData.memo || null,
+          } as any);
+          roomFetched = true;
+        }
+      }
+
+      if (!roomFetched) {
+        const { data: shiftData, error: shiftError } = await supabase
+          .from('shifts')
+          .select('rooms(name, display_name, template_member, template_new_customer, address, google_map_url, memo)')
+          .eq('therapist_id', resData.therapist_id)
+          .eq('date', resData.business_date || resData.date)
+          .eq('shop_id', selectedShop.id)
+          .maybeSingle();
+
+        if (shiftError) {
+          console.warn('ルーム取得エラー:', shiftError.message);
+        } else if (shiftData?.rooms) {
+          const room = Array.isArray(shiftData.rooms) ? shiftData.rooms[0] : (shiftData.rooms as any);
+          setRoomInfo({
+            name: room?.name || '',
+            display_name: room?.display_name || null,
+            template_member: room?.template_member || null,
+            template_new_customer: room?.template_new_customer || null,
+            address: room?.address || null,
+            google_map_url: room?.google_map_url || null,
+            memo: room?.memo || null,
+          } as any);
+        }
       }
 
       // 5. Fetch credit_payment_url from system_settings
@@ -314,7 +345,25 @@ export default function ReservationPreviewPage() {
     const startTimeKanjiVal = toKanjiTime(reservation.start_time)
     const endTimeVal = toDisplayTime(reservation.end_time)
     const endTimeKanjiVal = toKanjiTime(reservation.end_time)
-    const roomVal = roomInfo?.name || '未定'
+    const dispatch = parseDispatchFromNotes(reservation.notes)
+    let roomVal = roomInfo?.name || '未定'
+    if (selectedShop?.is_dispatch_enabled) {
+      if (dispatch.dispatch_type === 'hotel') {
+        const hotelName = roomInfo?.display_name || roomInfo?.name || 'ホテル'
+        const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}` : ''
+        roomVal = `${hotelName}${roomNo}`
+      } else if (dispatch.dispatch_type === 'home') {
+        const staffMap: Record<string, string> = {
+          'none': '不要',
+          'hanamoto': '花本',
+          'fukunaga': '福永',
+          'takahashi': '高橋',
+          'reject': 'お断り'
+        }
+        const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
+        roomVal = `自宅 (送迎: ${staffText})`
+      }
+    }
     const custNameVal = reservation.customers?.name || '未設定'
     const therapistNameVal = reservation.designation_type === 'free'
       ? ''
@@ -639,7 +688,25 @@ export default function ReservationPreviewPage() {
       const startTimeKanjiVal = toKanjiTime(reservation.start_time)
       const endTimeVal = toDisplayTime(reservation.end_time)
       const endTimeKanjiVal = toKanjiTime(reservation.end_time)
-      const roomVal = roomInfo?.name || '未定'
+      const dispatch = parseDispatchFromNotes(reservation.notes)
+      let roomVal = roomInfo?.name || '未定'
+      if (selectedShop?.is_dispatch_enabled) {
+        if (dispatch.dispatch_type === 'hotel') {
+          const hotelName = roomInfo?.display_name || roomInfo?.name || 'ホテル'
+          const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}` : ''
+          roomVal = `${hotelName}${roomNo}`
+        } else if (dispatch.dispatch_type === 'home') {
+          const staffMap: Record<string, string> = {
+            'none': '不要',
+            'hanamoto': '花本',
+            'fukunaga': '福永',
+            'takahashi': '高橋',
+            'reject': 'お断り'
+          }
+          const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
+          roomVal = `自宅 (送迎: ${staffText})`
+        }
+      }
       const custNameVal = reservation.customers?.name || '未設定'
       const therapistNameVal = reservation.therapists?.name || 'フリー'
       const courseNameVal = reservation.courses?.name || '未設定'
@@ -872,7 +939,25 @@ export default function ReservationPreviewPage() {
     const startTimeKanjiVal = toKanjiTime(reservation.start_time)
     const endTimeVal = toDisplayTime(reservation.end_time)
     const endTimeKanjiVal = toKanjiTime(reservation.end_time)
-    const roomVal = roomInfo?.name || '未定'
+    const dispatch = parseDispatchFromNotes(reservation.notes)
+    let roomVal = roomInfo?.name || '未定'
+    if (selectedShop?.is_dispatch_enabled) {
+      if (dispatch.dispatch_type === 'hotel') {
+        const hotelName = roomInfo?.display_name || roomInfo?.name || 'ホテル'
+        const roomNo = dispatch.hotel_room_number ? ` ${dispatch.hotel_room_number}` : ''
+        roomVal = `${hotelName}${roomNo}`
+      } else if (dispatch.dispatch_type === 'home') {
+        const staffMap: Record<string, string> = {
+          'none': '不要',
+          'hanamoto': '花本',
+          'fukunaga': '福永',
+          'takahashi': '高橋',
+          'reject': 'お断り'
+        }
+        const staffText = staffMap[dispatch.pickup_staff || 'none'] || '不要'
+        roomVal = `自宅 (送迎: ${staffText})`
+      }
+    }
     const custNameVal = reservation.customers?.name || '未設定'
     const therapistNameVal = reservation.designation_type === 'free'
       ? ''
@@ -1609,12 +1694,75 @@ export default function ReservationPreviewPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-slate-500 font-medium">ルーム</div>
-                  <div className="col-span-2 text-slate-800 font-bold">
-                    {roomInfo?.display_name || roomInfo?.name || '未定'}
+                {(!selectedShop?.is_dispatch_enabled || parseDispatchFromNotes(reservation.notes).dispatch_type === 'store') ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-slate-500 font-medium">ルーム</div>
+                    <div className="col-span-2 text-slate-800 font-bold">
+                      {roomInfo?.display_name || roomInfo?.name || '未定'}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {parseDispatchFromNotes(reservation.notes).dispatch_type === 'hotel' ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-slate-500 font-medium">派遣先（ホテル）</div>
+                        <div className="col-span-2 text-slate-800 font-bold flex flex-col gap-1">
+                          <span>{roomInfo?.display_name || roomInfo?.name || '未定'}</span>
+                          {parseDispatchFromNotes(reservation.notes).hotel_room_number && (
+                            <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full w-fit">
+                              {parseDispatchFromNotes(reservation.notes).hotel_room_number}
+                            </span>
+                          )}
+                          {roomInfo?.address && (
+                            <span className="text-[11px] text-slate-500 font-normal">{roomInfo.address}</span>
+                          )}
+                          {roomInfo?.google_map_url && (
+                            <a
+                              href={roomInfo.google_map_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-blue-500 font-bold hover:underline w-fit flex items-center gap-0.5 mt-0.5"
+                            >
+                              🗺️ 地図を表示
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-slate-500 font-medium">派遣先（自宅）</div>
+                        <div className="col-span-2 text-slate-800 font-bold flex flex-col gap-1">
+                          <span className="text-sm">{parseDispatchFromNotes(reservation.notes).home_address || '未入力'}</span>
+                          <div className="flex gap-1.5 flex-wrap items-center mt-0.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                              parseDispatchFromNotes(reservation.notes).parking_available === 'yes'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}>
+                              駐車場: {parseDispatchFromNotes(reservation.notes).parking_available === 'yes' ? 'あり' : 'なし'}
+                            </span>
+                            {parseDispatchFromNotes(reservation.notes).parking_available === 'no' && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                parseDispatchFromNotes(reservation.notes).pickup_staff === 'reject'
+                                  ? 'bg-red-100 text-red-850 border border-red-300'
+                                  : parseDispatchFromNotes(reservation.notes).pickup_staff === 'none'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : 'bg-violet-100 text-violet-805 border border-violet-300'
+                              }`}>
+                                送迎: {
+                                  parseDispatchFromNotes(reservation.notes).pickup_staff === 'reject' ? '❌ お断り' :
+                                  parseDispatchFromNotes(reservation.notes).pickup_staff === 'hanamoto' ? '花本' :
+                                  parseDispatchFromNotes(reservation.notes).pickup_staff === 'fukunaga' ? '福永' :
+                                  parseDispatchFromNotes(reservation.notes).pickup_staff === 'takahashi' ? '高橋' : '不要（未選択）'
+                                }
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-slate-500 font-medium">受付区分</div>

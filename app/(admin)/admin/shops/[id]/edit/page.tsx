@@ -62,6 +62,7 @@ export default function EditShopPage() {
     description: '',
     phone: '',
     is_active: true,
+    is_dispatch_enabled: false,
   })
   const [reservationCode, setReservationCode] = useState('')
   const [savedCode, setSavedCode] = useState('')
@@ -115,6 +116,7 @@ export default function EditShopPage() {
         description: shopRes.data.description || '',
         phone: shopRes.data.phone || '',
         is_active: shopRes.data.is_active,
+        is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
       })
 
       if (!codeRes.error && codeRes.data) {
@@ -242,6 +244,7 @@ export default function EditShopPage() {
         description: form.description || null,
         phone: form.phone.trim() || null,
         is_active: form.is_active,
+        is_dispatch_enabled: form.is_dispatch_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -379,6 +382,23 @@ export default function EditShopPage() {
                   </div>
                   <span className="text-xs font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
                     {form.is_active ? '営業中（有効）' : '休業中（無効）'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.is_dispatch_enabled}
+                      onChange={(e) => setForm({ ...form, is_dispatch_enabled: e.target.checked })}
+                      className="peer sr-only"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
+                    派遣（デリバリー）機能を有効にする
                   </span>
                 </label>
               </div>

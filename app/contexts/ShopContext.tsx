@@ -16,6 +16,7 @@ type Shop = {
   closing_date: number
   therapist_line_mode: 'official_line' | 'line'
   is_web_reserve_plan?: boolean
+  is_dispatch_enabled?: boolean
 }
 
 type ShopContextType = {
@@ -79,7 +80,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           order: shop.order,
           closing_date: shop.closing_date,
           therapist_line_mode: shop.therapist_line_mode,
-          is_web_reserve_plan: !!hasSimpleOwner
+          is_web_reserve_plan: !!hasSimpleOwner,
+          is_dispatch_enabled: !!shop.is_dispatch_enabled
         }
       })
 
