@@ -40,6 +40,10 @@ HEADERS = {
 SHOP_ID_TSUJIDO    = "92c51e51-339b-48ce-8535-0f45c859b195"
 SHOP_ID_ROSECAFE   = "a0000001-0000-0000-0000-000000000005"
 SHOP_ID_HIMITSUSPA = "3464ed8c-44e8-46f1-b701-9b6ae0f465a8"
+SHOP_ID_BACCARAT_SHUNAN = "e6b1cc21-c9eb-4fc1-888d-6f965a90c1df"
+SHOP_ID_BACCARAT_YAMAGUCHI = "508def9b-cd72-439d-9bbc-2dbe5e3a8af4"
+SHOP_ID_BACCARAT_UBE = "11013a02-86fe-4675-83e2-9e11f459d416"
+SHOP_ID_BACCARAT_IWAKUNI = "b99522d0-5166-4f7d-87d5-801699f5ba3c"
 
 # ── サイト定義 ───────────────────────────────────────────────────
 SITES = [
@@ -64,6 +68,46 @@ SITES = [
         "shop_id": SHOP_ID_HIMITSUSPA,
         "type": "himitsuspa",
         "url_tpl": "https://himitsuspa.com/schedule/index.php?day={date_compact}",
+    },
+    {
+        "name": "バカラ周南下松",
+        "shop_id": SHOP_ID_BACCARAT_SHUNAN,
+        "type": "tsujido",
+        "url_tpl": "https://baccarat20240701-menes.com/schedule/?works={date}",
+        "container": ".schedule",
+        "box_selector": ".therapist-box",
+        "name_sel": "h3.name",
+        "time_sel": ".todays-time",
+    },
+    {
+        "name": "バカラ山口湯田",
+        "shop_id": SHOP_ID_BACCARAT_YAMAGUCHI,
+        "type": "tsujido",
+        "url_tpl": "https://baccarat2-menes.com/schedule/?works={date}",
+        "container": ".schedule",
+        "box_selector": ".therapist-box",
+        "name_sel": "h3.name",
+        "time_sel": ".todays-time",
+    },
+    {
+        "name": "バカラ宇部",
+        "shop_id": SHOP_ID_BACCARAT_UBE,
+        "type": "tsujido",
+        "url_tpl": "https://baccarat-ube.com/schedule/?works={date}",
+        "container": ".schedule",
+        "box_selector": ".therapist-box",
+        "name_sel": "h3.name",
+        "time_sel": ".todays-time",
+    },
+    {
+        "name": "バカラ岩国",
+        "shop_id": SHOP_ID_BACCARAT_IWAKUNI,
+        "type": "tsujido",
+        "url_tpl": "https://baccarat-iwakuni.com/schedule/?works={date}",
+        "container": ".schedule",
+        "box_selector": ".therapist-box",
+        "name_sel": "h3.name",
+        "time_sel": ".todays-time",
     },
 ]
 

@@ -16,6 +16,10 @@ const SITES: SiteConfig[] = [
   { name: 'ローズカフェ', label: 'ローズカフェ (rosecafe.men-este.com)' },
   { name: '淑女の秘密スパ', label: '淑女の秘密スパ (himitsuspa.com)' },
   { name: 'カレッツァ', label: 'カレッツァ (carezza.esthe-hp.com)' },
+  { name: 'バカラ周南下松', label: 'バカラ周南下松 (baccarat20240701-menes.com)' },
+  { name: 'バカラ山口湯田', label: 'バカラ山口湯田 (baccarat2-menes.com)' },
+  { name: 'バカラ宇部', label: 'バカラ宇部 (baccarat-ube.com)' },
+  { name: 'バカラ岩国', label: 'バカラ岩国 (baccarat-iwakuni.com)' },
 ]
 
 interface ShopConfig {
