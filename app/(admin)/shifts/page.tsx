@@ -1493,21 +1493,29 @@ function ShiftsContent() {
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
-        <div className="mb-2 md:mb-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-              スケジュール
+        <div className="mb-2 md:mb-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap">
+                スケジュール
+              </h1>
+              <span className="text-xs text-slate-400 font-semibold md:hidden whitespace-nowrap">
+                ({viewMode === 'day' ? 'タイムチャート横' : viewMode === 'vertical' ? 'タイムチャート縦' : '週間'})
+              </span>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
               {/* 店舗ルールツールチップ */}
               <div 
                 ref={rulesRef}
-                className="relative group cursor-pointer ml-3"
+                className="relative group cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveTooltip(prev => prev === 'rules' ? null : 'rules');
                 }}
               >
-                <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
-                  <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="flex items-center gap-1 px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-xs md:text-sm font-bold whitespace-nowrap">
+                  <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-slate-700">店舗ルール</span>
@@ -1622,14 +1630,14 @@ function ShiftsContent() {
               {selectedShop?.is_dispatch_enabled && (
                 <div 
                   ref={hotelsRef}
-                  className="relative group cursor-pointer ml-2"
+                  className="relative group cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveTooltip(prev => prev === 'hotels' ? null : 'hotels');
                   }}
                 >
-                  <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-sm font-bold">
-                    <svg className="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <span className="flex items-center gap-1 px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-full bg-white hover:bg-slate-50 transition-all shadow-sm border border-slate-200 text-xs md:text-sm font-bold whitespace-nowrap">
+                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-violet-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                     <span className="text-violet-600">ホテル一覧</span>
@@ -1683,11 +1691,11 @@ function ShiftsContent() {
                   </div>
                 </div>
               )}
-            </h1>
-            <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-              {viewMode === 'day' ? 'タイムチャート横表示' : viewMode === 'vertical' ? 'タイムチャート縦表示' : '週間表示'}
-            </p>
+            </div>
           </div>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5 hidden md:block whitespace-nowrap">
+            {viewMode === 'day' ? 'タイムチャート横表示' : viewMode === 'vertical' ? 'タイムチャート縦表示' : '週間表示'}
+          </p>
         </div>
 
         {/* フィルターと表示切り替え */}
