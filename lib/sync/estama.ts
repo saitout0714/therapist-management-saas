@@ -92,7 +92,7 @@ export async function syncShiftsToEstama(
       await loginInput.fill(loginId);
       await passInput.fill(password);
 
-      const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn');
+      const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post');
       if (submitButton) {
         await Promise.all([
           page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
@@ -104,13 +104,14 @@ export async function syncShiftsToEstama(
       }
     }
 
-    // ログインエラーチェック
-    const loginError = await page.$('.alert-danger, .error-message, .error, .alert');
-    if (loginError) {
-      const errorText = await loginError.textContent();
-      if (errorText && (errorText.includes('失敗') || errorText.includes('エラー') || errorText.includes('間違'))) {
-        throw new Error(`エステ魂ログインに失敗しました: ${errorText.trim()}`);
+    const currentUrl = page.url();
+    if (currentUrl.includes('/login')) {
+      const loginError = await page.$('.alert-danger, .error-message, .error, .validation-error');
+      let errorMsg = '不明なエラー';
+      if (loginError) {
+        errorMsg = await loginError.textContent() || errorMsg;
       }
+      throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
     // 対象となるセラピストID（エステ魂側ID）のリストを作成
@@ -315,7 +316,7 @@ export async function fetchTherapistsFromEstama(
       await loginInput.fill(loginId);
       await passInput.fill(password);
 
-      const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn');
+      const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post');
       if (submitButton) {
         await Promise.all([
           page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
@@ -327,12 +328,16 @@ export async function fetchTherapistsFromEstama(
       }
     }
 
-    const loginError = await page.$('.alert-danger, .error-message, .error');
-    if (loginError) {
-      const errorText = await loginError.textContent();
-      if (errorText && (errorText.includes('失敗') || errorText.includes('エラー') || errorText.includes('間違'))) {
-        throw new Error(`エステ魂ログインに失敗しました: ${errorText.trim()}`);
+    // ログイン成功チェック（URLがログインページのままなら失敗）
+    const currentUrl = page.url();
+    if (currentUrl.includes('/login')) {
+      // ログインエラーメッセージの取得を試みる
+      const loginError = await page.$('.alert-danger, .error-message, .error, .validation-error');
+      let errorMsg = '不明なエラー';
+      if (loginError) {
+        errorMsg = await loginError.textContent() || errorMsg;
       }
+      throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
     // 本日のスケジュール / セラピスト一覧ページへ
