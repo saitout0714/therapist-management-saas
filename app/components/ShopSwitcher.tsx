@@ -28,6 +28,14 @@ export default function ShopSwitcher() {
   }, [isShopMenuOpen])
 
   const getAvatarGradient = (id: string, name: string = '') => {
+    // こころリンス専用グリーン設定（2店舗で色合いの異なる緑）
+    if (name.includes('こころリンス浅草橋')) {
+      return 'from-emerald-500 to-teal-500 text-white' // 鮮やかなエメラルドグリーン
+    }
+    if (name.includes('こころリンス大山')) {
+      return 'from-teal-600 to-cyan-700 text-white' // 深みのあるティール・グリーン
+    }
+
     const gradients = [
       'from-indigo-500 to-purple-500 text-white',
       'from-violet-500 to-fuchsia-500 text-white',
