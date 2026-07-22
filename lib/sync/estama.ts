@@ -359,8 +359,15 @@ export async function syncShiftsToEstama(
                 // 最低2つあれば出勤・退勤とみなす
                 if (selects.length >= 2) {
                   if (colData.shift) {
-                    const sStart = colData.shift.start_time.substring(0, 5); // "13:00"
-                    const sEnd = colData.shift.end_time.substring(0, 5);
+                    const formatEstamaTime = (dbTime: string) => {
+                      if (!dbTime) return '';
+                      const [hStr, mStr] = dbTime.split(':');
+                      let h = parseInt(hStr, 10);
+                      if (h < 6) h += 24;
+                      return `${h}:${mStr}`;
+                    };
+                    const sStart = formatEstamaTime(colData.shift.start_time);
+                    const sEnd = formatEstamaTime(colData.shift.end_time);
                     
                     [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
                       for (const opt of Array.from(sel.options)) {
