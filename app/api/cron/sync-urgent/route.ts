@@ -35,87 +35,86 @@ export async function GET(req: Request) {
     future.setDate(future.getDate() + 13);
     const endDate = future.toISOString().split('T')[0];
 
-    // 4. 各店舗ごとに同期処理を並列または直列で実行
-    const results = await Promise.allSettled(
-      shops.map(async (shop) => {
-        let estamaResult = null;
-        let estheRankingResult = null;
+    // 4. 各店舗ごとに同期処理を直列で実行（メモリ不足・並列実行エラーを防ぐため）
+    const results = [];
+    for (const shop of shops) {
+      let estamaResult = null;
+      let estheRankingResult = null;
 
-        // シフトの取得
-        const { data: shifts } = await supabase
-          .from('shifts')
-          .select(`
+      // シフトの取得
+      const { data: shifts } = await supabase
+        .from('shifts')
+        .select(`
+          id,
+          therapist_id,
+          start_time,
+          end_time,
+          date,
+          therapists!inner (
             id,
-            therapist_id,
-            start_time,
-            end_time,
-            date,
-            therapists!inner (
-              id,
-              name,
-              estama_therapist_id,
-              esthe_ranking_therapist_id
-            )
-          `)
-          .eq('shop_id', shop.id)
-          .gte('date', startDate)
-          .lte('date', endDate);
+            name,
+            estama_therapist_id,
+            esthe_ranking_therapist_id
+          )
+        `)
+        .eq('shop_id', shop.id)
+        .gte('date', startDate)
+        .lte('date', endDate);
 
-        // 予約の取得
-        const { data: reservations } = await supabase
-          .from('reservations')
-          .select(`
-            id,
-            therapist_id,
-            start_time,
-            end_time,
-            date
-          `)
-          .eq('shop_id', shop.id)
-          .gte('date', startDate)
-          .lte('date', endDate)
-          .neq('status', 'cancelled');
+      // 予約の取得
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          therapist_id,
+          start_time,
+          end_time,
+          date
+        `)
+        .eq('shop_id', shop.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .neq('status', 'cancelled');
 
-        // エステ魂の同期
-        if (shop.estama_login_id && shop.estama_password) {
-          const shopUrl = shop.hp_url || 'https://estama.jp/admin/schedule/'; // Fallback
-          try {
-            estamaResult = await syncShiftsToEstama(
-              shopUrl,
-              shop.estama_login_id,
-              shop.estama_password,
-              startDate,
-              endDate,
-              shifts || [],
-              reservations || []
-            );
-          } catch (e: any) {
-            console.error(`Estama Sync Error for shop ${shop.id}:`, e);
-            estamaResult = { success: false, error: e.message };
-          }
+      // エステ魂の同期
+      if (shop.estama_login_id && shop.estama_password) {
+        const shopUrl = shop.hp_url || 'https://estama.jp/admin/schedule/'; // Fallback
+        try {
+          estamaResult = await syncShiftsToEstama(
+            shopUrl,
+            shop.estama_login_id,
+            shop.estama_password,
+            startDate,
+            endDate,
+            shifts || [],
+            reservations || []
+          );
+        } catch (e: any) {
+          console.error(`Estama Sync Error for shop ${shop.id}:`, e);
+          estamaResult = { success: false, error: e.message };
         }
+      }
 
-        // メンズエステランキングの同期
-        if (shop.esthe_ranking_login_id && shop.esthe_ranking_password) {
-          const erShopUrl = shop.esthe_ranking_shop_url || 'https://es-ranking.jp/agency/login/';
-          try {
-            estheRankingResult = await syncShiftsToEstheRanking(
-              erShopUrl,
-              shop.esthe_ranking_login_id,
-              shop.esthe_ranking_password,
-              startDate,
-              endDate,
-              shifts || []
-            );
-          } catch (e: any) {
-            console.error(`EstheRanking Sync Error for shop ${shop.id}:`, e);
-            estheRankingResult = { success: false, error: e.message };
-          }
+      // メンズエステランキングの同期
+      if (shop.esthe_ranking_login_id && shop.esthe_ranking_password) {
+        const erShopUrl = shop.esthe_ranking_shop_url || 'https://es-ranking.jp/agency/login/';
+        try {
+          estheRankingResult = await syncShiftsToEstheRanking(
+            erShopUrl,
+            shop.esthe_ranking_login_id,
+            shop.esthe_ranking_password,
+            startDate,
+            endDate,
+            shifts || []
+          );
+        } catch (e: any) {
+          console.error(`EstheRanking Sync Error for shop ${shop.id}:`, e);
+          estheRankingResult = { success: false, error: e.message };
         }
+      }
 
-        return { shopId: shop.id, estamaResult, estheRankingResult };
-      })
-    );
+      results.push({ shopId: shop.id, estamaResult, estheRankingResult });
+    }
 
     return NextResponse.json({ success: true, results });
   } catch (err: any) {
