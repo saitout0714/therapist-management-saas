@@ -71,7 +71,7 @@ export async function syncShiftsToEstama(
     // 不要な画像・フォント・メディア等のリソース読み込みを遮断してメモリ消費と接続数を削減
     await page.route('**/*', (route: any) => {
       const type = route.request().resourceType();
-      if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+      if (['image', 'font', 'media', 'websocket'].includes(type)) {
         return route.abort();
       }
       return route.continue();
@@ -119,7 +119,17 @@ export async function syncShiftsToEstama(
     }
 
     // セラピスト一覧ページ (/admin/cast/) へ移動して全セラピストのIDと名前を取得
-    await page.goto('https://estama.jp/admin/cast/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    let castNavigated = false;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await page.goto('https://estama.jp/admin/cast/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+        castNavigated = true;
+        break;
+      } catch (err) {
+        if (attempt === 1) await page.waitForTimeout(1000);
+        else throw err;
+      }
+    }
 
     const portalTherapists = await page.evaluate(() => {
       const list: { id: string; name: string }[] = [];
@@ -182,7 +192,7 @@ export async function syncShiftsToEstama(
         try {
           await tPage.route('**/*', (route: any) => {
             const type = route.request().resourceType();
-            if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+            if (['image', 'font', 'media', 'websocket'].includes(type)) {
               return route.abort();
             }
             return route.continue();
@@ -195,7 +205,17 @@ export async function syncShiftsToEstama(
           const therapistReservations = reservations ? reservations.filter(r => r.therapist_id === internalTherapistId) : [];
 
           const scheduleUrl = `https://estama.jp/admin/schedule/${estamaId}/`;
-          await tPage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+          let scheduleNavigated = false;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              await tPage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+              scheduleNavigated = true;
+              break;
+            } catch (err) {
+              if (attempt === 1) await tPage.waitForTimeout(1000);
+              else throw err;
+            }
+          }
 
       // startDate と endDate から同期対象の全ての日付の mmdd を生成する
       const targetDatesMmdd: string[] = [];
