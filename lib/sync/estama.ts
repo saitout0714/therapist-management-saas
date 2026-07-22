@@ -96,10 +96,10 @@ export async function syncShiftsToEstama(
       const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post');
       if (submitButton) {
         await submitButton.click();
-        await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
+        await page.waitForURL((url: any) => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
       } else {
         await page.keyboard.press('Enter');
-        await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
+        await page.waitForURL((url: any) => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
       }
     }
 
@@ -113,32 +113,20 @@ export async function syncShiftsToEstama(
       throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
-    // スケジュール一覧ページへ移動してセラピスト一覧を取得
-    await page.goto('https://estama.jp/admin/schedule/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    // セラピスト一覧ページ (/admin/cast/) へ移動して全セラピストのIDと名前を取得
+    await page.goto('https://estama.jp/admin/cast/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
-    // エステ魂のスケジュール画面からセラピストID一覧と名前を自動抽出して補完
     const portalTherapists = await page.evaluate(() => {
       const list: { id: string; name: string }[] = [];
       const seen = new Set<string>();
 
-      const links = document.querySelectorAll('a[href*="/schedule/"]');
-      links.forEach(a => {
+      document.querySelectorAll('a').forEach(a => {
         const href = a.getAttribute('href') || '';
-        const match = href.match(/\/schedule\/(\d+)\/?/);
+        const match = href.match(/\/cast_edit\/(\d+)\/?/) || href.match(/\/cast\/(\d+)\/?/);
         const name = a.textContent?.trim() || '';
-        if (match && match[1] && name && !seen.has(match[1])) {
+        if (match && match[1] && name && name !== '編集' && name !== '編 執' && !seen.has(match[1])) {
           seen.add(match[1]);
           list.push({ id: match[1], name });
-        }
-      });
-
-      const options = document.querySelectorAll('select option');
-      options.forEach(opt => {
-        const val = (opt as HTMLOptionElement).value;
-        const name = opt.textContent?.trim() || '';
-        if (val && /^\d+$/.test(val) && name && !seen.has(val)) {
-          seen.add(val);
-          list.push({ id: val, name });
         }
       });
 
