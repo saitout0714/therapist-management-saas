@@ -203,6 +203,11 @@ export default function SyncPage() {
           throw new Error(errorData?.error || '同期リクエストの送信に失敗しました');
         }
         successCount += chunk.end === chunk.start ? 1 : Math.floor((new Date(chunk.end).getTime() - new Date(chunk.start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // ブラウザプロセスの終了とメモリ解放を待つため、チャンク間にインターバルを設ける
+        if (i < chunks.length - 1) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
       }
       
       setSyncProgressText('');

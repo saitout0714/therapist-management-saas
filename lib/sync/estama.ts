@@ -178,9 +178,17 @@ export async function syncShiftsToEstama(
 
     // メモリ節約とブラウザクラッシュ防止のため、Promise.allとnewPage()を使わず直列処理する
     for (const estamaId of targetTherapists) {
+      let tPage: any = null;
       try {
 
           console.log(`[EstamaSync] Processing therapist ${estamaId}`);
+          tPage = await context.newPage();
+          // 不要なリソース遮断
+          await tPage.route('**/*', (route: any) => {
+            const type = route.request().resourceType();
+            if (['image', 'font', 'media', 'websocket'].includes(type)) return route.abort();
+            return route.continue();
+          });
           
           const therapistShifts = shifts.filter(s => s.therapists?.estama_therapist_id === estamaId);
           const internalTherapistId = therapistShifts[0]?.therapists?.id || activeTherapists?.find(t => t.estama_therapist_id === estamaId)?.id;
@@ -190,11 +198,11 @@ export async function syncShiftsToEstama(
           let scheduleNavigated = false;
           for (let attempt = 1; attempt <= 2; attempt++) {
             try {
-              await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+              await tPage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
               scheduleNavigated = true;
               break;
             } catch (err) {
-              if (attempt === 1) await page.waitForTimeout(1000);
+              if (attempt === 1) await tPage.waitForTimeout(1000);
               else throw err;
             }
           }
@@ -211,7 +219,7 @@ export async function syncShiftsToEstama(
       }
 
       // JSで動的にテーブルを解析して入力する
-      await page.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
+      await tPage.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
         const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
           const [h, m] = t.split(':').map(Number);
@@ -416,19 +424,21 @@ export async function syncShiftsToEstama(
       }, { shifts: therapistShifts, reservations: therapistReservations, targetDatesMmdd });
 
       // 保存ボタンの実行（IDで確実に指定）
-      const saveBtn = await page.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
+      const saveBtn = await tPage.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
       if (saveBtn) {
         await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+          tPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
           saveBtn.click()
         ]);
         // 非同期保存（AJAX）の可能性も考慮して少し待機
-        await page.waitForTimeout(1000);
+        await tPage.waitForTimeout(500);
       } else {
         console.warn(`[EstamaSync] 保存ボタンが見つかりませんでした (therapist: ${estamaId})`);
       }
       } catch (e: any) {
         console.error(`[EstamaSync] Error on therapist ${estamaId}:`, e);
+      } finally {
+        if (tPage) await tPage.close().catch(() => {});
       }
     }
 
