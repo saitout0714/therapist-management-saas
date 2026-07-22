@@ -81,6 +81,13 @@ export async function POST(req: Request) {
       console.warn('予約情報の取得に失敗しました:', reservationsError);
     }
 
+    // 3.5 アクティブなセラピストの取得 (エステ魂連携IDを持つ全セラピスト)
+    const { data: activeTherapists } = await supabase
+      .from('therapists')
+      .select('id, name, estama_therapist_id')
+      .eq('shop_id', shopId)
+      .not('estama_therapist_id', 'is', null);
+
     // 4. Playwrightスクリプトを実行して同期
     const result = await syncShiftsToEstama(
       shopUrl,
@@ -89,7 +96,8 @@ export async function POST(req: Request) {
       startDate,
       endDate,
       shifts || [],
-      reservations || []
+      reservations || [],
+      activeTherapists || []
     );
 
     if (!result.success) {

@@ -53,7 +53,8 @@ export async function syncShiftsToEstama(
   startDate: string,
   endDate: string,
   shifts: any[],
-  reservations: any[] = []
+  reservations: any[] = [],
+  activeTherapists: any[] = []
 ): Promise<SyncResult> {
   let browser: any;
   let page: any;
@@ -155,7 +156,9 @@ export async function syncShiftsToEstama(
     }
 
     // 対象となるセラピストID（エステ魂側ID）のリストを作成
-    const targetTherapists = [...new Set(shifts.map(s => s.therapists?.estama_therapist_id).filter(id => !!id))] as string[];
+    const targetTherapists = activeTherapists && activeTherapists.length > 0
+      ? activeTherapists.map(t => t.estama_therapist_id).filter(id => !!id)
+      : [...new Set(shifts.map(s => s.therapists?.estama_therapist_id).filter(id => !!id))] as string[];
 
     console.log(`[EstamaSync] Syncing ${targetTherapists.length} therapists for Estama...`);
 
@@ -171,8 +174,19 @@ export async function syncShiftsToEstama(
       const scheduleUrl = `https://estama.jp/admin/schedule/${estamaId}/`;
       await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
+      // startDate と endDate から同期対象の全ての日付の mmdd を生成する
+      const targetDatesMmdd: string[] = [];
+      const curr = new Date(startDate);
+      const end = new Date(endDate);
+      while (curr <= end) {
+        const mm = String(curr.getMonth() + 1).padStart(2, '0');
+        const dd = String(curr.getDate()).padStart(2, '0');
+        targetDatesMmdd.push(`${mm}/${dd}`);
+        curr.setDate(curr.getDate() + 1);
+      }
+
       // JSで動的にテーブルを解析して入力する
-      await page.evaluate(({ shifts, reservations }: { shifts: any[], reservations: any[] }) => {
+      await page.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
         const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
           const [h, m] = t.split(':').map(Number);
@@ -206,9 +220,15 @@ export async function syncShiftsToEstama(
         };
 
         const dateMap: { [key: string]: any } = {};
+        
+        // 最初に全対象日付を shift: null で初期化
+        targetDatesMmdd.forEach(mmdd => {
+          dateMap[mmdd] = { shift: null, res: [] };
+        });
+
         shifts.forEach((s: any) => {
           const sJst = parseJST(s.date);
-          if (sJst.mmdd) {
+          if (sJst.mmdd && dateMap[sJst.mmdd]) {
             dateMap[sJst.mmdd] = {
               shift: s,
               res: reservations.filter((r: any) => {
@@ -245,23 +265,44 @@ export async function syncShiftsToEstama(
             
             Array.from(tr.cells).forEach(cell => {
               const colData = cols[cell.cellIndex];
-              if (colData && colData.shift) {
+              if (colData) {
                 const select = cell.querySelector('select');
                 if (select) {
-                  const sStart = timeToMins(colData.shift.start_time, colData.shift.start_time);
-                  const sEnd = timeToMins(colData.shift.end_time, colData.shift.start_time);
+                  let targetStatus = '';
+
+                  if (colData.shift) {
+                    const sStart = timeToMins(colData.shift.start_time, colData.shift.start_time);
+                    const sEnd = timeToMins(colData.shift.end_time, colData.shift.start_time);
+                    
+                    if (rowMins >= sStart && rowMins < sEnd) {
+                      // 出勤時間内：予約チェック
+                      const isReserved = colData.res.some((r: any) => {
+                        const rStart = timeToMins(r.start_time, colData.shift.start_time);
+                        const rEnd = timeToMins(r.end_time, colData.shift.start_time);
+                        // 30分枠と予約枠の重複判定
+                        return rowMins < rEnd && (rowMins + 30) > rStart;
+                      });
+                      targetStatus = isReserved ? '×' : '○';
+                    } else {
+                      // 出勤時間外
+                      targetStatus = '─';
+                    }
+                  } else {
+                    // シフトがない日
+                    targetStatus = '─';
+                  }
                   
-                  if (rowMins >= sStart && rowMins < sEnd) {
-                    // 出勤時間内：予約チェック
-                    const isReserved = colData.res.some((r: any) => {
-                      const rStart = timeToMins(r.start_time, colData.shift.start_time);
-                      const rEnd = timeToMins(r.end_time, colData.shift.start_time);
-                      // 30分枠と予約枠の重複判定
-                      return rowMins < rEnd && (rowMins + 30) > rStart;
-                    });
-                    
-                    const targetStatus = isReserved ? '×' : '○';
-                    
+                  if (targetStatus === '─') {
+                    for (const opt of Array.from(select.options)) {
+                      if (opt.value === '0' || opt.text.includes('─') || opt.text.includes('お休み') || opt.text.includes('未設定')) {
+                        if (select.value !== opt.value) {
+                          select.value = opt.value;
+                          triggerChange(select);
+                        }
+                        break;
+                      }
+                    }
+                  } else {
                     for (const opt of Array.from(select.options)) {
                       // 記号揺れや表記揺れを考慮。エステ魂の実際のオプション値（1: ○, 2: ×）も考慮
                       const t = opt.text;
@@ -278,9 +319,6 @@ export async function syncShiftsToEstama(
                         break;
                       }
                     }
-                  } else {
-                    // 出勤時間外は基本触らない、あるいは「-」や「お休み」にする
-                    // 今回は既存のままにする
                   }
                 }
               }
@@ -289,30 +327,45 @@ export async function syncShiftsToEstama(
             // 時間枠以外の行（出退勤時刻など）
             Array.from(tr.cells).forEach(cell => {
               const colData = cols[cell.cellIndex];
-              if (colData && colData.shift) {
+              if (colData) {
                 const selects = cell.querySelectorAll('select');
                 // 最低2つあれば出勤・退勤とみなす
                 if (selects.length >= 2) {
-                  const sStart = colData.shift.start_time.substring(0, 5); // "13:00"
-                  const sEnd = colData.shift.end_time.substring(0, 5);
-                  
-                  [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
-                    for (const opt of Array.from(sel.options)) {
-                      if (opt.text.includes(val) || opt.value.includes(val)) {
-                        if (sel.value !== opt.value) {
-                          sel.value = opt.value;
-                          triggerChange(sel);
+                  if (colData.shift) {
+                    const sStart = colData.shift.start_time.substring(0, 5); // "13:00"
+                    const sEnd = colData.shift.end_time.substring(0, 5);
+                    
+                    [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
+                      for (const opt of Array.from(sel.options)) {
+                        if (opt.text.includes(val) || opt.value.includes(val)) {
+                          if (sel.value !== opt.value) {
+                            sel.value = opt.value;
+                            triggerChange(sel);
+                          }
+                          break;
                         }
-                        break;
                       }
-                    }
-                  });
+                    });
+                  } else {
+                    // シフトが無い日は出退勤を未設定（空白）にする
+                    [ selects[0], selects[1] ].forEach(sel => {
+                      for (const opt of Array.from(sel.options)) {
+                        if (opt.value === '' || opt.text.includes('出勤') || opt.text.includes('退勤') || opt.text.includes('未設定')) {
+                          if (sel.value !== opt.value) {
+                            sel.value = opt.value;
+                            triggerChange(sel);
+                          }
+                          break;
+                        }
+                      }
+                    });
+                  }
                 }
               }
             });
           }
         });
-      }, { shifts: therapistShifts, reservations: therapistReservations });
+      }, { shifts: therapistShifts, reservations: therapistReservations, targetDatesMmdd });
 
       // 保存ボタンの実行（IDで確実に指定）
       const saveBtn = await page.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');

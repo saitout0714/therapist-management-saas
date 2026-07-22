@@ -74,6 +74,13 @@ export async function GET(req: Request) {
         .lte('date', endDate)
         .neq('status', 'cancelled');
 
+      // アクティブなセラピストの取得 (エステ魂連携IDを持つ全セラピスト)
+      const { data: activeTherapists } = await supabase
+        .from('therapists')
+        .select('id, name, estama_therapist_id')
+        .eq('shop_id', shop.id)
+        .not('estama_therapist_id', 'is', null);
+
       // エステ魂の同期
       if (shop.estama_login_id && shop.estama_password) {
         const shopUrl = shop.hp_url || 'https://estama.jp/admin/schedule/';
@@ -85,7 +92,8 @@ export async function GET(req: Request) {
             startDate,
             endDate,
             shifts || [],
-            reservations || []
+            reservations || [],
+            activeTherapists || []
           );
         } catch (e: any) {
           console.error(`Daily Estama Sync Error for shop ${shop.id}:`, e);
