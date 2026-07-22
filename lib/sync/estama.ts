@@ -395,19 +395,25 @@ export async function syncShiftsToEstama(
                     };
                     const sStart = formatEstamaTime(colData.shift.start_time);
                     const sEnd = formatEstamaTime(colData.shift.end_time);
-                    
+
+                    const timeMatch = (str: string, target: string) => {
+                      if (!target) return false;
+                      // 数字以外(または先頭/末尾)に囲まれたtargetにマッチするか
+                      const regex = new RegExp(`(?:^|[^0-9])${target}(?:$|[^0-9])`);
+                      return regex.test(str);
+                    };
+
                     [ {sel: selects[0], vals: sStart}, {sel: selects[1], vals: sEnd} ].forEach(({sel, vals}) => {
                       if (!vals.val24) return;
                       for (const opt of Array.from(sel.options)) {
-                        const t = opt.text.replace(/\s+/g, '');
-                        const v = opt.value.replace(/\s+/g, '');
+                        // 半角変換と空白除去
+                        const t = opt.text.replace(/\s+/g, '').replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/：/g, ':');
+                        const v = opt.value.replace(/\s+/g, '').replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/：/g, ':');
                         if (
-                          t === vals.val24 || v === vals.val24 ||
-                          t === vals.val24flat || v === vals.val24flat ||
-                          t === vals.valNorm || v === vals.valNorm ||
-                          t === vals.valNormShort || v === vals.valNormShort ||
-                          t === `翌${vals.valNorm}` || t === `翌${vals.valNormShort}` ||
-                          t === `翌日${vals.valNorm}` || t === `翌日${vals.valNormShort}`
+                          timeMatch(t, vals.val24) || timeMatch(v, vals.val24) ||
+                          timeMatch(t, vals.val24flat) || timeMatch(v, vals.val24flat) ||
+                          timeMatch(t, vals.valNorm) || timeMatch(v, vals.valNorm) ||
+                          timeMatch(t, vals.valNormShort) || timeMatch(v, vals.valNormShort)
                         ) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;
