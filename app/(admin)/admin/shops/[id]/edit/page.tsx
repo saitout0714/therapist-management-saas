@@ -59,6 +59,7 @@ export default function EditShopPage() {
   const [error, setError] = useState('')
   const [form, setForm] = useState({
     name: '',
+    short_name: '',
     description: '',
     phone: '',
     is_active: true,
@@ -113,6 +114,7 @@ export default function EditShopPage() {
 
       setForm({
         name: shopRes.data.name,
+        short_name: shopRes.data.short_name || '',
         description: shopRes.data.description || '',
         phone: shopRes.data.phone || '',
         is_active: shopRes.data.is_active,
@@ -240,7 +242,7 @@ export default function EditShopPage() {
       .from('shops')
       .update({
         name: form.name,
-        short_name: null,
+        short_name: form.short_name.trim() || null,
         description: form.description || null,
         phone: form.phone.trim() || null,
         is_active: form.is_active,
@@ -344,6 +346,20 @@ export default function EditShopPage() {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
                   placeholder="例: 新宿本店"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  店舗略称・バッジ表記 <span className="text-slate-400 font-normal">（切替バーのアイコン文字。例: 周南、浅草。空欄時は自動切抜き）</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={form.short_name}
+                  onChange={(e) => setForm({ ...form, short_name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                  placeholder="例: 周南"
                 />
               </div>
 

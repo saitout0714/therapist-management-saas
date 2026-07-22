@@ -44,8 +44,19 @@ export default function ShopSwitcher() {
     return gradients[index]
   }
 
-  const getInitials = (name: string) => {
-    return name.slice(0, 2)
+  const getInitials = (shop: { name: string; short_name?: string | null }) => {
+    if (shop.short_name) {
+      return shop.short_name.slice(0, 2)
+    }
+    const prefixes = ['バカラ', 'クイーン', 'こころリンス', 'ラビット', 'レジェンド']
+    let name = shop.name
+    for (const prefix of prefixes) {
+      if (name.startsWith(prefix) && name.length > prefix.length) {
+        name = name.replace(prefix, '').trim()
+        break
+      }
+    }
+    return name.slice(0, 2) || shop.name.slice(0, 2)
   }
 
   // 外側クリック・タップでメニューを閉じる
@@ -88,7 +99,7 @@ export default function ShopSwitcher() {
     if (!shop || !selectedShop) return null
     const isActive = shop.id === selectedShop.id
     const gradient = getAvatarGradient(shop.id)
-    const initials = getInitials(shop.name)
+    const initials = getInitials(shop)
 
     return (
       <div
@@ -161,7 +172,7 @@ export default function ShopSwitcher() {
             title="店舗切り替え"
           >
             <div className={`w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0 flex items-center justify-center rounded bg-gradient-to-br ${getAvatarGradient(selectedShop.id)} text-[7px] sm:text-[9px] font-bold shadow-sm`}>
-              {getInitials(selectedShop.name)}
+              {getInitials(selectedShop)}
             </div>
             <span className="truncate max-w-[100px] sm:max-w-[160px]">
               {selectedShop.name}
