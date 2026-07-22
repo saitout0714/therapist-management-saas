@@ -218,7 +218,7 @@ export async function syncShiftsToEstheRanking(
     return { success: false, error: `${error.message} (画面タイトル: ${pageTitle}, URL: ${pageUrl})` };
   } finally {
     if (browser) {
-      try { await Promise.all(browser.contexts().map(c => c.close())); } catch(e){} 
+      try { await Promise.all(browser.contexts().map((c: any) => c.close())); } catch(e){} 
         await browser.close();
         await new Promise(resolve => setTimeout(resolve, 500));
     }
