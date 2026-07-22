@@ -62,6 +62,7 @@ interface Reservation {
   customer_notified: boolean
   therapist_notified: boolean
   source?: string | null
+  reception_source?: string | null
   booking_method?: string | null
   is_handled?: boolean | null
   extension_count?: number
@@ -215,7 +216,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, booking_method, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, reception_source, booking_method, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
@@ -746,15 +747,23 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 
                                     const isNewCustomer = res.isNewCustomer
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
-                                    const isWeb = res.booking_method === 'web' || (!res.booking_method && res.source === 'web');
+                                    const isWeb = res.booking_method === 'web' || (!res.booking_method && (res.source === 'web' || res.reception_source === 'client'));
+                                    const isOwner = res.reception_source === 'owner';
+                                    const isHime = (res.is_hime ?? false) || res.designation_type === 'princess' || res.reception_source === 'therapist';
+
                                     const cardBgClass = isNotificationUnsent
                                       ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'
-                                      : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20'
+                                      : isOwner
+                                        ? 'bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 border border-teal-400/80 shadow-md shadow-teal-600/20 text-white'
+                                        : isHime
+                                          ? 'bg-gradient-to-br from-pink-500 via-rose-500 to-pink-600 border border-pink-300/80 shadow-md shadow-pink-500/20 text-white'
+                                          : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20 text-white'
 
                                     return (
                                       <div
                                         key={res.id}
-                                        className={`rounded-lg px-2 py-1.5 border text-white cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${cardBgClass}`}
+                                        className={`rounded-lg px-2 py-1.5 border cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${cardBgClass}`}
+                                        style={{ color: 'white' }}
                                         onClick={() => router.push(`/reservations/${res.id}?from=weekly`)}
                                       >
                                         <div className="flex flex-col justify-between overflow-hidden py-0.5 gap-1">

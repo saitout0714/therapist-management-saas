@@ -908,7 +908,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       ? isNotificationUnsent
                         ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
                         : isOwner
-                          ? 'bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-500 border border-amber-200/90 shadow-md shadow-amber-500/20 text-slate-900'
+                          ? 'bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 border border-teal-400/80 shadow-md shadow-teal-600/20 text-white'
                           : isHime
                             ? 'bg-gradient-to-br from-pink-500 via-rose-500 to-pink-600 border border-pink-300/80 shadow-md shadow-pink-500/20 text-white'
                             : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/30 text-white'
@@ -924,7 +924,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         width: `${width}px`,
                         height: `${height - 2}px`,
                         ...(schedule.color ? { backgroundColor: schedule.color, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: '1px solid rgba(0,0,0,0.1)' } : {}),
-                        color: isOwner ? '#0f172a' : 'white',
+                        color: 'white',
                       }}
                       title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
                       onClick={handleScheduleClick}
@@ -932,7 +932,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       {/* Inner content wrapper to handle overflow nicely */}
                       <div className="w-full h-full flex flex-col justify-start gap-1 overflow-hidden py-1.5">
                         {/* Row 1: Time & Notification status */}
-                        <div className={`text-[10px] font-medium leading-none flex items-center gap-1.5 flex-wrap ${isOwner ? 'text-slate-900' : 'text-white'}`}>
+                        <div className="text-[10px] font-medium leading-none flex items-center gap-1.5 flex-wrap text-white">
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                           {(() => {
                             if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
