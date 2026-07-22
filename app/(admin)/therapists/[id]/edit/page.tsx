@@ -765,20 +765,6 @@ export default function EditTherapistPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    スタッフメモ（社内専用） <span className="text-xs text-amber-600 font-bold">※シフト画面でセラピスト名にマウスオーバーした際に表示されます（寝坊、遅刻、引継ぎ注意事項など）</span>
-                  </label>
-                  <textarea
-                    name="staff_memo"
-                    value={profile.staff_memo}
-                    onChange={(e) => setProfile({ ...profile, staff_memo: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none font-medium text-sm"
-                    placeholder="例: 寝坊が多い、遅刻注意、コース制限など社内共有用のメモ"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     HP用アピールコメント（公開・Web予約用） <span className="text-xs text-slate-400 font-normal">※ホームページやWeb予約画面で公開される自己紹介文章です（HP一括取り込み対象）</span>
                   </label>
                   <textarea
@@ -788,6 +774,20 @@ export default function EditTherapistPage() {
                     rows={3}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none text-sm"
                     placeholder="ホームページ掲載用のアピールコメント"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    スタッフメモ（社内専用） <span className="text-xs text-amber-600 font-bold">※シフト画面でセラピスト名にマウスオーバーした際に表示されます（寝坊、遅刻、引継ぎ注意事項など）</span>
+                  </label>
+                  <textarea
+                    name="staff_memo"
+                    value={profile.staff_memo}
+                    onChange={(e) => setProfile({ ...profile, staff_memo: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none font-medium text-sm"
+                    placeholder="例: 寝坊が多い、遅刻注意、コース制限など社内共有用のメモ"
                   />
                 </div>
 
