@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: any = {
   serverExternalPackages: ['playwright', 'playwright-core', '@sparticuz/chromium'],
+  outputFileTracingIncludes: {
+    '/api/**/*': [
+      './node_modules/playwright-core/browsers.json',
+      './node_modules/@sparticuz/chromium/bin/**/*',
+    ],
+  },
   images: {
     remotePatterns: [
       {
@@ -10,14 +16,6 @@ const nextConfig: any = {
         pathname: '/**',
       },
     ],
-  },
-  experimental: {
-    outputFileTracingIncludes: {
-      '/api/**/*': [
-        './node_modules/playwright-core/browsers.json',
-        './node_modules/@sparticuz/chromium/bin/**/*',
-      ],
-    },
   },
 };
 

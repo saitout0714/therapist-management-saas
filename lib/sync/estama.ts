@@ -360,7 +360,7 @@ export async function syncShiftsToEstama(
                 if (selects.length >= 2) {
                   if (colData.shift) {
                     const formatEstamaTime = (dbTime: string) => {
-                      if (!dbTime) return { val24: '', valNorm: '' };
+                      if (!dbTime) return { val24: '', val24flat: '', valNorm: '', valNormflat: '' };
                       const [hStr, mStr] = dbTime.split(':');
                       let h = parseInt(hStr, 10);
                       const hNorm = h;
