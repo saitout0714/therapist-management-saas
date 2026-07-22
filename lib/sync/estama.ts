@@ -357,14 +357,47 @@ export async function fetchTherapistsFromEstama(
     const scheduleUrl = `https://estama.jp/admin/schedule/${dateStr}/`;
     await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
 
-    // テーブル行やリスト要素からセラピスト情報を抽出
-    const therapists = await page.$$eval('tr.tr-admin-linkcheck, tr[data-girl-id], .therapist-item, table tbody tr', (rows: any[]) => {
-      return rows.map((tr: any) => {
-        const id = tr.getAttribute('data-girl-id') || tr.querySelector('input[name*="id"]')?.value || tr.querySelector('a')?.getAttribute('href')?.match(/\d+/)?.[0] || '';
-        const nameSpan = tr.querySelector('td:nth-child(2) span') || tr.querySelector('.name') || tr.querySelector('td:nth-child(2)');
-        const name = nameSpan ? nameSpan.textContent?.trim() || '' : '';
-        return { id, name };
-      }).filter((t: any) => t.id && t.name);
+    // ページ全体のリンクやセレクトボックスからセラピスト情報（IDと名前）を柔軟に抽出
+    const therapists = await page.evaluate(() => {
+      const list: { id: string; name: string }[] = [];
+      const seen = new Set<string>();
+
+      // 1. /schedule/ID/ 形式のリンクから抽出
+      const links = document.querySelectorAll('a[href*="/schedule/"]');
+      links.forEach(a => {
+        const href = a.getAttribute('href') || '';
+        const match = href.match(/\/schedule\/(\d+)\/?/);
+        const name = a.textContent?.trim() || '';
+        if (match && match[1] && name && !seen.has(match[1])) {
+          seen.add(match[1]);
+          list.push({ id: match[1], name });
+        }
+      });
+
+      // 2. セレクトボックスのoptionから抽出
+      const options = document.querySelectorAll('select option');
+      options.forEach(opt => {
+        const val = (opt as HTMLOptionElement).value;
+        const name = opt.textContent?.trim() || '';
+        if (val && /^\d+$/.test(val) && name && !seen.has(val)) {
+          seen.add(val);
+          list.push({ id: val, name });
+        }
+      });
+
+      // 3. テーブル行から抽出
+      const rows = document.querySelectorAll('tr');
+      rows.forEach(tr => {
+        const id = tr.getAttribute('data-girl-id') || (tr as any).querySelector?.('input[name*="id"]')?.value || '';
+        const nameEl = tr.querySelector('td:nth-child(2), .name');
+        const name = nameEl?.textContent?.trim() || '';
+        if (id && name && !seen.has(id)) {
+          seen.add(id);
+          list.push({ id, name });
+        }
+      });
+
+      return list;
     });
 
     console.log(`[EstamaSync] Found ${therapists.length} therapists on Estama portal.`);
