@@ -222,11 +222,14 @@ export async function syncShiftsToEstama(
       await tPage.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
         const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
-          const [h, m] = t.split(':').map(Number);
+          let [h, m] = t.split(':').map(Number);
+          // エステ魂の表は11:00〜29:00なので、0〜5時は24〜29時として扱う
+          if (h < 6) h += 24;
           let mins = h * 60 + m;
-          // 基準開始時間(baseStart)がある場合、それより大幅に小さい時間（例えば04:00と13:00）は翌日とみなす
+          
           if (baseStart) {
-            const [sh] = baseStart.split(':').map(Number);
+            let [sh] = baseStart.split(':').map(Number);
+            if (sh < 6) sh += 24;
             if (mins < sh * 60 - 60) mins += 24 * 60;
           }
           return mins;
