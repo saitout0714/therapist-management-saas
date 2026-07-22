@@ -386,7 +386,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
                       >
                         {shift ? (
                           <div className="flex flex-col gap-0.5">
-                            <div>{shift.start_time.slice(0, 5)} - {dbTimeToDisplay(shift.end_time, shift.start_time)}</div>
+                            <div>{Number(shift.start_time.slice(0, 2)) < 6 ? `${Number(shift.start_time.slice(0, 2)) + 24}${shift.start_time.slice(2, 5)}` : shift.start_time.slice(0, 5)} - {dbTimeToDisplay(shift.end_time, shift.start_time)}</div>
                             {shift.room_id && (
                               <div className="text-[10px] text-indigo-400 font-bold truncate">
                                 {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム不明'}
