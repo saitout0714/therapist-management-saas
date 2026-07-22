@@ -356,10 +356,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
     >
       <div className="flex min-w-max">
         {/* Left Column (Therapists) */}
-        <div style={{ width: 'fit-content', minWidth: 'fit-content' }} className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)]">
+        <div className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[25vw] sm:w-fit max-w-[105px] sm:max-w-none min-w-[80px] sm:min-w-[150px]">
           {/* Header (Date) */}
           <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-3">
-            <div className="font-bold text-slate-800 text-sm tracking-tight">
+            <div className="font-bold text-slate-800 text-sm tracking-tight whitespace-nowrap">
               {date ? (() => {
                 const [year, month, day] = date.split('-').map(Number);
                 const localDate = new Date(year, month - 1, day);
@@ -413,55 +413,59 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   </div>
 
                   {/* テキスト情報 */}
-                  <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
+                  <div className="flex flex-col justify-center flex-1 min-w-0 px-1 py-1 sm:px-2 sm:py-1.5 gap-[2px] sm:gap-[4px]">
                     {/* 名前 */}
-                    <div className="flex items-center justify-between gap-1.5 min-w-0">
-                      <p
-                        className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
-                          ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
-                        onMouseEnter={(e) => {
-                          if (therapist.id === 'unassigned') return;
-                          if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
-                        }}
-                        onMouseLeave={() => {
-                          if (therapist.id === 'unassigned') return;
-                          therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
-                        }}
-                      >
-                        {therapist.isRookie && (
-                          <span className="text-[10px] sm:text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
-                        )}
-                        <span>{therapist.name}</span>
+                    <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between w-full min-w-0 gap-0.5 sm:gap-1.5">
+                      <div className="flex flex-col items-start sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 min-w-0 w-full">
+                        <p
+                          className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1 min-w-0 w-full
+                            ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                          onMouseEnter={(e) => {
+                            if (therapist.id === 'unassigned') return;
+                            if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
+                          }}
+                          onMouseLeave={() => {
+                            if (therapist.id === 'unassigned') return;
+                            therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                          }}
+                        >
+                          {therapist.isRookie && (
+                            <span className="text-[10px] sm:text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                          )}
+                          <span className="truncate">{therapist.name}</span>
+                          {therapist.linked_therapist_group_id && (
+                            <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                          )}
+                        </p>
                         {therapist.rankName && (
-                          <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                          <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
                             {therapist.rankName}
                           </span>
                         )}
-                        {therapist.linked_therapist_group_id && (
-                          <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
+                        {isOff && (
+                          <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">
+                            休み
+                          </span>
                         )}
-                      </p>
-                      {isOff && (
-                        <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
-                          休み
-                        </span>
-                      )}
-                      {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
-                        <span
-                          className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[120px]"
-                          title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
-                          onMouseEnter={e => {
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
-                          }}
-                          onMouseLeave={() => setMemoPopup(null)}
-                        >
-                          <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                          <span>引継: {therapist.unresolvedMemos![0].content}</span>
-                        </span>
-                      )}
+                        {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                          <span
+                            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[85px] sm:max-w-[120px] whitespace-nowrap"
+                            title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
+                            onMouseEnter={e => {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
+                            }}
+                            onMouseLeave={() => setMemoPopup(null)}
+                          >
+                            <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                            <span className="truncate">引継: {therapist.unresolvedMemos![0].content}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* 出勤時間 */}
@@ -478,37 +482,39 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     </p>
 
                     {/* ルーム + インターバル */}
-                    <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
-                      {therapist.room && (
-                        <span
-                          className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                          onMouseEnter={(e) => {
-                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setRoomMemoPopup({
-                              roomName: therapist.room ?? '',
-                              displayName: therapist.roomDisplayName ?? null,
-                              address: therapist.roomAddress ?? null,
-                              memo: therapist.roomMemo ?? '',
-                              mapUrl: therapist.roomMapUrl ?? null,
-                              x: rect.left,
-                              y: rect.bottom + 4
-                            });
-                          }}
-                          onMouseLeave={() => {
-                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                          }}
-                        >
-                          <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                          {therapist.room}
-                        </span>
-                      )}
-                      {therapist.id !== 'unassigned' && (
-                        <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
-                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
-                        </span>
-                      )}
-                    </div>
+                    {!isOff && (therapist.room || therapist.id !== 'unassigned') && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {therapist.room && (
+                          <span
+                            className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-0.5 cursor-default leading-none max-w-[60px] sm:max-w-none"
+                            onMouseEnter={(e) => {
+                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setRoomMemoPopup({
+                                roomName: therapist.room ?? '',
+                                displayName: therapist.roomDisplayName ?? null,
+                                address: therapist.roomAddress ?? null,
+                                memo: therapist.roomMemo ?? '',
+                                mapUrl: therapist.roomMapUrl ?? null,
+                                x: rect.left,
+                                y: rect.bottom + 4
+                              });
+                            }}
+                            onMouseLeave={() => {
+                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                            }}
+                          >
+                            <svg className="hidden sm:block w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            {therapist.room}
+                          </span>
+                        )}
+                        {therapist.id !== 'unassigned' && (
+                          <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
+                            {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* notes */}
                     {therapist.notes && (
@@ -993,15 +999,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         </div>
                         <div className="text-[10px] font-medium flex items-center gap-1 leading-none flex-wrap">
                           {schedule.courseDuration && (
-                            <span className="opacity-80">{schedule.courseDuration}分</span>
+                            <span className="opacity-80 whitespace-nowrap">{schedule.courseDuration}分</span>
                           )}
                           {schedule.extensionMinutes !== undefined && schedule.extensionMinutes > 0 && (
-                            <span className="bg-amber-500 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400">
+                            <span className="bg-amber-500 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400 whitespace-nowrap">
                               延長+{schedule.extensionMinutes}分
                             </span>
                           )}
                           {schedule.totalPrice !== undefined && (
-                            <span className="text-[11px] font-extrabold bg-amber-200/60 px-1 py-0 rounded">
+                            <span className="text-[11px] font-extrabold bg-amber-200/60 px-1 py-0 rounded whitespace-nowrap">
                               ¥{schedule.totalPrice.toLocaleString()}
                             </span>
                           )}
@@ -1090,23 +1096,23 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       {/* Row 3: Duration, Designation, Extension and Price */}
                       <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">
                         {schedule.courseDuration && (
-                          <span className="opacity-90">{schedule.courseDuration}分</span>
+                          <span className="opacity-90 whitespace-nowrap">{schedule.courseDuration}分</span>
                         )}
                         {schedule.extensionMinutes !== undefined && schedule.extensionMinutes > 0 && (
-                          <span className="bg-amber-500/90 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400/40">
+                          <span className="bg-amber-500/90 text-white px-1 rounded-sm text-[9px] font-bold border border-amber-400/40 whitespace-nowrap">
                             延長+{schedule.extensionMinutes}分
                           </span>
                         )}
                         {schedule.designationLabel && (
-                          <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10">{schedule.designationLabel}</span>
+                          <span className="bg-white/20 px-1 rounded-sm text-[9px] text-white border border-white/10 whitespace-nowrap">{schedule.designationLabel}</span>
                         )}
                         {isReservation && schedule.totalPrice !== undefined && (
-                          <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px]">
+                          <span className="text-[11px] font-extrabold text-white bg-black/15 px-1 py-0 rounded backdrop-blur-[1px] whitespace-nowrap">
                             ¥{schedule.totalPrice.toLocaleString()}
                           </span>
                         )}
                         {isReservation && schedule.discountAmount !== undefined && (
-                          <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20">
+                          <span className="text-[10px] font-bold text-rose-200 bg-rose-500/30 px-1 py-0 rounded border border-rose-300/20 whitespace-nowrap">
                             -¥{schedule.discountAmount.toLocaleString()}
                           </span>
                         )}
