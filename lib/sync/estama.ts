@@ -112,74 +112,135 @@ export async function syncShiftsToEstama(
       }
     }
 
-    // 期間内の日付を配列生成
-    const datesToSync: string[] = [];
-    const current = new Date(`${startDate}T00:00:00Z`);
-    const end = new Date(`${endDate}T00:00:00Z`);
-    let safetyCounter = 0;
-    while (current <= end && safetyCounter < 31) {
-      const yyyy = current.getUTCFullYear();
-      const mm = String(current.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(current.getUTCDate()).padStart(2, '0');
-      datesToSync.push(`${yyyy}-${mm}-${dd}`);
-      current.setUTCDate(current.getUTCDate() + 1);
-      safetyCounter++;
-    }
+    // 対象となるセラピストID（エステ魂側ID）のリストを作成
+    const targetTherapists = [...new Set(shifts.map(s => s.therapists?.estama_therapist_id).filter(id => !!id))] as string[];
 
-    console.log(`[EstamaSync] Syncing ${datesToSync.length} days for Estama...`);
+    console.log(`[EstamaSync] Syncing ${targetTherapists.length} therapists for Estama...`);
 
-    for (const currentDate of datesToSync) {
-      console.log(`[EstamaSync] Processing date ${currentDate}`);
+    for (const estamaId of targetTherapists) {
+      console.log(`[EstamaSync] Processing therapist ${estamaId}`);
+      
+      const therapistShifts = shifts.filter(s => s.therapists?.estama_therapist_id === estamaId);
+      // セラピストの内部IDを取得して予約を絞り込む
+      const internalTherapistId = therapistShifts[0]?.therapists?.id;
+      const therapistReservations = reservations ? reservations.filter(r => r.therapist_id === internalTherapistId) : [];
+
       // スケジュール設定ページヘの遷移
-      const scheduleUrl = `https://estama.jp/admin/schedule/${currentDate}/`;
-      await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+      const scheduleUrl = `https://estama.jp/admin/schedule/${estamaId}/`;
+      await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
-      const todayShifts = shifts.filter(s => s.date === currentDate);
+      // JSで動的にテーブルを解析して入力する
+      await page.evaluate(({ shifts, reservations }) => {
+        const timeToMins = (t) => {
+          if (!t) return 0;
+          const [h, m] = t.split(':').map(Number);
+          return h * 60 + m;
+        };
 
-      // ページ内のセラピストID要素・フォームを検索して出勤・案内状況をセット
-      const idInputs = await page.$$('input[name$="[id]"], tr[data-girl-id], input[name*="therapist_id"]');
-      for (const input of idInputs) {
-        const estamaId = (await input.getAttribute('data-girl-id')) || (await input.getAttribute('value')) || '';
-        if (!estamaId) continue;
+        const dateMap = {};
+        shifts.forEach(s => {
+          const d = new Date(s.date);
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mmdd = `${mm}/${dd}`;
+          dateMap[mmdd] = {
+            shift: s,
+            res: reservations.filter(r => r.date === s.date)
+          };
+        });
 
-        const shift = todayShifts.find(s => s.therapists?.estama_therapist_id === estamaId);
-        if (shift) {
-          const startTime = formatTime(shift.start_time);
-          const endTime = formatTime(shift.end_time);
-
-          // 1. 出勤時刻・退勤時刻の設定
-          await page.selectOption(`select[name="${estamaId}[start_work]"], select[name="start_${estamaId}"]`, startTime).catch(() => {});
-          await page.selectOption(`select[name="${estamaId}[end_work]"], select[name="end_${estamaId}"]`, endTime).catch(() => {});
-
-          // 2. 案内状況（status / guide_status）の設定
-          const statusVal = shift.guidance_status || shift.status || '1';
-          await page.selectOption(
-            `select[name="${estamaId}[status]"], select[name="${estamaId}[guide_status]"], select[name="status_${estamaId}"]`,
-            statusVal
-          ).catch(() => {});
-        } else {
-          // お休みの場合
-          const deleteCheckbox = await page.$(`input[type="checkbox"][name="${estamaId}[delete_flag]"], input[type="checkbox"][name="${estamaId}[off]"]`);
-          if (deleteCheckbox) {
-            await deleteCheckbox.check().catch(() => {});
-          } else {
-            await page.selectOption(`select[name="${estamaId}[start_work]"], select[name="start_${estamaId}"]`, '0').catch(() => {});
-            await page.selectOption(`select[name="${estamaId}[end_work]"], select[name="end_${estamaId}"]`, '0').catch(() => {});
+        const headers = document.querySelectorAll('th');
+        const cols = {};
+        headers.forEach(th => {
+          const match = th.textContent.match(/(\d{1,2})\/(\d{1,2})/);
+          if (match) {
+            const m = match[1].padStart(2, '0');
+            const d = match[2].padStart(2, '0');
+            const mmdd = `${m}/${d}`;
+            if (dateMap[mmdd]) {
+              cols[th.cellIndex] = dateMap[mmdd];
+            }
           }
-        }
-      }
+        });
 
-      // 保存ボタンの実行
-      const saveBtn = await page.$('form button[type="submit"], input[type="submit"][value*="保存"], button.btn-save');
+        const trs = document.querySelectorAll('tr');
+        trs.forEach(tr => {
+          const timeTh = tr.querySelector('th');
+          const timeMatch = timeTh ? timeTh.textContent.match(/(\d{1,2}):(\d{2})/) : null;
+          
+          if (timeMatch) {
+            // 30分枠の行
+            const rowMins = parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
+            
+            Array.from(tr.cells).forEach(cell => {
+              const colData = cols[cell.cellIndex];
+              if (colData && colData.shift) {
+                const select = cell.querySelector('select');
+                if (select) {
+                  let status = '○';
+                  const sStart = timeToMins(colData.shift.start_time);
+                  const sEnd = timeToMins(colData.shift.end_time);
+                  
+                  if (rowMins >= sStart && rowMins < sEnd) {
+                    // 出勤時間内：予約チェック
+                    const isReserved = colData.res.some(r => {
+                      const rStart = timeToMins(r.start_time);
+                      const rEnd = timeToMins(r.end_time);
+                      return rowMins < rEnd && (rowMins + 30) > rStart;
+                    });
+                    status = isReserved ? '×' : '○';
+                  } else {
+                    // 出勤時間外
+                    status = '×';
+                  }
+
+                  // 選択肢から該当するテキストを探してセット
+                  for (const opt of Array.from(select.options)) {
+                    if (opt.text.includes(status)) {
+                      select.value = opt.value;
+                      break;
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            // 時間枠以外の行（出退勤時刻など）
+            Array.from(tr.cells).forEach(cell => {
+              const colData = cols[cell.cellIndex];
+              if (colData && colData.shift) {
+                const selects = cell.querySelectorAll('select');
+                // 最低2つあれば出勤・退勤とみなす
+                if (selects.length >= 2) {
+                  const sStart = colData.shift.start_time.substring(0, 5); // "13:00"
+                  const sEnd = colData.shift.end_time.substring(0, 5);
+                  
+                  [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
+                    for (const opt of Array.from(sel.options)) {
+                      if (opt.text.includes(val) || opt.value.includes(val)) {
+                        sel.value = opt.value;
+                        break;
+                      }
+                    }
+                  });
+                }
+              }
+            });
+          }
+        });
+      }, { shifts: therapistShifts, reservations: therapistReservations });
+
+      // 保存ボタンの実行（"出勤情報を保存する" などのボタン）
+      const saveBtn = await page.$('form button[type="submit"], input[type="submit"][value*="保存"], button.btn-save, button.btn-primary');
       if (saveBtn) {
         await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {}),
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
           saveBtn.click()
         ]);
       }
     }
 
-    return { success: true, message: 'エステ魂への出勤情報・案内状況の同期が完了しました。' };
+    return { success: true, message: 'エステ魂への出勤情報・予約状況(×)の同期が完了しました。' };
   } catch (error: any) {
     const pageTitle = page ? await page.title().catch(() => 'unknown') : 'unknown';
     const pageUrl = page ? page.url() : 'unknown';

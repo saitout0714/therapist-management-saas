@@ -61,14 +61,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'シフト情報の取得に失敗しました' }, { status: 500 });
     }
 
-    // 3. Playwrightスクリプトを実行して同期
+    // 3. 予約情報を取得
+    const { data: reservations, error: reservationsError } = await supabase
+      .from('reservations')
+      .select(`
+        id,
+        therapist_id,
+        start_time,
+        end_time,
+        date
+      `)
+      .eq('shop_id', shopId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .neq('status', 'cancelled'); // キャンセル以外の予約を取得
+
+    if (reservationsError) {
+      console.warn('予約情報の取得に失敗しました:', reservationsError);
+    }
+
+    // 4. Playwrightスクリプトを実行して同期
     const result = await syncShiftsToEstama(
       shopUrl,
       shop.estama_login_id,
       shop.estama_password,
       startDate,
       endDate,
-      shifts || []
+      shifts || [],
+      reservations || []
     );
 
     if (!result.success) {
