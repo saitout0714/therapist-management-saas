@@ -96,11 +96,15 @@ export async function syncShiftsToEstama(
 
       const submitButton = await page.$('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post');
       if (submitButton) {
-        await submitButton.click();
-        await page.waitForURL((url: any) => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          submitButton.click()
+        ]);
       } else {
-        await page.keyboard.press('Enter');
-        await page.waitForURL((url: any) => !url.toString().includes('/login'), { timeout: 15000 }).catch(() => {});
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          page.keyboard.press('Enter')
+        ]);
       }
     }
 
