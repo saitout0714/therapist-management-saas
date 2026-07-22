@@ -57,19 +57,14 @@ const displayToDbTime = (t: string): string => {
   return `${String(actualH).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
 }
 
-/**
- * DB時刻を表示用に変換。終了時刻が開始時刻以下なら +24h して 24:xx 形式にする。
- * @param dbTime  DB の end_time (HH:MM:SS)
- * @param refDbTime DB の start_time (HH:MM:SS)
- */
-const dbTimeToDisplay = (dbTime: string, refDbTime: string): string => {
-  const base = dbTime.slice(0, 5)
-  const ref = refDbTime.slice(0, 5)
-  if (toMinutes(base) <= toMinutes(ref)) {
-    const [h, m] = base.split(':').map(Number)
+/** DBの時刻 (HH:MM:SS) を表示用 (HH:MM) に変換。6:00未満は翌日扱いとして +24 する */
+const dbToDisplay = (dbTime: string): string => {
+  if (!dbTime) return ''
+  const [h, m] = dbTime.slice(0, 5).split(':').map(Number)
+  if (h < 6) {
     return `${String(h + 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   }
-  return base
+  return dbTime.slice(0, 5)
 }
 
 
@@ -185,8 +180,8 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     setSelectedTherapistId(therapistId)
     setSelectedDate(date)
     setRoomId(existing?.room_id || '')
-    setStartTime(existing?.start_time.slice(0, 5) || '10:00')
-    setEndTime(existing ? dbTimeToDisplay(existing.end_time, existing.start_time) : '18:00')
+    setStartTime(existing ? dbToDisplay(existing.start_time) : '10:00')
+    setEndTime(existing ? dbToDisplay(existing.end_time) : '18:00')
     setError('')
     setModalOpen(true)
   }
@@ -386,7 +381,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
                       >
                         {shift ? (
                           <div className="flex flex-col gap-0.5">
-                            <div>{Number(shift.start_time.slice(0, 2)) < 6 ? `${Number(shift.start_time.slice(0, 2)) + 24}${shift.start_time.slice(2, 5)}` : shift.start_time.slice(0, 5)} - {dbTimeToDisplay(shift.end_time, shift.start_time)}</div>
+                            <div>{dbToDisplay(shift.start_time)} - {dbToDisplay(shift.end_time)}</div>
                             {shift.room_id && (
                               <div className="text-[10px] text-indigo-400 font-bold truncate">
                                 {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム不明'}
