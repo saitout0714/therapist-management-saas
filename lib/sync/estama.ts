@@ -309,7 +309,7 @@ export async function syncShiftsToEstama(
                     const sStart = timeToMins(colData.shift.start_time, colData.shift.start_time);
                     const sEnd = timeToMins(colData.shift.end_time, colData.shift.start_time);
                     
-                    if (rowMins >= sStart && rowMins <= sEnd) {
+                    if (rowMins >= sStart && rowMins < sEnd) {
                       // 出勤時間内：予約チェック
                       const isReserved = colData.res.some((r: any) => {
                         const rStart = timeToMins(r.start_time, colData.shift.start_time);
