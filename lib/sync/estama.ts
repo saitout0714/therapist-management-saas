@@ -138,6 +138,10 @@ export async function syncShiftsToEstama(
           return h * 60 + m;
         };
 
+        const triggerChange = (el: HTMLSelectElement) => {
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
         const dateMap: { [key: string]: any } = {};
         shifts.forEach((s: any) => {
           const d = new Date(s.date);
@@ -178,7 +182,6 @@ export async function syncShiftsToEstama(
               if (colData && colData.shift) {
                 const select = cell.querySelector('select');
                 if (select) {
-                  let status = '○';
                   const sStart = timeToMins(colData.shift.start_time);
                   const sEnd = timeToMins(colData.shift.end_time);
                   
@@ -187,20 +190,30 @@ export async function syncShiftsToEstama(
                     const isReserved = colData.res.some((r: any) => {
                       const rStart = timeToMins(r.start_time);
                       const rEnd = timeToMins(r.end_time);
+                      // 30分枠と予約枠の重複判定
                       return rowMins < rEnd && (rowMins + 30) > rStart;
                     });
-                    status = isReserved ? '×' : '○';
-                  } else {
-                    // 出勤時間外
-                    status = '×';
-                  }
-
-                  // 選択肢から該当するテキストを探してセット
-                  for (const opt of Array.from(select.options)) {
-                    if (opt.text.includes(status)) {
-                      select.value = opt.value;
-                      break;
+                    
+                    const targetStatus = isReserved ? '×' : '○';
+                    
+                    for (const opt of Array.from(select.options)) {
+                      // 記号揺れや表記揺れを考慮
+                      const t = opt.text;
+                      if (
+                        t.includes(targetStatus) || 
+                        (targetStatus === '×' && (t.includes('x') || t.includes('✕') || t.includes('空きなし'))) ||
+                        (targetStatus === '○' && (t.includes('受付中') || t === '〇'))
+                      ) {
+                        if (select.value !== opt.value) {
+                          select.value = opt.value;
+                          triggerChange(select);
+                        }
+                        break;
+                      }
                     }
+                  } else {
+                    // 出勤時間外は基本触らない、あるいは「-」や「お休み」にする
+                    // 今回は既存のままにする
                   }
                 }
               }
@@ -219,7 +232,10 @@ export async function syncShiftsToEstama(
                   [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
                     for (const opt of Array.from(sel.options)) {
                       if (opt.text.includes(val) || opt.value.includes(val)) {
-                        sel.value = opt.value;
+                        if (sel.value !== opt.value) {
+                          sel.value = opt.value;
+                          triggerChange(sel);
+                        }
                         break;
                       }
                     }
@@ -232,12 +248,16 @@ export async function syncShiftsToEstama(
       }, { shifts: therapistShifts, reservations: therapistReservations });
 
       // 保存ボタンの実行（"出勤情報を保存する" などのボタン）
-      const saveBtn = await page.$('form button[type="submit"], input[type="submit"][value*="保存"], button.btn-save, button.btn-primary');
+      const saveBtn = await page.$('button:has-text("保存"), input[value*="保存"], a:has-text("保存"), .btn-save, .btn-primary, form button[type="submit"]');
       if (saveBtn) {
         await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
           saveBtn.click()
         ]);
+        // 非同期保存（AJAX）の可能性も考慮して少し待機
+        await page.waitForTimeout(2000);
+      } else {
+        console.warn(`[EstamaSync] 保存ボタンが見つかりませんでした (therapist: ${estamaId})`);
       }
     }
 
