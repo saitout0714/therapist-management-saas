@@ -95,14 +95,15 @@ export async function GET(req: Request) {
 
         // メンズエステランキングの同期
         if (shop.esthe_ranking_login_id && shop.esthe_ranking_password) {
+          const erShopUrl = shop.esthe_ranking_shop_url || 'https://es-ranking.jp/agency/login/';
           try {
             estheRankingResult = await syncShiftsToEstheRanking(
+              erShopUrl,
               shop.esthe_ranking_login_id,
               shop.esthe_ranking_password,
               startDate,
               endDate,
-              shifts || [],
-              reservations || []
+              shifts || []
             );
           } catch (e: any) {
             console.error(`Daily EstheRanking Sync Error for shop ${shop.id}:`, e);
