@@ -171,8 +171,8 @@ export default function SyncPage() {
         current.setDate(current.getDate() + 1);
       }
 
-      // タイムアウトを防ぐため細かく分割
-      const chunkSize = 2;
+      // ブラウザの再起動を減らしメモリを節約するため、チャンクは最大の14にする（一括送信）
+      const chunkSize = 14;
       const chunks: {start: string, end: string}[] = [];
       for (let i = 0; i < dates.length; i += chunkSize) {
         const chunkDates = dates.slice(i, i + chunkSize);
