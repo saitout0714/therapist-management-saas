@@ -198,12 +198,13 @@ export async function syncShiftsToEstama(
                     const targetStatus = isReserved ? '×' : '○';
                     
                     for (const opt of Array.from(select.options)) {
-                      // 記号揺れや表記揺れを考慮
+                      // 記号揺れや表記揺れを考慮。エステ魂の実際のオプション値（1: ○, 2: ×）も考慮
                       const t = opt.text;
+                      const val = opt.value;
                       if (
                         t.includes(targetStatus) || 
-                        (targetStatus === '×' && (t.includes('x') || t.includes('✕') || t.includes('空きなし'))) ||
-                        (targetStatus === '○' && (t.includes('受付中') || t === '〇'))
+                        (targetStatus === '×' && (val === '2' || t.includes('x') || t.includes('✕') || t.includes('空きなし'))) ||
+                        (targetStatus === '○' && (val === '1' || t.includes('受付中') || t === '〇'))
                       ) {
                         if (select.value !== opt.value) {
                           select.value = opt.value;
@@ -248,8 +249,8 @@ export async function syncShiftsToEstama(
         });
       }, { shifts: therapistShifts, reservations: therapistReservations });
 
-      // 保存ボタンの実行（"出勤情報を保存する" などのボタン）
-      const saveBtn = await page.$('button:has-text("保存"), input[value*="保存"], a:has-text("保存"), .btn-save, .btn-primary, form button[type="submit"]');
+      // 保存ボタンの実行（IDで確実に指定）
+      const saveBtn = await page.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
       if (saveBtn) {
         await Promise.all([
           page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
