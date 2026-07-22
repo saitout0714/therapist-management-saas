@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 
 export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {

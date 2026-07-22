@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 
 export const maxDuration = 300; // Vercel Pro timeout (max 300s)
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
