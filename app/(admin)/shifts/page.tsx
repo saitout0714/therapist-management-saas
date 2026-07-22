@@ -71,6 +71,7 @@ interface TherapistRow {
   waist?: number | null;
   hip?: number | null;
   comment?: string | null;
+  staff_memo?: string | null;
   linked_therapist_group_id?: string | null;
   therapist_ranks?: { name: string } | { name: string }[] | null;
   is_rookie?: boolean;
@@ -657,7 +658,7 @@ function ShiftsContent() {
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, linked_therapist_group_id, therapist_ranks(name), is_rookie')
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, staff_memo, linked_therapist_group_id, therapist_ranks(name), is_rookie')
         .eq('shop_id', selectedShop.id)
         .order('name', { ascending: true });
 
@@ -743,7 +744,7 @@ function ShiftsContent() {
           bustCup: therapist.bust_cup ?? null,
           waist: therapist.waist ?? null,
           hip: therapist.hip ?? null,
-          staffMemo: therapist.comment ?? null,
+          staffMemo: therapist.staff_memo ?? null,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
           linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
 
 function resolveUrl(base: string, relative: string): string {
   try { return new URL(relative, base).toString() } catch { return '' }
@@ -27,6 +27,25 @@ function extractImageUrls(html: string, baseUrl: string): string[] {
     }
   }
   return [...urls].slice(0, 50)
+}
+
+function extractCommentFallback(html: string): string | null {
+  try {
+    const match = html.match(/(?:Comment|コメント|自己紹介|お店からのコメント|店長コメント)[\s\S]*?(<div[\s\S]*?<\/div>|<p[\s\S]*?<\/p>)/i)
+    if (match) {
+      const text = match[0]
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/^(?:Comment|コメント|自己紹介|お店からのコメント|店長コメント)\s*/i, '')
+        .trim()
+      if (text.length > 10) return text
+    }
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -65,10 +84,18 @@ export async function POST(req: NextRequest) {
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 8000)
+      .slice(0, 25000)
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ]
+    })
 
     const imageSection = imageUrls.length > 0
       ? `\nページ内の画像URL候補:\n${imageUrls.join('\n')}\n`
@@ -85,7 +112,7 @@ ${imageSection}
 - waist: ウエストcm（数値またはnull）
 - hip: ヒップcm（数値またはnull）
 - rank: ランク・コース・クラス表記（例: "A", "プレミアム", "姫" など、なければnull）
-- comment: 自己紹介・プロフィールコメント（100文字以内の日本語文字列、なければnull）
+- comment: 自己紹介・プロフィールコメント・店舗からの推薦文（単なる「ガチ恋注意」「つるすべ」等の短いキーワードタグ群ではなく、ページ下部にある「Comment / コメント」や店舗からの推薦文・自己紹介文などの詳細なコメント文章・メッセージ本文を優先して全文抽出してください。改行区切りの長文可、文字数制限なし、なければnull）
 - photo_url: プロフィール写真のURL（上記の画像URL候補の中から最も代表的な本人の写真を1つ、なければnull）
 - photo_urls: プロフィール写真のURL配列（上記の画像URL候補の中から、本人の写真と思われるものを全て（最大30個程度）配列に含めてください。なければ空の配列 []）
 例: {"age":22,"height":158,"bust":86,"bust_cup":"D","waist":58,"hip":84,"rank":"プレミアム","comment":"よろしくお願いします！","photo_url":"https://example.com/cast/img/abc.jpg","photo_urls":["https://example.com/cast/img/abc.jpg","https://example.com/cast/img/abc_2.jpg"]}
@@ -109,6 +136,8 @@ ${pageText}`
         const photoUrls = rawPhotoUrls
           .filter((u: any) => typeof u === 'string' && (imageUrls.includes(u) || u.startsWith('http'))) as string[]
 
+        const finalComment = data.comment && data.comment.length > 30 ? data.comment : (extractCommentFallback(html) || data.comment || null)
+
         return NextResponse.json({
           age: data.age ?? null,
           height: data.height ?? null,
@@ -117,7 +146,7 @@ ${pageText}`
           waist: data.waist ?? null,
           hip: data.hip ?? null,
           rank: data.rank ?? null,
-          comment: data.comment ?? null,
+          comment: finalComment,
           photo_url: photoUrl,
           photo_urls: photoUrls.length > 0 ? photoUrls : (photoUrl ? [photoUrl] : []),
         })
@@ -126,7 +155,8 @@ ${pageText}`
       // パース失敗はnullで返す
     }
 
-    return NextResponse.json({ age: null, height: null, bust: null, bust_cup: null, waist: null, hip: null, rank: null, comment: null, photo_url: null, photo_urls: [] })
+    const fallbackComment = extractCommentFallback(html)
+    return NextResponse.json({ age: null, height: null, bust: null, bust_cup: null, waist: null, hip: null, rank: null, comment: fallbackComment, photo_url: null, photo_urls: [] })
   } catch (e) {
     const msg = e instanceof Error ? e.message : '不明なエラー'
     return NextResponse.json({ error: `サーバーエラー: ${msg}` }, { status: 500 })
