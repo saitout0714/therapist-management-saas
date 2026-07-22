@@ -139,21 +139,20 @@ export async function syncShiftsToEstama(
       portalNameMap[norm] = pt.id;
     });
 
-    (shifts as any[]).forEach((s) => {
+    for (const s of (shifts as any[])) {
       if (s.therapists) {
         if (!s.therapists.estama_therapist_id && s.therapists.name) {
           const norm = (s.therapists.name as string).replace(/\s+/g, '').toLowerCase();
           if (portalNameMap[norm]) {
             s.therapists.estama_therapist_id = portalNameMap[norm];
-            supabaseAdmin
+            await supabaseAdmin
               .from('therapists')
               .update({ estama_therapist_id: portalNameMap[norm] })
-              .eq('id', s.therapists.id)
-              .then(() => {});
+              .eq('id', s.therapists.id);
           }
         }
       }
-    });
+    }
 
     // 対象となるセラピストID（エステ魂側ID）のリストを作成
     const targetTherapists = [...new Set(shifts.map(s => s.therapists?.estama_therapist_id).filter(id => !!id))] as string[];
@@ -190,22 +189,35 @@ export async function syncShiftsToEstama(
           el.dispatchEvent(new Event('change', { bubbles: true }));
         };
 
+        const parseJST = (dStr: any) => {
+          if (!dStr) return { mmdd: '', yyyymmdd: '' };
+          const s = String(dStr);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            const [y, m, d] = s.split('-');
+            return { mmdd: `${m}/${d}`, yyyymmdd: `${y}-${m}-${d}` };
+          }
+          const dt = new Date(s);
+          const jstMs = dt.getTime() + (dt.getTimezoneOffset() + 540) * 60000;
+          const jstDate = new Date(jstMs);
+          const mm = String(jstDate.getMonth() + 1).padStart(2, '0');
+          const dd = String(jstDate.getDate()).padStart(2, '0');
+          const yyyy = String(jstDate.getFullYear());
+          return { mmdd: `${mm}/${dd}`, yyyymmdd: `${yyyy}-${mm}-${dd}` };
+        };
+
         const dateMap: { [key: string]: any } = {};
         shifts.forEach((s: any) => {
-          const d = new Date(s.date);
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
-          const mmdd = `${mm}/${dd}`;
-          
-          const sDateStr = String(s.date).substring(0, 10);
-          dateMap[mmdd] = {
-            shift: s,
-            res: reservations.filter((r: any) => {
-              if (!r.date) return false;
-              const rDateStr = String(r.date).substring(0, 10);
-              return rDateStr === sDateStr;
-            })
-          };
+          const sJst = parseJST(s.date);
+          if (sJst.mmdd) {
+            dateMap[sJst.mmdd] = {
+              shift: s,
+              res: reservations.filter((r: any) => {
+                if (!r.date) return false;
+                const rJst = parseJST(r.date);
+                return rJst.yyyymmdd === sJst.yyyymmdd;
+              })
+            };
+          }
         });
 
         const headers = document.querySelectorAll('th');
