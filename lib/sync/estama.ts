@@ -133,10 +133,16 @@ export async function syncShiftsToEstama(
 
       // JSで動的にテーブルを解析して入力する
       await page.evaluate(({ shifts, reservations }: { shifts: any[], reservations: any[] }) => {
-        const timeToMins = (t: string) => {
+        const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
           const [h, m] = t.split(':').map(Number);
-          return h * 60 + m;
+          let mins = h * 60 + m;
+          // 基準開始時間(baseStart)がある場合、それより大幅に小さい時間（例えば04:00と13:00）は翌日とみなす
+          if (baseStart) {
+            const [sh] = baseStart.split(':').map(Number);
+            if (mins < sh * 60 - 60) mins += 24 * 60;
+          }
+          return mins;
         };
 
         const triggerChange = (el: HTMLSelectElement) => {
@@ -183,14 +189,14 @@ export async function syncShiftsToEstama(
               if (colData && colData.shift) {
                 const select = cell.querySelector('select');
                 if (select) {
-                  const sStart = timeToMins(colData.shift.start_time);
-                  const sEnd = timeToMins(colData.shift.end_time);
+                  const sStart = timeToMins(colData.shift.start_time, colData.shift.start_time);
+                  const sEnd = timeToMins(colData.shift.end_time, colData.shift.start_time);
                   
                   if (rowMins >= sStart && rowMins < sEnd) {
                     // 出勤時間内：予約チェック
                     const isReserved = colData.res.some((r: any) => {
-                      const rStart = timeToMins(r.start_time);
-                      const rEnd = timeToMins(r.end_time);
+                      const rStart = timeToMins(r.start_time, colData.shift.start_time);
+                      const rEnd = timeToMins(r.end_time, colData.shift.start_time);
                       // 30分枠と予約枠の重複判定
                       return rowMins < rEnd && (rowMins + 30) > rStart;
                     });
