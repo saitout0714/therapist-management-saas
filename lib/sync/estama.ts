@@ -1,4 +1,5 @@
 import { chromium as playwrightLocal } from 'playwright';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 const CHROMIUM_ARGS = [
   '--no-sandbox',
@@ -114,6 +115,57 @@ export async function syncShiftsToEstama(
       throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
+    // エステ魂の管理画面トップ/スケジュール画面からセラピストID一覧と名前を自動抽出して補完
+    const portalTherapists = await page.evaluate(() => {
+      const list: { id: string; name: string }[] = [];
+      const seen = new Set<string>();
+
+      const links = document.querySelectorAll('a[href*="/schedule/"]');
+      links.forEach(a => {
+        const href = a.getAttribute('href') || '';
+        const match = href.match(/\/schedule\/(\d+)\/?/);
+        const name = a.textContent?.trim() || '';
+        if (match && match[1] && name && !seen.has(match[1])) {
+          seen.add(match[1]);
+          list.push({ id: match[1], name });
+        }
+      });
+
+      const options = document.querySelectorAll('select option');
+      options.forEach(opt => {
+        const val = (opt as HTMLOptionElement).value;
+        const name = opt.textContent?.trim() || '';
+        if (val && /^\d+$/.test(val) && name && !seen.has(val)) {
+          seen.add(val);
+          list.push({ id: val, name });
+        }
+      });
+
+      return list;
+    });
+
+    const portalNameMap: { [key: string]: string } = {};
+    (portalTherapists as { id: string; name: string }[]).forEach((pt) => {
+      const norm = pt.name.replace(/\s+/g, '').toLowerCase();
+      portalNameMap[norm] = pt.id;
+    });
+
+    (shifts as any[]).forEach((s) => {
+      if (s.therapists) {
+        if (!s.therapists.estama_therapist_id && s.therapists.name) {
+          const norm = (s.therapists.name as string).replace(/\s+/g, '').toLowerCase();
+          if (portalNameMap[norm]) {
+            s.therapists.estama_therapist_id = portalNameMap[norm];
+            supabaseAdmin
+              .from('therapists')
+              .update({ estama_therapist_id: portalNameMap[norm] })
+              .eq('id', s.therapists.id)
+              .then(() => {});
+          }
+        }
+      }
+    });
+
     // 対象となるセラピストID（エステ魂側ID）のリストを作成
     const targetTherapists = [...new Set(shifts.map(s => s.therapists?.estama_therapist_id).filter(id => !!id))] as string[];
 
@@ -155,9 +207,15 @@ export async function syncShiftsToEstama(
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const dd = String(d.getDate()).padStart(2, '0');
           const mmdd = `${mm}/${dd}`;
+          
+          const sDateStr = String(s.date).substring(0, 10);
           dateMap[mmdd] = {
             shift: s,
-            res: reservations.filter((r: any) => r.date === s.date)
+            res: reservations.filter((r: any) => {
+              if (!r.date) return false;
+              const rDateStr = String(r.date).substring(0, 10);
+              return rDateStr === sDateStr;
+            })
           };
         });
 
