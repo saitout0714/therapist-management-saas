@@ -899,14 +899,20 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   // 4. Normal reservation
                   const isNotificationUnsent = isReservation && !schedule.isPending && (!schedule.customerNotified || !schedule.therapistNotified);
                   const isWeb = schedule.bookingMethod === 'web' || (!schedule.bookingMethod && (schedule.source === 'web' || schedule.receptionSource === 'client'));
+                  const isOwner = schedule.receptionSource === 'owner';
+                  const isHime = (schedule.isHime ?? false) || schedule.receptionSource === 'therapist';
 
                   const bgClasses = schedule.color
                     ? ''
                     : isReservation
                       ? isNotificationUnsent
                         ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border border-amber-300 shadow-md shadow-amber-500/20 animate-pulse-subtle'
-                        : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/30'
-                      : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500';
+                        : isOwner
+                          ? 'bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-500 border border-amber-200/90 shadow-md shadow-amber-500/20 text-slate-900'
+                          : isHime
+                            ? 'bg-gradient-to-br from-pink-500 via-rose-500 to-pink-600 border border-pink-300/80 shadow-md shadow-pink-500/20 text-white'
+                            : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/30 text-white'
+                      : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 text-white';
 
                   return (
                     <div
@@ -918,7 +924,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         width: `${width}px`,
                         height: `${height - 2}px`,
                         ...(schedule.color ? { backgroundColor: schedule.color, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: '1px solid rgba(0,0,0,0.1)' } : {}),
-                        color: 'white',
+                        color: isOwner ? '#0f172a' : 'white',
                       }}
                       title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
                       onClick={handleScheduleClick}
@@ -926,7 +932,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       {/* Inner content wrapper to handle overflow nicely */}
                       <div className="w-full h-full flex flex-col justify-start gap-1 overflow-hidden py-1.5">
                         {/* Row 1: Time & Notification status */}
-                        <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1.5 flex-wrap">
+                        <div className={`text-[10px] font-medium leading-none flex items-center gap-1.5 flex-wrap ${isOwner ? 'text-slate-900' : 'text-white'}`}>
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                           {(() => {
                             if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
