@@ -1,18 +1,35 @@
 import { chromium as playwrightLocal } from 'playwright';
 
+const CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-accelerated-2d-canvas',
+  '--no-first-run',
+  '--no-zygote',
+  '--single-process',
+  '--disable-gpu',
+];
+
 async function getBrowser() {
   const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
   if (isLocal) {
-    return await playwrightLocal.launch({ headless: true });
+    return await playwrightLocal.launch({
+      headless: true,
+      args: CHROMIUM_ARGS,
+    });
   } else {
     console.log('[EstamaSync] Dynamically importing playwright-core and @sparticuz/chromium...');
     const { chromium: playwrightCore } = await import('playwright-core');
     const chromium = (await import('@sparticuz/chromium')).default;
     
+    // Serverless環境用に設定最適化（メモリ節約等）
+    chromium.setGraphicsMode = false;
+
     console.log('[EstamaSync] Launching playwrightCore...');
     return await playwrightCore.launch({
-      args: chromium.args,
+      args: chromium.args, // @sparticuz/chromium の推奨設定をそのまま使う
       executablePath: await chromium.executablePath(),
       headless: true,
     });
@@ -48,11 +65,23 @@ export async function syncShiftsToEstama(
     });
     page = await context.newPage();
 
+    // 不要な画像・フォント・メディア等のリソース読み込みを遮断してメモリ消費と接続数を削減
+    await page.route('**/*', (route: any) => {
+      const type = route.request().resourceType();
+      if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+        return route.abort();
+      }
+      return route.continue();
+    });
+
     const targetShopUrl = shopUrl || 'https://estama.jp/login/?r=/admin/';
 
     // 1. ログイン画面アクセス
     console.log(`[EstamaSync] Navigating to ${targetShopUrl}`);
-    await page.goto(targetShopUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(targetShopUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async (e: any) => {
+      console.warn(`[EstamaSync] Primary URL failed, retrying https://estama.jp/login/ ...`, e);
+      await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    });
 
     // 2. ログイン処理
     const loginInput = await page.$('input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]');
@@ -123,8 +152,7 @@ export async function syncShiftsToEstama(
           await page.selectOption(`select[name="${estamaId}[end_work]"], select[name="end_${estamaId}"]`, endTime).catch(() => {});
 
           // 2. 案内状況（status / guide_status）の設定
-          // シフトデータ内に status / guidance_status の指定がある場合、またはデフォルト動作
-          const statusVal = shift.guidance_status || shift.status || '1'; // 例: 1=即ご案内, 2=時間指定, etc.
+          const statusVal = shift.guidance_status || shift.status || '1';
           await page.selectOption(
             `select[name="${estamaId}[status]"], select[name="${estamaId}[guide_status]"], select[name="status_${estamaId}"]`,
             statusVal
@@ -183,8 +211,20 @@ export async function fetchTherapistsFromEstama(
     });
     page = await context.newPage();
 
+    // 不要な画像・フォント・メディア等のリソース読み込みを遮断
+    await page.route('**/*', (route: any) => {
+      const type = route.request().resourceType();
+      if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+        return route.abort();
+      }
+      return route.continue();
+    });
+
     const targetShopUrl = shopUrl || 'https://estama.jp/login/?r=/admin/';
-    await page.goto(targetShopUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(targetShopUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async (e: any) => {
+      console.warn(`[EstamaSync] Primary URL failed, retrying https://estama.jp/login/ ...`, e);
+      await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    });
 
     const loginInput = await page.$('input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]');
     const passInput = await page.$('input[name="password"], input[type="password"]');

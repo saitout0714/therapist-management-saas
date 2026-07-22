@@ -44,20 +44,34 @@ export default function SyncPage() {
     async function fetchSettings() {
       if (!selectedShop) return
       setLoading(true)
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('shops')
         .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, estama_login_id, estama_password, estama_shop_url')
         .eq('id', selectedShop.id)
         .single()
       
+      if (error) {
+        // Fallback: If estama columns do not exist in DB yet, query esthe_ranking columns only
+        const fallback = await supabase
+          .from('shops')
+          .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+          .eq('id', selectedShop.id)
+          .single()
+        
+        if (!fallback.error && fallback.data) {
+          data = fallback.data as any
+          error = null
+        }
+      }
+
       if (!error && data) {
         setForm({
           esthe_ranking_login_id: data.esthe_ranking_login_id || '',
           esthe_ranking_password: data.esthe_ranking_password || '',
           esthe_ranking_shop_url: data.esthe_ranking_shop_url || '',
-          estama_login_id: data.estama_login_id || '',
-          estama_password: data.estama_password || '',
-          estama_shop_url: data.estama_shop_url || 'https://estama.jp/login/?r=/admin/',
+          estama_login_id: (data as any).estama_login_id || '',
+          estama_password: (data as any).estama_password || '',
+          estama_shop_url: (data as any).estama_shop_url || 'https://estama.jp/login/?r=/admin/',
         })
       }
       setLoading(false)
@@ -90,7 +104,12 @@ export default function SyncPage() {
       .eq('id', selectedShop.id)
 
     if (error) {
-      alert('設定の保存に失敗しました')
+      console.error('Save config error:', error)
+      if (error.message?.includes('estama') || error.code === '42703') {
+        alert('設定の保存に失敗しました。\nSupabaseデータベースにエステ魂用のカラムが追加されていません。SQL Editorで add-estama-sync.sql を実行してください。')
+      } else {
+        alert(`設定の保存に失敗しました: ${error.message || '通信エラー'}`)
+      }
     } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)

@@ -84,8 +84,12 @@ export async function POST(req: Request) {
       }
     }
 
+    const msg = matchedCount > 0
+      ? `エステ魂のセラピスト${portalTherapists.length}人中、${matchedCount}人のセラピストIDを新しく自動設定しました！`
+      : `エステ魂から${portalTherapists.length}人のセラピストを取得しました。既に全員の連携IDが設定済みであるか、名前が一致する未設定のセラピストがいなかったため、更新対象は0件でした。`;
+
     return NextResponse.json({ 
-      message: `${portalTherapists.length}人中、${matchedCount}人のセラピストIDを自動設定しました！`,
+      message: msg,
       matchedCount,
       totalPortalCount: portalTherapists.length
     });
