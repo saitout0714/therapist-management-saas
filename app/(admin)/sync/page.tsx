@@ -171,7 +171,8 @@ export default function SyncPage() {
         current.setDate(current.getDate() + 1);
       }
 
-      const chunkSize = 7;
+      // タイムアウトを防ぐため細かく分割
+      const chunkSize = 2;
       const chunks: {start: string, end: string}[] = [];
       for (let i = 0; i < dates.length; i += chunkSize) {
         const chunkDates = dates.slice(i, i + chunkSize);
