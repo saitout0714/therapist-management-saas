@@ -4,5 +4,15 @@
       "memory": 3008,
       "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/sync-urgent",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-daily",
+      "schedule": "0 2,14 * * *"
+    }
+  ]
 }
