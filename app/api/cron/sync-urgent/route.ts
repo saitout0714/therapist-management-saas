@@ -69,13 +69,7 @@ export async function GET(req: Request) {
             therapist_id,
             start_time,
             end_time,
-            date,
-            therapists!inner (
-              id,
-              name,
-              estama_therapist_id,
-              esthe_ranking_therapist_id
-            )
+            date
           `)
           .eq('shop_id', shop.id)
           .gte('date', startDate)
