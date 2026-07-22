@@ -360,21 +360,35 @@ export async function syncShiftsToEstama(
                 if (selects.length >= 2) {
                   if (colData.shift) {
                     const formatEstamaTime = (dbTime: string) => {
-                      if (!dbTime) return '';
+                      if (!dbTime) return { val24: '', valNorm: '' };
                       const [hStr, mStr] = dbTime.split(':');
                       let h = parseInt(hStr, 10);
-                      if (h < 6) h += 24;
-                      return `${h}:${mStr}`;
+                      const hNorm = h;
+                      const h24 = h < 6 ? h + 24 : h;
+                      return {
+                        val24: `${h24}:${mStr}`,          // "29:00"
+                        val24flat: `${h24}${mStr}`,       // "2900"
+                        valNorm: `${String(hNorm).padStart(2, '0')}:${mStr}`, // "05:00"
+                        valNormflat: `${String(hNorm).padStart(2, '0')}${mStr}` // "0500"
+                      };
                     };
                     const sStart = formatEstamaTime(colData.shift.start_time);
                     const sEnd = formatEstamaTime(colData.shift.end_time);
                     
-                    [ {sel: selects[0], val: sStart}, {sel: selects[1], val: sEnd} ].forEach(({sel, val}) => {
+                    [ {sel: selects[0], vals: sStart}, {sel: selects[1], vals: sEnd} ].forEach(({sel, vals}) => {
+                      if (!vals.val24) return;
                       for (const opt of Array.from(sel.options)) {
-                        if (opt.text.includes(val) || opt.value.includes(val)) {
+                        const t = opt.text;
+                        const v = opt.value;
+                        if (
+                          t.includes(vals.val24) || v.includes(vals.val24) ||
+                          t.includes(vals.val24flat) || v.includes(vals.val24flat) ||
+                          t.includes(vals.valNorm) || v.includes(vals.valNorm) ||
+                          t.includes(`翌${vals.valNorm}`) || t.includes(`翌 ${vals.valNorm}`)
+                        ) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;
-                            
+                            triggerChange(sel);
                           }
                           break;
                         }
@@ -387,7 +401,7 @@ export async function syncShiftsToEstama(
                         if (opt.value === '' || opt.text.includes('出勤') || opt.text.includes('退勤') || opt.text.includes('未設定')) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;
-                            
+                            triggerChange(sel);
                           }
                           break;
                         }
