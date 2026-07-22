@@ -368,16 +368,29 @@ export async function syncShiftsToEstama(
                 if (selects.length >= 2) {
                   if (colData.shift) {
                     const formatEstamaTime = (dbTime: string) => {
-                      if (!dbTime) return { val24: '', val24flat: '', valNorm: '', valNormflat: '' };
+                      if (!dbTime) return { val24: '', val24flat: '', valNorm: '', valNormflat: '', valNormShort: '' };
                       const [hStr, mStr] = dbTime.split(':');
                       let h = parseInt(hStr, 10);
-                      const hNorm = h;
-                      const h24 = h < 6 ? h + 24 : h;
+                      
+                      let h24 = h;
+                      let hNorm = h;
+                      
+                      if (h >= 24) {
+                        hNorm = h - 24;
+                      } else if (h < 6) {
+                        h24 = h + 24;
+                      }
+                      
+                      const normStr = String(hNorm).padStart(2, '0');
+                      const normShortStr = String(hNorm);
+                      const h24Str = String(h24).padStart(2, '0');
+                      
                       return {
-                        val24: `${h24}:${mStr}`,          // "29:00"
-                        val24flat: `${h24}${mStr}`,       // "2900"
-                        valNorm: `${String(hNorm).padStart(2, '0')}:${mStr}`, // "05:00"
-                        valNormflat: `${String(hNorm).padStart(2, '0')}${mStr}` // "0500"
+                        val24: `${h24Str}:${mStr}`,          // "29:00"
+                        val24flat: `${h24Str}${mStr}`,       // "2900"
+                        valNorm: `${normStr}:${mStr}`,       // "05:00"
+                        valNormflat: `${normStr}${mStr}`,    // "0500"
+                        valNormShort: `${normShortStr}:${mStr}` // "5:00"
                       };
                     };
                     const sStart = formatEstamaTime(colData.shift.start_time);
@@ -386,13 +399,15 @@ export async function syncShiftsToEstama(
                     [ {sel: selects[0], vals: sStart}, {sel: selects[1], vals: sEnd} ].forEach(({sel, vals}) => {
                       if (!vals.val24) return;
                       for (const opt of Array.from(sel.options)) {
-                        const t = opt.text;
-                        const v = opt.value;
+                        const t = opt.text.replace(/\s+/g, '');
+                        const v = opt.value.replace(/\s+/g, '');
                         if (
-                          t.includes(vals.val24) || v.includes(vals.val24) ||
-                          t.includes(vals.val24flat) || v.includes(vals.val24flat) ||
-                          t.includes(vals.valNorm) || v.includes(vals.valNorm) ||
-                          t.includes(`翌${vals.valNorm}`) || t.includes(`翌 ${vals.valNorm}`)
+                          t === vals.val24 || v === vals.val24 ||
+                          t === vals.val24flat || v === vals.val24flat ||
+                          t === vals.valNorm || v === vals.valNorm ||
+                          t === vals.valNormShort || v === vals.valNormShort ||
+                          t === `翌${vals.valNorm}` || t === `翌${vals.valNormShort}` ||
+                          t === `翌日${vals.valNorm}` || t === `翌日${vals.valNormShort}`
                         ) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;

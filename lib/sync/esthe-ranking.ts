@@ -230,9 +230,10 @@ function formatTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '0';
   const match = timeStr.match(/^(\d{2}):(\d{2})/);
   if (match) {
-    // セレクトボックスに存在するオプション形式 (HH:MM または HH:MM(XX:XX) などだが valueは HH:MM)
-    // 00:00〜05:30の場合、オプションのvalueはそのまま00:00等になっている
-    return `${match[1]}:${match[2]}`;
+    let h = parseInt(match[1], 10);
+    if (h >= 24) h -= 24;
+    const hStr = String(h).padStart(2, '0');
+    return `${hStr}:${match[2]}`;
   }
   return '0';
 }
