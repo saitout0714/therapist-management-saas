@@ -51,7 +51,8 @@ export async function syncShiftsToEstama(
   password: string,
   startDate: string,
   endDate: string,
-  shifts: any[]
+  shifts: any[],
+  reservations: any[] = []
 ): Promise<SyncResult> {
   let browser: any;
   let page: any;
@@ -130,29 +131,29 @@ export async function syncShiftsToEstama(
       await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
       // JSで動的にテーブルを解析して入力する
-      await page.evaluate(({ shifts, reservations }) => {
-        const timeToMins = (t) => {
+      await page.evaluate(({ shifts, reservations }: { shifts: any[], reservations: any[] }) => {
+        const timeToMins = (t: string) => {
           if (!t) return 0;
           const [h, m] = t.split(':').map(Number);
           return h * 60 + m;
         };
 
-        const dateMap = {};
-        shifts.forEach(s => {
+        const dateMap: { [key: string]: any } = {};
+        shifts.forEach((s: any) => {
           const d = new Date(s.date);
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const dd = String(d.getDate()).padStart(2, '0');
           const mmdd = `${mm}/${dd}`;
           dateMap[mmdd] = {
             shift: s,
-            res: reservations.filter(r => r.date === s.date)
+            res: reservations.filter((r: any) => r.date === s.date)
           };
         });
 
         const headers = document.querySelectorAll('th');
-        const cols = {};
+        const cols: { [key: number]: any } = {};
         headers.forEach(th => {
-          const match = th.textContent.match(/(\d{1,2})\/(\d{1,2})/);
+          const match = th.textContent?.match(/(\d{1,2})\/(\d{1,2})/);
           if (match) {
             const m = match[1].padStart(2, '0');
             const d = match[2].padStart(2, '0');
@@ -166,7 +167,7 @@ export async function syncShiftsToEstama(
         const trs = document.querySelectorAll('tr');
         trs.forEach(tr => {
           const timeTh = tr.querySelector('th');
-          const timeMatch = timeTh ? timeTh.textContent.match(/(\d{1,2}):(\d{2})/) : null;
+          const timeMatch = timeTh ? timeTh.textContent?.match(/(\d{1,2}):(\d{2})/) : null;
           
           if (timeMatch) {
             // 30分枠の行
@@ -183,7 +184,7 @@ export async function syncShiftsToEstama(
                   
                   if (rowMins >= sStart && rowMins < sEnd) {
                     // 出勤時間内：予約チェック
-                    const isReserved = colData.res.some(r => {
+                    const isReserved = colData.res.some((r: any) => {
                       const rStart = timeToMins(r.start_time);
                       const rEnd = timeToMins(r.end_time);
                       return rowMins < rEnd && (rowMins + 30) > rStart;
