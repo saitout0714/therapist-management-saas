@@ -115,7 +115,10 @@ export async function syncShiftsToEstama(
       throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
-    // エステ魂の管理画面トップ/スケジュール画面からセラピストID一覧と名前を自動抽出して補完
+    // スケジュール一覧ページへ移動してセラピスト一覧を取得
+    await page.goto('https://estama.jp/admin/schedule/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+
+    // エステ魂のスケジュール画面からセラピストID一覧と名前を自動抽出して補完
     const portalTherapists = await page.evaluate(() => {
       const list: { id: string; name: string }[] = [];
       const seen = new Set<string>();
