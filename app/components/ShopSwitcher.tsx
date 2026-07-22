@@ -27,7 +27,7 @@ export default function ShopSwitcher() {
     }
   }, [isShopMenuOpen])
 
-  const getAvatarGradient = (id: string) => {
+  const getAvatarGradient = (id: string, name: string = '') => {
     const gradients = [
       'from-indigo-500 to-purple-500 text-white',
       'from-violet-500 to-fuchsia-500 text-white',
@@ -35,10 +35,14 @@ export default function ShopSwitcher() {
       'from-emerald-500 to-teal-500 text-white',
       'from-cyan-500 to-blue-500 text-white',
       'from-amber-500 to-orange-500 text-white',
+      'from-sky-500 to-indigo-500 text-white',
+      'from-rose-500 to-red-500 text-white',
     ]
-    let hash = 0
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash)
+    const str = id + name
+    let hash = 2166136261
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i)
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
     }
     const index = Math.abs(hash) % gradients.length
     return gradients[index]
@@ -98,7 +102,7 @@ export default function ShopSwitcher() {
   const renderShopButton = (shop: typeof selectedShop) => {
     if (!shop || !selectedShop) return null
     const isActive = shop.id === selectedShop.id
-    const gradient = getAvatarGradient(shop.id)
+    const gradient = getAvatarGradient(shop.id, shop.name)
     const initials = getInitials(shop)
 
     return (
@@ -171,7 +175,7 @@ export default function ShopSwitcher() {
             }`}
             title="店舗切り替え"
           >
-            <div className={`w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0 flex items-center justify-center rounded bg-gradient-to-br ${getAvatarGradient(selectedShop.id)} text-[7px] sm:text-[9px] font-bold shadow-sm`}>
+            <div className={`w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0 flex items-center justify-center rounded bg-gradient-to-br ${getAvatarGradient(selectedShop.id, selectedShop.name)} text-[7px] sm:text-[9px] font-bold shadow-sm`}>
               {getInitials(selectedShop)}
             </div>
             <span className="truncate max-w-[100px] sm:max-w-[160px]">
