@@ -35,7 +35,6 @@ export default function SyncPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [autoMatching, setAutoMatching] = useState(false)
   const [syncProgressText, setSyncProgressText] = useState('')
   const [isSyncing, setIsSyncing] = useState(false)
 
@@ -115,49 +114,6 @@ export default function SyncPage() {
       setTimeout(() => setSaved(false), 2500)
     }
     setSaving(false)
-  }
-
-  const handleAutoMatchTherapists = async () => {
-    if (!selectedShop) return
-
-    const endpoint = activeTab === 'esthe_ranking' ? '/api/sync/esthe-ranking-match' : '/api/sync/estama-match'
-    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'
-    const loginId = activeTab === 'esthe_ranking' ? form.esthe_ranking_login_id : form.estama_login_id
-    const password = activeTab === 'esthe_ranking' ? form.esthe_ranking_password : form.estama_password
-
-    if (!loginId || !password) {
-      alert(`先に${siteName}のログイン情報を入力して保存してください`);
-      return;
-    }
-    
-    if (!confirm(`${siteName}のセラピスト情報と「名前」で自動マッチングを行い、連携IDを設定します。よろしいですか？\n※既に設定済みのIDは上書きされません。\n※名前が完全に一致するセラピストのみ対象になります。`)) {
-      return;
-    }
-
-    setAutoMatching(true);
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopId: selectedShop.id })
-      });
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        throw new Error('サーバーからの応答が不正です。タイムアウトした可能性があります（処理は裏で続いている場合があります）。');
-      }
-      
-      if (!res.ok) {
-        throw new Error(data?.error || '自動マッチングに失敗しました');
-      }
-      
-      alert(data.message || '自動マッチングが完了しました');
-    } catch (err: any) {
-      alert(err.message || '自動マッチング中にエラーが発生しました');
-    } finally {
-      setAutoMatching(false);
-    }
   }
 
   const handleSyncShifts = async (isAll = false) => {
@@ -474,31 +430,6 @@ export default function SyncPage() {
               )}
             </div>
           </form>
-
-          {/* ID自動連携カード */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-800 mb-1">セラピストIDの自動連携</h2>
-              <p className="text-xs text-slate-500 mb-4">
-                ポータルサイトのセラピスト情報と、yoyaklのセラピストを「名前」で自動マッチングし、連携IDを設定します。<br />
-                新人セラピストを追加した際などに使用してください。
-              </p>
-              
-              <div className="bg-orange-50 border border-orange-100 text-orange-800 p-3 rounded-lg text-xs mb-4">
-                ※事前にアカウント設定を保存している必要があります。<br/>
-                ※名前が完全に一致するセラピストのみ対象になります。
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAutoMatchTherapists}
-                disabled={autoMatching || saving || !isCurrentTabConfigured}
-                className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
-              >
-                {autoMatching ? '連携処理中...' : 'セラピストIDを自動設定する'}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
