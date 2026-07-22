@@ -166,17 +166,36 @@ export async function syncShiftsToEstama(
 
     console.log(`[EstamaSync] Syncing ${targetTherapists.length} therapists for Estama...`);
 
-    for (const estamaId of targetTherapists) {
-      console.log(`[EstamaSync] Processing therapist ${estamaId}`);
-      
-      const therapistShifts = shifts.filter(s => s.therapists?.estama_therapist_id === estamaId);
-      // セラピストの内部IDを取得して予約を絞り込む
-      const internalTherapistId = therapistShifts[0]?.therapists?.id;
-      const therapistReservations = reservations ? reservations.filter(r => r.therapist_id === internalTherapistId) : [];
+    const chunkArray = (arr: any[], size: number) => {
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+      }
+      return chunks;
+    };
 
-      // スケジュール設定ページヘの遷移
-      const scheduleUrl = `https://estama.jp/admin/schedule/${estamaId}/`;
-      await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    const chunks = chunkArray(targetTherapists, 3);
+
+    for (const chunk of chunks) {
+      await Promise.all(chunk.map(async (estamaId) => {
+        const tPage = await context.newPage();
+        try {
+          await tPage.route('**/*', (route: any) => {
+            const type = route.request().resourceType();
+            if (['image', 'font', 'media', 'stylesheet'].includes(type)) {
+              return route.abort();
+            }
+            return route.continue();
+          });
+
+          console.log(`[EstamaSync] Processing therapist ${estamaId}`);
+          
+          const therapistShifts = shifts.filter(s => s.therapists?.estama_therapist_id === estamaId);
+          const internalTherapistId = therapistShifts[0]?.therapists?.id || activeTherapists?.find(t => t.estama_therapist_id === estamaId)?.id;
+          const therapistReservations = reservations ? reservations.filter(r => r.therapist_id === internalTherapistId) : [];
+
+          const scheduleUrl = `https://estama.jp/admin/schedule/${estamaId}/`;
+          await tPage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
       // startDate と endDate から同期対象の全ての日付の mmdd を生成する
       const targetDatesMmdd: string[] = [];
@@ -190,7 +209,7 @@ export async function syncShiftsToEstama(
       }
 
       // JSで動的にテーブルを解析して入力する
-      await page.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
+      await tPage.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
         const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
           const [h, m] = t.split(':').map(Number);
@@ -203,9 +222,7 @@ export async function syncShiftsToEstama(
           return mins;
         };
 
-        const triggerChange = (el: HTMLSelectElement) => {
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        };
+
 
         const parseJST = (dStr: any) => {
           if (!dStr) return { mmdd: '', yyyymmdd: '' };
@@ -301,7 +318,7 @@ export async function syncShiftsToEstama(
                       if (opt.value === '0' || opt.text.includes('─') || opt.text.includes('お休み') || opt.text.includes('未設定')) {
                         if (select.value !== opt.value) {
                           select.value = opt.value;
-                          triggerChange(select);
+                          
                         }
                         break;
                       }
@@ -318,7 +335,7 @@ export async function syncShiftsToEstama(
                       ) {
                         if (select.value !== opt.value) {
                           select.value = opt.value;
-                          triggerChange(select);
+                          
                         }
                         break;
                       }
@@ -344,7 +361,7 @@ export async function syncShiftsToEstama(
                         if (opt.text.includes(val) || opt.value.includes(val)) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;
-                            triggerChange(sel);
+                            
                           }
                           break;
                         }
@@ -357,7 +374,7 @@ export async function syncShiftsToEstama(
                         if (opt.value === '' || opt.text.includes('出勤') || opt.text.includes('退勤') || opt.text.includes('未設定')) {
                           if (sel.value !== opt.value) {
                             sel.value = opt.value;
-                            triggerChange(sel);
+                            
                           }
                           break;
                         }
@@ -372,17 +389,23 @@ export async function syncShiftsToEstama(
       }, { shifts: therapistShifts, reservations: therapistReservations, targetDatesMmdd });
 
       // 保存ボタンの実行（IDで確実に指定）
-      const saveBtn = await page.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
+      const saveBtn = await tPage.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
       if (saveBtn) {
         await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+          tPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
           saveBtn.click()
         ]);
         // 非同期保存（AJAX）の可能性も考慮して少し待機
-        await page.waitForTimeout(2000);
+        await tPage.waitForTimeout(2000);
       } else {
         console.warn(`[EstamaSync] 保存ボタンが見つかりませんでした (therapist: ${estamaId})`);
       }
+        } catch (e: any) {
+          console.error(`[EstamaSync] Error on therapist ${estamaId}:`, e);
+        } finally {
+          await tPage.close();
+        }
+      }));
     }
 
     return { success: true, message: 'エステ魂への出勤情報・予約状況(×)の同期が完了しました。' };
