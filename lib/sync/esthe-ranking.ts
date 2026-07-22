@@ -70,10 +70,10 @@ export async function syncShiftsToEstheRanking(
   try {
     console.log(`[EstheRankingSync] Starting sync from ${startDate} to ${endDate}`);
     
-    // リソースをブロックしてメモリ消費を抑える
+    // リソースをブロックしてメモリ消費を抑える（stylesheetはスクリプト・レイアウト破壊を防ぐためブロック対象外）
     await page.route('**/*', (route) => {
       const type = route.request().resourceType();
-      if (['image', 'media', 'font', 'stylesheet', 'websocket'].includes(type)) {
+      if (['image', 'media', 'font', 'websocket'].includes(type)) {
         route.abort();
       } else {
         route.continue();
@@ -121,7 +121,24 @@ export async function syncShiftsToEstheRanking(
       console.log(`[EstheRankingSync] Processing ${currentDate}`);
       
       const targetUrl = `https://www.esthe-ranking.jp/shop/schedule/${currentDate}/`;
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+      
+      // ページ移動のリトライ処理
+      let navigated = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          navigated = true;
+          break;
+        } catch (gotoErr: any) {
+          console.warn(`[EstheRankingSync] page.goto attempt ${attempt} failed for ${currentDate}: ${gotoErr?.message}`);
+          if (attempt === 1) {
+            await page.waitForTimeout(1000);
+          } else {
+            throw gotoErr;
+          }
+        }
+      }
+
       // フォームがレンダリングされるまで少し待機
       await page.waitForSelector(`form[action="/shop/schedule/${currentDate}/"]`, { timeout: 10000 }).catch(() => {});
 
@@ -188,6 +205,7 @@ export async function syncShiftsToEstheRanking(
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
         page.click('form button.btn-success[type="submit"]')
       ]);
+      await page.waitForTimeout(500);
     }
 
 
