@@ -418,7 +418,7 @@ export default function SyncPage() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">ログインメールアドレス / ID</label>
                   <input
                     type="text"
-                    placeholder="cocoro.rinse@gmail.com など"
+                    placeholder="ログインIDまたはメールアドレス"
                     value={form.estama_login_id}
                     onChange={(e) => setForm({ ...form, estama_login_id: e.target.value })}
                     className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
