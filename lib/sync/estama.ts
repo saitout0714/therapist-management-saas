@@ -224,6 +224,10 @@ export async function syncShiftsToEstama(
 
 
 
+                const triggerChange = (el: HTMLSelectElement) => {
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        
         const parseJST = (dStr: any) => {
           if (!dStr) return { mmdd: '', yyyymmdd: '' };
           const s = String(dStr);
