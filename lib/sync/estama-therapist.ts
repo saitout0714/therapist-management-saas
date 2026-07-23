@@ -58,26 +58,16 @@ export async function syncTherapistToEstama(
       await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
     });
     
-    const loginInput = await page.$('input[name="login_id"], input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]');
-    const passInput = await page.$('input[name="login_pass"], input[name="password"], input[type="password"]');
-
-    if (loginInput && passInput) {
-      await loginInput.fill(loginId);
-      await passInput.fill(password);
-
-      const submitButton = await page.$('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン"), input[value*="ログイン"]');
-      if (submitButton) {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-          submitButton.click()
-        ]);
-      } else {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-          page.keyboard.press('Enter')
-        ]);
-      }
-    } else {
+    try {
+      await page.locator('input[name="login_id"], input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]').first().fill(loginId, { timeout: 10000 });
+      await page.locator('input[name="login_pass"], input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
+      
+      const submitButton = page.locator('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン"), input[value*="ログイン"], a.send-post, a[type="submit"]').first();
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        submitButton.click({ timeout: 5000 }).catch(() => page.keyboard.press('Enter'))
+      ]);
+    } catch (e) {
       throw new Error('エステ魂のログイン入力項目が見つかりませんでした。');
     }
 

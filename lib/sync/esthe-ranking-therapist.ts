@@ -59,26 +59,16 @@ export async function syncTherapistToEstheRanking(
       await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
     });
     
-    const loginInput = await page.$('input[name="loginname"], input[name="username"], input[name="login_id"], input[type="text"]');
-    const passInput = await page.$('input[name="password"], input[type="password"]');
-
-    if (loginInput && passInput) {
-      await loginInput.fill(loginId);
-      await passInput.fill(password);
-
-      const submitButton = await page.$('form[action="/login/"] button[type="submit"], button[type="submit"], input[type="submit"], button:has-text("ログイン"), input[value*="ログイン"]');
-      if (submitButton) {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-          submitButton.click()
-        ]);
-      } else {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-          page.keyboard.press('Enter')
-        ]);
-      }
-    } else {
+    try {
+      await page.locator('input[name="loginname"], input[name="username"], input[name="login_id"], input[type="text"]').first().fill(loginId, { timeout: 10000 });
+      await page.locator('input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
+      
+      const submitButton = page.locator('form[action="/login/"] button[type="submit"], button[type="submit"], input[type="submit"], button:has-text("ログイン"), input[value*="ログイン"]').first();
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        submitButton.click({ timeout: 5000 }).catch(() => page.keyboard.press('Enter'))
+      ]);
+    } catch (e) {
       throw new Error('メンズエステランキングのログイン入力項目が見つかりませんでした。');
     }
 
