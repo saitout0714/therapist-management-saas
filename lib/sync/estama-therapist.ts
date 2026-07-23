@@ -152,12 +152,18 @@ export async function syncTherapistToEstama(
     }
 
     // 保存ボタンをクリック
-    const saveButton = await page.$('button[type="submit"], input[type="submit"], .save-btn, button:has-text("保存"), button:has-text("登録")');
-    if (saveButton) {
+    try {
+      const saveButton = page.locator('.save-btn, button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        saveButton.click()
+        saveButton.click({ force: true, timeout: 10000 }).catch(() => page.evaluate(() => {
+          const forms = Array.from(document.querySelectorAll('form'));
+          const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('add') || f.action.includes('edit')) || forms[forms.length - 1];
+          if (targetForm) targetForm.submit();
+        }))
       ]);
+    } catch (e) {
+      console.error('Failed to click save button:', e);
     }
     
     // 新規登録の場合、IDを取得するためにURLや一覧ページを確認する
