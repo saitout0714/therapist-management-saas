@@ -55,13 +55,29 @@ export async function syncTherapistToEstheRanking(
 
     // 1. Login
     await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await page.fill('input[name="loginname"]', loginId);
-    await page.fill('input[name="password"]', password);
     
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-      page.click('button:has-text("ログイン")')
-    ]);
+    const loginInput = await page.$('input[name="loginname"], input[name="username"], input[name="login_id"], input[type="text"]');
+    const passInput = await page.$('input[name="password"], input[type="password"]');
+
+    if (loginInput && passInput) {
+      await loginInput.fill(loginId);
+      await passInput.fill(password);
+
+      const submitButton = await page.$('form[action="/login/"] button[type="submit"], button[type="submit"], input[type="submit"], button:has-text("ログイン"), input[value*="ログイン"]');
+      if (submitButton) {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          submitButton.click()
+        ]);
+      } else {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          page.keyboard.press('Enter')
+        ]);
+      }
+    } else {
+      throw new Error('メンズエステランキングのログイン入力項目が見つかりませんでした。');
+    }
 
     const currentUrl = page.url();
     if (currentUrl.includes('/login')) {

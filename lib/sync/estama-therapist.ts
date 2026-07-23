@@ -54,21 +54,31 @@ export async function syncTherapistToEstama(
     const page = await context.newPage();
 
     // 1. Login
-    await page.goto('https://estama.jp/login/?r=/admin/');
-    await page.fill('input[name="login_id"]', loginId);
-    await page.fill('input[name="login_pass"]', password);
+    await page.goto('https://estama.jp/login/?r=/admin/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async () => {
+      await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    });
     
-    const submitButton = await page.$('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン")');
-    if (submitButton) {
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        submitButton.click()
-      ]);
+    const loginInput = await page.$('input[name="login_id"], input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]');
+    const passInput = await page.$('input[name="login_pass"], input[name="password"], input[type="password"]');
+
+    if (loginInput && passInput) {
+      await loginInput.fill(loginId);
+      await passInput.fill(password);
+
+      const submitButton = await page.$('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン"), input[value*="ログイン"]');
+      if (submitButton) {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          submitButton.click()
+        ]);
+      } else {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+          page.keyboard.press('Enter')
+        ]);
+      }
     } else {
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        page.keyboard.press('Enter')
-      ]);
+      throw new Error('エステ魂のログイン入力項目が見つかりませんでした。');
     }
 
     const currentUrl = page.url();
