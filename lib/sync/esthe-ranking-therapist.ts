@@ -54,7 +54,10 @@ export async function syncTherapistToEstheRanking(
     const page = await context.newPage();
 
     // 1. Login
-    await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    const targetLoginUrl = shopUrl || 'https://www.esthe-ranking.jp/login/';
+    await page.goto(targetLoginUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async () => {
+      await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    });
     
     const loginInput = await page.$('input[name="loginname"], input[name="username"], input[name="login_id"], input[type="text"]');
     const passInput = await page.$('input[name="password"], input[type="password"]');
@@ -79,11 +82,6 @@ export async function syncTherapistToEstheRanking(
       throw new Error('メンズエステランキングのログイン入力項目が見つかりませんでした。');
     }
 
-    const currentUrl = page.url();
-    if (currentUrl.includes('/login')) {
-      throw new Error('メンズエステランキングのログインに失敗しました。認証情報を確認してください。');
-    }
-
     // 2. Navigate to Edit / Create page
     let isNew = false;
     let editUrl = 'https://www.esthe-ranking.jp/shop/therapist/add/';
@@ -93,7 +91,11 @@ export async function syncTherapistToEstheRanking(
       isNew = true;
     }
 
-    await page.goto(editUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(editUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+
+    if (page.url().includes('/login')) {
+      throw new Error('メンズエステランキングのログインに失敗しました。認証情報を確認してください。');
+    }
     
     // 3. Fill the form
     // 名前

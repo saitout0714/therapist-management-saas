@@ -81,30 +81,20 @@ export async function syncTherapistToEstama(
       throw new Error('エステ魂のログイン入力項目が見つかりませんでした。');
     }
 
-    const currentUrl = page.url();
-    if (currentUrl.includes('/login')) {
-      throw new Error('エステ魂ログインに失敗しました。認証情報を確認してください。');
-    }
-
-    // 2. Navigate to Edit / Create page
+    // ログイン成否の確定チェック（キャスト管理画面へ遷移を試みる）
     let isNew = false;
-    let editUrl = 'https://estama.jp/admin/cast/add/'; // 汎用的な追加URL
+    let editUrl = 'https://estama.jp/admin/cast/add/';
     if (estamaTherapistId) {
       editUrl = `https://estama.jp/admin/cast_edit/${estamaTherapistId}/`;
     } else {
       isNew = true;
-      // 念のため一覧から「新規登録」ボタンのURLを探す
-      await page.goto('https://estama.jp/admin/cast/');
-      const addLink = await page.$('a:has-text("新規"), a:has-text("追加"), a[href*="add"], a[href*="cast_edit"]');
-      if (addLink) {
-        const href = await addLink.getAttribute('href');
-        if (href) {
-          editUrl = href.startsWith('http') ? href : `https://estama.jp${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-      }
     }
 
-    await page.goto(editUrl);
+    await page.goto(editUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    
+    if (page.url().includes('/login')) {
+      throw new Error('エステ魂ログインに失敗しました。認証情報を確認してください。');
+    }
     
     // 3. Fill the form
     // 名前 (よくあるname属性: name, cast_name, therapist_name, nick_name)
