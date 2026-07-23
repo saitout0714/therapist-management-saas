@@ -199,6 +199,24 @@ export async function syncTherapistToEstheRanking(
 
         await uploadDebugScreenshot(page, 'er_before_photo');
         let uploadedAny = false;
+        
+        // Delete existing photos first to ensure we can upload new ones and avoid stale photos
+        while (true) {
+          const formNames = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll("a.btn-danger")).map(a => {
+              const match = a.getAttribute("onclick")?.match(/document\.(post_[^.]+)\.submit/);
+              return match ? match[1] : null;
+            }).filter(Boolean) as string[];
+          });
+          
+          if (formNames.length === 0) break;
+          
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+            page.evaluate((name: string) => (document as any)[name].submit(), formNames[0])
+          ]);
+        }
+        
         for (let i = 0; i < Math.min(photoUrls.length, 3); i++) {
           const url = photoUrls[i];
           if (!url) continue;
