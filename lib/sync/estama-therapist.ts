@@ -161,7 +161,7 @@ export async function syncTherapistToEstama(
         if (!url) continue;
         const fileInput = await page.$(`#cast_icon_${i + 1}`);
         if (fileInput) {
-          const tmpImagePath = await downloadImageToTemp(url, `estama_img_${i}_`);
+          const tmpImagePath = await downloadImageToTemp(url, `estama_img_${i}_`, page);
           if (tmpImagePath) {
             await fileInput.setInputFiles(tmpImagePath);
             setTimeout(() => fs.unlink(tmpImagePath, () => {}), 10000);
