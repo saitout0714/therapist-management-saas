@@ -44,11 +44,28 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        const { data: photos } = await supabase
+          .from('therapist_photos')
+          .select('photo_url')
+          .eq('therapist_id', therapistId)
+          .order('display_order', { ascending: true });
+
+        const photoUrls = (photos && photos.length > 0)
+          ? photos.map((p: any) => p.photo_url)
+          : (therapist.photo_url ? [therapist.photo_url] : []);
+
+        const therapistWithPhotos = {
+          ...therapist,
+          photos: photos || [],
+          photo_urls: photoUrls,
+          photo_url: photoUrls[0] || null
+        };
+
         const result = await syncTherapistToEstheRanking(
           shop.esthe_ranking_shop_url || '',
           shop.esthe_ranking_login_id,
           shop.esthe_ranking_password,
-          therapist,
+          therapistWithPhotos,
           therapist.esthe_ranking_therapist_id
         );
 

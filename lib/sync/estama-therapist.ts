@@ -139,14 +139,18 @@ export async function syncTherapistToEstama(
     }
 
     // 写真のアップロード
-    if (therapist.photo_url) {
-      const fileInput = await page.$('input[type="file"]');
-      if (fileInput) {
-        const tmpImagePath = await downloadImageToTemp(therapist.photo_url, 'estama_');
-        if (tmpImagePath) {
-          await fileInput.setInputFiles(tmpImagePath);
-          // アップロード後にファイルを削除
-          setTimeout(() => fs.unlink(tmpImagePath, () => {}), 5000);
+    const photoUrls = therapist.photo_urls || (therapist.photos ? therapist.photos.map((p: any) => p.photo_url) : (therapist.photo_url ? [therapist.photo_url] : []));
+    if (photoUrls.length > 0) {
+      for (let i = 0; i < Math.min(photoUrls.length, 6); i++) {
+        const url = photoUrls[i];
+        if (!url) continue;
+        const fileInput = await page.$(`#cast_icon_${i + 1}`);
+        if (fileInput) {
+          const tmpImagePath = await downloadImageToTemp(url, `estama_img_${i}_`);
+          if (tmpImagePath) {
+            await fileInput.setInputFiles(tmpImagePath);
+            setTimeout(() => fs.unlink(tmpImagePath, () => {}), 10000);
+          }
         }
       }
     }

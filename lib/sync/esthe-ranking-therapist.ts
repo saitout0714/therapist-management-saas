@@ -138,44 +138,76 @@ export async function syncTherapistToEstheRanking(
       if (commentInput) await commentInput.fill(therapist.comment);
     }
 
-    // 写真のアップロード
-    if (therapist.photo_url) {
-      const fileInput = await page.$('input[type="file"]');
-      if (fileInput) {
-        const tmpImagePath = await downloadImageToTemp(therapist.photo_url, 'mens_');
-        if (tmpImagePath) {
-          await fileInput.setInputFiles(tmpImagePath);
-          setTimeout(() => fs.unlink(tmpImagePath, () => {}), 5000);
+    // 基本プロフィールの保存ボタンをクリック
+    try {
+      const saveButton = page.locator('button:has-text("この内容で保存"), button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        saveButton.click({ force: true, timeout: 5000 }).catch(() => page.evaluate(() => {
+          const forms = Array.from(document.querySelectorAll('form'));
+          const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('detail')) || forms[forms.length - 1];
+          if (targetForm) targetForm.submit();
+        }))
+      ]);
+    } catch (e) {
+      console.error('Failed to click save button:', e);
+    }
+
+    // 新規登録・更新後のID確定と写真アップロード
+    let newId = rankingTherapistId;
+    if (isNew) {
+      const afterUrl = page.url();
+      const match = afterUrl.match(/\/detail\/(\d+)/);
+      if (match && match[1]) {
+        newId = match[1];
+      } else {
+        await page.goto('https://www.esthe-ranking.jp/shop/image/girl/upload/all/').catch(() => {});
+        const firstLink = await page.$('a[href*="/upload/detail/"]');
+        if (firstLink) {
+          const href = await firstLink.getAttribute('href');
+          const m = href?.match(/\/detail\/(\d+)/);
+          if (m && m[1]) newId = m[1];
         }
       }
     }
 
-    // 保存ボタンをクリック
-    try {
-      const saveButton = page.locator('button:has-text("この内容で保存"), button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-      saveButton.click({ force: true, timeout: 5000 }).catch(() => page.evaluate(() => {
-        const forms = Array.from(document.querySelectorAll('form'));
-        const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('add') || f.action.includes('edit') || f.action.includes('upload')) || forms[forms.length - 1];
-        if (targetForm) targetForm.submit();
-      }))
-    ]);
-    } catch (e) {
-      console.error('Failed to click save button:', e);
-    }
-    
-    // 新規登録の場合、IDを取得するためにURLや一覧ページを確認する
-    let newId = rankingTherapistId;
-    if (isNew) {
-      // 一覧へ行ってIDを取得
-      await page.goto('https://www.esthe-ranking.jp/shop/therapist/', { waitUntil: 'domcontentloaded' });
-      // href="/shop/therapist/edit/12345/" のようなリンクを探す
-      const firstLink = await page.$('a[href*="/shop/therapist/edit/"]');
-      if (firstLink) {
-        const href = await firstLink.getAttribute('href');
-        const m = href?.match(/\/edit\/(\d+)/);
-        if (m && m[1]) newId = m[1];
+    // 写真のアップロード (detail/{id}/ ページで専用フォーム `form[action*="change_file"]` からアップロード)
+    const targetGirlId = newId || rankingTherapistId;
+    const photoUrls = therapist.photo_urls || (therapist.photos ? therapist.photos.map((p: any) => p.photo_url) : (therapist.photo_url ? [therapist.photo_url] : []));
+
+    if (targetGirlId && photoUrls.length > 0) {
+      try {
+        const photoDetailUrl = `https://www.esthe-ranking.jp/shop/image/girl/upload/detail/${targetGirlId}/`;
+        if (page.url() !== photoDetailUrl) {
+          await page.goto(photoDetailUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+        }
+
+        let uploadedAny = false;
+        for (let i = 0; i < Math.min(photoUrls.length, 3); i++) {
+          const url = photoUrls[i];
+          if (!url) continue;
+          const fileInput = await page.$(`input[name="file[${i + 1}]"]`);
+          if (fileInput) {
+            const tmpImagePath = await downloadImageToTemp(url, `er_img_${i}_`);
+            if (tmpImagePath) {
+              await fileInput.setInputFiles(tmpImagePath);
+              uploadedAny = true;
+              setTimeout(() => fs.unlink(tmpImagePath, () => {}), 10000);
+            }
+          }
+        }
+
+        if (uploadedAny) {
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+            page.evaluate(() => {
+              const photoForm = document.querySelector('form[action*="change_file"]') as HTMLFormElement | null;
+              if (photoForm) photoForm.submit();
+            })
+          ]);
+        }
+      } catch (e) {
+        console.error('Failed to upload photos to Esthe Ranking:', e);
       }
     }
 

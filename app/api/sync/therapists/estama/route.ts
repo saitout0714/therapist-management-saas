@@ -44,11 +44,28 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        const { data: photos } = await supabase
+          .from('therapist_photos')
+          .select('photo_url')
+          .eq('therapist_id', therapistId)
+          .order('display_order', { ascending: true });
+
+        const photoUrls = (photos && photos.length > 0)
+          ? photos.map((p: any) => p.photo_url)
+          : (therapist.photo_url ? [therapist.photo_url] : []);
+
+        const therapistWithPhotos = {
+          ...therapist,
+          photos: photos || [],
+          photo_urls: photoUrls,
+          photo_url: photoUrls[0] || null
+        };
+
         const result = await syncTherapistToEstama(
           'https://estama.jp/',
           shop.estama_login_id,
           shop.estama_password,
-          therapist,
+          therapistWithPhotos,
           therapist.estama_therapist_id
         );
 
