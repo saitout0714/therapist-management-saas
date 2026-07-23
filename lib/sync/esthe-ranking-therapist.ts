@@ -222,7 +222,7 @@ export async function syncTherapistToEstheRanking(
           if (!url) continue;
           const fileInput = await page.$(`input[name="file[${i + 1}]"]`);
           if (fileInput) {
-            const tmpImagePath = await downloadImageToTemp(url, `er_img_${i}_`);
+            const tmpImagePath = await downloadImageToTemp(url, `er_img_${i}_`, page);
             if (tmpImagePath) {
               await fileInput.setInputFiles(tmpImagePath);
               uploadedAny = true;
@@ -233,13 +233,25 @@ export async function syncTherapistToEstheRanking(
 
         if (uploadedAny) {
           await uploadDebugScreenshot(page, 'er_before_save');
-          await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
-            page.evaluate(() => {
-              const photoForm = document.querySelector('form[action*="change_file"]') as HTMLFormElement | null;
-              if (photoForm) photoForm.submit();
-            })
-          ]);
+          
+          // ER uses "画像アップロード" button to submit the form
+          const uploadBtn = await page.$('button:has-text("画像アップロード")');
+          if (uploadBtn) {
+            await Promise.all([
+              page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+              uploadBtn.click()
+            ]);
+          } else {
+            // Fallback just in case
+            const fallbackBtn = await page.$('button[type="submit"]');
+            if (fallbackBtn) {
+              await Promise.all([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+                fallbackBtn.click()
+              ]);
+            }
+          }
+          
           await uploadDebugScreenshot(page, 'er_after_save');
         }
       } catch (e) {
