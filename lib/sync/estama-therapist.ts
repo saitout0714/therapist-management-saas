@@ -1,6 +1,41 @@
-import { chromium, Page } from 'playwright';
+import { chromium as playwrightLocal, Page } from 'playwright';
 import { downloadImageToTemp } from './download-image';
 import fs from 'fs';
+
+const CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-accelerated-2d-canvas',
+  '--no-first-run',
+  '--no-zygote',
+  '--single-process',
+  '--disable-gpu'
+];
+
+async function getBrowser() {
+  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
+
+  if (isLocal) {
+    return await playwrightLocal.launch({
+      headless: true,
+      args: CHROMIUM_ARGS,
+    });
+  } else {
+    console.log('[EstamaTherapistSync] Dynamically importing playwright-core and @sparticuz/chromium...');
+    const { chromium: playwrightCore } = await import('playwright-core');
+    const chromium = (await import('@sparticuz/chromium')).default;
+    
+    chromium.setGraphicsMode = false;
+
+    console.log('[EstamaTherapistSync] Launching playwrightCore...');
+    return await playwrightCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+}
 
 export async function syncTherapistToEstama(
   shopUrl: string,
@@ -11,21 +46,7 @@ export async function syncTherapistToEstama(
 ): Promise<{ success: boolean; newId?: string; error?: string }> {
   let browser;
   try {
-    const CHROMIUM_ARGS = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ];
-    
-    browser = await chromium.launch({
-      headless: true,
-      args: process.env.NODE_ENV === 'production' ? CHROMIUM_ARGS : undefined,
-    });
+    browser = await getBrowser();
     
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
