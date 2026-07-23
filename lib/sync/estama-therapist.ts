@@ -59,7 +59,7 @@ export async function syncTherapistToEstama(
     });
     
     try {
-      await page.locator('input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]').first().fill(loginId, { timeout: 10000 });
+      await page.locator('input[name="mail"], input[name="loginname"], input[name="username"], input[type="email"], input[type="text"]').first().fill(loginId, { timeout: 10000 });
       await page.locator('input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
       
       const submitButton = page.locator('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post').first();
@@ -153,7 +153,7 @@ export async function syncTherapistToEstama(
 
     // 保存ボタンをクリック
     try {
-      const saveButton = page.locator('.save-btn, button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
+      const saveButton = page.locator('a.btn-default_submit, a:has-text("保存する"), a:has-text("保存"), .save-btn, button:has-text("保存"), button:has-text("登録")').first();
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
         saveButton.click({ force: true, timeout: 10000 }).catch(() => page.evaluate(() => {
