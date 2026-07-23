@@ -1,6 +1,19 @@
 import { chromium as playwrightLocal, Page } from 'playwright';
 import { downloadImageToTemp } from './download-image';
 import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+async function uploadDebugScreenshot(page: any, name: string) {
+  try {
+    const buffer = await page.screenshot({ type: 'jpeg', quality: 70, fullPage: true });
+    await supabase.storage.from('therapist-photos').upload(`debug/${name}_${Date.now()}.jpg`, buffer, { contentType: 'image/jpeg', upsert: true });
+  } catch (e) {
+    console.error('Screenshot failed:', e);
+  }
+}
 
 const CHROMIUM_ARGS = [
   '--no-sandbox',
@@ -60,6 +73,7 @@ export async function syncTherapistToEstheRanking(
     });
     
     try {
+      await uploadDebugScreenshot(page, 'er_after_login');
       await page.fill('input[name="loginname"]', loginId);
       await page.fill('input[name="password"]', password);
       
@@ -183,6 +197,7 @@ export async function syncTherapistToEstheRanking(
           await page.goto(photoDetailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         }
 
+        await uploadDebugScreenshot(page, 'er_before_photo');
         let uploadedAny = false;
         for (let i = 0; i < Math.min(photoUrls.length, 3); i++) {
           const url = photoUrls[i];
@@ -199,6 +214,7 @@ export async function syncTherapistToEstheRanking(
         }
 
         if (uploadedAny) {
+          await uploadDebugScreenshot(page, 'er_before_save');
           await Promise.all([
             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
             page.evaluate(() => {
@@ -206,6 +222,7 @@ export async function syncTherapistToEstheRanking(
               if (photoForm) photoForm.submit();
             })
           ]);
+          await uploadDebugScreenshot(page, 'er_after_save');
         }
       } catch (e) {
         console.error('Failed to upload photos to Esthe Ranking:', e);

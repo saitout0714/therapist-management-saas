@@ -1,6 +1,19 @@
 import { chromium as playwrightLocal, Page } from 'playwright';
 import { downloadImageToTemp } from './download-image';
 import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+async function uploadDebugScreenshot(page: any, name: string) {
+  try {
+    const buffer = await page.screenshot({ type: 'jpeg', quality: 70, fullPage: true });
+    await supabase.storage.from('therapist-photos').upload(`debug/${name}_${Date.now()}.jpg`, buffer, { contentType: 'image/jpeg', upsert: true });
+  } catch (e) {
+    console.error('Screenshot failed:', e);
+  }
+}
 
 const CHROMIUM_ARGS = [
   '--no-sandbox',
@@ -59,6 +72,7 @@ export async function syncTherapistToEstama(
     });
     
     try {
+      await uploadDebugScreenshot(page, 'estama_after_login');
       await page.locator('input[name="mail"], input[name="loginname"], input[name="username"], input[type="email"], input[type="text"]').first().fill(loginId, { timeout: 10000 });
       await page.locator('input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
       
@@ -139,6 +153,7 @@ export async function syncTherapistToEstama(
     }
 
     // 写真のアップロード
+    await uploadDebugScreenshot(page, 'estama_before_photo');
     const photoUrls = therapist.photo_urls || (therapist.photos ? therapist.photos.map((p: any) => p.photo_url) : (therapist.photo_url ? [therapist.photo_url] : []));
     if (photoUrls.length > 0) {
       for (let i = 0; i < Math.min(photoUrls.length, 6); i++) {
@@ -168,6 +183,7 @@ export async function syncTherapistToEstama(
 
     // 保存ボタンをクリック
     try {
+      await uploadDebugScreenshot(page, 'estama_before_save');
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
         page.evaluate(() => {
@@ -175,6 +191,7 @@ export async function syncTherapistToEstama(
           if (form) form.submit();
         })
       ]);
+      await uploadDebugScreenshot(page, 'estama_after_save');
     } catch (e) {
       console.error('Failed to click save button:', e);
     }
