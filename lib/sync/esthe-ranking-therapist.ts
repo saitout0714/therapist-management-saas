@@ -213,7 +213,7 @@ export async function syncTherapistToEstheRanking(
           
           await Promise.all([
             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
-            page.evaluate((name) => (document as any)[name].submit(), formNames[0])
+            page.evaluate(`document["${formNames[0]}"].submit()`)
           ]);
         }
         
