@@ -59,21 +59,21 @@ export async function syncTherapistToEstama(
     });
     
     try {
-      await page.locator('input[name="login_id"], input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]').first().fill(loginId, { timeout: 10000 });
-      await page.locator('input[name="login_pass"], input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
+      await page.locator('input[name="loginname"], input[name="username"], input[name="mail"], input[name="email"], input[type="text"], input[type="email"]').first().fill(loginId, { timeout: 10000 });
+      await page.locator('input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
       
-      const submitButton = page.locator('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン"), input[value*="ログイン"], a.send-post, a[type="submit"]').first();
+      const submitButton = page.locator('button[type="submit"], input[type="submit"], form button, .login-btn, a[type="submit"], a.send-post').first();
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        submitButton.click({ timeout: 5000 }).catch(() => page.keyboard.press('Enter'))
+        submitButton.click({ timeout: 5000 }).catch(() => page.locator('a.send-post').first().click())
       ]);
     } catch (e) {
       throw new Error('エステ魂のログイン入力項目が見つかりませんでした。');
     }
 
-    // ログイン成否の確定チェック（キャスト管理画面へ遷移を試みる）
+    // 2. Navigate to Edit / Create page
     let isNew = false;
-    let editUrl = 'https://estama.jp/admin/cast/add/';
+    let editUrl = 'https://estama.jp/admin/cast_edit/';
     if (estamaTherapistId) {
       editUrl = `https://estama.jp/admin/cast_edit/${estamaTherapistId}/`;
     } else {

@@ -63,10 +63,9 @@ export async function syncTherapistToEstheRanking(
       await page.locator('input[name="loginname"], input[name="username"], input[name="login_id"], input[type="text"]').first().fill(loginId, { timeout: 10000 });
       await page.locator('input[name="password"], input[type="password"]').first().fill(password, { timeout: 10000 });
       
-      const submitButton = page.locator('form[action="/login/"] button[type="submit"], button[type="submit"], input[type="submit"], button:has-text("ログイン"), input[value*="ログイン"]').first();
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        submitButton.click({ timeout: 5000 }).catch(() => page.keyboard.press('Enter'))
+        page.locator('input[name="password"], input[type="password"]').first().press('Enter')
       ]);
     } catch (e) {
       throw new Error('メンズエステランキングのログイン入力項目が見つかりませんでした。');
@@ -74,9 +73,9 @@ export async function syncTherapistToEstheRanking(
 
     // 2. Navigate to Edit / Create page
     let isNew = false;
-    let editUrl = 'https://www.esthe-ranking.jp/shop/therapist/add/';
+    let editUrl = 'https://www.esthe-ranking.jp/shop/image/girl/upload/detail/new/';
     if (rankingTherapistId) {
-      editUrl = `https://www.esthe-ranking.jp/shop/therapist/edit/${rankingTherapistId}/`;
+      editUrl = `https://www.esthe-ranking.jp/shop/image/girl/upload/detail/${rankingTherapistId}/`;
     } else {
       isNew = true;
     }
@@ -89,7 +88,7 @@ export async function syncTherapistToEstheRanking(
     
     // 3. Fill the form
     // 名前
-    const nameInput = await page.$('input[name="name"], input[name="nick_name"]');
+    const nameInput = await page.$('input[name="nickname"], input[name="name"], input[name="cast_name"]');
     if (nameInput) await nameInput.fill(therapist.name);
 
     // 年齢
@@ -153,15 +152,15 @@ export async function syncTherapistToEstheRanking(
 
     // 保存ボタンをクリック
     try {
-      const saveButton = page.locator('.btn-primary, button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        saveButton.click({ force: true, timeout: 10000 }).catch(() => page.evaluate(() => {
-          const forms = Array.from(document.querySelectorAll('form'));
-          const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('add') || f.action.includes('edit')) || forms[forms.length - 1];
-          if (targetForm) targetForm.submit();
-        }))
-      ]);
+      const saveButton = page.locator('button:has-text("この内容で保存"), button:has-text("保存"), button:has-text("登録"), button[type="submit"], input[type="submit"]').first();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+      saveButton.click({ force: true, timeout: 5000 }).catch(() => page.evaluate(() => {
+        const forms = Array.from(document.querySelectorAll('form'));
+        const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('add') || f.action.includes('edit') || f.action.includes('upload')) || forms[forms.length - 1];
+        if (targetForm) targetForm.submit();
+      }))
+    ]);
     } catch (e) {
       console.error('Failed to click save button:', e);
     }

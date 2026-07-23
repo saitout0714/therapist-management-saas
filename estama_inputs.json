@@ -1,0 +1,23 @@
+[
+  {
+    "tag": "INPUT",
+    "type": "text",
+    "name": "q",
+    "id": "",
+    "class": ""
+  },
+  {
+    "tag": "INPUT",
+    "type": "hidden",
+    "name": "ctk",
+    "id": "csrf_footer",
+    "class": ""
+  },
+  {
+    "tag": "INPUT",
+    "type": "hidden",
+    "name": "",
+    "id": "post_base",
+    "class": ""
+  }
+]
