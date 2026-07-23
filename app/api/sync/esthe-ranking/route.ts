@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
+import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
 export const dynamic = 'force-dynamic';
@@ -24,60 +26,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '一度に同期できるのは最大14日間までです' }, { status: 400 });
     }
 
-    // 1. 店舗のログイン情報を取得
-    const { data: shop, error: shopError } = await supabase
-      .from('shops')
-      .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
-      .eq('id', shopId)
-      .single();
-
-    if (shopError || !shop) {
-      return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
+    // 1. 同期ジョブを作成
+    const jobId = await createSyncJob(shopId, 'shift_manual');
+    if (!jobId) {
+      return NextResponse.json({ error: 'Failed to create sync job' }, { status: 500 });
     }
 
-    if (!shop.esthe_ranking_shop_url || !shop.esthe_ranking_login_id || !shop.esthe_ranking_password) {
-      return NextResponse.json({ error: '店舗設定画面でメンズエステランキングのログイン情報（URL, ID, パスワード）を設定してください' }, { status: 400 });
-    }
+    // 2. バックグラウンド処理を登録
+    after(async () => {
+      try {
+        const { data: shop, error: shopError } = await supabase
+          .from('shops')
+          .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+          .eq('id', shopId)
+          .single();
 
-    // 2. 指定日の出勤情報を取得 (シフト ＆ セラピストの連携ID)
-    const { data: shifts, error: shiftsError } = await supabase
-      .from('shifts')
-      .select(`
-        date,
-        start_time,
-        end_time,
-        therapists!inner (
-          id,
-          name,
-          esthe_ranking_therapist_id
-        )
-      `)
-      .eq('shop_id', shopId)
-      .gte('date', startDate)
-      .lte('date', endDate);
+        if (shopError || !shop) {
+          await completeSyncJob(jobId, 'failed', { error: '店舗情報の取得に失敗しました' });
+          return;
+        }
 
-    if (shiftsError) {
-      return NextResponse.json({ error: 'シフト情報の取得に失敗しました' }, { status: 500 });
-    }
+        if (!shop.esthe_ranking_shop_url || !shop.esthe_ranking_login_id || !shop.esthe_ranking_password) {
+          await completeSyncJob(jobId, 'failed', { error: '店舗設定画面でメンズエステランキングのログイン情報（URL, ID, パスワード）を設定してください' });
+          return;
+        }
 
-    // 3. Playwrightスクリプトを実行して同期
-    // ※Vercel等のサーバーレス環境ではPlaywrightの実行に時間がかかる場合があるため、
-    // 本来は非同期バックグラウンドジョブ（InngestやSQS等）にキューイングするのが望ましいです。
-    // 今回はプレースホルダーとして直接呼び出します。
-    const result = await syncShiftsToEstheRanking(
-      shop.esthe_ranking_shop_url,
-      shop.esthe_ranking_login_id,
-      shop.esthe_ranking_password,
-      startDate,
-      endDate,
-      shifts || []
-    );
+        const { data: shifts, error: shiftsError } = await supabase
+          .from('shifts')
+          .select(`
+            date,
+            start_time,
+            end_time,
+            therapists!inner (
+              id,
+              name,
+              esthe_ranking_therapist_id
+            )
+          `)
+          .eq('shop_id', shopId)
+          .gte('date', startDate)
+          .lte('date', endDate);
 
-    if (!result.success) {
-      return NextResponse.json({ error: `同期エラー: ${result.error}` }, { status: 500 });
-    }
+        if (shiftsError) {
+          await completeSyncJob(jobId, 'failed', { error: 'シフト情報の取得に失敗しました' });
+          return;
+        }
 
-    return NextResponse.json({ message: result.message || '同期が完了しました' });
+        const result = await syncShiftsToEstheRanking(
+          shop.esthe_ranking_shop_url,
+          shop.esthe_ranking_login_id,
+          shop.esthe_ranking_password,
+          startDate,
+          endDate,
+          shifts || []
+        );
+
+        if (!result.success) {
+          await completeSyncJob(jobId, 'failed', { error: `同期エラー: ${result.error}` });
+          return;
+        }
+
+        await completeSyncJob(jobId, 'completed', { message: result.message || '同期が完了しました', target: 'esthe_ranking' });
+      } catch (error: any) {
+        console.error('Esthe Ranking Sync API Error (Background):', error);
+        await completeSyncJob(jobId, 'failed', { error: error.message || 'サーバーエラーが発生しました' });
+      }
+    });
+
+    // 3. 即座にレスポンスを返す
+    return NextResponse.json({ message: 'バックグラウンドで同期を開始しました', jobId });
 
   } catch (error: any) {
     console.error('Esthe Ranking Sync API Error:', error);

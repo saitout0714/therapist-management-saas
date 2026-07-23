@@ -1,91 +1,58 @@
-# 機能実装完了レポート：店舗別セラピスト連絡テンプレート機能
+# バックグラウンド同期機能の実装完了
 
-店舗ごとにセラピストへの連絡文面（テンプレート）をカスタマイズでき、予約に必要な情報を動的なタグ（プレースホルダー）として置換する機能を実装しました。
+お待たせしました！すべての同期機能（キャスト単体・一括同期、スケジュール一括同期、自動同期cron）をバックグラウンド処理化し、画面の待ち時間をゼロにする対応が完了しました。
 
-また、ご要望に基づき以下の表示調整を行いました：
-1. **日付の表記**: 連絡文面中の日付を西暦なしの形式（例：「`6/24`」）に整形して出力するように調整しました。
-2. **金額の表記**: 指名料、コース料金、オプション料金、割引額、合計金額について、従来の `￥` 記号による前置から、**金額の末尾に「`円`」を付与する形式**（例：`16,000円`）に統一しました。
-3. **不要な行の自動詰め機能**: カスタムテンプレート内に `[割引]`、`[オプション]`、`[備考]` のタグが配置されている場合、その予約において**該当するデータが存在しないとき（割引なし、オプションなし、備考なしなど）は、そのタグが含まれる行（直後の改行を含む）を丸ごと削除し、行を詰めて表示する処理**を導入しました。
+## 実装した内容
 
-## 実装内容
+### 1. データベースの改修（`sync_jobs` テーブル）
+同期処理のステータスや結果を記録するためのキューテーブルを作成しました。
+**※この機能を動かすために、後述のSQLをSupabaseで実行してください。**
 
-### 1. データベーススキーマの拡張
-- `system_settings` テーブルに `therapist_template TEXT` カラムを追加しました（開発環境および本番環境のDBに反映済み）。
+### 2. 同期ボタンの非同期化（待ち時間なし）
+- **キャスト編集画面**: 「外部サイトへ送信する」ボタンを押すと、即座に「バックグラウンドで開始しました」と表示され、別の作業に移ることができます。
+- **サイト同期画面**: 手動でのシフト同期や、全キャストの一括同期ボタンもすべて非同期化されました。ブラウザのタブを閉じても同期は途切れることなくサーバー側（Vercel）で継続されます。
 
-### 2. 管理画面の機能追加
-- **[TherapistTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/TherapistTemplateTab.tsx)**（新規作成）:
-  - システム管理画面の新しい「セラピスト連絡テンプレート」タブを実装しました。
-  - テキストエリア上の任意のカーソル位置に、対応する情報タグ（`[日付]`、`[開始時刻]`、`[終了時刻]`、`[コース]`、`[指名区分]`、`[お客様名]`、`[指名料金]`、`[コース料金]` など）をワンクリックで挿入できる操作パネルを設けました。
-  - 「デフォルトに戻す」機能およびデータベースへの保存機能を実装しました。
-- **[page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/page.tsx)**（修正）:
-  - 上記タブをシステム管理画面 of タブリストに追加し、選択時に正しく読み込み・表示されるよう統合しました。
+### 3. 同期履歴（ステータス確認）タブの追加
+- 「サイト同期」画面に新しく「同期履歴」タブを追加しました。
+- 実行中（青色）、完了（緑色）、失敗（赤色）のステータスがリアルタイム（更新ボタンクリック）で確認でき、いつどの同期が行われたかが一目でわかります。
 
-### 3. 予約詳細画面の機能追加
-- **[page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/reservations/[id]/page.tsx)**（修正）:
-  - 日付表示を西暦なしの短い形式（例：「`6/24`」）に変換するユーティリティ関数 `formatShortDate` を追加しました。
-  - 予約詳細データ取得の際、`system_settings` から `therapist_template` を同時にフェッチするように拡張しました。
-  - コピー用のテキスト生成関数 `generateTherapistLineText()` および `generateCustomerLineText()` を拡張し、日付表示を「`M/D`」形式に整形し、かつ全ての金額項目（指名料、コース料金、合計金額、オプション、割引など）の `￥` 記号を排除して末尾に「`円`」を付加するように調整しました。
-  - セラピスト用テキストコピーについて、カスタムテンプレートが設定されている場合は、各種タグ（`[日付]`、`[開始時刻]`、`[合計料金]` など）を置換し、データがない項目（`[割引]`、`[オプション]`、`[備考]`）は行ごと詰める処理を追加しました。
-  - テンプレートが未設定の店舗の場合は、自動的に従来のデフォルト形式（日付は西暦なしの形式、金額は「`円`」表記）で生成されるフォールバック処理を維持しています。
-
-### 4. 送信案内テンプレート（顧客用・セラピスト用）の延長・姫予約対応
-- [page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/reservations/[id]/page.tsx) の案内テキスト自動生成（`generateCustomerLineText`, `generateTherapistLineText`）を拡張しました：
-  - **カスタムテンプレート（置換）**: 新たに `[延長時間]` (例: 延長+30分)、`[延長料金]` (例: 3,000円)、および **`[姫予約]`** タグをサポートしました。姫予約が有効な場合は「`姫予約`」と置換され、無効な場合は他の不要項目と同様に「該当行ごと自動で非表示（詰める）」の処理が作動します。
-# 機能実装完了レポート：店舗別セラピスト連絡テンプレート機能
-
-店舗ごとにセラピストへの連絡文面（テンプレート）をカスタマイズでき、予約に必要な情報を動的なタグ（プレースホルダー）として置換する機能を実装しました。
-
-また、ご要望に基づき以下の表示調整を行いました：
-1. **日付の表記**: 連絡文面中の日付を西暦なしの形式（例：「`6/24`」）に整形して出力するように調整しました。
-2. **金額の表記**: 指名料、コース料金、オプション料金、割引額、合計金額について、従来の `￥` 記号による前置から、**金額の末尾に「`円`」を付与する形式**（例：`16,000円`）に統一しました。
-3. **不要な行の自動詰め機能**: カスタムテンプレート内に `[割引]`、`[オプション]`、`[備考]` のタグが配置されている場合、その予約において**該当するデータが存在しないとき（割引なし、オプションなし、備考なしなど）は、そのタグが含まれる行（直後の改行を含む）を丸ごと削除し、行を詰めて表示する処理**を導入しました。
-
-## 実装内容
-
-### 1. データベーススキーマの拡張
-- `system_settings` テーブルに `therapist_template TEXT` カラムを追加しました（開発環境および本番環境のDBに反映済み）。
-
-### 2. 管理画面の機能追加
-- **[TherapistTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/TherapistTemplateTab.tsx)**（新規作成）:
-  - システム管理画面の新しい「セラピスト連絡テンプレート」タブを実装しました。
-  - テキストエリア上の任意のカーソル位置に、対応する情報タグ（`[日付]`、`[開始時刻]`、`[終了時刻]`、`[コース]`、`[指名区分]`、`[お客様名]`、`[指名料金]`、`[コース料金]` など）をワンクリックで挿入できる操作パネルを設けました。
-  - 「デフォルトに戻す」機能およびデータベースへの保存機能を実装しました。
-- **[page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/page.tsx)**（修正）:
-  - 上記タブをシステム管理画面 of タブリストに追加し、選択時に正しく読み込み・表示されるよう統合しました。
-
-### 3. 予約詳細画面の機能追加
-- **[page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/reservations/[id]/page.tsx)**（修正）:
-  - 日付表示を西暦なしの短い形式（例：「`6/24`」）に変換するユーティリティ関数 `formatShortDate` を追加しました。
-  - 予約詳細データ取得の際、`system_settings` から `therapist_template` を同時にフェッチするように拡張しました。
-  - コピー用のテキスト生成関数 `generateTherapistLineText()` および `generateCustomerLineText()` を拡張し、日付表示を「`M/D`」形式に整形し、かつ全ての金額項目（指名料、コース料金、合計金額、オプション、割引など）の `￥` 記号を排除して末尾に「`円`」を付加するように調整しました。
-  - セラピスト用テキストコピーについて、カスタムテンプレートが設定されている場合は、各種タグ（`[日付]`、`[開始時刻]`、`[合計料金]` など）を置換し、データがない項目（`[割引]`、`[オプション]`、`[備考]`）は行ごと詰める処理を追加しました。
-  - テンプレートが未設定の店舗の場合は、自動的に従来のデフォルト形式（日付は西暦なしの形式、金額は「`円`」表記）で生成されるフォールバック処理を維持しています。
-
-### 4. 送信案内テンプレート（顧客用・セラピスト用）の延長・姫予約対応
-- [page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/reservations/[id]/page.tsx) の案内テキスト自動生成（`generateCustomerLineText`, `generateTherapistLineText`）を拡張しました：
-  - **カスタムテンプレート（置換）**: 新たに `[延長時間]` (例: 延長+30分)、`[延長料金]` (例: 3,000円)、および **`[姫予約]`** タグをサポートしました。姫予約が有効な場合は「`姫予約`」と置換され、無効な場合は他の不要項目と同様に「該当行ごと自動で非表示（詰める）」の処理が作動します。
-  - **デフォルトフォールバック**: テンプレートが設定されていない場合でも、姫予約があれば件名に `（姫予約）` を付与し、かつセラピスト用テンプレートのお客情報行に `【姫予約】` が自動挿入されます。
-- [CustomerTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/CustomerTemplateTab.tsx) および [TherapistTemplateTab.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/system/components/TherapistTemplateTab.tsx) の設定画面に、利用可能なタグとして `[姫予約]` の説明を追加しました。
-
-### 5. 外部シフト同期対象サイトの整理
-- 外部シフト同期画面（およびスクレイピング・ライブラリ）の同期対象一覧から、**「クイーン広島」「アーバンスパ」「新宿秘密妻」を除外**し、同期処理が走らないように整理しました。
-
-### 6. 顧客の新規/会員自動判定のバグ修正
-- 新規予約・編集画面にて顧客検索の際に、お客様の作成日時（`created_at`）のカラム取得が欠落しており自動判定が機能していなかったバグを解決しました。
-
-### 7. HP一括登録（インポート）時のセラピスト重複登録バグの修正
-- [import/page.tsx](file:///c:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/app/(admin)/therapists/import/page.tsx) のHP一括登録の重複チェックにおいて、取得名とDB既存名の単純比較の際に半角スペース・全角スペースの違い（例:「佐藤 はな」と「佐藤はな」など）で一致判定が漏れ、二重登録されてしまう不具合を修正しました。
-  - 重複チェックをかける前に、全角・半角スペースを除去および小文字化した状態に揃えて比較（名前の正規化）する処理を導入し、表記ゆれによる二重登録を防止しました。
+### 4. Cronジョブ（自動同期）の対応
+- 直近の予約同期（5分おき）、スケジュールの全体同期（1日1回）も `sync_jobs` テーブルに履歴を残すように改修しました。自動で動いた履歴も先ほどの「同期履歴」タブで確認可能です。
 
 ---
 
-## 動作確認・検証方法
+> [!IMPORTANT]  
+> ## 次にお客様に行っていただくこと
+>
+> バックグラウンドで同期状態を保存するために、Supabaseデータベースに新しいテーブルを追加する必要があります。
+> **SupabaseのSQL Editor** を開き、以下のSQLコードをコピペして `RUN` を実行してください。（または提供している `supabase/add-sync-jobs.sql` を実行してください）
+> 
+> ```sql
+> -- sync_jobsテーブルの作成
+> CREATE TABLE IF NOT EXISTS public.sync_jobs (
+>     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+>     shop_id UUID NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
+>     therapist_id UUID REFERENCES public.therapists(id) ON DELETE SET NULL,
+>     target_type TEXT NOT NULL,
+>     status TEXT NOT NULL DEFAULT 'processing',
+>     result_details JSONB,
+>     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+> );
+> 
+> -- RLS設定
+> ALTER TABLE public.sync_jobs ENABLE ROW LEVEL SECURITY;
+> 
+> CREATE POLICY "Sync Jobs RLS Policy" ON "public"."sync_jobs" 
+>     FOR ALL 
+>     TO public 
+>     USING (check_shop_access(shop_id));
+> 
+> -- サービスロールやCronジョブからは常にアクセス可能にするポリシー
+> CREATE POLICY "Service role can manage all sync_jobs" ON public.sync_jobs
+>     USING (true)
+>     WITH CHECK (true);
+> ```
 
-### 1. 外部シフト同期の確認
-- 外部シフト同期画面 `/shifts/sync` にアクセスし、同期対象サイトの選択肢に「クイーン広島」「アーバンスパ」「新宿秘密妻」が表示されないことを確認します。
+---
 
-### 2. HP一括登録（セラピスト重複検出）の検証
-- 名前の間にスペース（半角/全角）が入っている既存セラピストがいる状態で、スペースなし、または異なるスペース形式でHP一括登録（取り込み）を実行した際、正しく「重複検出」され、取り込み候補一覧のチェックから自動で除外されることを確認します。
-
-### 3. テンプレート案内文の確認
-- **コンパイルチェック**: `npx tsc --noEmit` コマンドにより、型チェックがエラーなしで正常に完了することを確認しました。
+上記の設定が完了すれば、これまでの待ち時間が完全に解消され、複数サイトを対象としたバッチ同期もより快適にご利用いただけます！ご確認をよろしくお願いいたします。

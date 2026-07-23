@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
+import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300; // Vercel Pro timeout (max 300s)
 export const dynamic = 'force-dynamic';
@@ -24,87 +26,99 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '一度に同期できるのは最大14日間までです' }, { status: 400 });
     }
 
-    // 1. 店舗のログイン情報を取得
-    const { data: shop, error: shopError } = await supabase
-      .from('shops')
-      .select('estama_login_id, estama_password, estama_shop_url')
-      .eq('id', shopId)
-      .single();
-
-    if (shopError || !shop) {
-      return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
+    // 1. 同期ジョブを作成
+    const jobId = await createSyncJob(shopId, 'shift_manual');
+    if (!jobId) {
+      return NextResponse.json({ error: 'Failed to create sync job' }, { status: 500 });
     }
 
-    if (!shop.estama_login_id || !shop.estama_password) {
-      return NextResponse.json({ error: '店舗設定画面でエステ魂のログイン情報（ID, パスワード）を設定してください' }, { status: 400 });
-    }
+    // 2. バックグラウンド処理を登録
+    after(async () => {
+      try {
+        const { data: shop, error: shopError } = await supabase
+          .from('shops')
+          .select('estama_login_id, estama_password, estama_shop_url')
+          .eq('id', shopId)
+          .single();
 
-    const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
+        if (shopError || !shop) {
+          await completeSyncJob(jobId, 'failed', { error: '店舗情報の取得に失敗しました' });
+          return;
+        }
 
-    // 2. 指定日の出勤情報を取得 (シフト ＆ セラピストの連携ID)
-    const { data: shifts, error: shiftsError } = await supabase
-      .from('shifts')
-      .select(`
-        date,
-        start_time,
-        end_time,
-        therapists!inner (
-          id,
-          name,
-          estama_therapist_id
-        )
-      `)
-      .eq('shop_id', shopId)
-      .gte('date', startDate)
-      .lte('date', endDate);
+        if (!shop.estama_login_id || !shop.estama_password) {
+          await completeSyncJob(jobId, 'failed', { error: '店舗設定画面でエステ魂のログイン情報（ID, パスワード）を設定してください' });
+          return;
+        }
 
-    if (shiftsError) {
-      return NextResponse.json({ error: 'シフト情報の取得に失敗しました' }, { status: 500 });
-    }
+        const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
 
-    // 3. 予約情報を取得
-    const { data: reservations, error: reservationsError } = await supabase
-      .from('reservations')
-      .select(`
-        id,
-        therapist_id,
-        start_time,
-        end_time,
-        date
-      `)
-      .eq('shop_id', shopId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .neq('status', 'cancelled'); // キャンセル以外の予約を取得
+        const { data: shifts, error: shiftsError } = await supabase
+          .from('shifts')
+          .select(`
+            date,
+            start_time,
+            end_time,
+            therapists!inner (
+              id,
+              name,
+              estama_therapist_id
+            )
+          `)
+          .eq('shop_id', shopId)
+          .gte('date', startDate)
+          .lte('date', endDate);
 
-    if (reservationsError) {
-      console.warn('予約情報の取得に失敗しました:', reservationsError);
-    }
+        if (shiftsError) {
+          await completeSyncJob(jobId, 'failed', { error: 'シフト情報の取得に失敗しました' });
+          return;
+        }
 
-    // 3.5 アクティブなセラピストの取得 (エステ魂連携IDを持つ全セラピスト)
-    const { data: activeTherapists } = await supabase
-      .from('therapists')
-      .select('id, name, estama_therapist_id')
-      .eq('shop_id', shopId)
-      .not('estama_therapist_id', 'is', null);
+        const { data: reservations, error: reservationsError } = await supabase
+          .from('reservations')
+          .select(`
+            id,
+            therapist_id,
+            start_time,
+            end_time,
+            date
+          `)
+          .eq('shop_id', shopId)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .neq('status', 'cancelled'); // キャンセル以外の予約を取得
 
-    // 4. Playwrightスクリプトを実行して同期
-    const result = await syncShiftsToEstama(
-      shopUrl,
-      shop.estama_login_id,
-      shop.estama_password,
-      startDate,
-      endDate,
-      shifts || [],
-      reservations || [],
-      activeTherapists || []
-    );
+        const { data: activeTherapists } = await supabase
+          .from('therapists')
+          .select('id, name, estama_therapist_id')
+          .eq('shop_id', shopId)
+          .not('estama_therapist_id', 'is', null);
 
-    if (!result.success) {
-      return NextResponse.json({ error: `同期エラー: ${result.error}` }, { status: 500 });
-    }
+        const result = await syncShiftsToEstama(
+          shopUrl,
+          shop.estama_login_id,
+          shop.estama_password,
+          startDate,
+          endDate,
+          shifts || [],
+          reservations || [],
+          activeTherapists || []
+        );
 
-    return NextResponse.json({ message: result.message || '同期が完了しました' });
+        if (!result.success) {
+          await completeSyncJob(jobId, 'failed', { error: `同期エラー: ${result.error}` });
+          return;
+        }
+
+        await completeSyncJob(jobId, 'completed', { message: result.message || '同期が完了しました', target: 'estama' });
+      } catch (error: any) {
+        console.error('Estama Shift Sync Error (Background):', error);
+        await completeSyncJob(jobId, 'failed', { error: error.message || 'サーバーエラーが発生しました' });
+      }
+    });
+
+    // 3. 即座にレスポンスを返す
+    return NextResponse.json({ message: 'バックグラウンドで同期を開始しました', jobId });
 
   } catch (error: any) {
     console.error('Estama Sync API Error:', error);

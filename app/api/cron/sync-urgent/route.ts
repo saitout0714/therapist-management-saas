@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
+import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro limit
@@ -40,6 +41,9 @@ export async function GET(req: Request) {
     for (const shop of shops) {
       let estamaResult = null;
       let estheRankingResult = null;
+
+      // ジョブを作成
+      const jobId = await createSyncJob(shop.id, 'cron_urgent_reserve');
 
       // シフトの取得
       const { data: shifts } = await supabase
@@ -119,6 +123,14 @@ export async function GET(req: Request) {
           console.error(`EstheRanking Sync Error for shop ${shop.id}:`, e);
           estheRankingResult = { success: false, error: e.message };
         }
+      }
+
+      if (jobId) {
+        const isSuccess = (!estamaResult || estamaResult.success) && (!estheRankingResult || estheRankingResult.success);
+        await completeSyncJob(jobId, isSuccess ? 'completed' : 'failed', {
+          estama: estamaResult,
+          estheRanking: estheRankingResult
+        });
       }
 
       results.push({ shopId: shop.id, estamaResult, estheRankingResult });

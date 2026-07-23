@@ -1,0 +1,183 @@
+import { chromium, Page } from 'playwright';
+import { downloadImageToTemp } from './download-image';
+import fs from 'fs';
+
+export async function syncTherapistToEstama(
+  shopUrl: string,
+  loginId: string,
+  password: string,
+  therapist: any,
+  estamaTherapistId: string | null
+): Promise<{ success: boolean; newId?: string; error?: string }> {
+  let browser;
+  try {
+    const CHROMIUM_ARGS = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ];
+    
+    browser = await chromium.launch({
+      headless: true,
+      args: process.env.NODE_ENV === 'production' ? CHROMIUM_ARGS : undefined,
+    });
+    
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
+    const page = await context.newPage();
+
+    // 1. Login
+    await page.goto('https://estama.jp/login/?r=/admin/');
+    await page.fill('input[name="login_id"]', loginId);
+    await page.fill('input[name="login_pass"]', password);
+    
+    const submitButton = await page.$('button[type="submit"], input[type="submit"], .login_btn, button:has-text("ログイン")');
+    if (submitButton) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        submitButton.click()
+      ]);
+    } else {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        page.keyboard.press('Enter')
+      ]);
+    }
+
+    const currentUrl = page.url();
+    if (currentUrl.includes('/login')) {
+      throw new Error('エステ魂ログインに失敗しました。認証情報を確認してください。');
+    }
+
+    // 2. Navigate to Edit / Create page
+    let isNew = false;
+    let editUrl = 'https://estama.jp/admin/cast/add/'; // 汎用的な追加URL
+    if (estamaTherapistId) {
+      editUrl = `https://estama.jp/admin/cast_edit/${estamaTherapistId}/`;
+    } else {
+      isNew = true;
+      // 念のため一覧から「新規登録」ボタンのURLを探す
+      await page.goto('https://estama.jp/admin/cast/');
+      const addLink = await page.$('a:has-text("新規"), a:has-text("追加"), a[href*="add"], a[href*="cast_edit"]');
+      if (addLink) {
+        const href = await addLink.getAttribute('href');
+        if (href) {
+          editUrl = href.startsWith('http') ? href : `https://estama.jp${href.startsWith('/') ? '' : '/'}${href}`;
+        }
+      }
+    }
+
+    await page.goto(editUrl);
+    
+    // 3. Fill the form
+    // 名前 (よくあるname属性: name, cast_name, therapist_name, nick_name)
+    const nameInput = await page.$('input[name="name"], input[name="cast_name"], input[name="nick_name"]');
+    if (nameInput) await nameInput.fill(therapist.name);
+
+    // 年齢 (age)
+    if (therapist.age) {
+      const ageInput = await page.$('input[name="age"], select[name="age"]');
+      if (ageInput) {
+        const tagName = await ageInput.evaluate(e => e.tagName.toLowerCase());
+        if (tagName === 'select') await ageInput.selectOption(String(therapist.age));
+        else await ageInput.fill(String(therapist.age));
+      }
+    }
+
+    // T, B, W, H
+    if (therapist.height) {
+      const tInput = await page.$('input[name="t"], input[name="height"]');
+      if (tInput) await tInput.fill(String(therapist.height));
+    }
+    if (therapist.bust) {
+      const bInput = await page.$('input[name="b"], input[name="bust"]');
+      if (bInput) await bInput.fill(String(therapist.bust));
+    }
+    if (therapist.waist) {
+      const wInput = await page.$('input[name="w"], input[name="waist"]');
+      if (wInput) await wInput.fill(String(therapist.waist));
+    }
+    if (therapist.hip) {
+      const hInput = await page.$('input[name="h"], input[name="hip"]');
+      if (hInput) await hInput.fill(String(therapist.hip));
+    }
+    
+    // カップ数 (cup)
+    if (therapist.bust_cup) {
+      const cupInput = await page.$('input[name="cup"], select[name="cup"], input[name="bust_cup"]');
+      if (cupInput) {
+        const tagName = await cupInput.evaluate(e => e.tagName.toLowerCase());
+        if (tagName === 'select') {
+          await cupInput.selectOption({ label: therapist.bust_cup }).catch(() => {});
+        } else {
+          await cupInput.fill(therapist.bust_cup);
+        }
+      }
+    }
+
+    // 一言コメント・自己紹介 (message, comment, intro)
+    if (therapist.comment) {
+      const commentInput = await page.$('textarea[name="comment"], textarea[name="message"], textarea[name="intro"]');
+      if (commentInput) await commentInput.fill(therapist.comment);
+    }
+
+    // 写真のアップロード
+    if (therapist.photo_url) {
+      const fileInput = await page.$('input[type="file"]');
+      if (fileInput) {
+        const tmpImagePath = await downloadImageToTemp(therapist.photo_url, 'estama_');
+        if (tmpImagePath) {
+          await fileInput.setInputFiles(tmpImagePath);
+          // アップロード後にファイルを削除
+          setTimeout(() => fs.unlink(tmpImagePath, () => {}), 5000);
+        }
+      }
+    }
+
+    // 保存ボタンをクリック
+    const saveButton = await page.$('button[type="submit"], input[type="submit"], .save-btn, button:has-text("保存"), button:has-text("登録")');
+    if (saveButton) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        saveButton.click()
+      ]);
+    }
+    
+    // 新規登録の場合、IDを取得するためにURLや一覧ページを確認する
+    let newId = estamaTherapistId;
+    if (isNew) {
+      // 保存後のURLからIDが取れるか？
+      const afterUrl = page.url();
+      const match = afterUrl.match(/\/cast_edit\/(\d+)/);
+      if (match && match[1]) {
+        newId = match[1];
+      } else {
+        // 取れなければ一覧に戻って一番上のIDを取る
+        await page.goto('https://estama.jp/admin/cast/');
+        const firstLink = await page.$('a[href*="/cast_edit/"]');
+        if (firstLink) {
+          const href = await firstLink.getAttribute('href');
+          const m = href?.match(/\/cast_edit\/(\d+)/);
+          if (m && m[1]) newId = m[1];
+        }
+      }
+    }
+
+    return { success: true, newId: newId || undefined };
+
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  } finally {
+    if (browser) {
+      try { await Promise.all(browser.contexts().map((c: any) => c.close())); } catch(e){} 
+      await browser.close();
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+}

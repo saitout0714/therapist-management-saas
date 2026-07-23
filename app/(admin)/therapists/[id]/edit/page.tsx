@@ -62,6 +62,35 @@ export default function EditTherapistPage() {
   const [memoLoading, setMemoLoading] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
 
+  // ポータルサイト同期用
+  const [syncingPortals, setSyncingPortals] = useState(false);
+
+  const handleSyncToPortals = async () => {
+    if (!confirm('このセラピストの情報をエステ魂およびメンズエステランキングに送信（新規登録または上書き更新）しますか？\n※現在のyoyakl上の情報が送信されます。先に「更新する」ボタンで保存してから実行してください。')) return;
+    setSyncingPortals(true);
+
+    // バックグラウンド同期APIを呼び出し、レスポンスを待たずに即時完了とする
+    try {
+      fetch('/api/sync/therapists/estama', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: therapistShopId, therapistId })
+      });
+      fetch('/api/sync/therapists/esthe-ranking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: therapistShopId, therapistId })
+      });
+    } catch (e: any) {
+      console.error('Failed to trigger background sync', e);
+    }
+
+    setTimeout(() => {
+      setSyncingPortals(false);
+      alert('バックグラウンドでポータルサイトへの同期を開始しました。\n完了状態は「サイト同期」画面の「同期履歴」から確認できます。');
+    }, 500);
+  };
+
   // 編集用の状態
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [editMemoForm, setEditMemoForm] = useState({ content: '', amount: '' });
@@ -1255,6 +1284,36 @@ export default function EditTherapistPage() {
                 {memos.filter(m => showResolved || !m.is_resolved).length === 0 && (
                   <div className="px-5 py-6 text-center text-sm text-slate-400">メモはありません</div>
                 )}
+              </div>
+            </div>
+
+            {/* 外部サイトへの情報同期 */}
+            <div className="border border-indigo-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+              <div className="bg-indigo-50 px-5 py-4 flex items-center justify-between border-b border-indigo-200">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  <h3 className="font-bold text-slate-800 text-sm">外部サイトへプロフィール送信</h3>
+                </div>
+              </div>
+              <div className="px-5 py-4 space-y-3 bg-white">
+                <p className="text-xs text-slate-500 leading-relaxed mb-3">
+                  このキャストの情報をポータルサイトに送信します。未登録の場合は新規登録され、登録済みの場合は情報が上書きされます。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSyncToPortals}
+                  disabled={syncingPortals || loading}
+                  className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm transition-all font-bold text-sm disabled:opacity-50"
+                >
+                  {syncingPortals ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      送信中...
+                    </>
+                  ) : (
+                    <>外部サイトへ送信する</>
+                  )}
+                </button>
               </div>
             </div>
 

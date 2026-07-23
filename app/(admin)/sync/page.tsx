@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import SyncHistory from './SyncHistory'
 
-type SyncTab = 'esthe_ranking' | 'estama'
+type SyncTab = 'esthe_ranking' | 'estama' | 'history'
 
 export default function SyncPage() {
   const { selectedShop } = useShop()
@@ -160,61 +161,70 @@ export default function SyncPage() {
     setSyncProgressText('同期の準備中...');
 
     try {
-      const dates: string[] = [];
-      let current = new Date(start);
-      const endDt = new Date(end);
-      while (current <= endDt) {
-        const yyyy = current.getFullYear();
-        const mm = String(current.getMonth() + 1).padStart(2, '0');
-        const dd = String(current.getDate()).padStart(2, '0');
-        dates.push(`${yyyy}-${mm}-${dd}`);
-        current.setDate(current.getDate() + 1);
-      }
-
-      // ブラウザの再起動を減らしメモリを節約するため、チャンクは最大の14にする（一括送信）
-      const chunkSize = 14;
-      const chunks: {start: string, end: string}[] = [];
-      for (let i = 0; i < dates.length; i += chunkSize) {
-        const chunkDates = dates.slice(i, i + chunkSize);
-        chunks.push({
-          start: chunkDates[0],
-          end: chunkDates[chunkDates.length - 1]
-        });
-      }
-
-      let successCount = 0;
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        setSyncProgressText(`${chunks.length}ステップ中 ${i + 1}番目を同期中... (${chunk.start})`);
-        
-        const res = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shopId: selectedShop.id, startDate: chunk.start, endDate: chunk.end }),
-        });
-        
-        if (!res.ok) {
-          let errorData;
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            throw new Error(`サーバーエラー: ${chunk.start}〜 の同期がタイムアウトしました。`);
-          }
-          throw new Error(errorData?.error || '同期リクエストの送信に失敗しました');
-        }
-        successCount += chunk.end === chunk.start ? 1 : Math.floor((new Date(chunk.end).getTime() - new Date(chunk.start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        
-        // ブラウザプロセスの終了とメモリ解放を待つため、チャンク間にインターバルを設ける
-        if (i < chunks.length - 1) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
+      // 一度リクエストを投げるだけでバックグラウンド実行される
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: selectedShop.id, startDate: start, endDate: end }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || '同期リクエストの送信に失敗しました');
       }
       
       setSyncProgressText('');
-      alert(`同期が正常に完了しました！（計 ${successCount} 日分）`);
+      alert(`バックグラウンドで${siteName}へのシフト同期を開始しました。\n完了状態は「同期履歴」から確認できます。`);
     } catch (err: any) {
       setSyncProgressText('');
-      alert(err.message + `\n（途中まで完了している場合があります）`);
+      alert(err.message);
+    } finally {
+      setIsSyncing(false);
+      setSyncProgressText('');
+    }
+  };
+
+  const handleBatchSyncTherapists = async () => {
+    if (!selectedShop) return;
+    
+    const targetSite = activeTab === 'esthe_ranking' ? 'esthe_ranking' : 'estama';
+    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
+
+    if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期（新規登録または上書き更新）しますか？\n※人数が多い場合は数分かかることがあります。`)) return;
+
+    setIsSyncing(true);
+    setSyncProgressText('対象セラピストを取得中...');
+
+    try {
+      const { data: therapists, error } = await supabase
+        .from('therapists')
+        .select('id, name')
+        .eq('shop_id', selectedShop.id)
+        .eq('is_active', true)
+        .order('order', { ascending: true });
+
+      if (error || !therapists || therapists.length === 0) {
+        throw new Error('同期するセラピストが見つかりませんでした。');
+      }
+
+      const therapistIds = therapists.map(t => t.id);
+
+      const res = await fetch('/api/sync/therapists/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: selectedShop.id, targetSite, therapistIds }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'リクエスト失敗');
+      }
+
+      setSyncProgressText('');
+      alert(`バックグラウンドで全キャスト（${therapists.length}人）の${siteName}への同期を開始しました！\n完了状態は「同期履歴」から確認できます。`);
+    } catch (err: any) {
+      setSyncProgressText('');
+      alert(err.message);
     } finally {
       setIsSyncing(false);
       setSyncProgressText('');
@@ -232,6 +242,7 @@ export default function SyncPage() {
   const tabs: { key: SyncTab; label: string }[] = [
     { key: 'esthe_ranking', label: 'メンズエステランキング' },
     { key: 'estama', label: 'エステ魂' },
+    { key: 'history', label: '同期履歴' },
   ]
 
   const isCurrentTabConfigured = activeTab === 'esthe_ranking' 
@@ -270,8 +281,12 @@ export default function SyncPage() {
 
         {/* コンテンツエリア */}
         <div className="space-y-6">
-          {/* 同期実行カード */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+          {activeTab === 'history' ? (
+            <SyncHistory shopId={selectedShop?.id || ''} />
+          ) : (
+            <>
+              {/* 同期実行カード */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -299,6 +314,7 @@ export default function SyncPage() {
                   {isSyncing ? (syncProgressText || '同期処理中...') : '今日から14日間を一括同期'}
                 </button>
               </div>
+              {/* 「期間指定同期」オプション */}
 
               {/* 「期間指定同期」オプション */}
               <div className="flex flex-col sm:flex-row items-end gap-4 pt-1">
@@ -339,6 +355,47 @@ export default function SyncPage() {
             {!isCurrentTabConfigured && (
               <p className="text-xs text-rose-500 mt-2 ml-1">※下の「アカウント設定」を入力・保存してから同期を行ってください。</p>
             )}
+          </div>
+
+          {/* セラピスト情報の同期カード */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-pink-50 text-pink-600 rounded-lg">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">
+                  セラピスト情報の同期（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}）
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">yoyaklに登録されているキャスト情報を対象ポータルサイトに自動反映（新規登録・上書き）します</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">まとめて一括同期（推奨）</h3>
+                  <p className="text-xs text-slate-500 mt-1">yoyakl上の「すべての有効なキャスト」をポータルサイトに一括送信します。</p>
+                </div>
+                <button
+                  onClick={handleBatchSyncTherapists}
+                  disabled={isSyncing || !isCurrentTabConfigured}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isSyncing ? (syncProgressText || '同期処理中...') : '全キャストを一括同期'}
+                </button>
+              </div>
+              
+              <div className="text-xs text-slate-500 bg-white p-3 rounded-lg border border-slate-200">
+                <p className="font-bold mb-1">【同期される項目】</p>
+                <ul className="list-disc list-inside space-y-1 ml-1 text-[11px]">
+                  <li>名前・年齢・T/B/W/H・カップ数</li>
+                  <li>一言コメント（自己紹介）</li>
+                  <li>プロフィール写真（画像の自動アップロード）</li>
+                </ul>
+                <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は情報を上書き更新し、いない場合は新規登録として追加します。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
+              </div>
+            </div>
           </div>
 
           {/* アカウント設定カード */}
@@ -436,6 +493,8 @@ export default function SyncPage() {
               )}
             </div>
           </form>
+          </>
+          )}
         </div>
       </div>
     </div>
