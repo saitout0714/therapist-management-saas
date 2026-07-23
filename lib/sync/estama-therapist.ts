@@ -151,16 +151,25 @@ export async function syncTherapistToEstama(
       }
     }
 
+    // 必須属性（タイプ等）のチェックボックスが未選択の場合は1つ目をチェック
+    try {
+      const checkboxes = page.locator('input[type="checkbox"]');
+      if (await checkboxes.count() > 0) {
+        const checkedCount = await page.locator('input[type="checkbox"]:checked').count();
+        if (checkedCount === 0) {
+          await checkboxes.first().check().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     // 保存ボタンをクリック
     try {
-      const saveButton = page.locator('a.btn-default_submit, a:has-text("保存する"), a:has-text("保存"), .save-btn, button:has-text("保存"), button:has-text("登録")').first();
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
-        saveButton.click({ force: true, timeout: 10000 }).catch(() => page.evaluate(() => {
-          const forms = Array.from(document.querySelectorAll('form'));
-          const targetForm = forms.find(f => f.innerText.includes('保存') || f.innerText.includes('登録') || f.action.includes('add') || f.action.includes('edit')) || forms[forms.length - 1];
-          if (targetForm) targetForm.submit();
-        }))
+        page.evaluate(() => {
+          const form = document.querySelector('form');
+          if (form) form.submit();
+        })
       ]);
     } catch (e) {
       console.error('Failed to click save button:', e);
