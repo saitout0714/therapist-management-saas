@@ -55,8 +55,8 @@ export async function syncTherapistToEstheRanking(
 
     // 1. Login
     const targetLoginUrl = shopUrl || 'https://www.esthe-ranking.jp/login/';
-    await page.goto(targetLoginUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async () => {
-      await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(targetLoginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(async () => {
+      await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     });
     
     try {
@@ -157,14 +157,15 @@ export async function syncTherapistToEstheRanking(
     let newId = rankingTherapistId;
     if (isNew) {
       const afterUrl = page.url();
-      const match = afterUrl.match(/\/detail\/(\d+)/);
+      const match = afterUrl.match(/\/(?:detail|edit)\/(\d+)/);
       if (match && match[1]) {
         newId = match[1];
       } else {
-        await page.goto('https://www.esthe-ranking.jp/shop/image/girl/upload/all/').catch(() => {});
-        const firstLink = await page.$('a[href*="/upload/detail/"]');
-        if (firstLink) {
-          const href = await firstLink.getAttribute('href');
+        await page.goto('https://www.esthe-ranking.jp/shop/image/girl/upload/all/', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+        // 名前で対象行を探し、その行の編集リンクからIDを取得
+        const link = await page.$(`tr:has-text("${therapist.name}") a[href*="/upload/detail/"]`);
+        if (link) {
+          const href = await link.getAttribute('href');
           const m = href?.match(/\/detail\/(\d+)/);
           if (m && m[1]) newId = m[1];
         }
@@ -179,7 +180,7 @@ export async function syncTherapistToEstheRanking(
       try {
         const photoDetailUrl = `https://www.esthe-ranking.jp/shop/image/girl/upload/detail/${targetGirlId}/`;
         if (page.url() !== photoDetailUrl) {
-          await page.goto(photoDetailUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+          await page.goto(photoDetailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         }
 
         let uploadedAny = false;
@@ -199,7 +200,7 @@ export async function syncTherapistToEstheRanking(
 
         if (uploadedAny) {
           await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
             page.evaluate(() => {
               const photoForm = document.querySelector('form[action*="change_file"]') as HTMLFormElement | null;
               if (photoForm) photoForm.submit();

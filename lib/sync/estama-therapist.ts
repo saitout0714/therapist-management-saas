@@ -54,8 +54,8 @@ export async function syncTherapistToEstama(
     const page = await context.newPage();
 
     // 1. Login
-    await page.goto('https://estama.jp/login/?r=/admin/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async () => {
-      await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto('https://estama.jp/login/?r=/admin/', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(async () => {
+      await page.goto('https://estama.jp/login/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     });
     
     try {
@@ -80,7 +80,7 @@ export async function syncTherapistToEstama(
       isNew = true;
     }
 
-    await page.goto(editUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    await page.goto(editUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
     
     if (page.url().includes('/login')) {
       throw new Error('エステ魂ログインに失敗しました。認証情報を確認してください。');
@@ -169,7 +169,7 @@ export async function syncTherapistToEstama(
     // 保存ボタンをクリック
     try {
       await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
         page.evaluate(() => {
           const form = document.querySelector('form');
           if (form) form.submit();
