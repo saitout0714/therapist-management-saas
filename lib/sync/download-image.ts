@@ -21,7 +21,8 @@ export async function downloadImageToTemp(url: string, prefix = 'therapist_img_'
     let ext = '.jpg';
     if (contentType.includes('png')) ext = '.png';
     else if (contentType.includes('gif')) ext = '.gif';
-    else if (contentType.includes('webp')) ext = '.webp';
+    // WebPの場合はフロント側の拡張子バリデーション弾きを防ぐため強引に.jpgとして保存
+    else if (contentType.includes('webp')) ext = '.jpg';
     
     const tmpDir = os.tmpdir();
     const fileName = `${prefix}${Date.now()}${ext}`;

@@ -87,9 +87,9 @@ export async function syncTherapistToEstheRanking(
 
     // 2. Navigate to Edit / Create page
     let isNew = false;
-    let editUrl = 'https://www.esthe-ranking.jp/shop/image/girl/upload/detail/new/';
+    let editUrl = 'https://www.esthe-ranking.jp/shop/therapist/add/';
     if (rankingTherapistId) {
-      editUrl = `https://www.esthe-ranking.jp/shop/image/girl/upload/detail/${rankingTherapistId}/`;
+      editUrl = `https://www.esthe-ranking.jp/shop/therapist/edit/${rankingTherapistId}/`;
     } else {
       isNew = true;
     }
