@@ -153,15 +153,59 @@ async function fetchHtml(url: string): Promise<cheerio.CheerioAPI> {
 
 // Database Helpers
 async function getTherapists(shopId: string): Promise<Record<string, string>> {
-  const { data, error } = await supabaseAdmin
-    .from('therapists')
-    .select('id, name')
+  // 1. shopId の owner_id を取得
+  const { data: shop } = await supabaseAdmin
+    .from('shops')
+    .select('id, owner_id')
+    .eq('id', shopId)
+    .single()
+
+  let shopIds = [shopId]
+  if (shop?.owner_id) {
+    const { data: groupShops } = await supabaseAdmin
+      .from('shops')
+      .select('id')
+      .eq('owner_id', shop.owner_id)
+    if (groupShops && groupShops.length > 0) {
+      shopIds = groupShops.map(s => s.id)
+    }
+  }
+
+  // 2. 出勤可能店舗 (therapist_shops) に対象店舗が含まれるセラピストIDを取得
+  const { data: tsData } = await supabaseAdmin
+    .from('therapist_shops')
+    .select('therapist_id, alias_name')
     .eq('shop_id', shopId)
 
+  const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id)
+
+  let query = supabaseAdmin
+    .from('therapists')
+    .select('id, name, shop_id')
+
+  if (tsTherapistIds.length > 0) {
+    query = query.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`)
+  } else {
+    query = query.in('shop_id', shopIds)
+  }
+
+  const { data, error } = await query
   if (error || !data) throw new Error(error?.message || 'Therapists fetch failed')
+
   const mapping: Record<string, string> = {}
+  const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]))
+
   data.forEach((t) => {
-    mapping[normalizeName(t.name)] = t.id
+    // 1) 基本の表記名でのノーマライズ登録
+    const norm = normalizeName(t.name)
+    if (norm) mapping[norm] = t.id
+    
+    // 2) 店舗別源氏名(alias_name)がある場合は、そのノーマライズ名でもマッチング登録
+    const alias = aliasMap.get(t.id)
+    if (alias) {
+      const aliasNorm = normalizeName(alias)
+      if (aliasNorm) mapping[aliasNorm] = t.id
+    }
   })
   return mapping
 }
