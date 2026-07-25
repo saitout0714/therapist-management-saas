@@ -43,6 +43,7 @@ export default function TherapistsPage() {
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
   const [deleteCountLoading, setDeleteCountLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'az' | 'manual'>('az');
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
@@ -58,7 +59,7 @@ export default function TherapistsPage() {
         .from("therapists")
         .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie")
         .in("shop_id", shopIds)
-        .order("order", { ascending: true, nullsFirst: false }),
+        .order("name", { ascending: true }),
       supabase
         .from("therapist_memos")
         .select("therapist_id")
@@ -69,7 +70,8 @@ export default function TherapistsPage() {
     if (therapistsRes.error) {
       setError(therapistsRes.error.message);
     } else {
-      const list = (therapistsRes.data as unknown as TherapistItem[]) || [];
+      const list = ((therapistsRes.data as unknown as TherapistItem[]) || [])
+        .sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
       setTherapists(list);
       setError(null);
 
@@ -210,10 +212,19 @@ export default function TherapistsPage() {
     );
   };
 
+  const sortTherapists = (list: TherapistItem[]) => {
+    if (sortOrder === 'az') {
+      return [...list].sort((a, b) => {
+        return a.name.trim().localeCompare(b.name.trim(), 'ja', { numeric: true, sensitivity: 'base' });
+      });
+    }
+    return list;
+  };
+
   const activeTherapists = therapists.filter((t) => t.is_active !== false);
   const inactiveTherapists = therapists.filter((t) => t.is_active === false);
-  const filteredActive = filterByQuery(activeTherapists);
-  const filteredInactive = filterByQuery(inactiveTherapists);
+  const filteredActive = sortTherapists(filterByQuery(activeTherapists));
+  const filteredInactive = sortTherapists(filterByQuery(inactiveTherapists));
   const isSearching = searchQuery.trim().length > 0;
 
   const renderTherapistItem = (therapist: TherapistItem, index: number) => {
@@ -386,26 +397,53 @@ export default function TherapistsPage() {
                 </button>
               )}
             </div>
-            {searchQuery.trim() ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {filteredActive.length + filteredInactive.length}名表示中
-                </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs text-slate-500 hover:text-indigo-600 underline transition-colors"
+                  type="button"
+                  onClick={() => setSortOrder('az')}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    sortOrder === 'az'
+                      ? 'bg-white text-indigo-600 shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
                 >
-                  全員表示
+                  🔤 A-Z順
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('manual')}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    sortOrder === 'manual'
+                      ? 'bg-white text-indigo-600 shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  🖐️ 手動順
                 </button>
               </div>
-            ) : (
-              <span className="text-xs text-slate-400">
-                全{therapists.length}名
-              </span>
-            )}
+
+              {searchQuery.trim() ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {filteredActive.length + filteredInactive.length}名表示中
+                  </span>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs text-slate-500 hover:text-indigo-600 underline transition-colors"
+                  >
+                    全員表示
+                  </button>
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400">
+                  全{therapists.length}名
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

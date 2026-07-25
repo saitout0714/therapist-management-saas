@@ -24,6 +24,7 @@ type Reservation = {
   start_time: string
   end_time: string
   status: string
+  shop?: { name: string; short_name?: string | null } | null
   therapist: { name: string } | null
   course: { name: string } | null
 }
@@ -207,7 +208,7 @@ export default function CustomersPage() {
     setHistoryLoading(true)
     const { data } = await supabase
       .from('reservations')
-      .select(`id, customer_id, date, start_time, end_time, status, therapist:therapists!reservations_therapist_id_fkey(name), course:courses(name)`)
+      .select(`id, customer_id, date, start_time, end_time, status, shop:shops(name, short_name), therapist:therapists!reservations_therapist_id_fkey(name), course:courses(name)`)
       .eq('customer_id', customer.id)
       .order('date', { ascending: false })
       .order('start_time', { ascending: false })
@@ -877,6 +878,7 @@ export default function CustomersPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-slate-50">
                         <tr className="border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <th className="px-6 py-4">店舗</th>
                           <th className="px-6 py-4">日付</th>
                           <th className="px-6 py-4">時間</th>
                           <th className="px-6 py-4">コース</th>
@@ -887,11 +889,16 @@ export default function CustomersPage() {
                       <tbody className="divide-y divide-slate-100">
                         {selectedHistory.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500">来店履歴がありません</td>
+                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">来店履歴がありません</td>
                           </tr>
                         ) : (
                           selectedHistory.map((r) => (
                             <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-700">
+                                <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
+                                  {r.shop?.short_name || r.shop?.name || '-'}
+                                </span>
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">{r.date.replace(/-/g, '/')}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
                                 {r.start_time.substring(0, 5)} - {r.end_time.substring(0, 5)}

@@ -1,26 +1,23 @@
-const { Client } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
-const connectionString = "postgresql://postgres:Al2021al0518@db.pumkniqtgjsotsxhyvbq.supabase.co:6543/postgres";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function inspect() {
-  const client = new Client({ connectionString });
-  await client.connect();
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  try {
-    console.log("=== ALL AUTH.USERS ===");
-    const usersRes = await client.query(`
-      SELECT id, email, created_at, raw_user_meta_data->>'role' as metadata_role
-      FROM auth.users
-      ORDER BY created_at DESC;
-    `);
-    console.log(usersRes.rows);
+async function inspectShopsAndOwners() {
+  console.log("--- OWNERS ---");
+  const { data: owners, error: ownerErr } = await supabase.from('owners').select('*');
+  console.log(owners || ownerErr);
 
-  } catch (err) {
-    console.error("Error during inspection:", err);
-  } finally {
-    await client.end();
-  }
+  console.log("--- SHOPS ---");
+  const { data: shops, error: shopErr } = await supabase.from('shops').select('id, name, owner_id');
+  console.log(shops || shopErr);
+
+  console.log("--- CUSTOMERS BY SHOP ---");
+  const { data: customers, error: custErr } = await supabase.from('customers').select('id, name, shop_id, owner_id').limit(20);
+  console.log(customers || custErr);
 }
 
-inspect();
-
+inspectShopsAndOwners();
