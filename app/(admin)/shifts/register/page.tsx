@@ -47,19 +47,48 @@ export default function RegisterShift() {
     if (!selectedShop) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let shopIds = [selectedShop.id];
+      if (selectedShop.owner_id) {
+        const { data: groupShops } = await supabase
+          .from('shops')
+          .select('id')
+          .eq('owner_id', selectedShop.owner_id);
+        if (groupShops && groupShops.length > 0) {
+          shopIds = groupShops.map(s => s.id);
+        }
+      }
+
+      const { data: tsData } = await supabase
+        .from('therapist_shops')
+        .select('therapist_id, alias_name')
+        .eq('shop_id', selectedShop.id);
+      const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
+      const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]));
+
+      let query = supabase
         .from('therapists')
         .select('id, name, order')
-        .eq('shop_id', selectedShop.id)
-        .eq('is_active', true)
-        .order('order', { ascending: true, nullsFirst: false });
+        .eq('is_active', true);
+
+      if (tsTherapistIds.length > 0) {
+        query = query.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
+      } else {
+        query = query.in('shop_id', shopIds);
+      }
+
+      const { data, error } = await query.order('name', { ascending: true });
 
       if (error) {
         console.error('Error fetching therapists:', error);
         return;
       }
 
-      setTherapists((data || []).map((t) => ({ id: t.id, name: t.name })));
+      const list = (data || []).map((t) => ({
+        id: t.id,
+        name: aliasMap.get(t.id) || t.name,
+      })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
+
+      setTherapists(list);
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
     } finally {

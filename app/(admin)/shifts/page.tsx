@@ -665,23 +665,59 @@ function ShiftsContent() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
     try {
-      let allTherapists: TherapistRow[] = [];
-      const { data: therapistsWithInterval, error: therapistsError } = await supabase
+      let shopIds = [selectedShop.id];
+      if (selectedShop.owner_id) {
+        const { data: groupShops } = await supabase
+          .from('shops')
+          .select('id')
+          .eq('owner_id', selectedShop.owner_id);
+        if (groupShops && groupShops.length > 0) {
+          shopIds = groupShops.map(s => s.id);
+        }
+      }
+
+      const { data: tsData } = await supabase
+        .from('therapist_shops')
+        .select('therapist_id, alias_name')
+        .eq('shop_id', selectedShop.id);
+      const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
+      const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]));
+
+      let queryWithInterval = supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, staff_memo, linked_therapist_group_id, therapist_ranks(name), is_rookie')
-        .eq('shop_id', selectedShop.id)
-        .order('name', { ascending: true });
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, staff_memo, linked_therapist_group_id, therapist_ranks(name), is_rookie');
+
+      if (tsTherapistIds.length > 0) {
+        queryWithInterval = queryWithInterval.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
+      } else {
+        queryWithInterval = queryWithInterval.in('shop_id', shopIds);
+      }
+
+      let allTherapists: TherapistRow[] = [];
+      const { data: therapistsWithInterval, error: therapistsError } = await queryWithInterval.order('name', { ascending: true });
 
       if (therapistsError) {
-        const { data: basicData } = await supabase
+        let basicQuery = supabase
           .from('therapists')
-          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie')
-          .eq('shop_id', selectedShop.id)
-          .order('name', { ascending: true });
+          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie');
+
+        if (tsTherapistIds.length > 0) {
+          basicQuery = basicQuery.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
+        } else {
+          basicQuery = basicQuery.in('shop_id', shopIds);
+        }
+
+        const { data: basicData } = await basicQuery.order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
       } else {
         allTherapists = therapistsWithInterval || [];
       }
+
+      // 店舗別源氏名 (alias_name) の優先適用
+      allTherapists = allTherapists.map(t => ({
+        ...t,
+        name: aliasMap.get(t.id) || t.name,
+      })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
 
       const { data: settingsData } = await supabase
         .from('system_settings')
