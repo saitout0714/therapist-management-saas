@@ -54,12 +54,25 @@ export default function TherapistsPage() {
       if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id);
     }
 
+    // 出勤可能店舗(therapist_shops)に該当店舗が含まれるセラピストIDを取得
+    const { data: tsData } = await supabase
+      .from('therapist_shops')
+      .select('therapist_id')
+      .in('shop_id', shopIds);
+    const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
+
+    let query = supabase
+      .from("therapists")
+      .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie");
+
+    if (tsTherapistIds.length > 0) {
+      query = query.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
+    } else {
+      query = query.in("shop_id", shopIds);
+    }
+
     const [therapistsRes, memosRes] = await Promise.all([
-      supabase
-        .from("therapists")
-        .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie")
-        .in("shop_id", shopIds)
-        .order("name", { ascending: true }),
+      query.order("name", { ascending: true }),
       supabase
         .from("therapist_memos")
         .select("therapist_id")
@@ -70,8 +83,24 @@ export default function TherapistsPage() {
     if (therapistsRes.error) {
       setError(therapistsRes.error.message);
     } else {
-      const list = ((therapistsRes.data as unknown as TherapistItem[]) || [])
-        .sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
+      let list = (therapistsRes.data as unknown as TherapistItem[]) || [];
+
+      // 選択店舗での店舗別源氏名(alias_name)の適用
+      if (selectedShop?.id && list.length > 0) {
+        const { data: aliasData } = await supabase
+          .from('therapist_shops')
+          .select('therapist_id, alias_name')
+          .eq('shop_id', selectedShop.id);
+        if (aliasData) {
+          const aliasMap = new Map(aliasData.map(a => [a.therapist_id, a.alias_name]));
+          list = list.map(t => {
+            const alias = aliasMap.get(t.id);
+            return alias ? { ...t, name: alias } : t;
+          });
+        }
+      }
+
+      list = list.sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
       setTherapists(list);
       setError(null);
 
