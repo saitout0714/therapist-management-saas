@@ -109,7 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setUser(userObj)
         localStorage.setItem('auth_user', JSON.stringify(userObj))
-        document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax; Secure`
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
+        document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax${isSecure}`
       } else {
         clearUserSession()
       }
@@ -122,12 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearUserSession = () => {
     setUser(null)
     localStorage.removeItem('auth_user')
-    document.cookie = 'auth_user=; path=/; max-age=0; SameSite=Lax'
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie = `auth_user=; path=/; max-age=0; SameSite=Lax${isSecure}`
   }
 
   // 初期ロード時と認証監視
   useEffect(() => {
     const initializeAuth = async () => {
+      let hasValidCache = false
+
       // 1. ローカルキャッシュから一時復元（ちらつきとリダイレクト防止）
       try {
         const storedUser = localStorage.getItem('auth_user')
@@ -143,11 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (userData.role === 'staff') { userData.role = 'agency_staff'; roleChanged = true; }
               
               const finalUser = roleChanged ? { ...userData, role: userData.role } : userData;
-              if (roleChanged) {
-                localStorage.setItem('auth_user', JSON.stringify(finalUser))
-                document.cookie = `auth_user=${JSON.stringify(finalUser)}; path=/; max-age=2592000; SameSite=Lax; Secure`
-              }
+              const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
+              localStorage.setItem('auth_user', JSON.stringify(finalUser))
+              document.cookie = `auth_user=${JSON.stringify(finalUser)}; path=/; max-age=2592000; SameSite=Lax${isSecure}`
+              
               setUser(finalUser)
+              hasValidCache = true
             }
           }
         }
@@ -162,8 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           await syncUserWithSession(session.user)
-        } else {
-          // セッションが無い場合はキャッシュも含めて完全にクリアし、未認証状態にする
+        } else if (!hasValidCache) {
+          // キャッシュもなく、Supabaseセッションも存在しない場合のみ明確にクリアする
           clearUserSession()
         }
       } catch (err) {
@@ -267,7 +272,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('auth_user', JSON.stringify(userObj))
 
       // クッキーにも保存（middleware用）
-      document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax; Secure`
+      const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax${isSecure}`
     } catch (error: unknown) {
       console.error('ログイン失敗:', error)
       if (error instanceof Error) {
