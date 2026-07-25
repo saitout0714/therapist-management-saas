@@ -584,7 +584,7 @@ export async function POST(req: NextRequest) {
     if (uniqueShiftRows.length > 0) {
       const { error } = await supabase
         .from('shifts')
-        .upsert(uniqueShiftRows, { onConflict: 'therapist_id,date,start_time,end_time' })
+        .insert(uniqueShiftRows)
       if (error) throw new Error(`新規出勤の登録に失敗しました: ${error.message}`)
     }
     for (const up of shiftsToUpdateRoom) {
