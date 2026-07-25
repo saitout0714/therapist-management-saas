@@ -175,9 +175,8 @@ export default function PayrollPage() {
       const { data, error } = await supabase
         .from('therapists')
         .select('id, name, rank_id, back_calc_type, linked_therapist_group_id')
-        .eq('shop_id', selectedShop.id)
         .in('id', shiftTherapistIds)
-        .order('order', { ascending: true })
+        .order('name', { ascending: true })
 
       if (!error && data) {
         setTherapists(data as TherapistItem[])
@@ -210,14 +209,25 @@ export default function PayrollPage() {
       const therapist = therapists.find(t => t.id === selectedTherapistId)
       if (!therapist) throw new Error('セラピストが見つかりません')
 
-      // 相互リンクされている他店舗のIDリストを取得
+      // オーナーグループ配下の全店舗および相互リンク店舗のIDリストを取得
+      let targetShopIds = [selectedShop.id];
+      if (selectedShop.owner_id) {
+        const { data: groupShops } = await supabase
+          .from('shops')
+          .select('id')
+          .eq('owner_id', selectedShop.owner_id);
+        if (groupShops && groupShops.length > 0) {
+          targetShopIds = groupShops.map(s => s.id);
+        }
+      }
+
       const { data: linksData } = await supabase
         .from('shop_links')
         .select('shop_id_1, shop_id_2')
         .eq('is_active', true)
         .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`);
       const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
-      const targetShopIds = [selectedShop.id, ...linkedShopIds];
+      targetShopIds = Array.from(new Set([...targetShopIds, ...linkedShopIds]));
 
       // リンクされている他店舗のセラピストも含めてIDを取得
       let therapistIds = [selectedTherapistId]
