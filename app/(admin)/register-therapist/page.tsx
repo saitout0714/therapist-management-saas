@@ -31,13 +31,25 @@ export default function RegisterPage() {
       ? minOrderData[0].order - 1 : 0
 
     // Supabaseにデータを送信
-    const { error } = await supabase
+    const { data: newTherapists, error } = await supabase
       .from('therapists')
-      .insert([{ name: name, shop_id: selectedShop.id, order: nextOrder }])
+      .insert([{
+        name: name,
+        shop_id: selectedShop.id,
+        owner_id: selectedShop.owner_id || null,
+        order: nextOrder
+      }])
+      .select('id')
 
     if (error) {
       alert('エラーが発生しました: ' + error.message)
-    } else {
+    } else if (newTherapists && newTherapists[0]) {
+      await supabase
+        .from('therapist_shops')
+        .insert([{
+          therapist_id: newTherapists[0].id,
+          shop_id: selectedShop.id
+        }])
       alert('登録に成功しました')
       router.push('/therapists')
     }

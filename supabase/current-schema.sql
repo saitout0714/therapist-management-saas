@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS "public"."custom_templates" (
 
 CREATE TABLE IF NOT EXISTS "public"."customers" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "owner_id" uuid,
   "store_id" uuid,
   "name" text NOT NULL,
   "email" text,
@@ -238,6 +239,8 @@ CREATE TABLE IF NOT EXISTS "public"."owners" (
   "name" character varying(255) NOT NULL,
   "code" character varying(50),
   "plan_type" character varying(50) DEFAULT 'standard'::character varying,
+  "share_customers" boolean DEFAULT true,
+  "share_therapists" boolean DEFAULT true,
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now(),
   CONSTRAINT "owners_pkey" PRIMARY KEY ("id"),
@@ -596,8 +599,17 @@ CREATE TABLE IF NOT EXISTS "public"."therapist_ranks" (
   CONSTRAINT "therapist_ranks_pkey" PRIMARY KEY ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "public"."therapist_shops" (
+  "therapist_id" uuid NOT NULL,
+  "shop_id" uuid NOT NULL,
+  "alias_name" character varying(255),
+  "created_at" timestamp with time zone DEFAULT now(),
+  CONSTRAINT "therapist_shops_pkey" PRIMARY KEY ("therapist_id", "shop_id")
+);
+
 CREATE TABLE IF NOT EXISTS "public"."therapists" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "owner_id" uuid,
   "store_id" uuid,
   "name" text NOT NULL,
   "email" text,

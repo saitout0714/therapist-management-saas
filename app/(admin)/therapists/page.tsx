@@ -47,16 +47,22 @@ export default function TherapistsPage() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
 
+    let shopIds = [selectedShop.id];
+    if (selectedShop.owner_id) {
+      const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id);
+      if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id);
+    }
+
     const [therapistsRes, memosRes] = await Promise.all([
       supabase
         .from("therapists")
         .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie")
-        .eq("shop_id", selectedShop.id)
+        .in("shop_id", shopIds)
         .order("order", { ascending: true, nullsFirst: false }),
       supabase
         .from("therapist_memos")
         .select("therapist_id")
-        .eq("shop_id", selectedShop.id)
+        .in("shop_id", shopIds)
         .eq("is_resolved", false),
     ]);
 

@@ -95,6 +95,9 @@ export default function EditTherapistPage() {
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [editMemoForm, setEditMemoForm] = useState({ content: '', amount: '' });
 
+  // 店舗別源氏名状態
+  const [shopAliases, setShopAliases] = useState<Array<{ shop_id: string; shop_name: string; alias_name: string }>>([]);
+
   const fetchMemos = async () => {
     const { data } = await supabase
       .from('therapist_memos')
@@ -202,6 +205,20 @@ export default function EditTherapistPage() {
 
         setTherapistShopId(therapist.shop_id);
         setOriginalGroupId(therapist.linked_therapist_group_id || null);
+
+        // 同一オーナーグループの店舗および店舗別源氏名の取得
+        if (selectedShop?.owner_id) {
+          const { data: shopsData } = await supabase.from('shops').select('id, name').eq('owner_id', selectedShop.owner_id);
+          if (shopsData) {
+            const { data: tsData } = await supabase.from('therapist_shops').select('shop_id, alias_name').eq('therapist_id', therapistId);
+            const tsMap = new Map((tsData || []).map(ts => [ts.shop_id, ts.alias_name || '']));
+            setShopAliases(shopsData.map(s => ({
+              shop_id: s.id,
+              shop_name: s.name,
+              alias_name: tsMap.get(s.id) || ''
+            })));
+          }
+        }
 
         // 相互リンクが許可されている店舗IDリストを取得
         const { data: linksData } = await supabase
@@ -488,6 +505,19 @@ export default function EditTherapistPage() {
       }
     }
 
+    // === 店舗別源氏名の保存 ===
+    if (shopAliases.length > 0) {
+      for (const sa of shopAliases) {
+        await supabase
+          .from('therapist_shops')
+          .upsert({
+            therapist_id: therapistId,
+            shop_id: sa.shop_id,
+            alias_name: sa.alias_name.trim() || null,
+          }, { onConflict: 'therapist_id,shop_id' });
+      }
+    }
+
     // === 多店舗セラピストリンク同期 ===
     const newLinkIds = selectedLinkIds;
 
@@ -700,6 +730,31 @@ export default function EditTherapistPage() {
                     required
                   />
                 </div>
+
+                {/* 店舗別源氏名設定 */}
+                {shopAliases.length > 0 && (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <label className="block text-xs font-bold text-slate-700">🏢 店舗ごとの源氏名（別名）設定</label>
+                    <p className="text-xs text-slate-500">店舗ごとに表示名を変える場合に入力してください。（未入力の場合は基本の「名前」が表示されます）</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {shopAliases.map((sa, idx) => (
+                        <div key={sa.shop_id}>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">{sa.shop_name} での名前</label>
+                          <input
+                            type="text"
+                            value={sa.alias_name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setShopAliases(prev => prev.map((item, i) => i === idx ? { ...item, alias_name: val } : item));
+                            }}
+                            className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={profile.name || "店舗での源氏名"}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>

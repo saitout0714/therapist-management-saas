@@ -65,30 +65,41 @@ export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
+  const getGroupShopIds = useCallback(async (): Promise<string[]> => {
+    if (!selectedShop) return []
+    if (selectedShop.owner_id) {
+      const { data } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
+      if (data && data.length > 0) return data.map(s => s.id)
+    }
+    return [selectedShop.id]
+  }, [selectedShop])
+
   const fetchVisitCounts = useCallback(async (customerIds: string[]) => {
     if (!selectedShop || customerIds.length === 0) return
+    const shopIds = await getGroupShopIds()
     const { data } = await supabase
       .from('reservations')
       .select('customer_id')
       .in('customer_id', customerIds)
-      .eq('shop_id', selectedShop.id)
+      .in('shop_id', shopIds)
     const map = new Map<string, number>()
     ;(data || []).forEach((r: { customer_id: string }) => {
       map.set(r.customer_id, (map.get(r.customer_id) || 0) + 1)
     })
     setVisitCounts(map)
-  }, [selectedShop])
+  }, [selectedShop, getGroupShopIds])
 
   const fetchRecentCustomers = useCallback(async (page: number = 1) => {
     if (!selectedShop) return
     setLoading(true)
     try {
+      const shopIds = await getGroupShopIds()
       const from = (page - 1) * 100
       const to = page * 100 - 1
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', shopIds)
         .order('created_at', { ascending: false })
         .range(from, to)
       if (error) throw error
@@ -111,19 +122,20 @@ export default function CustomersPage() {
       const { count } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', shopIds)
       if (count !== null) setTotalCount(count)
     } catch (err) {
       console.error('顧客の取得に失敗:', JSON.stringify(err))
     } finally {
       setLoading(false)
     }
-  }, [selectedShop, fetchVisitCounts])
+  }, [selectedShop, fetchVisitCounts, getGroupShopIds])
 
   const searchCustomers = useCallback(async (query: string, page: number = 1) => {
     if (!selectedShop) return
     setSearching(true)
     try {
+      const shopIds = await getGroupShopIds()
       const normalized = query.replace(/-/g, '')
       const from = (page - 1) * 100
       const to = page * 100 - 1
@@ -132,14 +144,14 @@ export default function CustomersPage() {
       const { count } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', shopIds)
         .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
       if (count !== null) setFilteredCount(count)
 
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', shopIds)
         .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
         .order('name')
         .range(from, to)
