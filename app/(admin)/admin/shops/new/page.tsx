@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -11,6 +11,11 @@ export default function NewShopPage() {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [owners, setOwners] = useState<Array<{ id: string; name: string }>>([])
+  const [ownerMode, setOwnerMode] = useState<'existing' | 'new'>('new')
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
+  const [newOwnerGroupName, setNewOwnerGroupName] = useState<string>('')
+
   const [form, setForm] = useState({
     name: '',
     short_name: '',
@@ -25,16 +30,46 @@ export default function NewShopPage() {
     owner_plan: 'agency_client_owner' as 'agency_client_owner' | 'simple_client_owner',
   })
 
+  useEffect(() => {
+    const fetchOwners = async () => {
+      const { data } = await supabase.from('owners').select('id, name').order('name')
+      if (data && data.length > 0) {
+        setOwners(data)
+        setOwnerMode('existing')
+        setSelectedOwnerId(data[0].id)
+      }
+    }
+    fetchOwners()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError('')
+
+    let targetOwnerId: string | null = null
+
+    if (ownerMode === 'existing' && selectedOwnerId) {
+      targetOwnerId = selectedOwnerId
+    } else {
+      const groupName = newOwnerGroupName.trim() || form.owner_name.trim() || `${form.name}グループ`
+      const { data: newOwner, error: ownerInsertError } = await supabase
+        .from('owners')
+        .insert([{ name: groupName }])
+        .select('id')
+        .single()
+      
+      if (!ownerInsertError && newOwner) {
+        targetOwnerId = newOwner.id
+      }
+    }
 
     // 1. 店舗の登録と ID の取得
     const { data: newShops, error: insertError } = await supabase
       .from('shops')
       .insert([{
         name: form.name,
+        owner_id: targetOwnerId,
         short_name: form.short_name.trim() || null,
         description: form.description || null,
         phone: form.phone.trim() || null,
@@ -110,6 +145,57 @@ export default function NewShopPage() {
             {/* 店舗基本設定 */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">🏢 店舗基本情報</h2>
+              
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                <label className="block text-xs font-bold text-slate-700">🏢 所属オーナーグループ / 法人</label>
+                <div className="flex gap-4 text-xs font-semibold text-slate-700">
+                  {owners.length > 0 && (
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="ownerMode"
+                        checked={ownerMode === 'existing'}
+                        onChange={() => setOwnerMode('existing')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      既存グループから選択
+                    </label>
+                  )}
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ownerMode"
+                      checked={ownerMode === 'new'}
+                      onChange={() => setOwnerMode('new')}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    新規グループを作成
+                  </label>
+                </div>
+
+                {ownerMode === 'existing' && owners.length > 0 ? (
+                  <select
+                    value={selectedOwnerId}
+                    onChange={(e) => setSelectedOwnerId(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {owners.map((ow) => (
+                      <option key={ow.id} value={ow.id}>
+                        {ow.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={newOwnerGroupName}
+                    onChange={(e) => setNewOwnerGroupName(e.target.value)}
+                    placeholder="例: ○○ヘルスグループ（空欄時は店舗名＋グループ）"
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5">店舗名</label>
                 <input

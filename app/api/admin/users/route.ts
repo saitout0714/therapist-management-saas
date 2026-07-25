@@ -157,9 +157,22 @@ export async function POST(req: Request) {
       throw new Error('ユーザーアカウントの作成に失敗しました')
     }
 
-    // 3. shop_owners (店舗オーナー/スタッフの関連付けテーブル) に登録
+    // 3. shop_owners (店舗オーナー/スタッフの関連付けテーブル) および users.owner_id の更新
     // システム管理者 (system_admin)、受付スタッフ (agency_staff)、および開発者 (developer) は全店舗共通で紐付け不要のため登録をスキップします
     if (role !== 'developer' && role !== 'system_admin' && role !== 'agency_staff') {
+      const { data: targetShop } = await serviceSupabase
+        .from('shops')
+        .select('owner_id')
+        .eq('id', shopId)
+        .single()
+
+      if (targetShop && targetShop.owner_id) {
+        await serviceSupabase
+          .from('users')
+          .update({ owner_id: targetShop.owner_id })
+          .eq('id', newUser.id)
+      }
+
       const { error: ownerError } = await serviceSupabase
         .from('shop_owners')
         .insert([{

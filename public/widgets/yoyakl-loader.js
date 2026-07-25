@@ -840,17 +840,11 @@
     if (!photoUrl) {
       if (globalNoImageUrl) return globalNoImageUrl;
       const wpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-      return `${wpOrigin}/wp-content/themes/kokorolinse/images/unnamed.jpg`;
+      return `${wpOrigin}/wp-content/themes/specialgrade/images/noimg.jpg`;
     }
     let absoluteUrl = photoUrl;
     if (!photoUrl.startsWith('http://') && !photoUrl.startsWith('https://') && !photoUrl.startsWith('data:')) {
       absoluteUrl = `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
-    }
-    if (absoluteUrl.includes('/wp-content/')) {
-      return absoluteUrl;
-    }
-    if (width && base && !absoluteUrl.startsWith('data:')) {
-      return `${base}/_next/image?url=${encodeURIComponent(absoluteUrl)}&w=${width}&q=75`;
     }
     return absoluteUrl;
   }
@@ -930,7 +924,8 @@
       `;
 
       // APIからデータ取得
-      const apiUrl = `${apiBase}/api/public/${shopCode}`;
+      const widgetApiBase = widget.getAttribute('data-api-base') || apiBase || 'https://yoyakl.tokyo';
+      const apiUrl = `${widgetApiBase}/api/public/${shopCode}`;
       fetch(apiUrl)
         .then(response => {
           if (!response.ok) {

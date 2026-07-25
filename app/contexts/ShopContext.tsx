@@ -6,6 +6,8 @@ import { useAuth } from '@/app/contexts/AuthContext'
 
 type Shop = {
   id: string
+  owner_id?: string | null
+  owner_name?: string | null
   name: string
   short_name: string | null
   description: string | null
@@ -53,6 +55,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         .from('shops')
         .select(`
           *,
+          owners (
+            id,
+            name
+          ),
           shop_owners (
             users (
               role
@@ -71,6 +77,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         })
         return {
           id: shop.id,
+          owner_id: shop.owner_id || null,
+          owner_name: shop.owners?.name || null,
           name: shop.name,
           short_name: shop.short_name,
           description: shop.description,

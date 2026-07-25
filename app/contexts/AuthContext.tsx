@@ -8,6 +8,8 @@ type User = {
   loginId: string
   name?: string | null
   role: 'developer' | 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner'
+  ownerId?: string | null
+  ownerName?: string | null
   shops?: Array<{
     id: string
     name: string
@@ -40,13 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: dbUserData, error: dbUserError } = await supabase
         .from('users')
-        .select('*')
+        .select('*, owners(id, name)')
         .eq('id', sessionUser.id)
         .limit(1)
 
       if (dbUserData && dbUserData.length > 0) {
         const dbUser = dbUserData[0]
         let shops: { id: string; name: string }[] = []
+        let ownerName: string | null = null
+
+        if (dbUser.owners) {
+          ownerName = (dbUser.owners as any).name || null
+        }
         
         // データベースのロール値をフロントエンドのロール値にマッピング/正規化
         let normalizedRole = dbUser.role
@@ -55,18 +62,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (normalizedRole === 'staff') normalizedRole = 'agency_staff'
 
         if (normalizedRole !== 'developer' && normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
+          // オーナーグループIDが存在する場合、そのグループの全店舗を取得
+          if (dbUser.owner_id) {
+            const { data: ownerShopsData, error: ownerShopsError } = await supabase
+              .from('shops')
+              .select('id, name')
+              .eq('owner_id', dbUser.owner_id)
+              .eq('is_active', true)
+
+            if (!ownerShopsError && ownerShopsData) {
+              shops = ownerShopsData.map((s) => ({ id: s.id, name: s.name }))
+            }
+          }
+
+          // owner_idによる取得結果限らずフォールバックとしてshop_ownersからの個別紐付けも結合
           const { data: shopsData, error: shopsError } = await supabase
             .from('shop_owners')
             .select('shops(*)')
             .eq('user_id', dbUser.id)
 
           if (!shopsError && shopsData) {
-            shops = (shopsData as unknown as ShopOwnerRow[])
+            const legacyShops = (shopsData as unknown as ShopOwnerRow[])
               .filter((so) => so.shops !== null)
               .map((so) => ({
                 id: so.shops!.id,
                 name: so.shops!.name,
               }))
+            
+            // 重複排除して結合
+            const shopMap = new Map<string, string>()
+            shops.forEach((s) => shopMap.set(s.id, s.name))
+            legacyShops.forEach((s) => shopMap.set(s.id, s.name))
+            shops = Array.from(shopMap.entries()).map(([id, name]) => ({ id, name }))
           }
         }
 
@@ -75,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loginId: dbUser.login_id,
           name: dbUser.name,
           role: normalizedRole as User['role'],
+          ownerId: dbUser.owner_id || null,
+          ownerName: ownerName,
           shops: shops.length > 0 ? shops : undefined,
         }
 

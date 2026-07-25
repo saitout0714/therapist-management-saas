@@ -57,6 +57,8 @@ export default function EditShopPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [owners, setOwners] = useState<{ id: string; name: string }[]>([])
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const [form, setForm] = useState({
     name: '',
     short_name: '',
@@ -86,6 +88,14 @@ export default function EditShopPage() {
   const [links, setLinks] = useState<any[]>([])
   const [linksLoading, setLinksLoading] = useState(true)
   const [linksError, setLinksError] = useState('')
+
+  useEffect(() => {
+    const fetchOwners = async () => {
+      const { data } = await supabase.from('owners').select('id, name').order('name')
+      if (data) setOwners(data)
+    }
+    fetchOwners()
+  }, [])
 
   useEffect(() => {
     const fetchShop = async () => {
@@ -120,6 +130,7 @@ export default function EditShopPage() {
         is_active: shopRes.data.is_active,
         is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
       })
+      setSelectedOwnerId(shopRes.data.owner_id || '')
 
       if (!codeRes.error && codeRes.data) {
         setReservationCode(codeRes.data.code)
@@ -242,6 +253,7 @@ export default function EditShopPage() {
       .from('shops')
       .update({
         name: form.name,
+        owner_id: selectedOwnerId || null,
         short_name: form.short_name.trim() || null,
         description: form.description || null,
         phone: form.phone.trim() || null,
@@ -337,6 +349,24 @@ export default function EditShopPage() {
             {/* 店舗基本設定 */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">🏢 店舗基本情報</h2>
+              {owners.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">所属オーナーグループ / 法人</label>
+                  <select
+                    value={selectedOwnerId}
+                    onChange={(e) => setSelectedOwnerId(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                  >
+                    <option value="">未設定（個別店舗）</option>
+                    {owners.map((ow) => (
+                      <option key={ow.id} value={ow.id}>
+                        {ow.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5">店舗名</label>
                 <input

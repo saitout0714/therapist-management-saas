@@ -39,21 +39,31 @@ CREATE OR REPLACE FUNCTION public.check_shop_access(target_shop_id uuid)
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
+DECLARE
+  user_owner_id UUID;
+  user_role TEXT;
 BEGIN
-  -- A. ログインしていない場合はアクセス拒否
   IF auth.uid() IS NULL THEN
     RETURN FALSE;
   END IF;
 
-  -- B. 開発者またはシステム管理者、受付スタッフの場合は全アクセスを許可
-  IF EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND role IN ('developer', 'system_admin', 'agency_staff')
-  ) THEN
+  SELECT role, owner_id INTO user_role, user_owner_id
+  FROM public.users
+  WHERE id = auth.uid();
+
+  IF user_role IN ('developer', 'system_admin', 'agency_staff') THEN
     RETURN TRUE;
   END IF;
 
-  -- C. 店舗オーナーなどの場合は、自分が所有している店舗（shop_owners）のみ許可
+  IF user_owner_id IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM public.shops
+      WHERE id = target_shop_id AND owner_id = user_owner_id
+    ) THEN
+      RETURN TRUE;
+    END IF;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM public.shop_owners
     WHERE shop_id = target_shop_id AND user_id = auth.uid()
@@ -221,6 +231,17 @@ CREATE TABLE IF NOT EXISTS "public"."option_back_rules" (
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now(),
   CONSTRAINT "option_back_rules_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "public"."owners" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "name" character varying(255) NOT NULL,
+  "code" character varying(50),
+  "plan_type" character varying(50) DEFAULT 'standard'::character varying,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  CONSTRAINT "owners_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "owners_code_key" UNIQUE ("code")
 );
 
 CREATE TABLE IF NOT EXISTS "public"."options" (
@@ -432,6 +453,7 @@ CREATE TABLE IF NOT EXISTS "public"."shop_reservation_codes" (
 
 CREATE TABLE IF NOT EXISTS "public"."shops" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "owner_id" uuid,
   "name" character varying(255) NOT NULL,
   "description" text,
   "is_active" boolean DEFAULT true,
@@ -603,6 +625,7 @@ CREATE TABLE IF NOT EXISTS "public"."therapists" (
 
 CREATE TABLE IF NOT EXISTS "public"."users" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "owner_id" uuid,
   "login_id" character varying(255) NOT NULL,
   "password_hash" character varying NOT NULL,
   "role" character varying(50) NOT NULL,
