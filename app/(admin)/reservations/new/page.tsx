@@ -1241,7 +1241,7 @@ export default function NewReservationPage() {
                     onChange={(e) => {
                       const val = e.target.value
                       setCustomerSearch(val)
-                      setNewCustomer(prev => ({ ...prev, name: '' }))
+                      // 名前は消さない（先に入力していた場合に備える）
                       if (formData.customer_id) {
                         setFormData({ ...formData, customer_id: '' })
                         setSelectedCustomerObj(null)
@@ -1319,24 +1319,27 @@ export default function NewReservationPage() {
                           setFormData({ ...formData, customer_id: '' })
                           setCustomerSearch('')
                           setSelectedCustomerObj(null)
+                          setNewCustomer(prev => ({ ...prev, name: '' }))
                         }}
                         className="px-2 py-1.5 text-[10px] text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
                       >
                         変更
                       </button>
                     </div>
-                  ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
+                  ) : (
+                    // 既存顧客未選択のとき：常時名前入力欄を表示
+                    // 電話番号で検索結果0件のときはアンバー色（新規）、それ以外はグレー（任意入力）
                     <input
                       type="text"
                       value={newCustomer.name}
                       onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                      placeholder="新規お客様名を入力"
-                      className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
+                      placeholder={customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading ? '新規お客様名を入力' : 'お名前（先に入力可）'}
+                      className={`w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 outline-none transition-all placeholder:text-[10px] text-xs ${
+                        customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id
+                          ? 'bg-amber-50 border-amber-300 focus:ring-amber-400/50 placeholder:text-amber-400'
+                          : 'bg-slate-50 border-slate-200 focus:ring-indigo-500/50 placeholder:text-slate-400'
+                      }`}
                     />
-                  ) : (
-                    <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-400">
-                      検索から選択してください
-                    </div>
                   )}
                 </div>
               </div>
