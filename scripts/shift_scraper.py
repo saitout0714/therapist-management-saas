@@ -44,6 +44,8 @@ SHOP_ID_BACCARAT_SHUNAN = "e6b1cc21-c9eb-4fc1-888d-6f965a90c1df"
 SHOP_ID_BACCARAT_YAMAGUCHI = "508def9b-cd72-439d-9bbc-2dbe5e3a8af4"
 SHOP_ID_BACCARAT_UBE = "11013a02-86fe-4675-83e2-9e11f459d416"
 SHOP_ID_BACCARAT_IWAKUNI = "b99522d0-5166-4f7d-87d5-801699f5ba3c"
+SHOP_ID_QUEEN           = "09807189-96f2-4ccc-b238-815bd9e579e7"
+SHOP_ID_QUEEN_TERRACE   = "960d84c5-d1cd-44bc-a39a-85f8ecc3d51a"
 
 # ── サイト定義 ───────────────────────────────────────────────────
 SITES = [
@@ -104,6 +106,22 @@ SITES = [
         "shop_id": SHOP_ID_BACCARAT_IWAKUNI,
         "type": "tsujido",
         "url_tpl": "https://baccarat-iwakuni.com/schedule/?works={date}",
+        "container": ".schedule",
+        "box_selector": ".therapist-box",
+        "name_sel": "h3.name",
+        "time_sel": ".todays-time",
+    },
+    {
+        "name": "クイーン",
+        "shop_id": SHOP_ID_QUEEN,
+        "type": "queen_hiroshima",
+        "url_tpl": "https://hiroshima-queen.com/schedule.php",
+    },
+    {
+        "name": "クイーンテラス",
+        "shop_id": SHOP_ID_QUEEN_TERRACE,
+        "type": "tsujido",
+        "url_tpl": "https://queen-terrace.com/schedule/?works={date}",
         "container": ".schedule",
         "box_selector": ".therapist-box",
         "name_sel": "h3.name",

@@ -20,6 +20,8 @@ const SITES: SiteConfig[] = [
   { name: 'バカラ山口湯田', label: 'バカラ山口湯田 (baccarat2-menes.com)' },
   { name: 'バカラ宇部', label: 'バカラ宇部 (baccarat-ube.com)' },
   { name: 'バカラ岩国', label: 'バカラ岩国 (baccarat-iwakuni.com)' },
+  { name: 'クイーン', label: 'クイーン (hiroshima-queen.com)' },
+  { name: 'クイーンテラス', label: 'クイーンテラス (queen-terrace.com)' },
 ]
 
 interface ShopConfig {

@@ -81,6 +81,22 @@ export const SITES: SiteConfig[] = [
     name_sel: 'h3.name',
     time_sel: '.todays-time',
   },
+  {
+    name: 'クイーン',
+    shopId: '09807189-96f2-4ccc-b238-815bd9e579e7',
+    type: 'queen_hiroshima',
+    url_tpl: 'https://hiroshima-queen.com/schedule.php',
+  },
+  {
+    name: 'クイーンテラス',
+    shopId: '960d84c5-d1cd-44bc-a39a-85f8ecc3d51a',
+    type: 'tsujido',
+    url_tpl: 'https://queen-terrace.com/schedule/?works={date}',
+    container: '.schedule',
+    box_selector: '.therapist-box',
+    name_sel: 'h3.name',
+    time_sel: '.todays-time',
+  },
 ]
 
 function normalizeName(raw: string): string {
