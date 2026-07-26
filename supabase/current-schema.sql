@@ -380,6 +380,7 @@ CREATE TABLE IF NOT EXISTS "public"."reservations" (
   "hime_bonus" integer DEFAULT 0,
   "source" text DEFAULT 'staff'::text,
   "is_handled" boolean DEFAULT true,
+  "caskan_reservation_id" text,
   CONSTRAINT "reservations_pkey" PRIMARY KEY ("id")
 );
 

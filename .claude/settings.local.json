@@ -52,7 +52,11 @@
       "Bash(node -e ' *)",
       "Bash(node \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")",
       "Bash(rm -f /tmp/aelegance.html /tmp/caskan.html \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")",
-      "Bash(awk 'NR==1500,NR==1660' \"app/\\(admin\\)/shifts/page.tsx\")"
+      "Bash(awk 'NR==1500,NR==1660' \"app/\\(admin\\)/shifts/page.tsx\")",
+      "Bash(npx tsx *)",
+      "Bash(node -e \"console.log\\(require.resolve\\('pg'\\)\\)\")",
+      "Bash(cd \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\" && npx tsc --noEmit -p . 2>&1 | grep -i \"lib/sync/caskan.ts\"; npx tsx scratch/test_caskan_reservation_dryrun.ts > /tmp/caskan_res_dryrun2.log 2>&1; tail -15 /tmp/caskan_res_dryrun2.log)",
+      "Bash(grep -n \"WARN\\\\|ERROR\" /tmp/caskan_res_dryrun2.log | sort | uniq -c | head -30; echo \"---\"; wc -l /tmp/caskan_res_dryrun2.log)"
     ]
   }
 }
