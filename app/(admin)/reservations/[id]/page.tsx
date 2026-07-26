@@ -696,7 +696,7 @@ export default function ReservationPreviewPage() {
       let addressVal = roomInfo?.address || ''
       let mapUrlVal = roomInfo?.google_map_url || ''
 
-      const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || roomInfo?.type === 'hotel')
+      const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || (dispatch.dispatch_type === 'store' && roomInfo?.type === 'hotel'))
       const isHome = selectedShop?.is_dispatch_enabled && dispatch.dispatch_type === 'home'
 
       if (isHotel) {
@@ -848,7 +848,7 @@ export default function ReservationPreviewPage() {
 
     // ルーム・派遣先詳細
     const dispatch = parseDispatchFromNotes(reservation.notes)
-    const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || roomInfo?.type === 'hotel')
+    const isHotel = selectedShop?.is_dispatch_enabled && (dispatch.dispatch_type === 'hotel' || (dispatch.dispatch_type === 'store' && roomInfo?.type === 'hotel'))
     const isHome = selectedShop?.is_dispatch_enabled && dispatch.dispatch_type === 'home'
 
     if (isHotel) {
