@@ -749,7 +749,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
                                     const isWeb = res.booking_method === 'web' || (!res.booking_method && (res.source === 'web' || res.reception_source === 'client'));
                                     const isOwner = res.reception_source === 'owner';
-                                    const isHime = (res.is_hime ?? false) || res.designation_type === 'princess' || res.reception_source === 'therapist';
+                                    const isHime = res.designation_type === 'princess' || res.reception_source === 'therapist';
 
                                     const cardBgClass = isNotificationUnsent
                                       ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse'

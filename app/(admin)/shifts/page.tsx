@@ -1169,7 +1169,7 @@ function ShiftsContent() {
         totalPrice: reservation.total_price,
         discountAmount: reservation.discount_amount > 0 ? reservation.discount_amount : undefined,
         isNewCustomer: reservation.isNewCustomer,
-        isHime: (reservation.is_hime ?? false) || reservation.designation_type === 'princess',
+        isHime: reservation.designation_type === 'princess',
         isPending: reservation.status === 'pending',
         isHandled: reservation.is_handled,
         source: reservation.source,
