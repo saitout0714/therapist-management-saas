@@ -506,18 +506,26 @@ export async function POST(
   }
   const phoneVariants = [...new Set([customer.phone, phoneNorm, phoneHyphen])]
 
-  let existingCustomer: { id: string } | null = null
+  let existingCustomer: { id: string; status: string | null } | null = null
   for (const phone of phoneVariants) {
     const { data } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, status')
       .eq('shop_id', shopId)
       .eq('phone', phone)
       .maybeSingle()
-    if (data) { existingCustomer = data as { id: string }; break }
+    if (data) { existingCustomer = data as { id: string; status: string | null }; break }
   }
 
   if (existingCustomer) {
+    // 出禁チェック：出禁のお客様は一切の予約を受け付けない
+    if (existingCustomer.status === '出禁') {
+      return NextResponse.json(
+        { error: '大変恐れ入りますが、ご予約を承ることができません。詳細は店舗までお問合せください。' },
+        { status: 400 }
+      )
+    }
+
     customerId = existingCustomer.id
     // フリガナ・メールを更新（未設定の場合のみ）
     await supabase
