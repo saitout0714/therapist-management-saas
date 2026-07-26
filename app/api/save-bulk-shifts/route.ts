@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error: insertError } = await supabase
       .from('shifts')
-      .upsert(uniqueRows, { onConflict: 'therapist_id,date,start_time,end_time' })
+      .insert(uniqueRows)
       .select('id')
 
     if (insertError) {
