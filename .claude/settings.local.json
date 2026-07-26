@@ -43,7 +43,15 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36\" \"https://a-elegance.com/cast/\" -o /tmp/aelegance.html --max-time 20)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36\" \"https://my.caskan.jp/cast\" -o /tmp/caskan.html --max-time 20)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36\" \"https://my.caskan.jp/cast\" --max-time 20)",
+      "Bash(curl -sL -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36\" \"https://my.caskan.jp/cast\" --max-time 20 -o /tmp/caskan.html)",
+      "Bash(pwd -W)",
+      "Bash(node -e ' *)",
+      "Bash(node \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")",
+      "Bash(rm -f /tmp/aelegance.html /tmp/caskan.html \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")"
     ]
   }
 }

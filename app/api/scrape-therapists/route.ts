@@ -103,7 +103,7 @@ function extractPageText(html: string, maxLen = 10000): string {
 
 function parseLegend(html: string, baseUrl: string): any[] {
   const results: any[] = []
-  const aPattern = /<a[^>]+href=["']([^"']*detail\.cgi\?status=\d+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  const aPattern = /<a[^>]+href=["']([^"']*(?:detail\.cgi\?status=\d+|detail\.php\?girl=\d+))["'][^>]*>([\s\S]*?)<\/a>/gi
   
   let match
   while ((match = aPattern.exec(html)) !== null) {
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `ページの取得に失敗しました: ${msg}` }, { status: 422 })
     }
 
-    const isCgiTemplate = html.includes('detail.cgi?status=') || url.toLowerCase().includes('legend')
+    const isCgiTemplate = html.includes('detail.cgi?status=') || html.includes('detail.php?girl=') || url.toLowerCase().includes('legend')
     
     if (isCgiTemplate) {
       const enriched = parseLegend(html, url)
