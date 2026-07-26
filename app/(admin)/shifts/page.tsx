@@ -260,6 +260,20 @@ function ShiftsContent() {
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
+
+  // Load saved sort mode from localStorage on client-side mount
+  useEffect(() => {
+    const saved = localStorage.getItem('shifts_sort_mode');
+    if (saved === 'shift' || saved === 'room' || saved === 'reservation') {
+      setSortMode(saved as SortMode);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('shifts_sort_mode', sortMode);
+    }
+  }, [sortMode]);
   const [roomOrderMap, setRoomOrderMap] = useState<Map<string, number>>(new Map());
   const [minCourseDuration, setMinCourseDuration] = useState<number>(0);
 
