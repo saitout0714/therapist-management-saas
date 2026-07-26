@@ -287,7 +287,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   useEffect(() => {
     const fetchRooms = async () => {
       if (!selectedShop) return
-      const { data } = await supabase.from('rooms').select('id, name, memo, google_map_url').eq('shop_id', selectedShop.id)
+      const { data } = await supabase.from('rooms').select('id, name, display_name, address, memo, google_map_url').eq('shop_id', selectedShop.id)
       setRooms((data as Room[]) || [])
     }
     void fetchRooms()

@@ -51,7 +51,8 @@
       "Bash(pwd -W)",
       "Bash(node -e ' *)",
       "Bash(node \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")",
-      "Bash(rm -f /tmp/aelegance.html /tmp/caskan.html \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")"
+      "Bash(rm -f /tmp/aelegance.html /tmp/caskan.html \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas\\\\6fda28a8-2ec3-477d-b610-62411985cd65\\\\scratchpad\\\\test-parse.js\")",
+      "Bash(awk 'NR==1500,NR==1660' \"app/\\(admin\\)/shifts/page.tsx\")"
     ]
   }
 }
