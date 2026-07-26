@@ -150,6 +150,60 @@ function parseLegend(html: string, baseUrl: string): any[] {
   return results
 }
 
+// m-a-s-u-o.sakura.ne.jp プラットフォーム（/profile?id=XX 形式）の専用パーサー
+function parseMasuoPlatform(html: string, baseUrl: string): any[] {
+  const results: any[] = []
+  // <a href="/profile?id=XX"> 内にセラピスト情報が完全に含まれる構造
+  const aPattern = /<a\s+href="(\/profile\?id=\d+)">[\s\S]*?<\/a>/gi
+  let m
+  while ((m = aPattern.exec(html)) !== null) {
+    const href = m[1]
+    const inner = m[0]
+    let profileUrl: string
+    try { profileUrl = new URL(href, baseUrl).toString() } catch { continue }
+
+    // 名前と年齢（h3タグ内: みさき(27) 形式）
+    const h3Match = inner.match(/<h3>([^<(（\(]+)[（(](\d+)[)）]?[\s\S]*?<\/h3>/)
+    if (!h3Match) continue
+    const name = h3Match[1].trim()
+    if (!name || name.length < 1) continue
+    const age = parseInt(h3Match[2], 10)
+
+    // 写真URL（data-p1 属性を優先、なければ src）
+    const imgMatch = inner.match(/data-p1="([^"]+)"/)
+    const imgSrcMatch = inner.match(/<img[^>]+src="([^"]+upload\/cast[^"]+)"/) 
+    const rawPhotoUrl = imgMatch ? imgMatch[1].split('?')[0] : (imgSrcMatch ? imgSrcMatch[1].split('?')[0] : null)
+    const photoUrl = rawPhotoUrl ? (() => { try { return new URL(rawPhotoUrl, baseUrl).toString() } catch { return null } })() : null
+
+    // スペック（T150 B86(E) W57 H80 形式）
+    const bodyMatch = inner.match(/T(\d+)\s+B(\d+)\(([A-K])\)\s+W(\d+)\s+H(\d+)/)
+    let height: number | null = null, bust: number | null = null, bustCup: string | null = null
+    let waist: number | null = null, hip: number | null = null
+    if (bodyMatch) {
+      height = parseInt(bodyMatch[1])
+      bust = parseInt(bodyMatch[2])
+      bustCup = bodyMatch[3]
+      waist = parseInt(bodyMatch[4])
+      hip = parseInt(bodyMatch[5])
+    }
+
+    results.push({
+      name,
+      age: isNaN(age) ? null : age,
+      height,
+      bust,
+      bust_cup: bustCup,
+      waist,
+      hip,
+      comment: null,
+      rank: null,
+      profile_url: profileUrl,
+      photo_url: photoUrl,
+    })
+  }
+  return results
+}
+
 function parseEstheHp(html: string, baseUrl: string): any[] {
   const results: any[] = []
   const pattern = /<a[^>]+href=["']([^"']*(?:item_\d+\.html|\/item\/\d+))["'][^>]*>([\s\S]*?)<\/a>/gi
@@ -226,6 +280,13 @@ export async function POST(req: NextRequest) {
     
     if (isCgiTemplate) {
       const enriched = parseLegend(html, url)
+      return NextResponse.json({ therapists: enriched })
+    }
+
+    // m-a-s-u-o.sakura.ne.jp プラットフォーム（/profile?id=XX 形式）の検出
+    const isMasuoPlatform = html.includes('m-a-s-u-o.sakura.ne.jp') && html.includes('/profile?id=')
+    if (isMasuoPlatform) {
+      const enriched = parseMasuoPlatform(html, url)
       return NextResponse.json({ therapists: enriched })
     }
 
