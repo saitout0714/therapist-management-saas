@@ -211,10 +211,15 @@ export default function EditReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
+      let shopIds = [selectedShop.id]
+      if (selectedShop.owner_id) {
+        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
+        if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
+      }
       const { data } = await supabase
         .from('customers')
         .select('id, name, email, phone, status, ng_reason, memo')
-        .eq('shop_id', selectedShop.id)
+        .in('shop_id', shopIds)
         .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
         .order('name')
         .limit(50)
@@ -247,11 +252,17 @@ export default function EditReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
+      let shopIds = [selectedShop.id]
+      if (selectedShop.owner_id) {
+        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
+        if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
+      }
+
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').in('shop_id', shopIds).order('name'),
         supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', shopIds).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
