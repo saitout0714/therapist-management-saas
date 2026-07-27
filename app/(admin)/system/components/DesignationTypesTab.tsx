@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 
 type DesignationType = {
   id: string
@@ -177,6 +178,18 @@ export function DesignationTypesTab() {
     setShowForm(true)
   }
 
+  // 同一オーナー配下の兄弟店舗にも同じ内容(slug一致)を反映する
+  const syncToSiblingShops = async (payload: typeof form) => {
+    if (!selectedShop) return
+    const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
+    const siblingShopIds = shopIds.filter(id => id !== selectedShop.id)
+    if (siblingShopIds.length === 0) return
+    await supabase.from('designation_types').upsert(
+      siblingShopIds.map(shopId => ({ ...payload, shop_id: shopId })),
+      { onConflict: 'shop_id, slug' }
+    )
+  }
+
   const handleSave = async () => {
     if (!selectedShop) return
     if (!form.slug || !form.display_name) { alert('種別名は必須です'); return }
@@ -195,14 +208,24 @@ export function DesignationTypesTab() {
       if (error) { alert('追加に失敗しました: ' + error.message); return }
     }
 
+    await syncToSiblingShops(form)
     resetForm()
     void fetchItems()
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('この指名種別を削除しますか？')) return
+    const target = items.find(item => item.id === id)
     const { error } = await supabase.from('designation_types').delete().eq('id', id)
     if (error) { alert('削除に失敗しました'); return }
+
+    if (target && selectedShop) {
+      const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
+      const siblingShopIds = shopIds.filter(sid => sid !== selectedShop.id)
+      if (siblingShopIds.length > 0) {
+        await supabase.from('designation_types').delete().eq('slug', target.slug).in('shop_id', siblingShopIds)
+      }
+    }
     void fetchItems()
   }
 

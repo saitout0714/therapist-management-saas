@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 
 type TherapistRank = {
     id: string
@@ -24,7 +25,8 @@ export function TherapistRankManagementTab() {
             return
         }
         setLoading(true)
-        const { data, error } = await supabase.from('therapist_ranks').select('*').eq('shop_id', selectedShop.id).order('display_order', { ascending: true })
+        const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
+        const { data, error } = await supabase.from('therapist_ranks').select('*').in('shop_id', shopIds).order('display_order', { ascending: true })
         if (error) alert('データの取得に失敗しました')
         else setRanks((data as TherapistRank[]) || [])
         setLoading(false)

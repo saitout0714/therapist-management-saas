@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 
 type Course = {
     id: string
@@ -35,10 +36,11 @@ export function CourseManagementTab() {
     async function fetchCourses() {
         if (!selectedShop) { setCourses([]); setLoading(false); return }
         setLoading(true)
+        const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
         const { data, error } = await supabase
             .from('courses')
             .select('*')
-            .eq('shop_id', selectedShop.id)
+            .in('shop_id', shopIds)
             .order('display_order', { ascending: true })
         if (error) alert('コースの取得に失敗しました')
         else setCourses((data as Course[]) || [])

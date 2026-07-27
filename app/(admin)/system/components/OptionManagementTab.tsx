@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 
 type Option = {
     id: string
@@ -31,7 +32,8 @@ export function OptionManagementTab() {
     async function fetchOptions() {
         if (!selectedShop) { setOptions([]); setLoading(false); return }
         setLoading(true)
-        const { data, error } = await supabase.from('options').select('*').eq('shop_id', selectedShop.id).order('display_order', { ascending: true })
+        const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
+        const { data, error } = await supabase.from('options').select('*').in('shop_id', shopIds).order('display_order', { ascending: true })
         if (error) alert('オプションの取得に失敗しました')
         else setOptions((data as Option[]) || [])
         setLoading(false)

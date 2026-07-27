@@ -369,14 +369,14 @@ export default function NewReservationPage() {
 
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').in('shop_id', shopIds).order('name'),
-        supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('courses').select('*').in('shop_id', shopIds).eq('is_active', true).order('display_order'),
+        supabase.from('options').select('*').in('shop_id', shopIds).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', shopIds).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-        supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
+        supabase.from('discount_policies').select('*').in('shop_id', shopIds).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').in('shop_id', shopIds),
         supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('order'),
       ])
 
@@ -411,7 +411,7 @@ export default function NewReservationPage() {
         const { data: overridesData } = await supabase
           .from('discount_rank_overrides')
           .select('discount_policy_id, rank_id, therapist_burden_amount')
-          .eq('shop_id', selectedShop.id)
+          .in('shop_id', shopIds)
         setDiscountRankOverrides((overridesData || []) as DiscountRankOverride[])
       } catch {
         setDiscountRankOverrides([])

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 
 type DiscountPolicy = {
   id: string
@@ -35,10 +36,11 @@ export function DiscountPoliciesTab() {
   async function fetchPolicies() {
     if (!selectedShop) { setPolicies([]); setLoading(false); return }
     setLoading(true)
+    const shopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
     const { data, error } = await supabase
       .from('discount_policies')
       .select('*')
-      .eq('shop_id', selectedShop.id)
+      .in('shop_id', shopIds)
       .order('display_order', { ascending: true })
     if (!error) setPolicies((data as DiscountPolicy[]) || [])
     setLoading(false)

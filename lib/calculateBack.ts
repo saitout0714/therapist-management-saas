@@ -154,6 +154,19 @@ function getDbClient(customClient?: any) {
 }
 
 /**
+ * 同一オーナー配下の店舗はコース・ランク・バック額マトリクス等を共有するため、
+ * shopId 単体ではなく同オーナーの全店舗 shop_id を取得する。
+ */
+async function getGroupShopIds(shopId: string, client: any): Promise<string[]> {
+  const { data: shopRow } = await client.from('shops').select('owner_id').eq('id', shopId).single()
+  const ownerId = shopRow?.owner_id
+  if (!ownerId) return [shopId]
+  const { data: shopsData } = await client.from('shops').select('id').eq('owner_id', ownerId)
+  if (shopsData && shopsData.length > 0) return shopsData.map((s: { id: string }) => s.id)
+  return [shopId]
+}
+
+/**
  * course_back_amounts テーブルから顧客料金（customer_price）を解決する。
  * 指名種別×ランク×コースの組み合わせで検索し、
  * 見つからなければコースのbase_priceをフォールバックとして返す。
@@ -167,13 +180,14 @@ export async function resolveCustomerPrice(
   customClient?: any
 ): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; nominationBackAmount: number | null; source: 'matrix' | 'default' | 'fallback' }> {
   const client = getDbClient(customClient)
+  const shopIds = await getGroupShopIds(shopId, client)
 
   // 1. ランク指定ありで検索（マトリクス表）
   if (rankId) {
     const { data } = await client
       .from('course_back_amounts')
       .select('back_amount, customer_price, course_price_override, nomination_back_amount')
-      .eq('shop_id', shopId)
+      .in('shop_id', shopIds)
       .eq('course_id', courseId)
       .eq('rank_id', rankId)
       .eq('designation_type', designationSlug)
@@ -356,7 +370,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
       let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
       if (input.therapistRankId) {
-        const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+        const rankPriceShopIds = await getGroupShopIds(input.shopId, client)
+        const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').in('shop_id', rankPriceShopIds).eq('rank_id', input.therapistRankId).limit(1)
         if (rankData && rankData.length > 0) {
           extUnitPrice = rankData[0].extension_unit_price
           extUnitBack = rankData[0].extension_unit_back
@@ -461,7 +476,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
     let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
     if (input.therapistRankId) {
-      const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+      const rankPriceShopIds = await getGroupShopIds(input.shopId, client)
+      const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').in('shop_id', rankPriceShopIds).eq('rank_id', input.therapistRankId).limit(1)
       if (rankData && rankData.length > 0) {
         extUnitPrice = rankData[0].extension_unit_price
         extUnitBack = rankData[0].extension_unit_back
