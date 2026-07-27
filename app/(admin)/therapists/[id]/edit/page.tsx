@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
+import { getGroupShopIds } from "@/lib/shopGroup";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -206,6 +207,11 @@ export default function EditTherapistPage() {
         setTherapistShopId(therapist.shop_id);
         setOriginalGroupId(therapist.linked_therapist_group_id || null);
 
+        // ランク・コース・オプション・指名種別は同一オーナー配下の全店舗で共有されるため、
+        // このセラピストの所属店舗のオーナーグループの shop_id をまとめて取得する
+        const { data: therapistShopRow } = await supabase.from('shops').select('owner_id').eq('id', therapist.shop_id).single();
+        const groupShopIds = await getGroupShopIds(therapist.shop_id, therapistShopRow?.owner_id);
+
         // 同一オーナーグループの店舗および店舗別源氏名の取得
         if (selectedShop?.owner_id) {
           const { data: shopsData } = await supabase.from('shops').select('id, name').eq('owner_id', selectedShop.owner_id);
@@ -230,16 +236,16 @@ export default function EditTherapistPage() {
 
         // Fetch ranks, fees, option data, courses in parallel
         const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes, coursesRes] = await Promise.all([
-          supabase.from("therapist_ranks").select("id, name").eq("shop_id", therapist.shop_id).order("display_order"),
+          supabase.from("therapist_ranks").select("id, name").in("shop_id", groupShopIds).order("display_order"),
           supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
           supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
-          supabase.from("options").select("back_category").eq("shop_id", therapist.shop_id).eq("is_active", true),
+          supabase.from("options").select("back_category").in("shop_id", groupShopIds).eq("is_active", true),
           supabase.from("designation_types").select("slug, display_name").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order"),
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
           linkedShopIds.length > 0
             ? supabase.from("therapists").select("id, name, shop_id, shops(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
             : Promise.resolve({ data: [] }),
-          supabase.from("courses").select("id, name, duration").eq("shop_id", therapist.shop_id).eq("is_active", true).order("display_order")
+          supabase.from("courses").select("id, name, duration").in("shop_id", groupShopIds).eq("is_active", true).order("display_order")
         ]);
 
         setRanks(ranksRes.data || []);

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
+import { getGroupShopIds } from '@/lib/shopGroup'
 import Image from 'next/image'
 
 type ShopRank = { id: string; name: string }
@@ -163,9 +164,10 @@ export default function ImportTherapistsPage() {
       let existingNames = new Set<string>()
       let ranks: ShopRank[] = []
       if (selectedShop) {
+        const groupShopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
         const [existingRes, ranksRes] = await Promise.all([
           supabase.from('therapists').select('name').eq('shop_id', selectedShop.id),
-          supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
+          supabase.from('therapist_ranks').select('id, name').in('shop_id', groupShopIds).order('display_order'),
         ])
         if (existingRes.data) existingNames = new Set(existingRes.data.map((t: { name: string }) => normalizeName(t.name)))
         ranks = (ranksRes.data || []) as ShopRank[]
