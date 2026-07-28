@@ -47,9 +47,6 @@ const OWNER_RECEPTION_LABELS: Record<string, string> = {
   owner_hada: '波田',
 }
 
-// バカラグループのowner_id（mtsスタッフのセラピスト名を「mts」と表示する対象）
-const BACCARAT_OWNER_ID = '016a4306-25d3-470b-8be4-11c4b01ef7b3'
-
 const EMPTY_FILTERS: SearchFilters = {
   dateFrom: '',
   dateTo: '',
@@ -501,12 +498,7 @@ export default function ReservationsPage() {
                             '-'
                           )}
                         </td>
-                        <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap ${plainTextClass}`}>
-                          {/* バカラオーナーログイン中かつmts受付区分の場合は「mts」と表示 */}
-                          {user?.ownerId === BACCARAT_OWNER_ID && r.reception_source === 'staff'
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">mts</span>
-                            : r.therapist?.name || '-'}
-                        </td>
+                        <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap ${plainTextClass}`}>{r.therapist?.name || '-'}</td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${designationStyle(r.designation_type)}`}>
                             {designationLabel(r.designation_type)}
@@ -525,7 +517,10 @@ export default function ReservationsPage() {
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
                         <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap hidden md:table-cell ${plainTextClass}`}>
-                          {OWNER_RECEPTION_LABELS[r.reception_source || ''] || r.created_by?.name || '-'}
+                          {/* 代行プランオーナーログイン中は「mts」と表示。マスター・管理者・受付スタッフは実際の担当者名を表示 */}
+                          {user?.role === 'agency_client_owner'
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">mts</span>
+                            : OWNER_RECEPTION_LABELS[r.reception_source || ''] || r.created_by?.name || '-'}
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-right whitespace-nowrap">
                           <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
