@@ -904,7 +904,8 @@ export default function EditReservationPage() {
         const selectedCourse = courses.find(c => c.id === formData.course_id)
         const subtotalForBack = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.extensionPrice + calculatedPrice.nominationFee
         const backInput: BackCalculationInput = {
-          shopId: getBackShopId(selectedShop),
+          shopId: selectedShop.id,
+          backShopId: getBackShopId(selectedShop),
           pricingShopId: getPricingShopId(selectedShop),
           therapistId: formData.therapist_id,
           therapistRankId: selectedTherapist?.rank_id || null,

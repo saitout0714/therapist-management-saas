@@ -1125,7 +1125,8 @@ export default function NewReservationPage() {
           const subtotalForBack = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.nominationFee
 
           const backInput: BackCalculationInput = {
-            shopId: getBackShopId(selectedShop),
+            shopId: selectedShop.id,
+            backShopId: getBackShopId(selectedShop),
             pricingShopId: getPricingShopId(selectedShop),
             therapistId: formData.therapist_id,
             therapistRankId: selectedTherapist?.rank_id || null,

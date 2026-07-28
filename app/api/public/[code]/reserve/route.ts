@@ -746,7 +746,8 @@ export async function POST(
   if (therapist_id) {
     try {
       const backInput = {
-        shopId: backShopId,
+        shopId,
+        backShopId,
         pricingShopId,
         therapistId: therapist_id,
         therapistRankId: therapist?.rank_id || null,

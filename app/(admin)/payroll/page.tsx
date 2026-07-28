@@ -320,7 +320,8 @@ export default function PayrollPage() {
           const targetTherapist = groupTherapists.find(t => t.id === res.therapist_id) || therapist
           const resShop = shopConfigMap.get(res.shop_id) || selectedShop
           const input: BackCalculationInput = {
-            shopId: getBackShopId(resShop),
+            shopId: res.shop_id || selectedShop.id,
+            backShopId: getBackShopId(resShop),
             pricingShopId: getPricingShopId(resShop),
             therapistId: targetTherapist.id,
             therapistRankId: targetTherapist.rank_id,

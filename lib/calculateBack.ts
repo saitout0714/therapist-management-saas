@@ -83,10 +83,15 @@ type DesignationType = {
 }
 
 export type BackCalculationInput = {
+  // 予約が発生した店舗そのもののID。system_settings（延長単価など店舗ごとの設定）に使う。
   shopId: string
   // マルチショップで料金設定(designation_types)を他店舗と共有している場合の解決先店舗ID。
   // 未指定時は shopId を使う（従来通り）。
   pricingShopId?: string
+  // マルチショップでバック設定(course_back_amounts, extension_rank_prices,
+  // deduction_rules, shop_back_rules 等)を他店舗と共有している場合の解決先店舗ID。
+  // 未指定時は shopId を使う（従来通り）。
+  backShopId?: string
   therapistId: string
   therapistRankId: string | null
   therapistBackCalcType: 'percentage' | 'fixed' | 'half_split' | null
@@ -250,8 +255,12 @@ function resolveTherapistOptionRate(
 export async function calculateBack(input: BackCalculationInput): Promise<BackCalculationResult> {
   const client = getDbClient(input.supabaseClient)
 
+  // マルチショップの設定共有先を解決する。未指定なら自店舗のデータを使う。
+  const backShopId = input.backShopId ?? input.shopId
+  const pricingShopId = input.pricingShopId ?? input.shopId
+
   // Step 0: 営業日の決定
-  const shopRule = await fetchShopBackRule(input.shopId, client)
+  const shopRule = await fetchShopBackRule(backShopId, client)
   if (!shopRule) throw new Error('店舗のバック設定の取得に失敗しました。システム管理者にお問い合わせください。')
 
   // Step 0c: セラピスト個別オプションバック設定とオプションカテゴリを一括取得
@@ -274,13 +283,13 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 0b: 顧客料金の自動解決
   const resolved_price = await resolveCustomerPrice(
-    input.shopId,
+    backShopId,
     input.courseId,
     input.therapistRankId,
     input.designationType,
     input.coursePrice,
     client,
-    input.pricingShopId
+    pricingShopId
   )
   const effectiveCoursePrice = resolved_price.customerPrice
 
@@ -311,7 +320,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     const { data: dtFeeData } = await client
       .from('designation_types')
       .select('default_fee, default_back_amount')
-      .eq('shop_id', input.pricingShopId ?? input.shopId)
+      .eq('shop_id', pricingShopId)
       .eq('slug', input.designationType)
       .eq('is_active', true)
       .limit(1)
@@ -333,7 +342,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
 
   // Step 1: 適用バック率の解決（オーバーライドチェーン）
   const resolved = await resolveBackRates(
-    input.shopId,
+    backShopId,
     input.therapistId,
     input.therapistRankId,
     input.therapistBackCalcType,
@@ -362,7 +371,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
       let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
       if (input.therapistRankId) {
-        const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+        const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', backShopId).eq('rank_id', input.therapistRankId).limit(1)
         if (rankData && rankData.length > 0) {
           extUnitPrice = rankData[0].extension_unit_price
           extUnitBack = rankData[0].extension_unit_back
@@ -382,7 +391,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       : applyRounding((courseOnlyPrice + extensionPrice + totalOptionsPrice - totalDiscount) * resolved.courseRate / 100, shopRule.rounding_method)
     const totalBack = courseHalfBack + halfSplitNominationBack
 
-    const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
+    const deductionResult = await calculateDeductions(backShopId, input.courseDuration, client)
 
     const totalPrice = courseOnlyPrice + extensionPrice + totalOptionsPrice + nominationFeeForBack
     return {
@@ -423,7 +432,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
   } else if (resolved.calcType === 'fixed') {
     const fixedAmount = await fetchCourseBackAmount(
-      input.shopId,
+      backShopId,
       input.courseId,
       input.therapistRankId,
       input.designationType,
@@ -446,13 +455,13 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   // Step 2b: 延長コースのバック計算
   if (input.extensionCourseId) {
     const extPrice = await resolveCustomerPrice(
-      input.shopId,
+      backShopId,
       input.extensionCourseId,
       input.therapistRankId,
       'free', // 延長はfreeで統一
       input.extensionCoursePrice || 0,
       client,
-      input.pricingShopId
+      pricingShopId
     )
     
     if (resolved.calcType === 'percentage') {
@@ -468,7 +477,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     let extUnitPrice = sysData?.[0]?.extension_unit_price ?? 0
     let extUnitBack = sysData?.[0]?.extension_unit_back ?? 0
     if (input.therapistRankId) {
-      const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', input.shopId).eq('rank_id', input.therapistRankId).limit(1)
+      const { data: rankData } = await client.from('extension_rank_prices').select('extension_unit_price, extension_unit_back').eq('shop_id', backShopId).eq('rank_id', input.therapistRankId).limit(1)
       if (rankData && rankData.length > 0) {
         extUnitPrice = rankData[0].extension_unit_price
         extUnitBack = rankData[0].extension_unit_back
@@ -507,7 +516,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     }
 
     // 2. option_back_rules（オプション個別設定テーブル）があれば適用
-    const optRule = await fetchOptionBackRule(input.shopId, opt.option_id, client)
+    const optRule = await fetchOptionBackRule(backShopId, opt.option_id, client)
     if (optRule) {
       switch (optRule.calc_type) {
         case 'full_back':
@@ -576,7 +585,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       const { data: dtBack } = await client
         .from('designation_types')
         .select('default_fee, default_back_amount')
-        .eq('shop_id', input.pricingShopId ?? input.shopId)
+        .eq('shop_id', pricingShopId)
         .eq('slug', input.designationType)
         .eq('is_active', true)
         .limit(1)
@@ -655,7 +664,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
   const totalBack = courseBack + extensionBack + optionBack + nominationBack - therapistDiscountBurden
 
   // Step 6: 予約単位の控除・手当処理
-  const deductionResult = await calculateDeductions(input.shopId, input.courseDuration, client)
+  const deductionResult = await calculateDeductions(backShopId, input.courseDuration, client)
 
   // Step 7: 結果の構築
   const totalOptionsPrice = input.options.reduce((sum, o) => sum + o.price, 0)
