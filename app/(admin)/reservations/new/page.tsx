@@ -10,6 +10,7 @@ import TimeSelectHM from '@/app/components/TimeSelectHM'
 import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 import { updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
 import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
+import { getTodayJST } from '@/lib/timeUtils'
 
 type Customer = {
   id: string
@@ -132,7 +133,7 @@ export default function NewReservationPage() {
 
   const [formData, setFormData] = useState({
     customer_id: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayJST(),
     start_time: '10:00',
     end_time: '11:00',
     course_id: '',

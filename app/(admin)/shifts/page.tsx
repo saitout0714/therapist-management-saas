@@ -9,7 +9,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import TimeChart from '@/app/components/TimeChart';
 import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
-import { toDisplayTime } from '@/lib/timeUtils';
+import { toDisplayTime, getTodayJST } from '@/lib/timeUtils';
 import { getPricingShopId } from '@/lib/shopUtils';
 
 interface Shift {
@@ -212,7 +212,7 @@ function ShiftsContent() {
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
   const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30);
   const [filterDate, setFilterDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return getTodayJST();
   });
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
 
@@ -252,7 +252,7 @@ function ShiftsContent() {
   useEffect(() => {
     if (!selectedShop) return;
     if (lastShopIdRef.current !== null && lastShopIdRef.current !== selectedShop.id) {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getTodayJST();
       setFilterDate(todayStr);
       setWeekStartDate(new Date());
     }
@@ -1836,7 +1836,7 @@ function ShiftsContent() {
                     翌日 →
                   </button>
                   <button
-                    onClick={() => setFilterDate(new Date().toISOString().split('T')[0])}
+                    onClick={() => setFilterDate(getTodayJST())}
                     className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
                   >
                     本日

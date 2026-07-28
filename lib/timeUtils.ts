@@ -20,3 +20,17 @@ export function toDisplayTime(timeStr: string | null | undefined): string {
   }
   return timeStr.slice(0, 5);
 }
+
+/**
+ * 日本時間(Asia/Tokyo)基準の「今日」の日付文字列 (YYYY-MM-DD) を返す。
+ *
+ * `new Date().toISOString().split('T')[0]` は常にUTCの日付を返すため、
+ * 日本時間の深夜0:00〜8:59の間はUTC上ではまだ前日であり、「昨日」の日付に
+ * なってしまう（深夜に予約登録・スケジュール表示すると日付がズレるバグの原因）。
+ * 実行環境のタイムゾーン設定（サーバー/ブラウザどちらか）に関わらず、
+ * 明示的に Asia/Tokyo を指定することでこの問題を避ける。
+ */
+export function getTodayJST(): string {
+  // 'sv-SE' ロケールは YYYY-MM-DD 形式で日付を返すため利用している。
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+}

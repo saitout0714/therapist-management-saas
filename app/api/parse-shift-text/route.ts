@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { getTodayJST } from '@/lib/timeUtils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     const therapistNames = therapists.map(t => t.name)
     const roomNames = rooms.map(r => r.name)
 
-    const currentDate = new Date().toISOString().split('T')[0]
+    const currentDate = getTodayJST()
 
     // 2. Gemini API でテキスト解析
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)

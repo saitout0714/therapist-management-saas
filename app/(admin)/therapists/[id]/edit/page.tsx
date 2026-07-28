@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
+import { getTodayJST } from "@/lib/timeUtils";
 import { getPricingShopId, getBackShopId } from "@/lib/shopUtils";
 import Link from "next/link";
 import Image from "next/image";
@@ -119,7 +120,7 @@ export default function EditTherapistPage() {
     const { error } = await supabase.from('therapist_memos').insert([{
       therapist_id: therapistId,
       shop_id: targetShopId,
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayJST(),
       content: memoForm.content.trim(),
       amount: parseInt(memoForm.amount || '0', 10) || 0,
     }]);
