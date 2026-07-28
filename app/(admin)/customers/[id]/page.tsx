@@ -62,6 +62,7 @@ export default function CustomerDetailPage() {
   const [ngAddReason, setNgAddReason] = useState('')
   const [ngAdding, setNgAdding] = useState(false)
   const [ngRemoving, setNgRemoving] = useState<string | null>(null)
+  const [therapistSearch, setTherapistSearch] = useState('')
 
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -89,12 +90,38 @@ export default function CustomerDetailPage() {
             .from('customer_therapist_ng')
             .select('id, therapist_id, reason, therapist:therapists(name)')
             .eq('customer_id', customerId),
-          supabase
-            .from('therapists')
-            .select('id, name')
-            .eq('shop_id', customerData.shop_id)
-            .eq('is_active', true)
-            .order('name'),
+          (async () => {
+            // オーナーグループ全体のセラピストを取得（マルチショップ対応）
+            const { data: shopData } = await supabase
+              .from('shops')
+              .select('owner_id')
+              .eq('id', customerData.shop_id)
+              .single()
+
+            if (shopData?.owner_id) {
+              // owner_idが存在する場合、グループ全店舗のセラピストを取得
+              const { data: groupShops } = await supabase
+                .from('shops')
+                .select('id')
+                .eq('owner_id', shopData.owner_id)
+
+              const groupShopIds = (groupShops || []).map((s: { id: string }) => s.id)
+
+              return await supabase
+                .from('therapists')
+                .select('id, name')
+                .in('shop_id', groupShopIds)
+                .eq('is_active', true)
+                .order('name')
+            } else {
+              return await supabase
+                .from('therapists')
+                .select('id, name')
+                .eq('shop_id', customerData.shop_id)
+                .eq('is_active', true)
+                .order('name')
+            }
+          })(),
         ])
 
         setCustomer(customerData)
@@ -327,33 +354,55 @@ export default function CustomerDetailPage() {
             {/* NGセラピスト追加フォーム */}
             <div className="pt-4 border-t border-slate-100">
               <p className="text-sm font-semibold text-slate-600 mb-3">NGセラピストを追加</p>
+              {/* セラピスト検索フィールド */}
+              <div className="mb-2">
+                <input
+                  type="text"
+                  value={therapistSearch}
+                  onChange={(e) => setTherapistSearch(e.target.value)}
+                  placeholder="セラピスト名で検索..."
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
+                />
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={ngAddTherapistId}
                   onChange={(e) => setNgAddTherapistId(e.target.value)}
                   className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
+                  size={Math.min(
+                    therapistOptions.filter(t =>
+                      !ngPairs.some(p => p.therapist_id === t.id) &&
+                      (therapistSearch === '' || t.name.toLowerCase().includes(therapistSearch.toLowerCase()))
+                    ).length + 1,
+                    8
+                  )}
                 >
                   <option value="">セラピストを選択</option>
                   {therapistOptions
-                    .filter(t => !ngPairs.some(p => p.therapist_id === t.id))
+                    .filter(t =>
+                      !ngPairs.some(p => p.therapist_id === t.id) &&
+                      (therapistSearch === '' || t.name.toLowerCase().includes(therapistSearch.toLowerCase()))
+                    )
                     .map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                 </select>
-                <input
-                  type="text"
-                  value={ngAddReason}
-                  onChange={(e) => setNgAddReason(e.target.value)}
-                  placeholder="理由（任意）"
-                  className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
-                />
-                <button
-                  onClick={addNgPair}
-                  disabled={!ngAddTherapistId || ngAdding}
-                  className="px-4 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl hover:bg-rose-600 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap"
-                >
-                  {ngAdding ? '追加中...' : '追加'}
-                </button>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={ngAddReason}
+                    onChange={(e) => setNgAddReason(e.target.value)}
+                    placeholder="理由（任意）"
+                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
+                  />
+                  <button
+                    onClick={addNgPair}
+                    disabled={!ngAddTherapistId || ngAdding}
+                    className="px-4 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl hover:bg-rose-600 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap"
+                  >
+                    {ngAdding ? '追加中...' : '追加'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
