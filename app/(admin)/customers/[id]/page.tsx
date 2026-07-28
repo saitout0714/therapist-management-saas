@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 
 type Customer = {
   id: string
@@ -62,7 +63,7 @@ export default function CustomerDetailPage() {
   const [ngAddReason, setNgAddReason] = useState('')
   const [ngAdding, setNgAdding] = useState(false)
   const [ngRemoving, setNgRemoving] = useState<string | null>(null)
-  const [therapistSearch, setTherapistSearch] = useState('')
+
 
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -354,55 +355,30 @@ export default function CustomerDetailPage() {
             {/* NGセラピスト追加フォーム */}
             <div className="pt-4 border-t border-slate-100">
               <p className="text-sm font-semibold text-slate-600 mb-3">NGセラピストを追加</p>
-              {/* セラピスト検索フィールド */}
-              <div className="mb-2">
+              <div className="flex flex-col sm:flex-row gap-2 items-start">
+                <div className="flex-1 w-full">
+                  <SearchableTherapistSelect
+                    value={ngAddTherapistId}
+                    onChange={setNgAddTherapistId}
+                    therapists={therapistOptions.filter(t => !ngPairs.some(p => p.therapist_id === t.id))}
+                    showUnassigned={false}
+                    placeholder="セラピストを検索・選択"
+                  />
+                </div>
                 <input
                   type="text"
-                  value={therapistSearch}
-                  onChange={(e) => setTherapistSearch(e.target.value)}
-                  placeholder="セラピスト名で検索..."
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
+                  value={ngAddReason}
+                  onChange={(e) => setNgAddReason(e.target.value)}
+                  placeholder="理由（任意）"
+                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
                 />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <select
-                  value={ngAddTherapistId}
-                  onChange={(e) => setNgAddTherapistId(e.target.value)}
-                  className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
-                  size={Math.min(
-                    therapistOptions.filter(t =>
-                      !ngPairs.some(p => p.therapist_id === t.id) &&
-                      (therapistSearch === '' || t.name.toLowerCase().includes(therapistSearch.toLowerCase()))
-                    ).length + 1,
-                    8
-                  )}
+                <button
+                  onClick={addNgPair}
+                  disabled={!ngAddTherapistId || ngAdding}
+                  className="px-4 py-2 bg-rose-500 text-white text-sm font-bold rounded-xl hover:bg-rose-600 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap"
                 >
-                  <option value="">セラピストを選択</option>
-                  {therapistOptions
-                    .filter(t =>
-                      !ngPairs.some(p => p.therapist_id === t.id) &&
-                      (therapistSearch === '' || t.name.toLowerCase().includes(therapistSearch.toLowerCase()))
-                    )
-                    .map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                </select>
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
-                    value={ngAddReason}
-                    onChange={(e) => setNgAddReason(e.target.value)}
-                    placeholder="理由（任意）"
-                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-400/50"
-                  />
-                  <button
-                    onClick={addNgPair}
-                    disabled={!ngAddTherapistId || ngAdding}
-                    className="px-4 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl hover:bg-rose-600 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap"
-                  >
-                    {ngAdding ? '追加中...' : '追加'}
-                  </button>
-                </div>
+                  {ngAdding ? '追加中...' : '追加'}
+                </button>
               </div>
             </div>
           </div>

@@ -15,6 +15,8 @@ interface SearchableTherapistSelectProps {
   availableShiftText?: (therapistId: string) => string
   disabled?: boolean
   required?: boolean
+  showUnassigned?: boolean
+  placeholder?: string
 }
 
 export default function SearchableTherapistSelect({
@@ -23,11 +25,14 @@ export default function SearchableTherapistSelect({
   therapists,
   availableShiftText,
   disabled = false,
-  required = false
+  required = false,
+  showUnassigned: showUnassignedProp = true,
+  placeholder,
 }: SearchableTherapistSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
   
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -47,9 +52,39 @@ export default function SearchableTherapistSelect({
     }
   }, [value, isFocused, therapists])
 
+  // Update dropdown position based on input element's bounding rect
+  const updateDropdownPosition = () => {
+    if (!inputRef.current) return
+    const rect = inputRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropdownHeight = 240 // max-h-60 = 240px
+
+    if (spaceBelow >= dropdownHeight || spaceBelow >= 120) {
+      // 下に表示
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      })
+    } else {
+      // 上に表示（スペースが足りない場合）
+      setDropdownStyle({
+        position: 'fixed',
+        bottom: window.innerHeight - rect.top + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      })
+    }
+  }
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('[data-therapist-dropdown]')) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
         setIsFocused(false)
@@ -64,6 +99,18 @@ export default function SearchableTherapistSelect({
     }
   }, [value, therapists])
 
+  // Update position on scroll/resize while open
+  useEffect(() => {
+    if (!isOpen) return
+    updateDropdownPosition()
+    window.addEventListener('scroll', updateDropdownPosition, true)
+    window.addEventListener('resize', updateDropdownPosition)
+    return () => {
+      window.removeEventListener('scroll', updateDropdownPosition, true)
+      window.removeEventListener('resize', updateDropdownPosition)
+    }
+  }, [isOpen])
+
   const handleSelect = (val: string) => {
     onChange(val)
     setIsOpen(false)
@@ -73,6 +120,7 @@ export default function SearchableTherapistSelect({
   const handleInputFocus = () => {
     if (disabled) return
     setIsFocused(true)
+    updateDropdownPosition()
     setIsOpen(true)
     setSearchQuery('')
   }
@@ -85,7 +133,7 @@ export default function SearchableTherapistSelect({
     return normalize(t.name).includes(q)
   })
 
-  const showUnassigned = !q || normalize('フリー予約（未割当）').includes(q)
+  const showUnassigned = showUnassignedProp && (!q || normalize('フリー予約（未割当）').includes(q))
   const showPlaceholder = !q
 
   return (
@@ -100,7 +148,9 @@ export default function SearchableTherapistSelect({
         tabIndex={-1}
       >
         <option value="">選択してください</option>
-        <option value="unassigned">フリー予約（未割当）</option>
+        {showUnassignedProp && (
+          <option value="unassigned">フリー予約（未割当）</option>
+        )}
         {therapists.map((t) => (
           <option key={t.id} value={t.id}>
             {t.name}
@@ -116,7 +166,7 @@ export default function SearchableTherapistSelect({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={handleInputFocus}
-          placeholder={getSelectedLabel() || '選択してください (検索可)'}
+          placeholder={getSelectedLabel() || placeholder || '選択してください (検索可)'}
           className={`w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs text-slate-800 font-medium ${
             disabled ? 'opacity-50 cursor-not-allowed bg-slate-100' : 'cursor-pointer hover:bg-slate-100/50 focus:bg-white'
           }`}
@@ -141,9 +191,13 @@ export default function SearchableTherapistSelect({
         </div>
       </div>
 
-      {/* Floating Dropdown Panel */}
-      {isOpen && (
-        <div className="absolute left-0 right-0 mt-1 rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none z-50 transform origin-top transition-all py-1.5 w-full flex flex-col max-h-60 overflow-hidden">
+      {/* Floating Dropdown Panel — fixed positioning to escape overflow:hidden parents */}
+      {isOpen && typeof window !== 'undefined' && (
+        <div
+          data-therapist-dropdown
+          style={dropdownStyle}
+          className="rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none py-1.5 flex flex-col max-h-60 overflow-hidden"
+        >
           {/* Options list */}
           <div className="overflow-y-auto flex-1 min-h-0 text-xs py-1 divide-y divide-slate-50/50">
             {/* 選択してください */}
