@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 
 type Course = { id: string; name: string; duration: number; base_price: number }
 type Rank = { id: string; name: string }
@@ -49,15 +50,18 @@ export function CourseBackAmountsTab() {
     if (!selectedShop) { setLoading(false); return }
     setLoading(true)
 
+    const pricingShopId = getPricingShopId(selectedShop)
+    const backShopId = getBackShopId(selectedShop)
+
     const [coursesRes, ranksRes, amountsRes, dtRes, extPricesRes, settingsRes, discountPoliciesRes, discountRankOverridesRes] = await Promise.all([
-      supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-      supabase.from('therapist_ranks').select('id, name').eq('shop_id', selectedShop.id).order('display_order'),
-      supabase.from('course_back_amounts').select('*').eq('shop_id', selectedShop.id),
-      supabase.from('designation_types').select('slug, display_name, default_fee, default_back_amount').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-      supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+      supabase.from('courses').select('id, name, duration, base_price').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+      supabase.from('therapist_ranks').select('id, name').eq('shop_id', backShopId).order('display_order'),
+      supabase.from('course_back_amounts').select('*').eq('shop_id', backShopId),
+      supabase.from('designation_types').select('slug, display_name, default_fee, default_back_amount').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+      supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', backShopId),
       supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('discount_policies').select('id, name, therapist_burden_amount, is_active').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
-      supabase.from('discount_rank_overrides').select('id, discount_policy_id, rank_id, therapist_burden_amount').eq('shop_id', selectedShop.id),
+      supabase.from('discount_policies').select('id, name, therapist_burden_amount, is_active').eq('shop_id', pricingShopId).eq('is_active', true).order('created_at', { ascending: true }),
+      supabase.from('discount_rank_overrides').select('id, discount_policy_id, rank_id, therapist_burden_amount').eq('shop_id', backShopId),
     ])
 
     const c = (coursesRes.data as Course[]) || []
@@ -312,7 +316,7 @@ export function CourseBackAmountsTab() {
             promises.push(
               supabase.from('course_back_amounts')
                 .insert([{
-                  shop_id: selectedShop.id,
+                  shop_id: getBackShopId(selectedShop),
                   course_id: c.id,
                   rank_id: selectedRank,
                   designation_type: dt.value,
@@ -355,7 +359,7 @@ export function CourseBackAmountsTab() {
         supabase
           .from('extension_rank_prices')
           .upsert({
-            shop_id: selectedShop.id,
+            shop_id: getBackShopId(selectedShop),
             rank_id: rp.rank_id,
             extension_unit_price: rp.extension_unit_price,
             extension_unit_back: rp.extension_unit_back,
@@ -386,7 +390,7 @@ export function CourseBackAmountsTab() {
         supabase
           .from('discount_rank_overrides')
           .upsert({
-            shop_id: selectedShop.id,
+            shop_id: getBackShopId(selectedShop),
             discount_policy_id: override.discount_policy_id,
             rank_id: override.rank_id,
             therapist_burden_amount: override.therapist_burden_amount,

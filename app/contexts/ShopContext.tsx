@@ -19,6 +19,8 @@ type Shop = {
   therapist_line_mode: 'official_line' | 'line'
   is_web_reserve_plan?: boolean
   is_dispatch_enabled?: boolean
+  pricing_source_shop_id?: string | null
+  back_source_shop_id?: string | null
 }
 
 type ShopContextType = {
@@ -89,7 +91,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           closing_date: shop.closing_date,
           therapist_line_mode: shop.therapist_line_mode,
           is_web_reserve_plan: !!hasSimpleOwner,
-          is_dispatch_enabled: !!shop.is_dispatch_enabled
+          is_dispatch_enabled: !!shop.is_dispatch_enabled,
+          pricing_source_shop_id: shop.pricing_source_shop_id || null,
+          back_source_shop_id: shop.back_source_shop_id || null
         }
       })
 

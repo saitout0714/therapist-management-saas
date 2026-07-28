@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 type Course = {
     id: string
@@ -38,7 +39,7 @@ export function CourseManagementTab() {
         const { data, error } = await supabase
             .from('courses')
             .select('*')
-            .eq('shop_id', selectedShop.id)
+            .eq('shop_id', getPricingShopId(selectedShop))
             .order('display_order', { ascending: true })
         if (error) alert('コースの取得に失敗しました')
         else setCourses((data as Course[]) || [])
@@ -91,7 +92,7 @@ export function CourseManagementTab() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedShop) { alert('店舗を選択してください'); return }
-        const payload = { ...formData, shop_id: selectedShop.id, updated_at: new Date().toISOString() }
+        const payload = { ...formData, shop_id: getPricingShopId(selectedShop), updated_at: new Date().toISOString() }
         const result = editingCourse
             ? await supabase.from('courses').update(payload).eq('id', editingCourse.id)
             : await supabase.from('courses').insert([payload])

@@ -8,6 +8,7 @@ import { resolveCustomerPrice, calculateBack, calculateShiftAllowances, BackCalc
 import TimeSelectHM from '@/app/components/TimeSelectHM'
 import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 import { parseDispatchFromNotes, updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
+import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 
 type Customer = {
   id: string
@@ -247,17 +248,20 @@ export default function EditReservationPage() {
   const fetchInitialData = async () => {
     if (!selectedShop) return
     try {
+      const pricingShopId = getPricingShopId(selectedShop)
+      const backShopId = getBackShopId(selectedShop)
+
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id).order('name'),
-        supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('courses').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+        supabase.from('options').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
-        supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
-        supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+        supabase.from('discount_policies').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('created_at', { ascending: true }),
+        supabase.from('designation_types').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', backShopId),
         supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('order'),
       ])
 
@@ -409,11 +413,13 @@ export default function EditReservationPage() {
     if (selectedShop && formData.course_id && formData.designation_type) {
       const rankId = selectedTherapist?.rank_id || null
       const resolved = await resolveCustomerPrice(
-        selectedShop.id,
+        getBackShopId(selectedShop),
         formData.course_id,
         rankId,
         formData.designation_type,
-        basePrice
+        basePrice,
+        undefined,
+        getPricingShopId(selectedShop)
       )
       basePrice = resolved.customerPrice
       setResolvedBasePrice(resolved.customerPrice)
@@ -887,7 +893,8 @@ export default function EditReservationPage() {
         const selectedCourse = courses.find(c => c.id === formData.course_id)
         const subtotalForBack = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.extensionPrice + calculatedPrice.nominationFee
         const backInput: BackCalculationInput = {
-          shopId: selectedShop.id,
+          shopId: getBackShopId(selectedShop),
+          pricingShopId: getPricingShopId(selectedShop),
           therapistId: formData.therapist_id,
           therapistRankId: selectedTherapist?.rank_id || null,
           therapistBackCalcType: selectedTherapist?.back_calc_type || null,

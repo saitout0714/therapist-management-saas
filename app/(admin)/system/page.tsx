@@ -15,6 +15,7 @@ import { CustomTemplatesTab } from './components/CustomTemplatesTab'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 type SystemSettings = {
   id: string
@@ -139,9 +140,10 @@ export default function SystemPage() {
   async function fetchSettings() {
     if (!selectedShop) { setLoading(false); setSettings(null); return }
     setLoading(true)
-    const [settingsRes, shopRes] = await Promise.all([
+    const [settingsRes, shopRes, pricingShopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url').eq('id', selectedShop.id).single()
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url').eq('id', selectedShop.id).single(),
+      supabase.from('shops').select('special_rules').eq('id', getPricingShopId(selectedShop)).single()
     ])
 
     if (settingsRes.error) { alert('システム設定の取得に失敗しました'); setLoading(false); return }
@@ -173,7 +175,7 @@ export default function SystemPage() {
       sms_address_mode: smsMode,
       web_reserve_address_mode: webMode,
       therapist_line_mode: lineMode,
-      special_rules: shopRes.data?.special_rules ?? '',
+      special_rules: pricingShopRes.data?.special_rules ?? '',
       credit_payment_url: row?.credit_payment_url ?? '',
       google_calendar_id: row?.google_calendar_id ?? '',
       gas_calendar_sync_url: row?.gas_calendar_sync_url ?? '',
@@ -211,15 +213,17 @@ export default function SystemPage() {
       line_to_id: form.line_to_id || null,
     }
 
-    const [result, shopResult] = await Promise.all([
+    const [result, shopResult, pricingShopResult] = await Promise.all([
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, updated_at: new Date().toISOString() }).eq('id', selectedShop.id)
+      supabase.from('shops').update({ therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, updated_at: new Date().toISOString() }).eq('id', selectedShop.id),
+      supabase.from('shops').update({ special_rules, updated_at: new Date().toISOString() }).eq('id', getPricingShopId(selectedShop))
     ])
 
     if (result.error) { alert('システム設定の保存に失敗しました'); setSaving(false); return }
     if (shopResult.error) { alert('店舗情報の更新に失敗しました'); setSaving(false); return }
+    if (pricingShopResult.error) { alert('店舗ルールの更新に失敗しました'); setSaving(false); return }
 
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)

@@ -84,6 +84,9 @@ type DesignationType = {
 
 export type BackCalculationInput = {
   shopId: string
+  // マルチショップで料金設定(designation_types)を他店舗と共有している場合の解決先店舗ID。
+  // 未指定時は shopId を使う（従来通り）。
+  pricingShopId?: string
   therapistId: string
   therapistRankId: string | null
   therapistBackCalcType: 'percentage' | 'fixed' | 'half_split' | null
@@ -164,9 +167,11 @@ export async function resolveCustomerPrice(
   rankId: string | null,
   designationSlug: string,
   fallbackBasePrice: number,
-  customClient?: any
+  customClient?: any,
+  pricingShopId?: string
 ): Promise<{ customerPrice: number; backAmount: number | null; coursePriceOverride: number | null; nominationBackAmount: number | null; source: 'matrix' | 'default' | 'fallback' }> {
   const client = getDbClient(customClient)
+  const dtShopId = pricingShopId ?? shopId
 
   // 1. ランク指定ありで検索（マトリクス表）
   if (rankId) {
@@ -194,7 +199,7 @@ export async function resolveCustomerPrice(
   const { data: dtData } = await client
     .from('designation_types')
     .select('default_fee, default_back_amount')
-    .eq('shop_id', shopId)
+    .eq('shop_id', dtShopId)
     .eq('slug', designationSlug)
     .limit(1)
 
@@ -274,7 +279,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     input.therapistRankId,
     input.designationType,
     input.coursePrice,
-    client
+    client,
+    input.pricingShopId
   )
   const effectiveCoursePrice = resolved_price.customerPrice
 
@@ -305,7 +311,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
     const { data: dtFeeData } = await client
       .from('designation_types')
       .select('default_fee, default_back_amount')
-      .eq('shop_id', input.shopId)
+      .eq('shop_id', input.pricingShopId ?? input.shopId)
       .eq('slug', input.designationType)
       .eq('is_active', true)
       .limit(1)
@@ -445,7 +451,8 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       input.therapistRankId,
       'free', // 延長はfreeで統一
       input.extensionCoursePrice || 0,
-      client
+      client,
+      input.pricingShopId
     )
     
     if (resolved.calcType === 'percentage') {
@@ -569,7 +576,7 @@ export async function calculateBack(input: BackCalculationInput): Promise<BackCa
       const { data: dtBack } = await client
         .from('designation_types')
         .select('default_fee, default_back_amount')
-        .eq('shop_id', input.shopId)
+        .eq('shop_id', input.pricingShopId ?? input.shopId)
         .eq('slug', input.designationType)
         .eq('is_active', true)
         .limit(1)

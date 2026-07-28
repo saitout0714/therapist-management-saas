@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getBackShopId } from '@/lib/shopUtils'
 
 type TherapistRank = {
     id: string
@@ -24,7 +25,7 @@ export function TherapistRankManagementTab() {
             return
         }
         setLoading(true)
-        const { data, error } = await supabase.from('therapist_ranks').select('*').eq('shop_id', selectedShop.id).order('display_order', { ascending: true })
+        const { data, error } = await supabase.from('therapist_ranks').select('*').eq('shop_id', getBackShopId(selectedShop)).order('display_order', { ascending: true })
         if (error) alert('データの取得に失敗しました')
         else setRanks((data as TherapistRank[]) || [])
         setLoading(false)
@@ -80,7 +81,7 @@ export function TherapistRankManagementTab() {
             return
         }
 
-        const payload = { ...formData, shop_id: selectedShop.id, updated_at: new Date().toISOString() }
+        const payload = { ...formData, shop_id: getBackShopId(selectedShop), updated_at: new Date().toISOString() }
         const result = editingRank
             ? await supabase.from('therapist_ranks').update(payload).eq('id', editingRank.id)
             : await supabase.from('therapist_ranks').insert([{ ...payload }])

@@ -9,6 +9,7 @@ import { calculateBack, resolveCustomerPrice, BackCalculationInput } from '@/lib
 import TimeSelectHM from '@/app/components/TimeSelectHM'
 import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 import { updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
+import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 
 type Customer = {
   id: string
@@ -366,16 +367,19 @@ export default function NewReservationPage() {
         if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
       }
 
+      const pricingShopId = getPricingShopId(selectedShop)
+      const backShopId = getBackShopId(selectedShop)
+
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').in('shop_id', shopIds).order('name'),
-        supabase.from('courses').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('options').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
+        supabase.from('courses').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+        supabase.from('options').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', shopIds).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-        supabase.from('discount_policies').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('created_at', { ascending: true }),
-        supabase.from('designation_types').select('*').eq('shop_id', selectedShop.id).eq('is_active', true).order('display_order'),
-        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id),
+        supabase.from('discount_policies').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('created_at', { ascending: true }),
+        supabase.from('designation_types').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
+        supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', backShopId),
         supabase.from('rooms').select('id, name, display_name, address, google_map_url, memo, template_member, template_new_customer, type').eq('shop_id', selectedShop.id).order('order'),
       ])
 
@@ -437,11 +441,13 @@ export default function NewReservationPage() {
     if (selectedShop && formData.course_id && formData.designation_type) {
       const rankId = selectedTherapist?.rank_id || null
       const resolved = await resolveCustomerPrice(
-        selectedShop.id,
+        getBackShopId(selectedShop),
         formData.course_id,
         rankId,
         formData.designation_type,
-        basePrice
+        basePrice,
+        undefined,
+        getPricingShopId(selectedShop)
       )
       basePrice = resolved.customerPrice
       setResolvedBasePrice(resolved.customerPrice)
@@ -1118,7 +1124,8 @@ export default function NewReservationPage() {
           const subtotalForBack = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.nominationFee
 
           const backInput: BackCalculationInput = {
-            shopId: selectedShop.id,
+            shopId: getBackShopId(selectedShop),
+            pricingShopId: getPricingShopId(selectedShop),
             therapistId: formData.therapist_id,
             therapistRankId: selectedTherapist?.rank_id || null,
             therapistBackCalcType: selectedTherapist?.back_calc_type || null,

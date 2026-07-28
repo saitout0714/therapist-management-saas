@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
+import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 import { toDisplayTime } from '@/lib/timeUtils'
 
 type TherapistItem = {
@@ -229,6 +230,13 @@ export default function PayrollPage() {
       const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
       targetShopIds = Array.from(new Set([...targetShopIds, ...linkedShopIds]));
 
+      // 各店舗の料金・バック設定共有先を解決するためのマップ
+      const { data: targetShopsData } = await supabase
+        .from('shops')
+        .select('id, pricing_source_shop_id, back_source_shop_id')
+        .in('id', targetShopIds);
+      const shopConfigMap = new Map((targetShopsData || []).map(s => [s.id, s]));
+
       // リンクされている他店舗のセラピストも含めてIDを取得
       let therapistIds = [selectedTherapistId]
       let groupTherapists: TherapistItem[] = [therapist]
@@ -310,8 +318,10 @@ export default function PayrollPage() {
         } else {
           // 未計算 or 強制再計算 → calculateBack 実行
           const targetTherapist = groupTherapists.find(t => t.id === res.therapist_id) || therapist
+          const resShop = shopConfigMap.get(res.shop_id) || selectedShop
           const input: BackCalculationInput = {
-            shopId: res.shop_id || selectedShop.id,
+            shopId: getBackShopId(resShop),
+            pricingShopId: getPricingShopId(resShop),
             therapistId: targetTherapist.id,
             therapistRankId: targetTherapist.rank_id,
             therapistBackCalcType: targetTherapist.back_calc_type,

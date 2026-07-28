@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getBackShopId } from '@/lib/shopUtils'
 
 type DeductionRule = {
   id: string
@@ -57,7 +58,7 @@ export function DeductionRulesTab() {
     const { data, error } = await supabase
       .from('deduction_rules')
       .select('*')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', getBackShopId(selectedShop))
       .order('display_order', { ascending: true })
 
     if (!error) setRules((data as DeductionRule[]) || [])
@@ -111,7 +112,7 @@ export function DeductionRulesTab() {
     e.preventDefault()
     if (!selectedShop) { alert('店舗を選択してください'); return }
 
-    const payload = { ...form, shop_id: selectedShop.id, updated_at: new Date().toISOString() }
+    const payload = { ...form, shop_id: getBackShopId(selectedShop), updated_at: new Date().toISOString() }
     const result = editing
       ? await supabase.from('deduction_rules').update(payload).eq('id', editing.id)
       : await supabase.from('deduction_rules').insert([payload])

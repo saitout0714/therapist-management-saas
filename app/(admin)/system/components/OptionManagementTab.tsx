@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 type Option = {
     id: string
@@ -31,7 +32,7 @@ export function OptionManagementTab() {
     async function fetchOptions() {
         if (!selectedShop) { setOptions([]); setLoading(false); return }
         setLoading(true)
-        const { data, error } = await supabase.from('options').select('*').eq('shop_id', selectedShop.id).order('display_order', { ascending: true })
+        const { data, error } = await supabase.from('options').select('*').eq('shop_id', getPricingShopId(selectedShop)).order('display_order', { ascending: true })
         if (error) alert('オプションの取得に失敗しました')
         else setOptions((data as Option[]) || [])
         setLoading(false)
@@ -87,7 +88,7 @@ export function OptionManagementTab() {
         const payload = {
           ...formData,
           duration: formData.option_type === 'extension' ? formData.duration_minutes_added : 0,
-          shop_id: selectedShop.id,
+          shop_id: getPricingShopId(selectedShop),
           updated_at: new Date().toISOString(),
         }
         const result = editingOption

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 type DesignationType = {
   id: string
@@ -87,7 +88,7 @@ export function DesignationTypesTab() {
     const { data, error } = await supabase
       .from('designation_types')
       .select('*')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', getPricingShopId(selectedShop))
       .order('display_order')
     if (error) { alert('読み込みに失敗しました'); setLoading(false); return }
 
@@ -96,14 +97,14 @@ export function DesignationTypesTab() {
     const missing = DEFAULT_DESIGNATION_TYPES.filter(d => !existingSlugs.includes(d.slug))
     if (missing.length > 0) {
       await supabase.from('designation_types').upsert(
-        missing.map(d => ({ ...d, shop_id: selectedShop.id })),
+        missing.map(d => ({ ...d, shop_id: getPricingShopId(selectedShop) })),
         { onConflict: 'shop_id, slug' }
       )
       // 再取得
       const { data: refetched } = await supabase
         .from('designation_types')
         .select('*')
-        .eq('shop_id', selectedShop.id)
+        .eq('shop_id', getPricingShopId(selectedShop))
         .order('display_order')
       setItems((refetched || []) as DesignationType[])
     } else {
@@ -190,7 +191,7 @@ export function DesignationTypesTab() {
     } else {
       const { error } = await supabase.from('designation_types').insert([{
         ...form,
-        shop_id: selectedShop.id,
+        shop_id: getPricingShopId(selectedShop),
       }])
       if (error) { alert('追加に失敗しました: ' + error.message); return }
     }

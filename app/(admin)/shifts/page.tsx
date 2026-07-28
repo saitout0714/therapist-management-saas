@@ -10,6 +10,7 @@ import TimeChart from '@/app/components/TimeChart';
 import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
 import { toDisplayTime } from '@/lib/timeUtils';
+import { getPricingShopId } from '@/lib/shopUtils';
 
 interface Shift {
   id: string;
@@ -282,6 +283,7 @@ function ShiftsContent() {
   const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({});
   const [shopOptions, setShopOptions] = useState<{name: string, price: number, duration: number, type: string}[]>([]);
+  const [effectiveSpecialRules, setEffectiveSpecialRules] = useState<string | null>(null);
 
 
 
@@ -627,10 +629,11 @@ function ShiftsContent() {
 
   useEffect(() => {
     if (!selectedShop || authLoading || !user) return;
+    const pricingShopId = getPricingShopId(selectedShop);
     supabase
       .from('courses')
       .select('name, duration, base_price')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => {
@@ -642,7 +645,7 @@ function ShiftsContent() {
     supabase
       .from('discount_policies')
       .select('name, discount_value')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('created_at', { ascending: true })
       .then(({ data }) => setShopDiscounts((data as any[])?.map(d => ({ name: d.name, value: d.discount_value })) || []));
@@ -650,7 +653,7 @@ function ShiftsContent() {
     supabase
       .from('designation_types')
       .select('slug, display_name, default_fee')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => {
@@ -670,10 +673,17 @@ function ShiftsContent() {
     supabase
       .from('options')
       .select('name, price, duration_minutes_added, option_type')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []));
+
+    supabase
+      .from('shops')
+      .select('special_rules')
+      .eq('id', pricingShopId)
+      .single()
+      .then(({ data }) => setEffectiveSpecialRules((data as any)?.special_rules || null));
   }, [selectedShop, authLoading, user]);
 
   const fetchTherapists = async () => {
@@ -1583,13 +1593,13 @@ function ShiftsContent() {
                   <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{selectedShop?.name} 店舗ルール</h3>
                   
                   {/* 特殊ルール・注意事項 */}
-                  {selectedShop?.special_rules && (
+                  {effectiveSpecialRules && (
                     <div className="mb-4">
                       <h4 className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1.5 rounded-md mb-2 flex items-center gap-1.5">
                         <span className="text-amber-500">💡</span> 特殊ルール・注意事項
                       </h4>
                       <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 shadow-sm">
-                        {selectedShop.special_rules}
+                        {effectiveSpecialRules}
                       </p>
                     </div>
                   )}

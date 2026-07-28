@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 type DiscountPolicy = {
   id: string
@@ -38,7 +39,7 @@ export function DiscountPoliciesTab() {
     const { data, error } = await supabase
       .from('discount_policies')
       .select('*')
-      .eq('shop_id', selectedShop.id)
+      .eq('shop_id', getPricingShopId(selectedShop))
       .order('display_order', { ascending: true })
     if (!error) setPolicies((data as DiscountPolicy[]) || [])
     setLoading(false)
@@ -94,7 +95,7 @@ export function DiscountPoliciesTab() {
       ...form,
       discount_type: 'fixed',
       burden_type: form.therapist_burden_amount > 0 ? 'therapist_only' : 'shop_only',
-      shop_id: selectedShop.id,
+      shop_id: getPricingShopId(selectedShop),
       updated_at: new Date().toISOString(),
     }
     const result = editing

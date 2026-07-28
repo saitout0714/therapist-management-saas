@@ -7,6 +7,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
 import { parseDispatchFromNotes, DispatchInfo } from '@/lib/dispatchUtils'
+import { getPricingShopId } from '@/lib/shopUtils'
 
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -213,7 +214,7 @@ export default function ReservationPreviewPage() {
       const { data: dtData } = await supabase
         .from('designation_types')
         .select('slug, display_name')
-        .eq('shop_id', selectedShop.id)
+        .eq('shop_id', getPricingShopId(selectedShop))
       if (dtData) {
         const map: Record<string, string> = {}
         dtData.forEach((d: { slug: string; display_name: string }) => { map[d.slug] = d.display_name })

@@ -67,6 +67,8 @@ export default function EditShopPage() {
     is_active: true,
     is_dispatch_enabled: false,
   })
+  const [pricingSourceShopId, setPricingSourceShopId] = useState<string>('')
+  const [backSourceShopId, setBackSourceShopId] = useState<string>('')
   const [reservationCode, setReservationCode] = useState('')
   const [savedCode, setSavedCode] = useState('')
   const [codeActive, setCodeActive] = useState(true)
@@ -131,6 +133,8 @@ export default function EditShopPage() {
         is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
       })
       setSelectedOwnerId(shopRes.data.owner_id || '')
+      setPricingSourceShopId(shopRes.data.pricing_source_shop_id || '')
+      setBackSourceShopId(shopRes.data.back_source_shop_id || '')
 
       if (!codeRes.error && codeRes.data) {
         setReservationCode(codeRes.data.code)
@@ -259,6 +263,8 @@ export default function EditShopPage() {
         phone: form.phone.trim() || null,
         is_active: form.is_active,
         is_dispatch_enabled: form.is_dispatch_enabled,
+        pricing_source_shop_id: pricingSourceShopId || null,
+        back_source_shop_id: backSourceShopId || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -448,6 +454,44 @@ export default function EditShopPage() {
                   </span>
                 </label>
               </div>
+
+              {otherShops.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  <p className="text-xs font-bold text-slate-500">
+                    マルチショップ設定共有 <span className="text-slate-400 font-normal">（同一運営の複数店舗で「料金設定」「バック設定」を1つのデータとして共有する場合に設定）</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                      料金設定（コース・オプション・割引・指名種別・店舗ルール）の共有元店舗
+                    </label>
+                    <select
+                      value={pricingSourceShopId}
+                      onChange={(e) => setPricingSourceShopId(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium text-sm"
+                    >
+                      <option value="">共有しない（自店舗のデータを使用）</option>
+                      {otherShops.map((shop) => (
+                        <option key={shop.id} value={shop.id}>{shop.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                      バック設定（ランク・ランク別バック金額・延長料金・控除手当）の共有元店舗
+                    </label>
+                    <select
+                      value={backSourceShopId}
+                      onChange={(e) => setBackSourceShopId(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium text-sm"
+                    >
+                      <option value="">共有しない（自店舗のデータを使用）</option>
+                      {otherShops.map((shop) => (
+                        <option key={shop.id} value={shop.id}>{shop.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* クライアントオーナー設定 */}

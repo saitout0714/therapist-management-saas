@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
+import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 import nodemailer from 'nodemailer'
 import { sendAdminReservationNotification } from '@/lib/notifications'
 
@@ -467,6 +468,15 @@ export async function POST(
 
   const shopId = codeRow.shop_id
 
+  // マルチショップで料金・バック設定を他店舗と共有している場合の解決先店舗ID
+  const { data: shopConfigRow } = await supabase
+    .from('shops')
+    .select('id, pricing_source_shop_id, back_source_shop_id')
+    .eq('id', shopId)
+    .maybeSingle()
+  const pricingShopId = shopConfigRow ? getPricingShopId(shopConfigRow) : shopId
+  const backShopId = shopConfigRow ? getBackShopId(shopConfigRow) : shopId
+
   // 新規予約受付設定を取得
   const { data: systemSettings } = await supabase
     .from('system_settings')
@@ -664,7 +674,7 @@ export async function POST(
     const { data: dtRow } = await supabase
       .from('designation_types')
       .select('id, slug, is_store_paid_back, default_fee')
-      .eq('shop_id', shopId)
+      .eq('shop_id', pricingShopId)
       .eq('slug', designationType)
       .maybeSingle()
     if (dtRow) {
@@ -675,12 +685,13 @@ export async function POST(
 
   // 3. 顧客料金と指名料の解決
   const resolvedPrice = await resolveCustomerPrice(
-    shopId,
+    backShopId,
     course_id,
     therapist?.rank_id || null,
     designationType,
     course?.base_price || 0,
-    supabase
+    supabase,
+    pricingShopId
   )
 
   let basePrice = resolvedPrice.customerPrice
@@ -735,7 +746,8 @@ export async function POST(
   if (therapist_id) {
     try {
       const backInput = {
-        shopId,
+        shopId: backShopId,
+        pricingShopId,
         therapistId: therapist_id,
         therapistRankId: therapist?.rank_id || null,
         therapistBackCalcType: therapist?.back_calc_type || null,
@@ -830,7 +842,7 @@ export async function POST(
       supabase
         .from('designation_types')
         .select('slug, display_name')
-        .eq('shop_id', shopId)
+        .eq('shop_id', pricingShopId)
     ])
 
     const shopAddressMode = shopRes.data?.sms_address_mode || 'unified'
