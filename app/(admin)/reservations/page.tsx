@@ -47,6 +47,11 @@ const OWNER_RECEPTION_LABELS: Record<string, string> = {
   owner_hada: '波田',
 }
 
+// バカラグループのowner_id
+// バカラは3名（高橋・菅井・波田）がアカウントを共有しているため、
+// reception_sourceから個人名を表示する特別処理が必要
+const BACCARAT_OWNER_ID = '016a4306-25d3-470b-8be4-11c4b01ef7b3'
+
 const EMPTY_FILTERS: SearchFilters = {
   dateFrom: '',
   dateTo: '',
@@ -517,10 +522,16 @@ export default function ReservationsPage() {
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
                         <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap hidden md:table-cell ${plainTextClass}`}>
-                          {/* 代行プランオーナーログイン中は「mts」と表示。マスター・管理者・受付スタッフは実際の担当者名を表示 */}
-                          {user?.role === 'agency_client_owner'
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">mts</span>
-                            : OWNER_RECEPTION_LABELS[r.reception_source || ''] || r.created_by?.name || '-'}
+                          {user?.role === 'agency_client_owner' && user.ownerId === BACCARAT_OWNER_ID
+                            // ① バカラオーナー：reception_source で mts / 高橋・菅井・波田 を判定
+                            ? r.reception_source === 'staff'
+                              ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">mts</span>
+                              : (OWNER_RECEPTION_LABELS[r.reception_source || ''] || r.created_by?.name || '-')
+                            // ② その他の代行プランオーナー：全件 mts
+                            : user?.role === 'agency_client_owner'
+                              ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">mts</span>
+                              // ③ マスター・管理者・受付スタッフ：ログインアカウント名を表示
+                              : r.created_by?.name || '-'}
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-right whitespace-nowrap">
                           <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>
