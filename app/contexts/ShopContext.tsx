@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
 
@@ -39,14 +39,28 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
 
+  // トークン更新などで fetchShops が多重に走ったとき、古い実行の結果が
+  // 新しい実行の結果を上書きしないようにするための世代カウンタ。
+  const fetchGenerationRef = useRef(0)
+  // 選択中の店舗IDを ref でも保持する。fetchShops のクロージャが古い
+  // selectedShop を掴んでユーザーの選択を巻き戻すのを防ぐため。
+  const selectedShopIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    selectedShopIdRef.current = selectedShop?.id ?? null
+  }, [selectedShop])
+
   // 店舗一覧を取得
   const fetchShops = async () => {
     if (!user) {
+      fetchGenerationRef.current++
       setShops([])
       setSelectedShopState(null)
       setLoading(false)
       return
     }
+
+    const generation = ++fetchGenerationRef.current
 
     try {
       setLoading(true)
@@ -97,37 +111,69 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         }
       })
 
+      // この実行より後に開始された取得があれば、その結果を尊重して何も書き込まない
+      if (generation !== fetchGenerationRef.current) return
+
+      // すでに店舗を選択済みなのに空が返ってきた場合は、RLS やセッションの
+      // 一時的な不整合とみなして現状を維持する（選択が消えるのを防ぐ）。
+      if (mappedShops.length === 0 && selectedShopIdRef.current) {
+        console.warn('店舗一覧が空で返ったため、現在の選択を維持します')
+        return
+      }
+
       setShops(mappedShops)
 
-      // ローカルストレージから選択店舗を復元
+      // 選択店舗の解決順:
+      //   1. すでに選択中の店舗（ユーザーの操作を最優先。再取得で勝手に切り替えない）
+      //   2. ローカルストレージに保存された店舗（初回ロード時の復元）
+      //   3. 先頭の店舗（上記が実在しない場合のみ）
       const savedShopId = localStorage.getItem('selectedShopId')
-      const shopToSelect = mappedShops.find((s) => s.id === savedShopId) || mappedShops[0] || null
+      const currentShopId = selectedShopIdRef.current
+      const shopToSelect =
+        (currentShopId ? mappedShops.find((s) => s.id === currentShopId) : undefined) ||
+        (savedShopId ? mappedShops.find((s) => s.id === savedShopId) : undefined) ||
+        mappedShops[0] ||
+        null
+
       if (shopToSelect) {
-        setSelectedShopState(shopToSelect)
-        localStorage.setItem('selectedShopId', shopToSelect.id)
+        // 同じ内容なら参照を維持する。毎回新しいオブジェクトを渡すと
+        // selectedShop を依存に持つ画面が一斉に再取得を始めてしまうため。
+        setSelectedShopState((prev) =>
+          prev && JSON.stringify(prev) === JSON.stringify(shopToSelect) ? prev : shopToSelect
+        )
+        selectedShopIdRef.current = shopToSelect.id
+        if (shopToSelect.id !== savedShopId) {
+          localStorage.setItem('selectedShopId', shopToSelect.id)
+        }
       } else {
         setSelectedShopState(null)
+        selectedShopIdRef.current = null
       }
     } catch (error) {
       console.error('店舗の取得に失敗:', error)
     } finally {
-      setLoading(false)
+      if (generation === fetchGenerationRef.current) setLoading(false)
     }
   }
 
   const setSelectedShop = (shop: Shop) => {
+    // ref を同期的に更新しておく。直後に進行中の fetchShops が完了しても
+    // ユーザーが選んだ店舗が巻き戻らないようにするため。
+    selectedShopIdRef.current = shop.id
     setSelectedShopState(shop)
     localStorage.setItem('selectedShopId', shop.id)
   }
 
   const refreshShops = async () => {
-    setLoading(true)
     await fetchShops()
   }
 
+  // user オブジェクトはトークン更新のたびに作り直されるため、
+  // id を依存にして不要な再取得を避ける。
   useEffect(() => {
     fetchShops()
-  }, [user])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   return (
     <ShopContext.Provider
