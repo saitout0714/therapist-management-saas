@@ -748,7 +748,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                     const isNewCustomer = res.isNewCustomer
                                     const isNotificationUnsent = !res.customer_notified || !res.therapist_notified
                                     const isWeb = res.booking_method === 'web' || (!res.booking_method && (res.source === 'web' || res.reception_source === 'client'));
-                                    const isOwner = res.reception_source === 'owner';
+                                    const isOwner = res.reception_source === 'owner' || res.reception_source?.startsWith('owner_');
                                     const isHime = res.designation_type === 'princess' || res.reception_source === 'therapist';
 
                                     const cardBgClass = isNotificationUnsent

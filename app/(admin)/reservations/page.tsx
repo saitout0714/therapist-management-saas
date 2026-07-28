@@ -20,6 +20,7 @@ type Reservation = {
   therapist: { name: string } | null
   course: { name: string } | null
   created_by: { name: string } | null
+  reception_source?: string | null
   is_handled?: boolean
   source?: string
   booking_method?: string | null
@@ -36,6 +37,14 @@ type SearchFilters = {
 }
 
 const PAGE_SIZE = 100
+
+// バカラグループはオーナーアカウントを高橋・菅井・波田の3人で共有しているため、
+// 担当者列は created_by(ログインユーザー名)ではなく受付区分から個人名を表示する
+const OWNER_RECEPTION_LABELS: Record<string, string> = {
+  owner_takahashi: '高橋',
+  owner_sugai: '菅井',
+  owner_hada: '波田',
+}
 
 const EMPTY_FILTERS: SearchFilters = {
   dateFrom: '',
@@ -120,7 +129,7 @@ export default function ReservationsPage() {
     let query = supabase
       .from('reservations')
       .select(
-        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,reception_source,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
         { count: 'exact' }
       )
       .eq('shop_id', selectedShop.id)
@@ -506,7 +515,7 @@ export default function ReservationsPage() {
                           {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
                         <td className={`px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap hidden md:table-cell ${plainTextClass}`}>
-                          {r.created_by?.name || '-'}
+                          {OWNER_RECEPTION_LABELS[r.reception_source || ''] || r.created_by?.name || '-'}
                         </td>
                         <td className="px-2.5 py-2 md:px-6 md:py-4 text-xs md:text-sm text-right whitespace-nowrap">
                           <button className="text-rose-600 hover:text-rose-700 font-medium transition-colors cursor-pointer" onClick={() => void handleDelete(r.id)}>

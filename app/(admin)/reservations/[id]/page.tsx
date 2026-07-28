@@ -1854,6 +1854,9 @@ export default function ReservationPreviewPage() {
                   <div className="col-span-2 text-slate-800 font-bold">
                     {reservation.reception_source === 'staff' ? 'mts' :
                      reservation.reception_source === 'owner' ? 'オーナー' :
+                     reservation.reception_source === 'owner_takahashi' ? '高橋' :
+                     reservation.reception_source === 'owner_sugai' ? '菅井' :
+                     reservation.reception_source === 'owner_hada' ? '波田' :
                      reservation.reception_source === 'therapist' ? '姫予約' :
                      reservation.reception_source === 'client' ? 'WEB予約' : (reservation.reception_source || 'mts')}
                   </div>

@@ -7,7 +7,7 @@ import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 
 type Course = { id: string; name: string; duration: number; base_price: number }
 type Rank = { id: string; name: string }
-type ExtensionRankPrice = { rank_id: string; extension_unit_price: number; extension_unit_back: number }
+type ExtensionRankPrice = { id?: string; rank_id: string; extension_unit_price: number; extension_unit_back: number }
 type DiscountPolicy = { id: string; name: string; therapist_burden_amount: number | null; is_active: boolean }
 type DiscountRankOverride = { id?: string; discount_policy_id: string; rank_id: string; therapist_burden_amount: number }
 type BackAmount = {
@@ -58,7 +58,7 @@ export function CourseBackAmountsTab() {
       supabase.from('therapist_ranks').select('id, name').eq('shop_id', backShopId).order('display_order'),
       supabase.from('course_back_amounts').select('*').eq('shop_id', backShopId),
       supabase.from('designation_types').select('slug, display_name, default_fee, default_back_amount').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
-      supabase.from('extension_rank_prices').select('rank_id, extension_unit_price, extension_unit_back').eq('shop_id', backShopId),
+      supabase.from('extension_rank_prices').select('id, rank_id, extension_unit_price, extension_unit_back').eq('shop_id', backShopId),
       supabase.from('system_settings').select('extension_unit_price, extension_unit_back').eq('shop_id', selectedShop.id).limit(1),
       supabase.from('discount_policies').select('id, name, therapist_burden_amount, is_active').eq('shop_id', pricingShopId).eq('is_active', true).order('created_at', { ascending: true }),
       supabase.from('discount_rank_overrides').select('id, discount_policy_id, rank_id, therapist_burden_amount').eq('shop_id', backShopId),
@@ -88,7 +88,7 @@ export function CourseBackAmountsTab() {
     setExtensionRankPrices(
       r.map(rank => {
         const existing = fetchedExtPrices.find(p => p.rank_id === rank.id)
-        return { rank_id: rank.id, extension_unit_price: existing?.extension_unit_price ?? 0, extension_unit_back: existing?.extension_unit_back ?? 0 }
+        return { id: existing?.id, rank_id: rank.id, extension_unit_price: existing?.extension_unit_price ?? 0, extension_unit_back: existing?.extension_unit_back ?? 0 }
       })
     )
     const ss = settingsRes.data?.[0] as { extension_unit_price?: number; extension_unit_back?: number } | undefined
@@ -356,15 +356,24 @@ export function CourseBackAmountsTab() {
     setExtRankSaving(true)
     try {
       const promises = extensionRankPrices.map(rp =>
-        supabase
-          .from('extension_rank_prices')
-          .upsert({
-            shop_id: getBackShopId(selectedShop),
-            rank_id: rp.rank_id,
-            extension_unit_price: rp.extension_unit_price,
-            extension_unit_back: rp.extension_unit_back,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'shop_id,rank_id' })
+        rp.id
+          ? supabase
+              .from('extension_rank_prices')
+              .update({
+                extension_unit_price: rp.extension_unit_price,
+                extension_unit_back: rp.extension_unit_back,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', rp.id)
+          : supabase
+              .from('extension_rank_prices')
+              .upsert({
+                shop_id: getBackShopId(selectedShop),
+                rank_id: rp.rank_id,
+                extension_unit_price: rp.extension_unit_price,
+                extension_unit_back: rp.extension_unit_back,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'shop_id,rank_id' })
       )
       const results = await Promise.all(promises)
       const errorResult = results.find(res => res.error)

@@ -291,7 +291,7 @@ interface CalculatedReservation extends ReservationWithDetails {
     calculatedReservations.forEach(res => {
       if (res.reception_source === 'staff') {
         mtsCount++
-      } else if (res.reception_source === 'owner') {
+      } else if (res.reception_source === 'owner' || res.reception_source?.startsWith('owner_')) {
         ownerCount++
       } else if (res.reception_source === 'therapist') {
         therapistCount++

@@ -901,7 +901,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   // 4. Normal reservation
                   const isNotificationUnsent = isReservation && !schedule.isPending && (!schedule.customerNotified || !schedule.therapistNotified);
                   const isWeb = schedule.bookingMethod === 'web' || (!schedule.bookingMethod && (schedule.source === 'web' || schedule.receptionSource === 'client'));
-                  const isOwner = schedule.receptionSource === 'owner';
+                  const isOwner = schedule.receptionSource === 'owner' || schedule.receptionSource?.startsWith('owner_');
                   const isHime = (schedule.isHime ?? false) || schedule.receptionSource === 'therapist';
 
                   const bgClasses = schedule.color
