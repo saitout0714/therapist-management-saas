@@ -466,7 +466,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         onMouseDown={handleMouseDown}
         onClickCapture={handleContainerClickCapture}
       >
-        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[1190px]">
+        <div className="grid grid-cols-7 divide-x divide-slate-200 min-w-[1190px] sm:min-w-[1470px]">
           {weekDates.map((date) => {
             const dateStr = formatDate(date)
             const dayShifts = shiftsByDate.get(dateStr) || []
@@ -536,9 +536,9 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           )}
 
                           {/* セラピスト情報 */}
-                          <div className="flex items-stretch">
+                          <div className={`flex items-stretch sm:border-b sm:border-slate-100 ${isOff ? '' : 'sm:bg-slate-50/70'}`}>
                             {/* 写真 — 3:4固定比率 (スマホ表示時は非表示) */}
-                            <div className="hidden sm:block w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
+                            <div className="hidden sm:block w-[48px] flex-shrink-0 self-center pl-2 py-1.5">
                               <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
                                 {therapist.id === 'unassigned' ? (
                                   <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
@@ -554,11 +554,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               </div>
                             </div>
                             {/* テキスト情報 */}
-                            <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px]">
+                            <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px] sm:gap-[5px]">
                               {/* 名前 */}
                               <div className="min-w-0 flex items-center justify-between gap-1">
                                 <p
-                                  className={`text-[13px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
+                                  className={`text-[13px] sm:text-[15px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
                                     ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                                   onMouseEnter={(e) => {
                                     if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
@@ -608,7 +608,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
  
                               {/* 出勤時間 + インターバル */}
                               <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                <p className="text-[11px] font-semibold leading-none">
+                                <p className="text-[11px] sm:text-[13px] font-semibold sm:font-bold leading-none">
                                   {therapist.id === 'unassigned' ? (
                                     <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
                                   ) : isOff ? (
@@ -618,7 +618,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                   )}
                                 </p>
                                 {therapist.id !== 'unassigned' && (
-                                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 ${isOff ? 'opacity-40' : ''}`}>
+                                  <span className={`flex-shrink-0 text-[9px] sm:text-[10px] font-medium sm:font-bold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/50 ${isOff ? 'opacity-40' : ''}`} title="予約間隔（インターバル）">
                                     {therapist.reservation_interval_minutes && therapist.reservation_interval_minutes > 0 ? `${therapist.reservation_interval_minutes}分` : '20分'}
                                   </span>
                                 )}
@@ -628,7 +628,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
                                 {roomName && (
                                   <span
-                                    className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
+                                    className="text-[10px] sm:text-[11px] text-slate-500 sm:text-slate-600 font-medium sm:font-semibold whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
                                     onMouseEnter={(e) => {
                                       if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
                                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -653,9 +653,12 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 )}
                               </div>
  
-                              {/* notes */}
+                              {/* notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
                               {shiftNote && therapist.id !== 'unassigned' && (
-                                <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={shiftNote}>
+                                <p
+                                  className="text-[9px] sm:text-[13px] text-amber-600 sm:text-amber-800 font-medium sm:font-extrabold leading-none sm:leading-tight whitespace-nowrap truncate sm:bg-amber-50 sm:border sm:border-amber-200 sm:rounded sm:px-1.5 sm:py-0.5 w-fit max-w-full"
+                                  title={shiftNote}
+                                >
                                   {shiftNote}
                                 </p>
                               )}

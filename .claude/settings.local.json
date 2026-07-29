@@ -59,7 +59,10 @@
       "Bash(grep -n \"WARN\\\\|ERROR\" /tmp/caskan_res_dryrun2.log | sort | uniq -c | head -30; echo \"---\"; wc -l /tmp/caskan_res_dryrun2.log)",
       "Bash(node scratch_check_shop_tooltip_data.js)",
       "Bash(node scratch_check_baccarat_detail.js)",
-      "Bash(node scratch_check_shops.js)"
+      "Bash(node scratch_check_shops.js)",
+      "Bash(npx eslint *)",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "Bash(xargs grep -l \"insert\\\\|reservations\")"
     ]
   }
 }

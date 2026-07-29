@@ -81,6 +81,7 @@ interface TimeChartProps {
 }
 
 import { toDisplayTime } from '@/lib/timeUtils';
+import { useIsDesktop } from '@/lib/useIsDesktop';
 
 const TimeChart: React.FC<TimeChartProps> = ({
   therapists: rawTherapists,
@@ -91,6 +92,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   onShiftEditOpen,
 }) => {
   const router = useRouter();
+  const isDesktop = useIsDesktop();
 
   const therapists = useMemo(() => {
     return rawTherapists.map(t => ({
@@ -344,7 +346,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
   }
 
   // Row height & Cell width adjustments for compact view
-  const rowHeight = 76; // Row height with vertical breathing room
+  // デスクトップはセラピスト情報を読みやすくするため行高を広げる（スマホは従来通り）
+  // 名前・出勤時間・ルーム・notesバッジの4段がすべて揃うケースでも見切れないよう十分な高さを確保
+  const rowHeight = isDesktop ? 112 : 76;
   const cellWidth = 14; // Cell width
 
   return (
@@ -356,7 +360,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
     >
       <div className="flex min-w-max">
         {/* Left Column (Therapists) */}
-        <div className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[25vw] sm:w-fit max-w-[105px] sm:max-w-none min-w-[80px] sm:min-w-[150px]">
+        <div className="sticky left-0 border-r border-slate-200 bg-white z-20 flex flex-col flex-shrink-0 shadow-[1px_0_5px_-1px_rgba(0,0,0,0.1)] w-[25vw] sm:w-[260px] max-w-[105px] sm:max-w-none min-w-[80px] sm:min-w-[260px]">
           {/* Header (Date) */}
           <div style={{ height: '56px' }} className="border-b border-slate-200 flex flex-col justify-center items-center sticky top-0 bg-white/95 backdrop-blur z-30 px-3">
             <div className="font-bold text-slate-800 text-sm tracking-tight whitespace-nowrap">
@@ -396,7 +400,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   )}
 
                   {/* 写真 — 3:4固定比率 (スマホ表示時は非表示) */}
-                  <div className="hidden sm:block w-[42px] flex-shrink-0 self-center pl-1.5 py-1">
+                  <div className="hidden sm:block w-[54px] flex-shrink-0 self-center pl-1.5 py-1">
                     <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
                       {therapist.id === 'unassigned' ? (
                         <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
@@ -412,8 +416,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     </div>
                   </div>
 
-                  {/* テキスト情報 */}
-                  <div className="flex flex-col justify-center flex-1 min-w-0 px-1 py-1 sm:px-2 sm:py-1.5 gap-[2px] sm:gap-[4px]">
+                  {/* テキスト情報（スマホ） */}
+                  <div className="flex sm:hidden flex-col justify-center flex-1 min-w-0 px-1 py-1 gap-[2px]">
                     {/* 名前 */}
                     <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between w-full min-w-0 gap-0.5 sm:gap-1.5">
                       <div className="flex flex-col items-start sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 min-w-0 w-full">
@@ -519,6 +523,119 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     {/* notes */}
                     {therapist.notes && (
                       <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={therapist.notes}>
+                        {therapist.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* テキスト情報（デスクトップ） — 1行1情報で読みやすさ優先 */}
+                  <div className="hidden sm:flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[5px]">
+                    {/* 1段目: 名前 + ランク + 休み */}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {therapist.isRookie && (
+                        <span className="text-sm flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                      )}
+                      <span
+                        className={`text-[15px] font-bold leading-none truncate group-hover:text-indigo-700 transition-colors cursor-default
+                          ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                        onMouseEnter={(e) => {
+                          if (therapist.id === 'unassigned') return;
+                          if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 6 });
+                        }}
+                        onMouseLeave={() => {
+                          if (therapist.id === 'unassigned') return;
+                          therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                        }}
+                      >
+                        {therapist.name}
+                      </span>
+                      {therapist.linked_therapist_group_id && (
+                        <span className="text-sky-500 font-bold text-xs flex-shrink-0" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                      )}
+                      {therapist.rankName && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                          {therapist.rankName}
+                        </span>
+                      )}
+                      {isOff && (
+                        <span className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">
+                          休み
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 2段目: 出勤時間 + インターバル */}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[13px] font-bold leading-none whitespace-nowrap">
+                        {therapist.id === 'unassigned' ? (
+                          <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                        ) : isOff ? (
+                          <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        ) : therapist.shiftStart && therapist.shiftEnd ? (
+                          <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        ) : (
+                          <span className="text-slate-400">未設定</span>
+                        )}
+                      </span>
+                      {therapist.id !== 'unassigned' && (
+                        <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
+                          {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 3段目: ルーム + 引継メモ */}
+                    {(therapist.room || (therapist.unresolvedMemos?.length ?? 0) > 0) && (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {therapist.room && (
+                          <span
+                            className="text-[11px] text-slate-600 font-semibold truncate flex items-center gap-0.5 cursor-default leading-none"
+                            onMouseEnter={(e) => {
+                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setRoomMemoPopup({
+                                roomName: therapist.room ?? '',
+                                displayName: therapist.roomDisplayName ?? null,
+                                address: therapist.roomAddress ?? null,
+                                memo: therapist.roomMemo ?? '',
+                                mapUrl: therapist.roomMapUrl ?? null,
+                                x: rect.left,
+                                y: rect.bottom + 6
+                              });
+                            }}
+                            onMouseLeave={() => {
+                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                            }}
+                          >
+                            <svg className="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            {therapist.room}
+                          </span>
+                        )}
+                        {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                          <span
+                            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[110px] whitespace-nowrap"
+                            title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
+                            onMouseEnter={e => {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
+                            }}
+                            onMouseLeave={() => setMemoPopup(null)}
+                          >
+                            <svg className="w-3 h-3 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                            <span className="truncate">引継: {therapist.unresolvedMemos![0].content}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 4段目: notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
+                    {therapist.notes && (
+                      <p
+                        className="text-[13px] text-amber-800 font-extrabold leading-tight whitespace-nowrap truncate bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 w-fit max-w-full"
+                        title={therapist.notes}
+                      >
                         {therapist.notes}
                       </p>
                     )}

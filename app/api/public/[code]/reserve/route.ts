@@ -480,7 +480,7 @@ export async function POST(
   // 新規予約受付設定を取得
   const { data: systemSettings } = await supabase
     .from('system_settings')
-    .select('allow_new_customers, credit_card_fee_rate')
+    .select('allow_new_customers, credit_card_fee_rate, reservation_interval_minutes')
     .eq('shop_id', shopId)
     .maybeSingle()
   const allowNewCustomers = systemSettings?.allow_new_customers ?? true
@@ -501,6 +501,55 @@ export async function POST(
   }
   if (!customer?.name || !customer?.furigana || !customer?.phone || !customer?.email) {
     return NextResponse.json({ error: 'お客様情報の必須項目が不足しています' }, { status: 400 })
+  }
+
+  // 二重予約防止チェック
+  // フォームの二重送信（連打・戻るボタンでの再送信など）や、選択画面を開いている間に
+  // 他のお客様が同じ枠を確定させてしまった場合の競合により、同一セラピスト・同一時間帯へ
+  // 予約が重複登録されるのを防ぐ。指名なし（フリー）予約はセラピスト未確定のため対象外。
+  if (therapist_id) {
+    const { data: therapistIntervalRow } = await supabase
+      .from('therapists')
+      .select('reservation_interval_minutes')
+      .eq('id', therapist_id)
+      .maybeSingle()
+    const intervalMinutes = therapistIntervalRow?.reservation_interval_minutes
+      ?? systemSettings?.reservation_interval_minutes
+      ?? 20
+
+    const { data: conflictingReservations } = await supabase
+      .from('reservations')
+      .select('id, start_time, end_time')
+      .eq('shop_id', shopId)
+      .eq('therapist_id', therapist_id)
+      .eq('date', date)
+      .in('status', ['confirmed', 'blocked'])
+
+    // toDisplayTime と同じ規約（0〜5時台は深夜として+24時間扱い）で分換算し、日またぎでも正しく比較する
+    const toBusinessMinutes = (t: string): number => {
+      const match = t.match(/^(\d{1,2}):(\d{2})/)
+      if (!match) return 0
+      let h = parseInt(match[1], 10)
+      const m = parseInt(match[2], 10)
+      if (h < 6) h += 24
+      return h * 60 + m
+    }
+
+    const newStartMin = toBusinessMinutes(start_time)
+    const newEndMin = toBusinessMinutes(end_time)
+
+    const hasConflict = (conflictingReservations || []).some((r) => {
+      const rStartMin = toBusinessMinutes(r.start_time)
+      const rEndMin = toBusinessMinutes(r.end_time)
+      return newStartMin < rEndMin + intervalMinutes && newEndMin + intervalMinutes > rStartMin
+    })
+
+    if (hasConflict) {
+      return NextResponse.json(
+        { error: '大変申し訳ございません。ご選択の時間帯は、たった今別のご予約が確定してしまいました。お手数ですが、時間をおいて再度お試しいただくか、別の時間帯をお選びください。' },
+        { status: 409 }
+      )
+    }
   }
 
   // 電話番号で既存顧客を検索（ハイフンあり/なし/全角など全パターン対応）

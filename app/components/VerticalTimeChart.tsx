@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toDisplayTime } from '@/lib/timeUtils';
-import Link from 'next/link';
+import { useIsDesktop } from '@/lib/useIsDesktop';
 import Image from 'next/image';
 
 interface TherapistMemo {
@@ -101,6 +101,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   onShiftEditOpen,
 }) => {
   const router = useRouter();
+  const isDesktop = useIsDesktop();
 
   const therapists = useMemo(() => {
     return rawTherapists.map(t => ({
@@ -187,9 +188,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
 
   // Time grid configuration
+  // デスクトップは列幅・ヘッダー高を広げてセラピスト情報を読みやすくする（スマホは従来通り）
   const cellHeight = 14; // Height per 5 minutes cell
-  const columnWidth = 110; // Width of each therapist column
-  const headerHeight = 96; // Height of the top header row
+  const columnWidth = isDesktop ? 156 : 110; // Width of each therapist column
+  // notes(前日最終額) + バッジ行 + ルーム + フッターが全て揃うケースでも見切れない最小限の高さ（情報が少ない列は自動で上詰めになる）
+  const headerHeight = isDesktop ? 152 : 96; // Height of the top header row
   const timeColumnWidth = 60; // Width of left sticky time column
 
   const timeSlots = useMemo(() => {
@@ -331,7 +334,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [date, scrollToTime, therapists, schedules]);
+  }, [date, scrollToTime, therapists, schedules, headerHeight]);
 
   const now = new Date();
   const nowHour = now.getHours();
@@ -387,7 +390,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               return (
                 <div
                   key={`header-${therapist.id}`}
-                  className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 select-none overflow-hidden
+                  className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 sm:p-2 select-none overflow-hidden
                     ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                   style={{ width: `${columnWidth}px`, height: `${headerHeight}px` }}
                 >
@@ -396,8 +399,159 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
 
+                  {/* ===== デスクトップ用ヘッダー（情報量優先） ===== */}
+                  <div className="hidden sm:flex flex-1 flex-col w-full min-w-0 gap-1">
+                    {/* 上段: 写真(3:4) + 名前 / バッジ / 出勤時間 */}
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <div className={`w-[38px] flex-shrink-0 ${isOff ? 'opacity-40' : ''}`}>
+                        <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
+                          {therapist.id === 'unassigned' ? (
+                            <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                            </div>
+                          ) : therapist.avatar ? (
+                            <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                          ) : (
+                            <span className="w-full h-full flex items-center justify-center text-base font-bold text-slate-300">{therapist.name[0]}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        {/* 名前 */}
+                        <div className="flex items-center gap-1 min-w-0">
+                          {therapist.isRookie && (
+                            <span className="text-[11px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                          )}
+                          <span
+                            className={`text-[13px] font-bold leading-tight truncate group-hover:text-indigo-700 transition-colors cursor-default
+                              ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                            onMouseEnter={(e) => {
+                              if (therapist.id === 'unassigned') return;
+                              if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 6 });
+                            }}
+                            onMouseLeave={() => {
+                              if (therapist.id === 'unassigned') return;
+                              therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                            }}
+                          >
+                            {therapist.name}
+                          </span>
+                          {therapist.linked_therapist_group_id && (
+                            <span className="text-sky-500 font-bold text-[11px] flex-shrink-0" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                          )}
+                        </div>
+
+                        {/* バッジ（ランク / 休み / 引継メモ） */}
+                        {(therapist.rankName || isOff || (therapist.unresolvedMemos?.length ?? 0) > 0) && (
+                          <div className="flex items-center gap-1 min-w-0">
+                            {therapist.rankName && (
+                              <span className="text-[9px] px-1 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0 truncate">
+                                {therapist.rankName}
+                              </span>
+                            )}
+                            {isOff && (
+                              <span className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                休み
+                              </span>
+                            )}
+                            {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
+                              <span
+                                className="flex-shrink-0 flex items-center gap-0.5 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default"
+                                title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
+                                onMouseEnter={e => {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  setMemoPopup({ therapistId: therapist.id, x: rect.right + 6, y: rect.top });
+                                }}
+                                onMouseLeave={() => setMemoPopup(null)}
+                              >
+                                <svg className="w-2.5 h-2.5 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                引継
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 出勤時間 */}
+                        <div className="text-[11px] font-bold leading-none whitespace-nowrap">
+                          {therapist.id === 'unassigned' ? (
+                            <span className="text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 font-bold">要対応</span>
+                          ) : isOff ? (
+                            <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                          ) : therapist.shiftStart && therapist.shiftEnd ? (
+                            <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                          ) : (
+                            <span className="text-slate-400">未設定</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 中段: ルーム */}
+                    <div className="min-w-0">
+                      {therapist.room ? (
+                        <span
+                          className="text-[10px] text-slate-600 font-semibold flex items-center gap-0.5 cursor-default leading-tight min-w-0"
+                          onMouseEnter={(e) => {
+                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 6 });
+                          }}
+                          onMouseLeave={() => {
+                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                          }}
+                        >
+                          <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          <span className="truncate">{therapist.room}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 italic">ルーム未定</span>
+                      )}
+                    </div>
+
+                    {/* notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
+                    {therapist.notes && (
+                      <div className="min-w-0">
+                        <span
+                          className="inline-block max-w-full text-[12px] text-amber-800 font-extrabold leading-tight truncate bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5"
+                          title={therapist.notes}
+                        >
+                          {therapist.notes}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 下段: インターバル + 編集 — 情報がない分は詰まるよう mt-auto は使わない */}
+                    <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100 min-w-0">
+                      <div className="flex items-center gap-1 min-w-0">
+                        {therapist.id !== 'unassigned' && (
+                          <span className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
+                            {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
+                          </span>
+                        )}
+                      </div>
+                      {onShiftEditOpen && therapist.id !== 'unassigned' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onShiftEditOpen(therapist.id, date);
+                          }}
+                          title="シフトを編集"
+                          className="flex-shrink-0 w-5 h-5 rounded hover:text-indigo-500 hover:bg-indigo-50 flex items-center justify-center text-slate-400 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ===== スマホ用ヘッダー（従来レイアウト） ===== */}
                   {/* 1段目: 写真(丸型22px) + 名前 */}
-                  <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
+                  <div className="flex sm:hidden items-center gap-1 min-w-0 flex-shrink-0">
                     {/* 写真 — 円形 (スマホ表示時は非表示) */}
                     <div className="hidden sm:block w-[22px] h-[22px] flex-shrink-0">
                       <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
@@ -466,7 +620,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   </div>
 
                   {/* 2段目: 出勤時間 */}
-                  <div className="text-[9px] font-semibold leading-tight flex-shrink-0 mt-0.5">
+                  <div className="sm:hidden text-[9px] font-semibold leading-tight flex-shrink-0 mt-0.5">
                     {therapist.id === 'unassigned' ? (
                       <span className="text-amber-600 bg-amber-50 px-1 py-0.2 rounded border border-amber-100 font-bold">要対応</span>
                     ) : isOff ? (
@@ -479,7 +633,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   </div>
 
                   {/* 3段目: ルーム名（折り返し2行） */}
-                  <div className="min-w-0 flex-1 flex flex-col justify-center py-0.5">
+                  <div className="sm:hidden min-w-0 flex-1 flex flex-col justify-center py-0.5">
                     {therapist.room ? (
                       <span
                         className="text-[9px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
@@ -501,7 +655,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   </div>
 
                   {/* 4段目: インターバル + メモ/編集ボタン */}
-                  <div className="flex items-center justify-between gap-1 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
+                  <div className="flex sm:hidden items-center justify-between gap-1 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
                     <div className="flex items-center gap-0.5 min-w-0">
                       {therapist.id !== 'unassigned' && (
                         <span className="text-[8px] font-medium px-1 py-0.2 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
