@@ -46,6 +46,8 @@ const OWNER_RECEPTION_LABELS: Record<string, string> = {
   owner_takahashi: '高橋',
   owner_sugai: '菅井',
   owner_hada: '波田',
+  therapist: '姫予約',
+  client: 'WEB予約',
 }
 
 // バカラグループのowner_id
