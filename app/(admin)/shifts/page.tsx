@@ -1057,10 +1057,10 @@ function ShiftsContent() {
           // セラピスト行を複製せず、同一IDのまま複数店舗のシフトに入る運用
           // （バカラ等）：自店舗に本日出勤中の同じセラピストIDなら、IDの
           // 付け替えなしでそのままブロック対象にする。
-          // ただし対象は実際にお客様が入っている confirmed の予約のみとする。
-          // blocked/pending はその店舗ローカルな「受付不可」設定（休憩・受付停止等）
-          // であり、他の場所で接客中であることを意味しないため対象外。
-          if (!isLinked && res.therapist_id && res.status === 'confirmed' && ownShiftTherapistIds.has(res.therapist_id)) {
+          // confirmed（実際の予約）に加えて blocked（受付不可設定）も対象にする。
+          // 同一人物が他店舗のシフトにも入っている場合に限定しているため、
+          // 無関係な店舗への波及は起きない。
+          if (!isLinked && res.therapist_id && (res.status === 'confirmed' || res.status === 'blocked') && ownShiftTherapistIds.has(res.therapist_id)) {
             isLinked = true;
           }
 
