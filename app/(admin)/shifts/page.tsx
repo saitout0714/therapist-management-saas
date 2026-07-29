@@ -922,7 +922,7 @@ function ShiftsContent() {
     if (!selectedShop) return;
     try {
       // レースコンディションを避けるため、自店舗のセラピスト・部屋の紐付けグループ情報および店舗連携情報を直接取得
-      const [ownTherapistsRes, ownRoomsRes, linksRes] = await Promise.all([
+      const [ownTherapistsRes, ownRoomsRes, linksRes, ownShiftsRes] = await Promise.all([
         supabase
           .from('therapists')
           .select('id, linked_therapist_group_id')
@@ -936,12 +936,38 @@ function ShiftsContent() {
           .from('shop_links')
           .select('shop_id_1, shop_id_2')
           .eq('is_active', true)
-          .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`)
+          .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`),
+        // 自店舗に本日出勤しているセラピストID一覧（バカラ等、店舗を複製せず
+        // 同一セラピスト行がそのまま複数店舗のシフトに登録される運用の判定用）
+        supabase
+          .from('shifts')
+          .select('therapist_id')
+          .eq('shop_id', selectedShop.id)
+          .eq('date', filterDate)
       ]);
       const ownTherapists = ownTherapistsRes.data || [];
       const ownRooms = ownRoomsRes.data || [];
       const linkedShopIds = (linksRes.data || []).map((l: any) => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
-      const targetShopIds = [selectedShop.id, ...linkedShopIds];
+      const ownShiftTherapistIds = new Set((ownShiftsRes.data || []).map((s: any) => s.therapist_id).filter(Boolean));
+
+      // 自店舗に出勤中のセラピストが、同日に他店舗のシフトにも入っている場合、
+      // その店舗も予約取得の対象に含める（同一セラピスト行を複数店舗で共有する運用向け）
+      let crossShopIdsForSharedTherapists: string[] = [];
+      if (ownShiftTherapistIds.size > 0) {
+        const { data: otherShiftsData } = await supabase
+          .from('shifts')
+          .select('shop_id, therapist_id')
+          .in('therapist_id', Array.from(ownShiftTherapistIds))
+          .eq('date', filterDate)
+          .neq('shop_id', selectedShop.id);
+        crossShopIdsForSharedTherapists = Array.from(
+          new Set((otherShiftsData || []).map((s: any) => s.shop_id).filter(Boolean))
+        );
+      }
+
+      const targetShopIds = Array.from(
+        new Set([selectedShop.id, ...linkedShopIds, ...crossShopIdsForSharedTherapists])
+      );
 
       // 連携店舗に限定して該当日の予約を取得
       const { data, error } = await supabase
@@ -1019,13 +1045,20 @@ function ShiftsContent() {
           let mappedTherapistId = res.therapist_id;
           let mappedRoomId = res.room_id;
 
-          // セラピストの紐付け
+          // セラピストの紐付け（店舗ごとに複製された別行を linked_therapist_group_id で対応付ける運用）
           if (res.therapist?.linked_therapist_group_id) {
             const targetTherapist = ownTherapists.find((t: any) => t.linked_therapist_group_id === res.therapist.linked_therapist_group_id);
             if (targetTherapist) {
               mappedTherapistId = targetTherapist.id;
               isLinked = true;
             }
+          }
+
+          // セラピスト行を複製せず、同一IDのまま複数店舗のシフトに入る運用
+          // （バカラ等）：自店舗に本日出勤中の同じセラピストIDなら、IDの
+          // 付け替えなしでそのままブロック対象にする
+          if (!isLinked && res.therapist_id && ownShiftTherapistIds.has(res.therapist_id)) {
+            isLinked = true;
           }
 
           // ルーム（部屋）の紐付け
