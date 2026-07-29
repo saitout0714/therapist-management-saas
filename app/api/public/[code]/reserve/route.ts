@@ -517,10 +517,13 @@ export async function POST(
       ?? systemSettings?.reservation_interval_minutes
       ?? 20
 
+    // shop_id では絞り込まない: 同一セラピストが複数店舗で出勤している場合
+    // （バカラ等のマルチショップ運用）、別店舗の予約でも同一人物なので
+    // 二重予約になり得る。therapist_id は行ごとに一意なUUIDのため、
+    // shop_idを外しても無関係な店舗の予約と誤って衝突することはない。
     const { data: conflictingReservations } = await supabase
       .from('reservations')
       .select('id, start_time, end_time')
-      .eq('shop_id', shopId)
       .eq('therapist_id', therapist_id)
       .eq('date', date)
       .in('status', ['confirmed', 'blocked'])

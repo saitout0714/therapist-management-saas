@@ -649,10 +649,13 @@ export default function EditReservationPage() {
         if (shiftError) throw shiftError
 
         // 3. 既存予約の取得（キャンセル以外、自分自身を除く）
+        // shop_id では絞り込まない: 同一セラピストが複数店舗で出勤している場合
+        // （バカラ等のマルチショップ運用）、別店舗の予約でも同一人物なので
+        // 二重予約になり得る。therapist_id は行ごとに一意なUUIDのため、
+        // shop_idを外しても無関係な店舗の予約と誤って衝突することはない。
         const { data: existingReservations, error: resError } = await supabase
           .from('reservations')
           .select('id, start_time, end_time, status, customer_id')
-          .eq('shop_id', selectedShop.id)
           .eq('therapist_id', formData.therapist_id)
           .eq('date', formData.date)
           .neq('status', 'cancelled')
