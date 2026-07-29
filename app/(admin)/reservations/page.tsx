@@ -42,6 +42,7 @@ const PAGE_SIZE = 100
 // バカラグループはオーナーアカウントを高橋・菅井・波田の3人で共有しているため、
 // 担当者列は created_by(ログインユーザー名)ではなく受付区分から個人名を表示する
 const OWNER_RECEPTION_LABELS: Record<string, string> = {
+  owner: 'オーナー',
   owner_takahashi: '高橋',
   owner_sugai: '菅井',
   owner_hada: '波田',

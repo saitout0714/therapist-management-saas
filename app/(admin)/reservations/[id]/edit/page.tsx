@@ -1870,6 +1870,7 @@ export default function EditReservationPage() {
                   {(selectedShop?.owner_id === '016a4306-25d3-470b-8be4-11c4b01ef7b3' // バカラグループ(周南下松/宇部/山口湯田/岩国)専用の受付区分
                     ? [
                         { value: 'staff', label: 'mts' },
+                        { value: 'owner', label: 'オーナー' },
                         { value: 'owner_takahashi', label: '高橋' },
                         { value: 'owner_sugai', label: '菅井' },
                         { value: 'owner_hada', label: '波田' },
