@@ -347,8 +347,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
   // Row height & Cell width adjustments for compact view
   // デスクトップはセラピスト情報を読みやすくするため行高を広げる（スマホは従来通り）
-  // 名前・出勤時間・ルーム・notesバッジの4段がすべて揃うケースでも見切れないよう十分な高さを確保
-  const rowHeight = isDesktop ? 112 : 76;
+  // 名前・出勤時間・ルーム・notesバッジの4段がすべて揃うケースでも見切れず、かつ画面内に多く収まるよう詰めた高さ
+  const rowHeight = isDesktop ? 100 : 76;
   const cellWidth = 14; // Cell width
 
   return (
@@ -528,8 +528,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
 
-                  {/* テキスト情報（デスクトップ） — 1行1情報で読みやすさ優先 */}
-                  <div className="hidden sm:flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[5px]">
+                  {/* テキスト情報（デスクトップ） — 1行1情報で読みやすさ優先。行間・余白を詰めて行高を抑える */}
+                  <div className="hidden sm:flex flex-col justify-center flex-1 min-w-0 px-2 py-1 gap-[3px]">
                     {/* 1段目: 名前 + ランク + 休み */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       {therapist.isRookie && (
