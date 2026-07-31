@@ -262,6 +262,24 @@ function ShiftsContent() {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
 
+  // タイムチャートの高さをビューポートの残り高さいっぱいに追従させる
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [chartHeight, setChartHeight] = useState<number>(700);
+
+  useEffect(() => {
+    const updateChartHeight = () => {
+      const el = chartContainerRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const nextHeight = Math.max(window.innerHeight - top - 16, 400);
+      setChartHeight(nextHeight);
+    };
+
+    updateChartHeight();
+    window.addEventListener('resize', updateChartHeight);
+    return () => window.removeEventListener('resize', updateChartHeight);
+  }, [viewMode, loading]);
+
   // Load saved sort mode from localStorage on client-side mount
   useEffect(() => {
     const saved = localStorage.getItem('shifts_sort_mode');
@@ -1921,7 +1939,7 @@ function ShiftsContent() {
                   <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
                 </div>
               )}
-              <div style={{ height: '700px' }} className="w-full">
+              <div ref={chartContainerRef} style={{ height: `${chartHeight}px` }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <TimeChart
                     therapists={sortedTherapistsWithShift}
@@ -1952,7 +1970,7 @@ function ShiftsContent() {
                   <p className="text-gray-600 font-semibold animate-pulse">読み込み中...</p>
                 </div>
               )}
-              <div style={{ height: '700px' }} className="w-full">
+              <div ref={chartContainerRef} style={{ height: `${chartHeight}px` }} className="w-full">
                 {sortedTherapistsWithShift.length > 0 ? (
                   <VerticalTimeChart
                     therapists={sortedTherapistsWithShift}
