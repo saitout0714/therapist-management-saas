@@ -237,7 +237,7 @@ export async function sendAdminReservationNotification({
     const therapistName = therapist?.name || 'フリー（指名なし）'
     const courseName = course?.name || '選択コース'
     const totalPrice = reservation.total_price || 0
-    const paymentLabel = reservation.payment_method === 'credit' ? 'クレジットカード決済' : '現地決済（現金）'
+    const paymentLabel = reservation.payment_method === 'credit' ? 'クレジットカード決済' : reservation.payment_method === 'paypay' ? 'PayPay決済' : '現地決済（現金）'
     const reservationNotes = reservation.notes || 'なし'
 
     // 3. Determine if customer is new (if not explicitly passed)

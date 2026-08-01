@@ -815,6 +815,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                                 💳 クレジット
                                               </span>
                                             )}
+                                            {res.payment_method === 'paypay' && (
+                                              <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-400 text-white border border-red-300 shadow-sm whitespace-nowrap">
+                                                📱 PayPay
+                                              </span>
+                                            )}
                                           </div>
                                           {/* Row 3: コース時間・指名種別・延長・金額 */}
                                           <div className="text-[10px] font-medium text-white flex items-center gap-1 leading-none flex-wrap">

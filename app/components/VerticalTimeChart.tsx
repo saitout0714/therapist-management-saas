@@ -1046,6 +1046,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                                 💳 クレジット
                               </span>
                             )}
+                            {schedule.paymentMethod === 'paypay' && (
+                              <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-500 text-white shadow-sm whitespace-nowrap">
+                                📱 PayPay
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1158,6 +1163,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           {isReservation && schedule.paymentMethod === 'credit' && (
                             <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
                               💳 クレジット
+                            </span>
+                          )}
+                          {isReservation && schedule.paymentMethod === 'paypay' && (
+                            <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-400 text-white border border-red-300 shadow-sm whitespace-nowrap">
+                              📱 PayPay
                             </span>
                           )}
                         </div>

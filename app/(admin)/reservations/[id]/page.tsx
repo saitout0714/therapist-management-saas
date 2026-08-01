@@ -96,10 +96,11 @@ type Reservation = {
   designation_type: 'free' | 'nomination' | 'first_nomination' | 'confirmed' | 'princess'
   notes: string | null
   status: 'pending' | 'confirmed' | 'cancelled'
-  payment_method: 'cash' | 'credit' | null
-  options_payment_method: 'cash' | 'credit' | null
-  extension_payment_method: 'cash' | 'credit' | null
+  payment_method: 'cash' | 'credit' | 'paypay' | null
+  options_payment_method: 'cash' | 'credit' | 'paypay' | null
+  extension_payment_method: 'cash' | 'credit' | 'paypay' | null
   credit_fee_amount: number
+  paypay_fee_amount: number
   extension_count: number
   customers: { name: string; phone: string | null; email: string | null } | null
   courses: { name: string; duration: number; base_price: number } | null
@@ -379,7 +380,7 @@ export default function ReservationPreviewPage() {
     const nominationFeeVal = reservation.designation_type === 'free'
       ? ''
       : (displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円')
-    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : reservation.payment_method === 'paypay' ? 'PayPay' : '現金'
     const totalVal = `${reservation.total_price.toLocaleString()}円`
 
     // オプション一覧の生成
@@ -428,8 +429,9 @@ export default function ReservationPreviewPage() {
     let paymentInfoText = ''
     if (reservation.payment_method === 'credit') {
       const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
-      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
-      
+      // クレジット以外（現金・PayPay）で支払う分は差し引く
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method !== 'credit' ? reservation.options_price : 0) - (reservation.extension_payment_method !== 'credit' ? extPrice : 0)
+
       let creditText = ''
       if (reservation.credit_fee_amount > 0) {
         creditText += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
@@ -446,10 +448,25 @@ export default function ReservationPreviewPage() {
         creditText += `${creditPaymentUrl}\n`
       }
       paymentInfoText = creditText.trim()
+    } else if (reservation.payment_method === 'paypay') {
+      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
+      // PayPay以外（現金・クレジット）で支払う分は差し引く
+      const paypayTotal = reservation.total_price + reservation.paypay_fee_amount - (reservation.options_payment_method !== 'paypay' ? reservation.options_price : 0) - (reservation.extension_payment_method !== 'paypay' ? extPrice : 0)
+
+      let paypayText = ''
+      if (reservation.paypay_fee_amount > 0) {
+        paypayText += `PayPay手数料：${reservation.paypay_fee_amount.toLocaleString()}円\n`
+      }
+      paypayText += `PayPay決済額：${paypayTotal.toLocaleString()}円\n`
+      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+        paypayText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+      }
+      paymentInfoText = paypayText.trim()
     } else {
-      if (reservation.credit_fee_amount > 0) {
-        let cashText = `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
-        cashText += `💳 クレジット請求額：${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}円\n`
+      const totalFee = reservation.credit_fee_amount + reservation.paypay_fee_amount
+      if (totalFee > 0) {
+        let cashText = `決済手数料：${totalFee.toLocaleString()}円\n`
+        cashText += `💳 決済請求額：${(reservation.total_price + totalFee).toLocaleString()}円\n`
         if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
           cashText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
         }
@@ -671,7 +688,7 @@ export default function ReservationPreviewPage() {
     const discountPriceVal = reservation.discount_amount > 0 ? `-${reservation.discount_amount.toLocaleString()}円` : ''
 
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
-    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : reservation.payment_method === 'paypay' ? 'PayPay' : '現金'
     let notesText = ''
     if (reservation.notes) {
       notesText = reservation.notes
@@ -921,8 +938,8 @@ export default function ReservationPreviewPage() {
     }
 
     text += `------------------------\n`
-    if (reservation.payment_method === 'credit') {
-      text += `■ お支払い：クレジット\n`
+    if (reservation.payment_method === 'credit' || reservation.payment_method === 'paypay') {
+      text += `■ お支払い：${reservation.payment_method === 'credit' ? 'クレジット' : 'PayPay'}\n`
       text += `------------------------\n`
       text += `合計：${reservation.total_price.toLocaleString()}円`
     } else {
@@ -1051,7 +1068,7 @@ export default function ReservationPreviewPage() {
     const nominationFeeVal = reservation.designation_type === 'free'
       ? ''
       : (displayNominationFee > 0 ? `${displayNominationFee.toLocaleString()}円` : '0円')
-    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : '現金'
+    const paymentText = reservation.payment_method === 'credit' ? 'クレジット' : reservation.payment_method === 'paypay' ? 'PayPay' : '現金'
     const totalVal = `${reservation.total_price.toLocaleString()}円`
 
     // オプション一覧の生成
@@ -1100,8 +1117,9 @@ export default function ReservationPreviewPage() {
     let paymentInfoText = ''
     if (reservation.payment_method === 'credit') {
       const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
-      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0) - (reservation.extension_payment_method === 'cash' ? extPrice : 0)
-      
+      // クレジット以外（現金・PayPay）で支払う分は差し引く
+      const creditTotal = reservation.total_price + reservation.credit_fee_amount - (reservation.options_payment_method !== 'credit' ? reservation.options_price : 0) - (reservation.extension_payment_method !== 'credit' ? extPrice : 0)
+
       let creditText = ''
       if (reservation.credit_fee_amount > 0) {
         creditText += `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
@@ -1118,10 +1136,25 @@ export default function ReservationPreviewPage() {
         creditText += `${creditPaymentUrl}\n`
       }
       paymentInfoText = creditText.trim()
+    } else if (reservation.payment_method === 'paypay') {
+      const extPrice = reservation.extension_count > 0 ? Math.max(0, reservation.total_price - reservation.base_price - reservation.options_price - reservation.nomination_fee + reservation.discount_amount) : 0
+      // PayPay以外（現金・クレジット）で支払う分は差し引く
+      const paypayTotal = reservation.total_price + reservation.paypay_fee_amount - (reservation.options_payment_method !== 'paypay' ? reservation.options_price : 0) - (reservation.extension_payment_method !== 'paypay' ? extPrice : 0)
+
+      let paypayText = ''
+      if (reservation.paypay_fee_amount > 0) {
+        paypayText += `PayPay手数料：${reservation.paypay_fee_amount.toLocaleString()}円\n`
+      }
+      paypayText += `PayPay決済額：${paypayTotal.toLocaleString()}円\n`
+      if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
+        paypayText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
+      }
+      paymentInfoText = paypayText.trim()
     } else {
-      if (reservation.credit_fee_amount > 0) {
-        let cashText = `クレジット手数料：${reservation.credit_fee_amount.toLocaleString()}円\n`
-        cashText += `💳 クレジット請求額：${(reservation.total_price + reservation.credit_fee_amount).toLocaleString()}円\n`
+      const totalFee = reservation.credit_fee_amount + reservation.paypay_fee_amount
+      if (totalFee > 0) {
+        let cashText = `決済手数料：${totalFee.toLocaleString()}円\n`
+        cashText += `💳 決済請求額：${(reservation.total_price + totalFee).toLocaleString()}円\n`
         if (reservation.options_payment_method === 'cash' && reservation.options_price > 0) {
           cashText += `（うちオプション${reservation.options_price.toLocaleString()}円は現金でセラピストへ）\n`
         }
@@ -1934,6 +1967,12 @@ export default function ReservationPreviewPage() {
                       <span>+¥{reservation.credit_fee_amount.toLocaleString()}</span>
                     </div>
                   )}
+                  {reservation.paypay_fee_amount > 0 && (
+                    <div className="flex justify-between items-center mb-1 text-amber-600">
+                      <span>PayPay手数料</span>
+                      <span>+¥{reservation.paypay_fee_amount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 font-bold text-sm sm:text-lg text-indigo-700">
                     <span>合計</span>
                     <span>¥{reservation.total_price.toLocaleString()}</span>
@@ -1944,8 +1983,20 @@ export default function ReservationPreviewPage() {
                       <span>
                         ¥{(
                           reservation.total_price + reservation.credit_fee_amount
-                          - (reservation.options_payment_method === 'cash' ? reservation.options_price : 0)
-                          - (reservation.extension_payment_method === 'cash' ? extensionPrice : 0)
+                          - (reservation.options_payment_method !== 'credit' ? reservation.options_price : 0)
+                          - (reservation.extension_payment_method !== 'credit' ? extensionPrice : 0)
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {reservation.paypay_fee_amount > 0 && (
+                    <div className="flex justify-between items-center mt-1 font-bold text-xs sm:text-base text-amber-600">
+                      <span>📱 PayPay決済額</span>
+                      <span>
+                        ¥{(
+                          reservation.total_price + reservation.paypay_fee_amount
+                          - (reservation.options_payment_method !== 'paypay' ? reservation.options_price : 0)
+                          - (reservation.extension_payment_method !== 'paypay' ? extensionPrice : 0)
                         ).toLocaleString()}
                       </span>
                     </div>
@@ -1955,17 +2006,19 @@ export default function ReservationPreviewPage() {
                       <span className="text-slate-500 font-medium">支払方法:</span>
                       {reservation.payment_method === 'credit' ? (
                         <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] sm:text-xs font-bold">💳 クレジット</span>
+                      ) : reservation.payment_method === 'paypay' ? (
+                        <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] sm:text-xs font-bold">📱 PayPay</span>
                       ) : (
                         <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] sm:text-xs font-bold">💴 現金</span>
                       )}
-                      {reservation.payment_method === 'credit' && reservation.options_price > 0 && (
+                      {(reservation.payment_method === 'credit' || reservation.payment_method === 'paypay') && reservation.options_price > 0 && (
                         <span className="text-slate-400">
-                          OP: {reservation.options_payment_method === 'credit' ? '💳 クレ' : '💴 現金（セラへ）'}
+                          OP: {reservation.options_payment_method === 'credit' ? '💳 クレ' : reservation.options_payment_method === 'paypay' ? '📱 PayPay' : '💴 現金（セラへ）'}
                         </span>
                       )}
-                      {reservation.payment_method === 'credit' && reservation.extension_count > 0 && (
+                      {(reservation.payment_method === 'credit' || reservation.payment_method === 'paypay') && reservation.extension_count > 0 && (
                         <span className="text-slate-400">
-                          延長: {reservation.extension_payment_method === 'credit' ? '💳 クレ' : '💴 現金（セラへ）'}
+                          延長: {reservation.extension_payment_method === 'credit' ? '💳 クレ' : reservation.extension_payment_method === 'paypay' ? '📱 PayPay' : '💴 現金（セラへ）'}
                         </span>
                       )}
                     </div>

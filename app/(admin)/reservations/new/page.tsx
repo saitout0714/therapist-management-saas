@@ -74,6 +74,7 @@ type SystemSettings = {
   default_confirmed_nomination_fee: number
   default_princess_reservation_fee: number
   credit_card_fee_rate?: number
+  paypay_fee_rate?: number
   extension_unit_minutes?: number
   extension_unit_price?: number
   extension_unit_back?: number
@@ -147,9 +148,9 @@ export default function NewReservationPage() {
     notes: '',
     reception_source: 'staff' as 'staff' | 'client' | 'therapist' | 'owner' | 'owner_takahashi' | 'owner_sugai' | 'owner_hada',
     booking_method: '',
-    payment_method: 'cash' as 'cash' | 'credit',
-    options_payment_method: 'cash' as 'cash' | 'credit',
-    extension_payment_method: 'cash' as 'cash' | 'credit',
+    payment_method: 'cash' as 'cash' | 'credit' | 'paypay',
+    options_payment_method: 'cash' as 'cash' | 'credit' | 'paypay',
+    extension_payment_method: 'cash' as 'cash' | 'credit' | 'paypay',
     is_hime: false,
     hime_bonus: 0,
     customer_type_override: 'new' as 'new' | 'member',
@@ -235,6 +236,7 @@ export default function NewReservationPage() {
     totalPrice: 0,
     duration: 0,
     creditFeeAmount: 0,
+    paypayFeeAmount: 0,
   })
   const [designationSearchLoading, setDesignationSearchLoading] = useState(false)
 
@@ -526,29 +528,24 @@ export default function NewReservationPage() {
 
     const totalPrice = basePrice + optionsPrice + extensionPrice + nominationFee - dynamicDiscount
 
-    // クレジット手数料の計算
-    const feeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
+    // クレジット・PayPay手数料の計算
+    const creditFeeRate = (systemSettings?.credit_card_fee_rate ?? 10) / 100
+    const paypayFeeRate = (systemSettings?.paypay_fee_rate ?? 0) / 100
     let creditFeeAmount = 0
+    let paypayFeeAmount = 0
     let creditBase = 0
+    let paypayBase = 0
     let cashBase = 0
 
-    if (formData.payment_method === 'credit') {
-      creditBase += basePrice + nominationFee
-    } else {
-      cashBase += basePrice + nominationFee
+    const addToBase = (method: 'cash' | 'credit' | 'paypay', amount: number) => {
+      if (method === 'credit') creditBase += amount
+      else if (method === 'paypay') paypayBase += amount
+      else cashBase += amount
     }
 
-    if (formData.extension_payment_method === 'credit') {
-      creditBase += extensionPrice
-    } else {
-      cashBase += extensionPrice
-    }
-
-    if (formData.options_payment_method === 'credit') {
-      creditBase += optionsPrice
-    } else {
-      cashBase += optionsPrice
-    }
+    addToBase(formData.payment_method, basePrice + nominationFee)
+    addToBase(formData.extension_payment_method, extensionPrice)
+    addToBase(formData.options_payment_method, optionsPrice)
 
     if (formData.payment_method === 'credit') {
       creditBase -= dynamicDiscount
@@ -556,19 +553,33 @@ export default function NewReservationPage() {
         cashBase += creditBase
         creditBase = 0
       }
+    } else if (formData.payment_method === 'paypay') {
+      paypayBase -= dynamicDiscount
+      if (paypayBase < 0) {
+        cashBase += paypayBase
+        paypayBase = 0
+      }
     } else {
       cashBase -= dynamicDiscount
       if (cashBase < 0) {
         creditBase += cashBase
+        if (creditBase < 0) {
+          paypayBase += creditBase
+          creditBase = 0
+        }
         cashBase = 0
       }
     }
 
     creditBase = Math.max(0, creditBase)
+    paypayBase = Math.max(0, paypayBase)
     cashBase = Math.max(0, cashBase)
 
     if (creditBase > 0) {
-      creditFeeAmount = Math.floor(creditBase * feeRate)
+      creditFeeAmount = Math.floor(creditBase * creditFeeRate)
+    }
+    if (paypayBase > 0) {
+      paypayFeeAmount = Math.floor(paypayBase * paypayFeeRate)
     }
 
     setCalculatedPrice({
@@ -580,6 +591,7 @@ export default function NewReservationPage() {
       totalPrice: Math.max(0, totalPrice),
       duration,
       creditFeeAmount,
+      paypayFeeAmount,
     })
   }
 
@@ -1052,6 +1064,7 @@ export default function NewReservationPage() {
           options_payment_method: formData.options_payment_method,
           extension_payment_method: formData.extension_payment_method,
           credit_fee_amount: calculatedPrice.creditFeeAmount,
+          paypay_fee_amount: calculatedPrice.paypayFeeAmount,
           is_hime: formData.is_hime,
           hime_bonus: formData.is_hime ? formData.hime_bonus : 0,
           customer_type_override: formData.customer_type_override,
@@ -1219,6 +1232,8 @@ export default function NewReservationPage() {
   }
 
   const hasExtension = !!(systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0)
+  // 表示用の決済手数料合計（クレジット + PayPay。DBには別列で保存）
+  const totalFeeAmount = calculatedPrice.creditFeeAmount + calculatedPrice.paypayFeeAmount
   const n = (base: number) => String(base + (hasExtension ? 1 : 0))
 
   const Chevron = ({ n }: { n: number }) => (
@@ -2027,6 +2042,11 @@ export default function NewReservationPage() {
                     <span>💳</span>
                     <span className="font-bold text-xs">クレジット</span>
                   </label>
+                  <label className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.payment_method === 'paypay' ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                    <input type="radio" name="payment_method" value="paypay" checked={formData.payment_method === 'paypay'} onChange={() => setFormData({ ...formData, payment_method: 'paypay' })} className="w-3.5 h-3.5 accent-red-500" />
+                    <span>📱</span>
+                    <span className="font-bold text-xs">PayPay</span>
+                  </label>
                 </div>
                 <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-3">
                   <div>
@@ -2039,6 +2059,10 @@ export default function NewReservationPage() {
                         <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                           <input type="radio" name="options_payment_method" value="credit" checked={formData.options_payment_method === 'credit'} onChange={() => setFormData({ ...formData, options_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
                           <span className="text-xs font-bold">💳 クレジット</span>
+                        </label>
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.options_payment_method === 'paypay' ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="options_payment_method" value="paypay" checked={formData.options_payment_method === 'paypay'} onChange={() => setFormData({ ...formData, options_payment_method: 'paypay' })} className="w-3.5 h-3.5 accent-red-500" />
+                          <span className="text-xs font-bold">📱 PayPay</span>
                         </label>
                       </div>
                     </div>
@@ -2053,13 +2077,28 @@ export default function NewReservationPage() {
                           <input type="radio" name="extension_payment_method" value="credit" checked={formData.extension_payment_method === 'credit'} onChange={() => setFormData({ ...formData, extension_payment_method: 'credit' })} className="w-3.5 h-3.5 accent-amber-500" />
                           <span className="text-xs font-bold">💳 クレジット</span>
                         </label>
+                        <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-all select-none flex-1 ${formData.extension_payment_method === 'paypay' ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                          <input type="radio" name="extension_payment_method" value="paypay" checked={formData.extension_payment_method === 'paypay'} onChange={() => setFormData({ ...formData, extension_payment_method: 'paypay' })} className="w-3.5 h-3.5 accent-red-500" />
+                          <span className="text-xs font-bold">📱 PayPay</span>
+                        </label>
                       </div>
                     </div>
-                    {(formData.payment_method === 'credit' || formData.options_payment_method === 'credit' || formData.extension_payment_method === 'credit') && (
-                      <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
-                        手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
-                        {calculatedPrice.creditFeeAmount > 0 && (
-                          <span className="ml-2 font-bold">→ ¥{calculatedPrice.creditFeeAmount.toLocaleString()} を追加請求</span>
+                    {(formData.payment_method === 'credit' || formData.options_payment_method === 'credit' || formData.extension_payment_method === 'credit' || formData.payment_method === 'paypay' || formData.options_payment_method === 'paypay' || formData.extension_payment_method === 'paypay') && (
+                      <div className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2 space-y-0.5">
+                        {(formData.payment_method === 'credit' || formData.options_payment_method === 'credit' || formData.extension_payment_method === 'credit') && (
+                          <div>
+                            クレジット手数料率: {systemSettings?.credit_card_fee_rate ?? 10}%
+                            {calculatedPrice.creditFeeAmount > 0 && ` → ¥${calculatedPrice.creditFeeAmount.toLocaleString()}`}
+                          </div>
+                        )}
+                        {(formData.payment_method === 'paypay' || formData.options_payment_method === 'paypay' || formData.extension_payment_method === 'paypay') && (
+                          <div>
+                            PayPay手数料率: {systemSettings?.paypay_fee_rate ?? 0}%
+                            {calculatedPrice.paypayFeeAmount > 0 && ` → ¥${calculatedPrice.paypayFeeAmount.toLocaleString()}`}
+                          </div>
+                        )}
+                        {totalFeeAmount > 0 && (
+                          <div className="font-bold">→ 合計 ¥{totalFeeAmount.toLocaleString()} を追加請求</div>
                         )}
                       </div>
                     )}
@@ -2174,8 +2213,15 @@ export default function NewReservationPage() {
 
             {calculatedPrice.creditFeeAmount > 0 && (
               <div className="flex justify-between items-center text-amber-600 mb-2 text-xs">
-                <span>クレジット手数料 ({systemSettings?.credit_card_fee_rate ?? 10}%)</span>
+                <span>クレジット手数料</span>
                 <span className="font-bold">+¥{calculatedPrice.creditFeeAmount.toLocaleString()}</span>
+              </div>
+            )}
+
+            {calculatedPrice.paypayFeeAmount > 0 && (
+              <div className="flex justify-between items-center text-amber-600 mb-2 text-xs">
+                <span>PayPay手数料</span>
+                <span className="font-bold">+¥{calculatedPrice.paypayFeeAmount.toLocaleString()}</span>
               </div>
             )}
 
@@ -2184,11 +2230,11 @@ export default function NewReservationPage() {
               <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">¥{calculatedPrice.totalPrice.toLocaleString()}</span>
             </div>
 
-            {calculatedPrice.creditFeeAmount > 0 && (
+            {totalFeeAmount > 0 && (
               <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                <div className="text-xs text-amber-700 font-medium">💳 クレジット請求総額</div>
+                <div className="text-xs text-amber-700 font-medium">💳 決済請求総額</div>
                 <div className="text-xl font-extrabold text-amber-600">
-                  ¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()}
+                  ¥{(calculatedPrice.totalPrice + totalFeeAmount).toLocaleString()}
                 </div>
                 {formData.options_payment_method === 'cash' && calculatedPrice.optionsPrice > 0 && (
                   <div className="text-[10px] text-amber-600 mt-1">
@@ -2232,9 +2278,9 @@ export default function NewReservationPage() {
               {calculatedPrice.nominationFee > 0 && <span>/ 指名:¥{calculatedPrice.nominationFee.toLocaleString()}</span>}
               {calculatedPrice.discountAmount > 0 && <span className="text-rose-500">/ 割引:-¥{calculatedPrice.discountAmount.toLocaleString()}</span>}
               <span>/ {calculatedPrice.duration}分</span>
-              {calculatedPrice.creditFeeAmount > 0 && (
+              {totalFeeAmount > 0 && (
                 <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0">
-                  / 手数料:+¥{calculatedPrice.creditFeeAmount.toLocaleString()} (請求:¥{(calculatedPrice.totalPrice + calculatedPrice.creditFeeAmount).toLocaleString()})
+                  / 手数料:+¥{totalFeeAmount.toLocaleString()} (請求:¥{(calculatedPrice.totalPrice + totalFeeAmount).toLocaleString()})
                 </span>
               )}
             </div>

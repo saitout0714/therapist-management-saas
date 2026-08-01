@@ -30,9 +30,9 @@ type ReservationWithDetails = {
   start_time: string
   end_time: string
   extension_count: number
-  payment_method: 'cash' | 'credit' | null
-  options_payment_method: 'cash' | 'credit' | null
-  extension_payment_method: 'cash' | 'credit' | null
+  payment_method: 'cash' | 'credit' | 'paypay' | null
+  options_payment_method: 'cash' | 'credit' | 'paypay' | null
+  extension_payment_method: 'cash' | 'credit' | 'paypay' | null
   credit_fee_amount: number
   // 計算済みバック額（予約登録時に保存されたもの）
   therapist_back_amount: number | null
@@ -385,13 +385,16 @@ export default function PayrollPage() {
     }
   }
 
-  const { totalSales, totalBack, totalDeductions, totalAllowances, totalHimeBonus, netPay, totalCashReceived, hasCreditReservation } = useMemo(() => {
+  const { totalSales, totalBack, totalDeductions, totalAllowances, totalHimeBonus, netPay, totalCashReceived, totalCreditReceived, totalPaypayReceived, hasCreditReservation, hasPaypayReservation } = useMemo(() => {
     let sales = 0
     let back = 0
     let hime = 0
     let baseNetTotal = 0
     let cashReceived = 0
+    let creditReceived = 0
+    let paypayReceived = 0
     let hasCredit = false
+    let hasPaypay = false
 
     calculatedRows.forEach(({ reservation: res, result }) => {
       sales += result.totalPrice
@@ -403,31 +406,27 @@ export default function PayrollPage() {
       if (res.payment_method === 'credit' || res.options_payment_method === 'credit' || res.extension_payment_method === 'credit') {
         hasCredit = true
       }
+      if (res.payment_method === 'paypay' || res.options_payment_method === 'paypay' || res.extension_payment_method === 'paypay') {
+        hasPaypay = true
+      }
 
       const extensionPrice = (res.extension_count > 0)
         ? Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
         : 0
 
       let creditBase = 0
+      let paypayBase = 0
       let cashBase = 0
 
-      if (res.payment_method === 'credit') {
-        creditBase += (res.base_price || 0) + (res.nomination_fee || 0)
-      } else {
-        cashBase += (res.base_price || 0) + (res.nomination_fee || 0)
+      const addToBase = (method: 'cash' | 'credit' | 'paypay' | null, amount: number) => {
+        if (method === 'credit') creditBase += amount
+        else if (method === 'paypay') paypayBase += amount
+        else cashBase += amount
       }
 
-      if (res.extension_payment_method === 'credit') {
-        creditBase += extensionPrice
-      } else {
-        cashBase += extensionPrice
-      }
-
-      if (res.options_payment_method === 'credit') {
-        creditBase += (res.options_price || 0)
-      } else {
-        cashBase += (res.options_price || 0)
-      }
+      addToBase(res.payment_method, (res.base_price || 0) + (res.nomination_fee || 0))
+      addToBase(res.extension_payment_method, extensionPrice)
+      addToBase(res.options_payment_method, (res.options_price || 0))
 
       const dynamicDiscount = res.discount_amount || 0
       if (res.payment_method === 'credit') {
@@ -436,18 +435,31 @@ export default function PayrollPage() {
           cashBase += creditBase
           creditBase = 0
         }
+      } else if (res.payment_method === 'paypay') {
+        paypayBase -= dynamicDiscount
+        if (paypayBase < 0) {
+          cashBase += paypayBase
+          paypayBase = 0
+        }
       } else {
         cashBase -= dynamicDiscount
         if (cashBase < 0) {
           creditBase += cashBase
+          if (creditBase < 0) {
+            paypayBase += creditBase
+            creditBase = 0
+          }
           cashBase = 0
         }
       }
 
       creditBase = Math.max(0, creditBase)
+      paypayBase = Math.max(0, paypayBase)
       cashBase = Math.max(0, cashBase)
 
       cashReceived += cashBase
+      creditReceived += creditBase
+      paypayReceived += paypayBase
     })
 
     // 手動選択された控除・手当を計算
@@ -480,7 +492,10 @@ export default function PayrollPage() {
       totalHimeBonus: hime,
       netPay: Math.max(0, baseNetTotal - manualDed + manualAll + memoAdjust),
       totalCashReceived: cashReceived,
+      totalCreditReceived: creditReceived,
+      totalPaypayReceived: paypayReceived,
       hasCreditReservation: hasCredit,
+      hasPaypayReservation: hasPaypay,
     }
   }, [calculatedRows, deductionRules, selectedRuleIds, unresolvedMemos, selectedMemoIds])
 
@@ -679,8 +694,10 @@ export default function PayrollPage() {
     const storeCash = totalCashReceived - netPay
     text += `★ お店: ${storeCash < 0 ? `-¥${Math.abs(storeCash).toLocaleString()}` : `¥${storeCash.toLocaleString()}`}\n`
     if (hasCreditReservation) {
-      const creditAmount = totalSales - totalCashReceived
-      text += `★ クレジット: ¥${creditAmount.toLocaleString()}\n`
+      text += `★ クレジット: ¥${totalCreditReceived.toLocaleString()}\n`
+    }
+    if (hasPaypayReservation) {
+      text += `★ PayPay: ¥${totalPaypayReceived.toLocaleString()}\n`
     }
     text += `------------------------\n`
     text += `\nご確認よろしくお願いいたします！`
@@ -882,29 +899,30 @@ export default function PayrollPage() {
                           </div>
                         </div>
 
-                        {(res.payment_method === 'credit' || res.options_payment_method === 'credit' || res.extension_payment_method === 'credit') && (() => {
+                        {(res.payment_method === 'credit' || res.options_payment_method === 'credit' || res.extension_payment_method === 'credit' || res.payment_method === 'paypay' || res.options_payment_method === 'paypay' || res.extension_payment_method === 'paypay') && (() => {
+                          const isNonCash = (m: 'cash' | 'credit' | 'paypay' | null) => m === 'credit' || m === 'paypay'
                           const optionsCash = res.options_payment_method === 'cash' ? (res.options_price || 0) : 0
                           const extPrice = res.extension_count > 0
                             ? Math.max(0, (res.total_price || 0) - (res.base_price || 0) - (res.options_price || 0) - (res.nomination_fee || 0) + (res.discount_amount || 0))
                             : 0
                           const extensionCash = res.extension_payment_method === 'cash' ? extPrice : 0
-                          
+
                           let mainCash = 0
-                          let mainCredit = 0
-                          if (res.payment_method === 'cash') mainCash = (res.base_price || 0) + (res.nomination_fee || 0)
-                          else mainCredit = (res.base_price || 0) + (res.nomination_fee || 0)
-                          
+                          let mainNonCash = 0
+                          if (isNonCash(res.payment_method)) mainNonCash = (res.base_price || 0) + (res.nomination_fee || 0)
+                          else mainCash = (res.base_price || 0) + (res.nomination_fee || 0)
+
                           const dynamicDiscount = res.discount_amount || 0
-                          if (res.payment_method === 'credit') {
-                            mainCredit -= dynamicDiscount
-                            if (mainCredit < 0) {
-                              mainCash += mainCredit
-                              mainCredit = 0
+                          if (isNonCash(res.payment_method)) {
+                            mainNonCash -= dynamicDiscount
+                            if (mainNonCash < 0) {
+                              mainCash += mainNonCash
+                              mainNonCash = 0
                             }
                           } else {
                             mainCash -= dynamicDiscount
                             if (mainCash < 0) {
-                              mainCredit += mainCash
+                              mainNonCash += mainCash
                               mainCash = 0
                             }
                           }
@@ -914,7 +932,7 @@ export default function PayrollPage() {
                           const cashBalance = customerCash - r.netBack
                           return (
                             <div className="mt-2.5 pt-2.5 border-t border-slate-100">
-                              <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">他店振替（クレジット差引品）</div>
+                              <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">他店振替（電子決済差引品）</div>
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                                 <div>
                                   お店様発送: <span className="font-bold text-slate-800">¥{customerCash.toLocaleString()}</span>
@@ -975,7 +993,7 @@ export default function PayrollPage() {
                       <span className="font-bold text-orange-200">{totalExtensionMinutes}分</span>
                     </div>
                   )}
-                  {hasCreditReservation && (
+                  {(hasCreditReservation || hasPaypayReservation) && (
                     <div className="col-span-2 lg:col-span-1 lg:pt-2 lg:border-t lg:border-white/10">
                       <div className="flex justify-between items-center text-xs md:text-sm text-indigo-100">
                         <span>現金残</span>

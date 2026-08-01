@@ -1113,6 +1113,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                               💳 クレジット
                             </span>
                           )}
+                          {schedule.paymentMethod === 'paypay' && (
+                            <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-500 text-white shadow-sm whitespace-nowrap">
+                              📱 PayPay
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] font-medium flex items-center gap-1 leading-none flex-wrap">
                           {schedule.courseDuration && (
@@ -1242,6 +1247,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {isReservation && schedule.paymentMethod === 'credit' && (
                           <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
                             💳 クレジット
+                          </span>
+                        )}
+                        {isReservation && schedule.paymentMethod === 'paypay' && (
+                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-400 text-white border border-red-300 shadow-sm whitespace-nowrap">
+                            📱 PayPay
                           </span>
                         )}
                       </div>

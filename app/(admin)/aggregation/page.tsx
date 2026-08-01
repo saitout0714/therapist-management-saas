@@ -12,10 +12,13 @@ interface DailySummary {
   cashSales: number;
   creditCount: number;
   creditSales: number;
+  paypayCount: number;
+  paypaySales: number;
   totalBack: number;
   shopProfit: number;
   reservationCount: number;
   totalCreditFee: number;
+  totalPaypayFee: number;
 }
 
 interface ReservationWithDetails {
@@ -32,15 +35,16 @@ interface ReservationWithDetails {
   end_time: string
   extension_count: number
   credit_fee_amount: number
+  paypay_fee_amount: number
   total_price: number | null
   therapist_back_amount: number | null
   shop_revenue: number | null
   course: { name: string; duration: number; base_price: number; back_amount: number } | null
   reservation_options: { option_id: string | null; price: number; custom_name?: string | null; option?: { name: string } | null }[]
   reservation_discounts: { applied_amount: number; burden_type: 'shop_only' | 'split' | 'therapist_only' }[]
-  payment_method: 'cash' | 'credit' | null
-  options_payment_method: 'cash' | 'credit' | null
-  extension_payment_method: 'cash' | 'credit' | null
+  payment_method: 'cash' | 'credit' | 'paypay' | null
+  options_payment_method: 'cash' | 'credit' | 'paypay' | null
+  extension_payment_method: 'cash' | 'credit' | 'paypay' | null
   options_price?: number | null
   customer?: { name: string } | null
   reception_source?: string | null
@@ -181,15 +185,18 @@ interface CalculatedReservation extends ReservationWithDetails {
         let daySales = 0
         let dayCashSales = 0
         let dayCreditSales = 0
+        let dayPaypaySales = 0
         let dayCreditCount = 0
+        let dayPaypayCount = 0
         let dayBack = 0
         let dayCount = dayRes.length
         let dayCreditFee = 0
+        let dayPaypayFee = 0
 
         for (const res of dayRes) {
           const therapist = therapists?.find(t => t.id === res.therapist_id)
-          const fee = res.credit_fee_amount || 0
-          dayCreditFee += fee
+          dayCreditFee += res.credit_fee_amount || 0
+          dayPaypayFee += res.paypay_fee_amount || 0
 
           // すでに計算されDBに保存されている値を優先使用（N+1問題を回避）
           let calculatedTotalPrice = res.total_price
@@ -207,23 +214,27 @@ interface CalculatedReservation extends ReservationWithDetails {
           dayBack += calculatedNetBack
 
           const optComponent = res.options_price ?? (res.reservation_options?.reduce((sum, o) => sum + (o.price || 0), 0) || 0);
+          // 本体（オプション以外）とオプションを、それぞれの支払方法のバケットに振り分ける
+          const mainComponent = calculatedTotalPrice - optComponent;
           let resCreditSales = 0;
+          let resPaypaySales = 0;
           let resCashSales = 0;
           let hasCredit = false;
+          let hasPaypay = false;
 
-          if (res.payment_method === 'credit') {
-            resCreditSales = calculatedTotalPrice - (res.options_payment_method === 'cash' ? optComponent : 0);
-            resCashSales = calculatedTotalPrice - resCreditSales;
-            hasCredit = true;
-          } else {
-            resCashSales = calculatedTotalPrice - (res.options_payment_method === 'credit' ? optComponent : 0);
-            resCreditSales = calculatedTotalPrice - resCashSales;
-            if (res.options_payment_method === 'credit') hasCredit = true;
-          }
+          const addSales = (method: 'cash' | 'credit' | 'paypay' | null, amount: number) => {
+            if (method === 'credit') { resCreditSales += amount; hasCredit = true; }
+            else if (method === 'paypay') { resPaypaySales += amount; hasPaypay = true; }
+            else resCashSales += amount;
+          };
+          addSales(res.payment_method, mainComponent);
+          addSales(res.options_payment_method, optComponent);
 
           dayCreditSales += resCreditSales;
+          dayPaypaySales += resPaypaySales;
           dayCashSales += resCashSales;
           if (hasCredit) dayCreditCount++;
+          if (hasPaypay) dayPaypayCount++;
 
           calculatedResList.push({
             ...res,
@@ -240,10 +251,13 @@ interface CalculatedReservation extends ReservationWithDetails {
           cashSales: dayCashSales,
           creditCount: dayCreditCount,
           creditSales: dayCreditSales,
+          paypayCount: dayPaypayCount,
+          paypaySales: dayPaypaySales,
           totalBack: dayBack,
           shopProfit: daySales - dayBack,
           reservationCount: dayCount,
           totalCreditFee: dayCreditFee,
+          totalPaypayFee: dayPaypayFee,
         })
 
         current.setDate(current.getDate() + 1)
@@ -268,10 +282,13 @@ interface CalculatedReservation extends ReservationWithDetails {
     let cashSales = 0
     let creditCount = 0
     let creditSales = 0
+    let paypayCount = 0
+    let paypaySales = 0
     let back = 0
     let profit = 0
     let count = 0
     let creditFee = 0
+    let paypayFee = 0
     let mtsCount = 0
     let ownerCount = 0
     let therapistCount = 0
@@ -282,10 +299,13 @@ interface CalculatedReservation extends ReservationWithDetails {
       cashSales += cur.cashSales
       creditCount += cur.creditCount
       creditSales += cur.creditSales
+      paypayCount += cur.paypayCount
+      paypaySales += cur.paypaySales
       back += cur.totalBack
       profit += cur.shopProfit
       count += cur.reservationCount
       creditFee += cur.totalCreditFee
+      paypayFee += cur.totalPaypayFee
     })
 
     calculatedReservations.forEach(res => {
@@ -305,10 +325,13 @@ interface CalculatedReservation extends ReservationWithDetails {
       cashSales,
       creditCount,
       creditSales,
+      paypayCount,
+      paypaySales,
       back,
       profit,
       count,
       creditFee,
+      paypayFee,
       mtsCount,
       ownerCount,
       therapistCount,
@@ -317,7 +340,7 @@ interface CalculatedReservation extends ReservationWithDetails {
   }, [dailySummaries, calculatedReservations])
   const renderTable = () => (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto animate-in fade-in duration-500">
-      <table className="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
+      <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1100px]">
         <thead className="bg-slate-50">
           <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
             <th className="px-4 py-3 border-b border-slate-100">日付</th>
@@ -326,6 +349,9 @@ interface CalculatedReservation extends ReservationWithDetails {
             <th className="px-4 py-3 border-b border-slate-100">クレジット売上</th>
             <th className="px-4 py-3 border-b border-slate-100">クレ手数料</th>
             <th className="px-4 py-3 border-b border-slate-100">クレ件数</th>
+            <th className="px-4 py-3 border-b border-slate-100">PayPay売上</th>
+            <th className="px-4 py-3 border-b border-slate-100">PayPay手数料</th>
+            <th className="px-4 py-3 border-b border-slate-100">PayPay件数</th>
             <th className="px-4 py-3 border-b border-slate-100 text-indigo-600">報酬</th>
             <th className="px-4 py-3 border-b border-slate-100 text-emerald-600">利益</th>
             <th className="px-4 py-3 border-b border-slate-100">件数</th>
@@ -351,6 +377,9 @@ interface CalculatedReservation extends ReservationWithDetails {
               <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.creditSales.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-amber-500">¥{day.totalCreditFee.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.creditCount}件</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">¥{day.paypaySales.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-red-500">¥{day.totalPaypayFee.toLocaleString()}</td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.paypayCount}件</td>
               <td className="px-4 py-2 font-mono text-xs font-bold text-indigo-600">¥{day.totalBack.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs font-bold text-emerald-600">¥{day.shopProfit.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.reservationCount}件</td>
@@ -481,6 +510,19 @@ interface CalculatedReservation extends ReservationWithDetails {
                   </div>
                 </div>
               </div>
+
+              <div className="flex justify-between items-start">
+                <div className="text-xs text-slate-600 font-medium flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                  PayPay売上
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-slate-700 font-mono">¥{totals.paypaySales.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                    {totals.paypayCount}件 / 手数料: <span className="text-red-500">¥{totals.paypayFee.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -588,10 +630,13 @@ interface CalculatedReservation extends ReservationWithDetails {
           cashSales: 0,
           creditCount: 0,
           creditSales: 0,
+          paypayCount: 0,
+          paypaySales: 0,
           totalBack: 0,
           shopProfit: 0,
           reservationCount: 0,
-          totalCreditFee: 0
+          totalCreditFee: 0,
+          totalPaypayFee: 0
         } as DailySummary
 
         return (
@@ -627,7 +672,7 @@ interface CalculatedReservation extends ReservationWithDetails {
               </div>
 
               {/* Day Summary Cards */}
-              <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] text-slate-400 font-bold block mb-0.5">売上合計</span>
@@ -652,6 +697,25 @@ interface CalculatedReservation extends ReservationWithDetails {
                       <div className="flex justify-between">
                         <span className="text-amber-500">手数料:</span>
                         <span className="text-amber-500 font-bold">¥{summary.totalCreditFee.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">PayPay売上</span>
+                    <span className="text-base font-bold text-slate-800 font-mono">¥{summary.paypaySales?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-medium mt-1.5 flex flex-col gap-0.5 border-t border-slate-100 pt-1">
+                    <div className="flex justify-between">
+                      <span>件数:</span>
+                      <span>{summary.paypayCount || 0}件</span>
+                    </div>
+                    {summary.totalPaypayFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-red-500">手数料:</span>
+                        <span className="text-red-500 font-bold">¥{summary.totalPaypayFee.toLocaleString()}</span>
                       </div>
                     )}
                   </div>

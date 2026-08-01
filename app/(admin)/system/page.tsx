@@ -28,6 +28,7 @@ type SystemSettings = {
   confirmed_nomination_back_amount: number
   princess_back_amount: number
   credit_card_fee_rate: number
+  paypay_fee_rate: number
   extension_unit_minutes: number
   extension_unit_price: number
   extension_unit_back: number
@@ -76,6 +77,7 @@ export default function SystemPage() {
     confirmed_nomination_back_amount: number
     princess_back_amount: number
     credit_card_fee_rate: number
+    paypay_fee_rate: number
     extension_unit_minutes: number
     extension_unit_price: number
     extension_unit_back: number
@@ -110,6 +112,7 @@ export default function SystemPage() {
     confirmed_nomination_back_amount: 0,
     princess_back_amount: 0,
     credit_card_fee_rate: 10,
+    paypay_fee_rate: 0,
     extension_unit_minutes: 30,
     extension_unit_price: 0,
     extension_unit_back: 0,
@@ -163,6 +166,7 @@ export default function SystemPage() {
       confirmed_nomination_back_amount: row?.confirmed_nomination_back_amount ?? 0,
       princess_back_amount: row?.princess_back_amount ?? 0,
       credit_card_fee_rate: row?.credit_card_fee_rate ?? 10,
+      paypay_fee_rate: row?.paypay_fee_rate ?? 0,
       extension_unit_minutes: row?.extension_unit_minutes ?? 30,
       extension_unit_price: row?.extension_unit_price ?? 0,
       extension_unit_back: row?.extension_unit_back ?? 0,
@@ -528,7 +532,7 @@ export default function SystemPage() {
               <p className="mt-2 text-xs text-slate-400">ランク別の料金・バックは「ランク別 料金バック」タブで設定できます。</p>
             </div>
 
-            {/* クレジット決済設定 */}
+            {/* クレジット・PayPay決済設定 */}
             <div className="border-b border-slate-100 pb-6 space-y-5">
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
@@ -547,6 +551,26 @@ export default function SystemPage() {
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
                   </div>
                   <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">PayPay決済手数料率</h3>
+                <p className="text-xs text-slate-400 mb-4">PayPay決済時にお客様へ請求する手数料です。0〜100%の範囲で設定できます。</p>
+                <div className="flex items-center gap-3 max-w-xs">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={form.paypay_fee_rate}
+                      onChange={(e) => setForm({ ...form, paypay_fee_rate: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+                  </div>
+                  <span className="text-xs text-slate-500">（デフォルト: 0%）</span>
                 </div>
               </div>
 

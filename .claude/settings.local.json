@@ -70,7 +70,10 @@
       "Bash(node scripts_tmp/detail_and_update.mjs)",
       "Bash(powershell -Command \"[System.TimeZoneInfo]::Local.Id\")",
       "Bash(grep -n \"formatDateStr\\\\|toISOString\\(\\).split\\\\|padStart\\(2, '0'\\)\\\\`.*-.*\\\\`\\\\|const formatDate\" \"app/\\(admin\\)/shifts/page.tsx\")",
-      "Bash(node scratch/check_cutoff.js)"
+      "Bash(node scratch/check_cutoff.js)",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bf0b2ea5-e56d-49ed-bc0a-ae2f599aaa40/scratchpad/settle_sim.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bf0b2ea5-e56d-49ed-bc0a-ae2f599aaa40/scratchpad/agg_regression.js\")",
+      "Bash(npx next *)"
     ]
   }
 }
