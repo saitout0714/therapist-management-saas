@@ -9,7 +9,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import TimeChart from '@/app/components/TimeChart';
 import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
-import { toDisplayTime, getTodayJST } from '@/lib/timeUtils';
+import { toDisplayTime } from '@/lib/timeUtils';
 import { getPricingShopId } from '@/lib/shopUtils';
 
 interface Shift {
@@ -164,6 +164,17 @@ const getBusinessDate = () => {
   return now
 }
 
+// 営業日切替時刻（AM6:00）を考慮した「本日」の日付文字列 (YYYY-MM-DD) を返す。
+// getTodayJST() は暦日の0:00で切り替わってしまうため、深夜営業中に日付表示が
+// 早送りされる不具合の原因になっていた。
+const getBusinessDateStr = () => {
+  const d = getBusinessDate()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function ShiftsContent() {
   const { selectedShop } = useShop();
   const { loading: authLoading, user } = useAuth();
@@ -212,7 +223,7 @@ function ShiftsContent() {
   const [shopIntervalMinutes, setShopIntervalMinutes] = useState<number>(20);
   const [extensionUnitMinutes, setExtensionUnitMinutes] = useState<number>(30);
   const [filterDate, setFilterDate] = useState(() => {
-    return getTodayJST();
+    return getBusinessDateStr();
   });
   const [weekStartDate, setWeekStartDate] = useState<Date>(() => getBusinessDate());
 
@@ -252,9 +263,8 @@ function ShiftsContent() {
   useEffect(() => {
     if (!selectedShop) return;
     if (lastShopIdRef.current !== null && lastShopIdRef.current !== selectedShop.id) {
-      const todayStr = getTodayJST();
-      setFilterDate(todayStr);
-      setWeekStartDate(new Date());
+      setFilterDate(getBusinessDateStr());
+      setWeekStartDate(getBusinessDate());
     }
     lastShopIdRef.current = selectedShop.id;
   }, [selectedShop]);
@@ -296,7 +306,7 @@ function ShiftsContent() {
   const [roomOrderMap, setRoomOrderMap] = useState<Map<string, number>>(new Map());
   const [minCourseDuration, setMinCourseDuration] = useState<number>(0);
 
-  const [shopCourses, setShopCourses] = useState<{name: string, duration: number, price: number}[]>([]);
+  const [shopCourses, setShopCourses] = useState<{name: string, duration: number, price: number, showOnTimechart: boolean}[]>([]);
   const [shopDiscounts, setShopDiscounts] = useState<{name: string, value: number}[]>([]);
   const [shopDesignations, setShopDesignations] = useState<{name: string, fee: number}[]>([]);
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({});
@@ -650,13 +660,18 @@ function ShiftsContent() {
     const pricingShopId = getPricingShopId(selectedShop);
     supabase
       .from('courses')
-      .select('name, duration, base_price')
+      .select('name, duration, base_price, show_on_timechart')
       .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => {
-        setShopCourses((data as any[])?.map(d => ({ name: d.name, duration: d.duration, price: d.base_price })) || []);
-        const durations = (data || []).map((c: any) => c.duration).filter((d: number) => d > 0);
+        setShopCourses((data as any[])?.map(d => ({ name: d.name, duration: d.duration, price: d.base_price, showOnTimechart: d.show_on_timechart !== false })) || []);
+        const timechartDurations = (data || [])
+          .filter((c: any) => c.show_on_timechart !== false)
+          .map((c: any) => c.duration)
+          .filter((d: number) => d > 0);
+        const allDurations = (data || []).map((c: any) => c.duration).filter((d: number) => d > 0);
+        const durations = timechartDurations.length > 0 ? timechartDurations : allDurations;
         setMinCourseDuration(durations.length > 0 ? Math.min(...durations) : 0);
       });
 
@@ -1132,12 +1147,17 @@ function ShiftsContent() {
     return ({ free: 'フリー', first_nomination: '初回指名', nomination: '指名', confirmed: '本指名', princess: '姫予約' }[v] || v);
   };
 
+  // タイムチャートの空き時間候補に使うコース（「タイムチャートに表示」がOFFのコースを除外。全件OFFの場合は空き表示自体が消えないよう全コースにフォールバック）
+  const timechartCourses = shopCourses.some(c => c.showOnTimechart)
+    ? shopCourses.filter(c => c.showOnTimechart)
+    : shopCourses;
+
   const getAvailableCourses = (startMin: number, endMin: number): AvailableCourse[] => {
     const totalAvail = endMin - startMin;
     if (totalAvail <= 0) return [];
 
-    const menuDurations = shopCourses && shopCourses.length > 0
-      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+    const menuDurations = timechartCourses && timechartCourses.length > 0
+      ? Array.from(new Set(timechartCourses.map(c => c.duration))).sort((a, b) => a - b)
       : [30, 45, 60, 90, 120, 150, 180];
 
     const filtered = menuDurations.filter(d => d <= totalAvail);
@@ -1209,8 +1229,8 @@ function ShiftsContent() {
     const totalAvail = endMin - startMin;
     if (totalAvail <= 0) return '';
 
-    const menuDurations = shopCourses && shopCourses.length > 0
-      ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+    const menuDurations = timechartCourses && timechartCourses.length > 0
+      ? Array.from(new Set(timechartCourses.map(c => c.duration))).sort((a, b) => a - b)
       : [30, 45, 60, 90, 120, 150, 180];
 
     const filtered = menuDurations.filter(d => d <= totalAvail);
@@ -1332,8 +1352,8 @@ function ShiftsContent() {
         }
         if (shiftStartMin < firstPreStart) {
           const totalAvail = firstPreStart - shiftStartMin;
-          const menuDurations = shopCourses && shopCourses.length > 0
-            ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+          const menuDurations = timechartCourses && timechartCourses.length > 0
+            ? Array.from(new Set(timechartCourses.map(c => c.duration))).sort((a, b) => a - b)
             : [30, 45, 60, 90, 120, 150, 180];
           const filtered = menuDurations.filter(d => d <= totalAvail);
           const isAvail = filtered.length > 0;
@@ -1395,8 +1415,8 @@ function ShiftsContent() {
             const availEnd = next.startMin - nextInterval;
             if (availStart < availEnd) {
               const totalAvail = availEnd - availStart;
-              const menuDurations = shopCourses && shopCourses.length > 0
-                ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+              const menuDurations = timechartCourses && timechartCourses.length > 0
+                ? Array.from(new Set(timechartCourses.map(c => c.duration))).sort((a, b) => a - b)
                 : [30, 45, 60, 90, 120, 150, 180];
               const filtered = menuDurations.filter(d => d <= totalAvail);
               const isAvail = filtered.length > 0;
@@ -1434,8 +1454,8 @@ function ShiftsContent() {
 
           if (lastPostEnd < shiftEndAdjusted) {
             const totalAvail = shiftEndAdjusted - lastPostEnd;
-            const menuDurations = shopCourses && shopCourses.length > 0
-              ? Array.from(new Set(shopCourses.map(c => c.duration))).sort((a, b) => a - b)
+            const menuDurations = timechartCourses && timechartCourses.length > 0
+              ? Array.from(new Set(timechartCourses.map(c => c.duration))).sort((a, b) => a - b)
               : [30, 45, 60, 90, 120, 150, 180];
             const filtered = menuDurations.filter(d => d <= totalAvail);
             const isAvail = filtered.length > 0;
@@ -1890,7 +1910,7 @@ function ShiftsContent() {
                     翌日 →
                   </button>
                   <button
-                    onClick={() => setFilterDate(getTodayJST())}
+                    onClick={() => setFilterDate(getBusinessDateStr())}
                     className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
                   >
                     本日

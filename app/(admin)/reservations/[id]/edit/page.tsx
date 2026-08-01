@@ -1225,12 +1225,6 @@ export default function EditReservationPage() {
                         booking_method: nextBookingMethod,
                         is_hime: nextBookingMethod === 'hime'
                       };
-                      if (nextBookingMethod && nextBookingMethod !== 'web' && formData.reception_source === 'client') {
-                        updates.reception_source = 'staff';
-                      }
-                      if (nextBookingMethod === 'web') {
-                        updates.reception_source = 'client';
-                      }
                       setFormData({
                         ...formData,
                         ...updates

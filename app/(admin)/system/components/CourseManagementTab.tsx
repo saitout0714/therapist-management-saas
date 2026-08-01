@@ -13,6 +13,7 @@ type Course = {
     is_active: boolean
     display_order: number
     includes_nomination_fee: boolean
+    show_on_timechart: boolean
 }
 
 export function CourseManagementTab() {
@@ -31,6 +32,7 @@ export function CourseManagementTab() {
         is_active: true,
         display_order: 0,
         includes_nomination_fee: false,
+        show_on_timechart: true,
     })
 
     async function fetchCourses() {
@@ -84,7 +86,7 @@ export function CourseManagementTab() {
     }
 
     const resetForm = () => {
-        setFormData({ name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false })
+        setFormData({ name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false, show_on_timechart: true })
         setEditingCourse(null)
         setShowForm(false)
     }
@@ -214,6 +216,19 @@ export function CourseManagementTab() {
                         </div>
 
                         <div className="space-y-1">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={formData.show_on_timechart}
+                                    onChange={(e) => setFormData({ ...formData, show_on_timechart: e.target.checked })}
+                                />
+                                タイムチャートの空き時間候補に表示する
+                            </label>
+                            <p className="text-xs text-slate-400 pl-6">OFFにするとスケジュール画面の空き時間候補からこのコースが除外されます(コース自体や料金表からは消えません)。</p>
+                        </div>
+
+                        <div className="space-y-1">
                             <label className="block text-xs font-semibold text-slate-600">説明</label>
                             <textarea
                                 className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
@@ -265,6 +280,7 @@ export function CourseManagementTab() {
                                         <th className="p-4 w-28">料金</th>
                                         <th className="p-4 w-28 text-indigo-600">バック額</th>
                                         <th className="p-4 w-20">状態</th>
+                                        <th className="p-4 w-28">タイムチャート</th>
                                         <th className="p-4 w-28 text-right">操作</th>
                                     </tr>
                                 </thead>
@@ -292,6 +308,11 @@ export function CourseManagementTab() {
                                                     {course.is_active ? '有効' : '無効'}
                                                 </span>
                                             </td>
+                                            <td className="p-4 text-sm">
+                                                <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${course.show_on_timechart ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                    {course.show_on_timechart ? '表示' : '非表示'}
+                                                </span>
+                                            </td>
                                             <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
                                                 <button
                                                     className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle"
@@ -306,6 +327,7 @@ export function CourseManagementTab() {
                                                             is_active: course.is_active,
                                                             display_order: course.display_order,
                                                             includes_nomination_fee: course.includes_nomination_fee,
+                                                            show_on_timechart: course.show_on_timechart,
                                                         })
                                                         setShowForm(true)
                                                     }}

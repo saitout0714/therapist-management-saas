@@ -62,7 +62,15 @@
       "Bash(node scratch_check_shops.js)",
       "Bash(npx eslint *)",
       "mcp__claude-in-chrome__list_connected_browsers",
-      "Bash(xargs grep -l \"insert\\\\|reservations\")"
+      "Bash(xargs grep -l \"insert\\\\|reservations\")",
+      "Bash(cp /tmp/check_reservations.mjs ./scripts_tmp/check_reservations.mjs)",
+      "Bash(node scripts_tmp/check_reservations.mjs)",
+      "Bash(cd \"C:\\\\Users\\\\saitou-cyberpunk\\\\Desktop\\\\yoyakukanri\\\\therapist-management-saas\" && rm -rf scripts_tmp && rm -f /tmp/check_reservations.mjs)",
+      "Bash(sed -i \"s/therapists\\(name\\)/therapists:therapists!reservations_therapist_id_fkey\\(name\\)/\" scripts_tmp/detail_and_update.mjs)",
+      "Bash(node scripts_tmp/detail_and_update.mjs)",
+      "Bash(powershell -Command \"[System.TimeZoneInfo]::Local.Id\")",
+      "Bash(grep -n \"formatDateStr\\\\|toISOString\\(\\).split\\\\|padStart\\(2, '0'\\)\\\\`.*-.*\\\\`\\\\|const formatDate\" \"app/\\(admin\\)/shifts/page.tsx\")",
+      "Bash(node scratch/check_cutoff.js)"
     ]
   }
 }
