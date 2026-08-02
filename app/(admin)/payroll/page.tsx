@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
+import { useAuth } from '@/app/contexts/AuthContext'
 import { calculateBack, BackCalculationInput, BackCalculationResult } from '@/lib/calculateBack'
 import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 import { toDisplayTime } from '@/lib/timeUtils'
@@ -74,6 +75,7 @@ const getBusinessDate = () => {
 
 export default function PayrollPage() {
   const { selectedShop } = useShop()
+  const { user } = useAuth()
   const [therapists, setTherapists] = useState<TherapistItem[]>([])
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
 
@@ -189,6 +191,67 @@ export default function PayrollPage() {
     }
     fetchTherapists()
   }, [selectedShop, targetDate])
+
+  // 精算送信済みステータス（payroll_entries）
+  const [isSettled, setIsSettled] = useState(false)
+  const [settlementSaving, setSettlementSaving] = useState(false)
+
+  useEffect(() => {
+    async function fetchSettlementStatus() {
+      if (!selectedShop || !selectedTherapistId || !targetDate) { setIsSettled(false); return }
+      const { data } = await supabase
+        .from('payroll_entries')
+        .select('status')
+        .eq('shop_id', selectedShop.id)
+        .eq('therapist_id', selectedTherapistId)
+        .eq('business_date', targetDate)
+        .maybeSingle()
+      setIsSettled(data?.status === 'paid')
+    }
+    void fetchSettlementStatus()
+  }, [selectedShop, selectedTherapistId, targetDate])
+
+  const handleToggleSettlement = async () => {
+    if (!selectedShop || !selectedTherapistId) return
+    if (isSettled) {
+      if (!confirm('未精算に戻しますか？')) return
+    }
+    setSettlementSaving(true)
+    try {
+      const { data: existing } = await supabase
+        .from('payroll_entries')
+        .select('id')
+        .eq('shop_id', selectedShop.id)
+        .eq('therapist_id', selectedTherapistId)
+        .eq('business_date', targetDate)
+        .maybeSingle()
+
+      const nextStatus = isSettled ? 'draft' : 'paid'
+      const payload = {
+        status: nextStatus,
+        confirmed_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+        confirmed_by: nextStatus === 'paid' ? (user?.id ?? null) : null,
+        total_sales: totalSales,
+        total_back: totalBack,
+        net_pay: netPay,
+        reservation_count: calculatedRows.length,
+      }
+
+      const { error } = existing
+        ? await supabase.from('payroll_entries').update(payload).eq('id', existing.id)
+        : await supabase.from('payroll_entries').insert([{
+            shop_id: selectedShop.id,
+            therapist_id: selectedTherapistId,
+            business_date: targetDate,
+            ...payload,
+          }])
+
+      if (error) { alert('更新に失敗しました: ' + error.message); return }
+      setIsSettled(!isSettled)
+    } finally {
+      setSettlementSaving(false)
+    }
+  }
 
   const handleCalculate = async (forceRecalculate = false) => {
     if (!selectedShop) return
@@ -1113,6 +1176,22 @@ export default function PayrollPage() {
                   </h3>
                   
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {selectedTherapistId && (
+                      <button
+                        onClick={handleToggleSettlement}
+                        disabled={settlementSaving}
+                        className={`text-xs font-bold border px-2.5 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 ${isSettled ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-slate-600 hover:text-slate-800 border-slate-200'}`}
+                      >
+                        {isSettled ? (
+                          <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                            <span>精算済み</span>
+                          </>
+                        ) : (
+                          <span>精算済みにする</span>
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={handleCopy}
                       className={`text-xs font-bold border px-2.5 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1 ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-indigo-600 hover:text-indigo-800 border-indigo-200'}`}

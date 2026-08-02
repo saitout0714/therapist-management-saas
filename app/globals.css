@@ -93,6 +93,19 @@ body {
   @apply bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-[0_8px_30px_-4px_rgba(6,81,237,0.15)] hover:-translate-y-1 transition-all duration-300;
 }
 
+/*
+ * .sr-only は position:absolute を含むため、包含ブロック（＝最も近い position 指定済みの祖先）が
+ * ラベル自身でないと、レイアウト最上位の <div class="... relative"> まで遡ってしまう。
+ * その結果 sr-only な <input> がページ下部の座標に配置され、overflow:hidden なそのコンテナの
+ * scrollHeight を押し広げる。ラジオをクリックするとブラウザが「フォーカス要素を画面内に入れる」
+ * ためにそのコンテナをスクロールし、<main> ごと画面外へ押し出されて本文が真っ白になる
+ * （スクロールバーが無いためユーザーはリロードするまで復帰できない）。
+ * sr-only な入力を持つラベルを必ず包含ブロックにして、外へ抜け出さないようにする。
+ */
+label:has(> input.sr-only) {
+  position: relative;
+}
+
 /* iOS Safari: フォーム要素のテキストが見えない問題の修正 */
 select,
 input:not([type="checkbox"]):not([type="radio"]),

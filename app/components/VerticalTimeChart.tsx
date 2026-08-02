@@ -41,6 +41,9 @@ interface Therapist {
   linked_shop_names?: string[];
   rankName?: string | null;
   isRookie?: boolean;
+  receptionClosedFrom?: string | null;
+  receptionClosedReservationId?: string | null;
+  isSettled?: boolean;
 }
 
 interface AvailableCourse {
@@ -91,6 +94,9 @@ interface VerticalTimeChartProps {
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string, date?: string) => void;
+  onReceptionCloseOpen?: (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => void;
+  onReceptionCloseClear?: (reservationId: string) => void;
+  onSettlementToggle?: (therapistId: string, date: string, currentlySettled: boolean) => void;
 }
 
 const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
@@ -100,6 +106,9 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
+  onReceptionCloseOpen,
+  onReceptionCloseClear,
+  onSettlementToggle,
 }) => {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -109,6 +118,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
       ...t,
       shiftStart: t.shiftStart ? toDisplayTime(t.shiftStart) : undefined,
       shiftEnd: t.shiftEnd ? toDisplayTime(t.shiftEnd) : undefined,
+      receptionClosedFrom: t.receptionClosedFrom ? toDisplayTime(t.receptionClosedFrom) : t.receptionClosedFrom,
     }));
   }, [rawTherapists]);
 
@@ -351,6 +361,14 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
 
+  // 受付終了アイコンの表示可否判定用（シフト終了時刻を過ぎていたら非表示にする）
+  const nowExtendedMins = (nowHour < 6 ? nowHour + 24 : nowHour) * 60 + nowMin;
+  const hhmToMins = (hhmm?: string | null) => {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+
   return (
     <div className="relative w-full h-full bg-slate-50 border border-slate-200 rounded-lg shadow-inner overflow-hidden">
       {/* Scrollable Container */}
@@ -492,6 +510,38 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       </div>
                     </div>
 
+                    {/* 受付終了 / 精算済み */}
+                    {(therapist.receptionClosedFrom || therapist.isSettled) && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {therapist.receptionClosedFrom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                            }}
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
+                            title="クリックで受付終了を解除"
+                          >
+                            受付終了 {therapist.receptionClosedFrom}〜
+                          </button>
+                        )}
+                        {therapist.isSettled && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSettlementToggle?.(therapist.id, date || '', true);
+                            }}
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100"
+                            title="クリックで未精算に戻す"
+                          >
+                            精算済み
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* 中段: ルーム */}
                     <div className="min-w-0">
                       {therapist.room ? (
@@ -535,6 +585,21 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           </span>
                         )}
                       </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
+                        therapist.shiftStart && therapist.shiftEnd &&
+                        (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
+                          }}
+                          title="受付終了にする"
+                          className="flex-shrink-0 w-5 h-5 rounded hover:text-amber-500 hover:bg-amber-50 flex items-center justify-center text-slate-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                      )}
                       {onShiftEditOpen && therapist.id !== 'unassigned' && (
                         <button
                           onClick={(e) => {
@@ -547,6 +612,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                       )}
+                      </div>
                     </div>
                   </div>
 
@@ -668,7 +734,48 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           {therapist.notes}
                         </span>
                       )}
+                      {therapist.receptionClosedFrom && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                          }}
+                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
+                          title="クリックで受付終了を解除"
+                        >
+                          受付終了
+                        </button>
+                      )}
+                      {therapist.isSettled && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSettlementToggle?.(therapist.id, date || '', true);
+                          }}
+                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          title="クリックで未精算に戻す"
+                        >
+                          精算済み
+                        </button>
+                      )}
                     </div>
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                    {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
+                      therapist.shiftStart && therapist.shiftEnd &&
+                      (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
+                        }}
+                        title="受付終了にする"
+                        className="w-4 h-4 rounded hover:text-amber-500 hover:bg-amber-50 flex items-center justify-center text-slate-300 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                    )}
                     {onShiftEditOpen && therapist.id !== 'unassigned' && (
                       <button
                         onClick={(e) => {
@@ -681,6 +788,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
                     )}
+                    </div>
                   </div>
                 </div>
               );

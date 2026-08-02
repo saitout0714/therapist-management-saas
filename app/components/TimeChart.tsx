@@ -29,6 +29,9 @@ interface Therapist {
   linked_shop_names?: string[];
   rankName?: string | null;
   isRookie?: boolean;
+  receptionClosedFrom?: string | null;
+  receptionClosedReservationId?: string | null;
+  isSettled?: boolean;
 }
 
 interface AvailableCourse {
@@ -79,6 +82,9 @@ interface TimeChartProps {
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string) => void;
+  onReceptionCloseOpen?: (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => void;
+  onReceptionCloseClear?: (reservationId: string) => void;
+  onSettlementToggle?: (therapistId: string, date: string, currentlySettled: boolean) => void;
 }
 
 import { toDisplayTime } from '@/lib/timeUtils';
@@ -91,6 +97,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
+  onReceptionCloseOpen,
+  onReceptionCloseClear,
+  onSettlementToggle,
 }) => {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -100,6 +109,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
       ...t,
       shiftStart: t.shiftStart ? toDisplayTime(t.shiftStart) : undefined,
       shiftEnd: t.shiftEnd ? toDisplayTime(t.shiftEnd) : undefined,
+      receptionClosedFrom: t.receptionClosedFrom ? toDisplayTime(t.receptionClosedFrom) : t.receptionClosedFrom,
     }));
   }, [rawTherapists]);
 
@@ -346,6 +356,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
     seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
 
+  // 受付終了アイコンの表示可否判定用（シフト終了時刻を過ぎていたら非表示にする）
+  const nowExtendedMins = (nowHour < 6 ? nowHour + 24 : nowHour) * 60 + nowMin;
+  const hhmToMins = (hhmm?: string | null) => {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+
   // Row height & Cell width adjustments for compact view
   // デスクトップはセラピスト情報を読みやすくするため行高を広げる（スマホは従来通り）
   // 名前・出勤時間・ルーム・notesバッジの4段がすべて揃うケースでも見切れず、かつ画面内に多く収まるよう詰めた高さ
@@ -486,6 +504,38 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       )}
                     </p>
 
+                    {/* 受付終了 / 精算済み */}
+                    {(therapist.receptionClosedFrom || therapist.isSettled) && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {therapist.receptionClosedFrom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                            }}
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap"
+                            title="クリックで受付終了を解除"
+                          >
+                            受付終了 {therapist.receptionClosedFrom}〜
+                          </button>
+                        )}
+                        {therapist.isSettled && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSettlementToggle?.(therapist.id, date || '', true);
+                            }}
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap"
+                            title="クリックで未精算に戻す"
+                          >
+                            精算済み
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* ルーム + インターバル */}
                     {!isOff && (therapist.room || therapist.id !== 'unassigned') && (
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -585,6 +635,32 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                         </span>
                       )}
+                      {therapist.receptionClosedFrom && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                          }}
+                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap"
+                          title="クリックで受付終了を解除"
+                        >
+                          受付終了 {therapist.receptionClosedFrom}〜
+                        </button>
+                      )}
+                      {therapist.isSettled && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSettlementToggle?.(therapist.id, date || '', true);
+                          }}
+                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap"
+                          title="クリックで未精算に戻す"
+                        >
+                          精算済み
+                        </button>
+                      )}
                     </div>
 
                     {/* 3段目: ルーム + 引継メモ */}
@@ -642,6 +718,20 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
 
+                  {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
+                    therapist.shiftStart && therapist.shiftEnd &&
+                    (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
+                      }}
+                      title="受付終了にする"
+                      className="flex-shrink-0 flex items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-all"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                  )}
                   {onShiftEditOpen && therapist.id !== 'unassigned' && (
                     <button
                       onClick={(e) => {

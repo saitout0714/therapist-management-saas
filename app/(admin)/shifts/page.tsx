@@ -115,6 +115,9 @@ interface Therapist {
   linked_shop_names?: string[];
   rankName?: string | null;
   isRookie?: boolean;
+  receptionClosedFrom?: string | null;
+  receptionClosedReservationId?: string | null;
+  isSettled?: boolean;
 }
 
 interface AvailableCourse {
@@ -202,6 +205,7 @@ function ShiftsContent() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [payrollEntries, setPayrollEntries] = useState<Map<string, { status: string; confirmed_at: string | null }>>(new Map());
   const [activeTooltip, setActiveTooltip] = useState<'rules' | 'hotels' | null>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
   const hotelsRef = useRef<HTMLDivElement>(null);
@@ -325,6 +329,17 @@ function ShiftsContent() {
     memo: string;
   } | null>(null);
 
+  // 受付終了モーダル
+  const [receptionCloseModal, setReceptionCloseModal] = useState<{
+    therapistId: string;
+    therapistName: string;
+    date: string;
+    shiftStart: string;
+    shiftEnd: string;
+    cutoffTime: string;
+    saving: boolean;
+  } | null>(null);
+
   // メモ追加フォーム
   const [memoForm, setMemoForm] = useState<{ content: string; amount: string } | null>(null);
 
@@ -414,6 +429,7 @@ function ShiftsContent() {
     newBlockedStart: string;
     newBlockedEnd: string;
     newBlockedMemo: string;
+    isSettled: boolean;
   } | null>(null);
 
   const handleBlockedDelete = async (id: string) => {
@@ -485,6 +501,7 @@ function ShiftsContent() {
       newBlockedStart: defaultStart,
       newBlockedEnd: defaultEnd,
       newBlockedMemo: '',
+      isSettled: payrollEntries.get(therapistId)?.status === 'paid',
     });
   };
 
@@ -603,6 +620,181 @@ function ShiftsContent() {
     setRefreshCounter(c => c + 1);
   };
 
+  // 受付終了に該当セラピストの現在時刻以降の確定予約があるかチェックする
+  // （受付終了ブロックの「予約不可」判定は既存の重複チェックロジックと同様、警告のみで強制はしない）
+  const findConfirmedConflicts = (therapistId: string, cutoffTime: string) => {
+    const cutoffMins = hhmToMinutes(cutoffTime);
+    return reservations.filter(r =>
+      r.therapist_id === therapistId &&
+      r.status === 'confirmed' &&
+      hhmToMinutes(toDisplayTime(r.start_time)) >= cutoffMins
+    );
+  };
+
+  const getNowExtendedTime = () => {
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return toDisplayTime(hhmm);
+  };
+
+  const handleOpenReceptionClose = (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => {
+    const shiftStartMins = hhmToMinutes(shiftStart);
+    const shiftEndMins = hhmToMinutes(shiftEnd);
+    let cutoffMins = hhmToMinutes(getNowExtendedTime());
+    if (cutoffMins < shiftStartMins) cutoffMins = shiftStartMins;
+    if (cutoffMins > shiftEndMins) cutoffMins = shiftEndMins;
+    setReceptionCloseModal({
+      therapistId,
+      therapistName,
+      date,
+      shiftStart,
+      shiftEnd,
+      cutoffTime: minutesToHHMM(cutoffMins),
+      saving: false,
+    });
+  };
+
+  const handleConfirmReceptionClose = async () => {
+    if (!receptionCloseModal || !selectedShop) return;
+    const { therapistId, date, cutoffTime, shiftEnd } = receptionCloseModal;
+
+    const conflicts = findConfirmedConflicts(therapistId, cutoffTime);
+    if (conflicts.length > 0) {
+      const list = conflicts.map(r => `${toDisplayTime(r.start_time)} ${r.customers?.name || 'ゲスト'}`).join('\n');
+      if (!confirm(`【警告】${cutoffTime}以降に既存の予約があります:\n\n${list}\n\nこのまま受付終了にしますか？`)) return;
+    }
+
+    setReceptionCloseModal(m => m ? { ...m, saving: true } : null);
+    const { error } = await supabase.from('reservations').insert([{
+      therapist_id: therapistId,
+      shop_id: selectedShop.id,
+      date,
+      start_time: cutoffTime,
+      end_time: shiftEnd,
+      status: 'blocked',
+      course_id: null,
+      customer_id: null,
+      base_price: 0,
+      options_price: 0,
+      nomination_fee: 0,
+      total_price: 0,
+      discount_amount: 0,
+      designation_type: 'free',
+      notes: '受付終了',
+    }]);
+    if (error) {
+      alert('受付終了の設定に失敗しました: ' + error.message);
+      setReceptionCloseModal(m => m ? { ...m, saving: false } : null);
+      return;
+    }
+    setReceptionCloseModal(null);
+    setRefreshCounter(c => c + 1);
+  };
+
+  const handleClearReceptionClosed = async (reservationId: string) => {
+    if (!confirm('受付終了を解除しますか？')) return;
+    const { error } = await supabase.from('reservations').delete().eq('id', reservationId);
+    if (error) { alert('解除に失敗しました'); return; }
+    setRefreshCounter(c => c + 1);
+  };
+
+  const handleBulkReceptionClose = async () => {
+    if (!selectedShop) return;
+    const nowExtended = getNowExtendedTime();
+    const cutoffMins = hhmToMinutes(nowExtended);
+
+    const targets = sortedTherapistsWithShift.filter(t =>
+      t.id !== 'unassigned' &&
+      t.shiftStart && t.shiftEnd &&
+      !t.receptionClosedFrom &&
+      hhmToMinutes(t.shiftEnd) > cutoffMins &&
+      !reservations.some(r =>
+        r.therapist_id === t.id &&
+        r.status === 'blocked' &&
+        toDisplayTime(r.start_time) === t.shiftStart &&
+        toDisplayTime(r.end_time) === t.shiftEnd
+      )
+    );
+
+    if (targets.length === 0) {
+      alert('対象のセラピストがいません（すでに受付終了・休み、またはシフト終了済みです）。');
+      return;
+    }
+    if (!confirm(`現在時刻（${nowExtended}）で、${targets.length}名の受付を終了しますか？\n\n対象: ${targets.map(t => t.name).join('、')}`)) return;
+
+    const skipped: string[] = [];
+    const inserts: any[] = [];
+    targets.forEach(t => {
+      const hasConflict = findConfirmedConflicts(t.id, nowExtended).length > 0;
+      if (hasConflict) {
+        skipped.push(t.name);
+        return;
+      }
+      inserts.push({
+        therapist_id: t.id,
+        shop_id: selectedShop.id,
+        date: filterDate,
+        start_time: nowExtended,
+        end_time: t.shiftEnd,
+        status: 'blocked',
+        course_id: null,
+        customer_id: null,
+        base_price: 0,
+        options_price: 0,
+        nomination_fee: 0,
+        total_price: 0,
+        discount_amount: 0,
+        designation_type: 'free',
+        notes: '受付終了（一括）',
+      });
+    });
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('reservations').insert(inserts);
+      if (error) { alert('一括受付終了に失敗しました: ' + error.message); return; }
+    }
+
+    let msg = `${inserts.length}名を受付終了にしました。`;
+    if (skipped.length > 0) msg += `\n\n以下は既存予約と重複するためスキップしました:\n${skipped.join('、')}`;
+    alert(msg);
+    setRefreshCounter(c => c + 1);
+  };
+
+  const handleToggleSettlement = async (therapistId: string, date: string, currentlySettled: boolean): Promise<boolean> => {
+    if (!selectedShop) return false;
+    if (currentlySettled) {
+      if (!confirm('未精算に戻しますか？')) return false;
+    }
+
+    const { data: existing } = await supabase
+      .from('payroll_entries')
+      .select('id')
+      .eq('shop_id', selectedShop.id)
+      .eq('therapist_id', therapistId)
+      .eq('business_date', date)
+      .maybeSingle();
+
+    const nextStatus = currentlySettled ? 'draft' : 'paid';
+    const payload = {
+      status: nextStatus,
+      confirmed_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+      confirmed_by: nextStatus === 'paid' ? (user?.id ?? null) : null,
+    };
+
+    const { error } = existing
+      ? await supabase.from('payroll_entries').update(payload).eq('id', existing.id)
+      : await supabase.from('payroll_entries').insert([{
+          shop_id: selectedShop.id,
+          therapist_id: therapistId,
+          business_date: date,
+          ...payload,
+        }]);
+
+    if (error) { alert('更新に失敗しました: ' + error.message); return false; }
+    setRefreshCounter(c => c + 1);
+    return true;
+  };
+
   const handlePrevDay = () => {
     const prevDate = new Date(filterDate);
     prevDate.setDate(prevDate.getDate() - 1);
@@ -620,6 +812,7 @@ function ShiftsContent() {
     fetchTherapists();
     fetchShifts();
     fetchReservations();
+    fetchPayrollEntries();
   }, [filterDate, selectedShop, refreshCounter, authLoading, user]);
 
   // 予約のリアルタイム更新（Supabase Realtime）
@@ -1136,6 +1329,25 @@ function ShiftsContent() {
     }
   };
 
+  const fetchPayrollEntries = async () => {
+    if (!selectedShop) return;
+    try {
+      const { data, error } = await supabase
+        .from('payroll_entries')
+        .select('therapist_id, status, confirmed_at')
+        .eq('shop_id', selectedShop.id)
+        .eq('business_date', filterDate);
+      if (error) throw error;
+      const map = new Map<string, { status: string; confirmed_at: string | null }>();
+      (data || []).forEach((row: any) => {
+        map.set(row.therapist_id, { status: row.status, confirmed_at: row.confirmed_at });
+      });
+      setPayrollEntries(map);
+    } catch (error) {
+      console.error('精算状況の取得に失敗:', error);
+    }
+  };
+
   const minutesToHHMM = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
@@ -1491,7 +1703,24 @@ function ShiftsContent() {
         toDisplayTime(r.start_time) === t.shiftStart &&
         toDisplayTime(r.end_time) === t.shiftEnd
       )?.notes;
-      return blockedNote != null ? { ...t, notes: blockedNote } : t;
+
+      // 受付終了: シフト全体を覆う「休み」ブロックとは別に、notesが「受付終了」で始まる部分ブロックを検出する
+      const receptionCloseRes = reservations.find(r =>
+        r.therapist_id === t.id &&
+        r.status === 'blocked' &&
+        r.notes?.startsWith('受付終了') &&
+        !(toDisplayTime(r.start_time) === t.shiftStart && toDisplayTime(r.end_time) === t.shiftEnd)
+      );
+
+      const settlement = payrollEntries.get(t.id);
+
+      return {
+        ...t,
+        ...(blockedNote != null ? { notes: blockedNote } : {}),
+        receptionClosedFrom: receptionCloseRes ? toDisplayTime(receptionCloseRes.start_time) : null,
+        receptionClosedReservationId: receptionCloseRes ? receptionCloseRes.id : null,
+        isSettled: settlement?.status === 'paid',
+      };
     });
 
     // 休み（全日受付不可）= シフト全時間帯と一致するblockedスロットを持つ
@@ -1614,7 +1843,7 @@ function ShiftsContent() {
       });
     }
     return [unassignedTherapist, ...sortedOthers];
-  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop]);
+  }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop, payrollEntries]);
 
   // 週間表示用：全セラピストを詳細な形式にマップ
   const therapistsForWeekly = therapists.map(t => ({
@@ -1957,6 +2186,16 @@ function ShiftsContent() {
               )}
             </div>
 
+            {/* 一括受付終了（当日のみ） */}
+            {(viewMode === 'day' || viewMode === 'vertical') && filterDate === getBusinessDateStr() && (
+              <button
+                onClick={handleBulkReceptionClose}
+                className="px-3 py-1.5 bg-amber-500 text-white rounded-md hover:bg-amber-600 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
+                title="現在時刻を締切として、対象セラピスト全員の受付を終了します"
+              >
+                全員 受付終了
+              </button>
+            )}
 
           </div>
         </div>
@@ -1981,6 +2220,9 @@ function ShiftsContent() {
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
+                    onReceptionCloseOpen={handleOpenReceptionClose}
+                    onReceptionCloseClear={handleClearReceptionClosed}
+                    onSettlementToggle={handleToggleSettlement}
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
@@ -2012,6 +2254,9 @@ function ShiftsContent() {
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
+                    onReceptionCloseOpen={handleOpenReceptionClose}
+                    onReceptionCloseClear={handleClearReceptionClosed}
+                    onSettlementToggle={handleToggleSettlement}
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
@@ -2205,6 +2450,24 @@ function ShiftsContent() {
                   )}
                 </div>
               )}
+
+              {/* 精算済み */}
+              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${shiftEditModal.isSettled ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                <div>
+                  <p className={`text-sm font-bold ${shiftEditModal.isSettled ? 'text-emerald-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">セラピストへ本日分の精算を送ったかどうかの状態です</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await handleToggleSettlement(shiftEditModal.therapistId, shiftEditModal.date, shiftEditModal.isSettled);
+                    if (ok) setShiftEditModal(m => m ? { ...m, isSettled: !m.isSettled } : null);
+                  }}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${shiftEditModal.isSettled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                >
+                  {shiftEditModal.isSettled ? '未精算に戻す' : '精算済みにする'}
+                </button>
+              </div>
 
               {/* メモ */}
               <div>
@@ -2434,6 +2697,41 @@ function ShiftsContent() {
         </div>
       )}
 
+      {/* 受付終了モーダル */}
+      {receptionCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setReceptionCloseModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">受付終了にする</h3>
+            <p className="text-xs text-slate-500 mb-6">{receptionCloseModal.therapistName} / この時刻から {receptionCloseModal.shiftEnd} まで新規予約の受付を止めます</p>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">締切時刻</label>
+                <TimeSelectHM
+                  value={receptionCloseModal.cutoffTime}
+                  onChange={v => setReceptionCloseModal(m => m ? { ...m, cutoffTime: v } : null)}
+                  selectClassName="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/50 outline-none"
+                  minHour={9}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmReceptionClose}
+                disabled={receptionCloseModal.saving}
+                className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                受付終了にする
+              </button>
+              <button
+                onClick={() => setReceptionCloseModal(null)}
+                className="px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
