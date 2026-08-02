@@ -491,21 +491,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       </div>
                     </div>
 
-                    {/* 出勤時間 */}
-                    <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
-                      {therapist.id === 'unassigned' ? (
-                        <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                      ) : isOff ? (
-                        <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                      ) : therapist.shiftStart && therapist.shiftEnd ? (
-                        <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                      ) : (
-                        <span className="text-slate-400">未設定</span>
-                      )}
-                    </p>
-
-                    {/* 受付終了 / 精算済み */}
-                    {(therapist.receptionClosedFrom || therapist.isSettled) && (
+                    {/* 出勤時間（受付終了・精算済みがある場合はその枠にバッジを表示） */}
+                    {(therapist.receptionClosedFrom || therapist.isSettled) ? (
                       <div className="flex items-center gap-1 flex-wrap">
                         {therapist.receptionClosedFrom && (
                           <button
@@ -534,6 +521,18 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           </button>
                         )}
                       </div>
+                    ) : (
+                      <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
+                        {therapist.id === 'unassigned' ? (
+                          <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                        ) : isOff ? (
+                          <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        ) : therapist.shiftStart && therapist.shiftEnd ? (
+                          <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                        ) : (
+                          <span className="text-slate-400">未設定</span>
+                        )}
+                      </p>
                     )}
 
                     {/* ルーム + インターバル */}
@@ -563,7 +562,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             {therapist.room}
                           </span>
                         )}
-                        {therapist.id !== 'unassigned' && (
+                        {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
                           <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
                             {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                           </span>
@@ -617,20 +616,22 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       )}
                     </div>
 
-                    {/* 2段目: 出勤時間 + インターバル */}
+                    {/* 2段目: 出勤時間 + インターバル（受付終了・精算済みがある場合は出勤時間の枠にバッジを表示） */}
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[13px] font-bold leading-none whitespace-nowrap">
-                        {therapist.id === 'unassigned' ? (
-                          <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                        ) : isOff ? (
-                          <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                        ) : therapist.shiftStart && therapist.shiftEnd ? (
-                          <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                        ) : (
-                          <span className="text-slate-400">未設定</span>
-                        )}
-                      </span>
-                      {therapist.id !== 'unassigned' && (
+                      {!(therapist.receptionClosedFrom || therapist.isSettled) && (
+                        <span className="text-[13px] font-bold leading-none whitespace-nowrap">
+                          {therapist.id === 'unassigned' ? (
+                            <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
+                          ) : isOff ? (
+                            <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                          ) : therapist.shiftStart && therapist.shiftEnd ? (
+                            <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                          ) : (
+                            <span className="text-slate-400">未設定</span>
+                          )}
+                        </span>
+                      )}
+                      {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
                         <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
                           {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                         </span>

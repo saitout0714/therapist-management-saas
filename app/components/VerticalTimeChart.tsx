@@ -495,52 +495,51 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           </div>
                         )}
 
-                        {/* 出勤時間 */}
-                        <div className="text-[11px] font-bold leading-none whitespace-nowrap">
-                          {therapist.id === 'unassigned' ? (
-                            <span className="text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 font-bold">要対応</span>
-                          ) : isOff ? (
-                            <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                          ) : therapist.shiftStart && therapist.shiftEnd ? (
-                            <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
-                          ) : (
-                            <span className="text-slate-400">未設定</span>
-                          )}
-                        </div>
+                        {/* 出勤時間（受付終了・精算済みがある場合はその枠にバッジを表示） */}
+                        {(therapist.receptionClosedFrom || therapist.isSettled) ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {therapist.receptionClosedFrom && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                                }}
+                                className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
+                                title="クリックで受付終了を解除"
+                              >
+                                受付終了 {therapist.receptionClosedFrom}〜
+                              </button>
+                            )}
+                            {therapist.isSettled && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSettlementToggle?.(therapist.id, date || '', true);
+                                }}
+                                className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700"
+                                title="クリックで未精算に戻す"
+                              >
+                                精算済み
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] font-bold leading-none whitespace-nowrap">
+                            {therapist.id === 'unassigned' ? (
+                              <span className="text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 font-bold">要対応</span>
+                            ) : isOff ? (
+                              <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                            ) : therapist.shiftStart && therapist.shiftEnd ? (
+                              <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
+                            ) : (
+                              <span className="text-slate-400">未設定</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* 受付終了 / 精算済み */}
-                    {(therapist.receptionClosedFrom || therapist.isSettled) && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {therapist.receptionClosedFrom && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
-                            }}
-                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
-                            title="クリックで受付終了を解除"
-                          >
-                            受付終了 {therapist.receptionClosedFrom}〜
-                          </button>
-                        )}
-                        {therapist.isSettled && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSettlementToggle?.(therapist.id, date || '', true);
-                            }}
-                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700"
-                            title="クリックで未精算に戻す"
-                          >
-                            精算済み
-                          </button>
-                        )}
-                      </div>
-                    )}
 
                     {/* 中段: ルーム */}
                     <div className="min-w-0">
@@ -579,7 +578,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     {/* 下段: インターバル + 編集 — 情報がない分は詰まるよう mt-auto は使わない */}
                     <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100 min-w-0">
                       <div className="flex items-center gap-1 min-w-0">
-                        {therapist.id !== 'unassigned' && (
+                        {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
                           <span className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
                             {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                           </span>
@@ -686,9 +685,38 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     </div>
                   </div>
 
-                  {/* 2段目: 出勤時間 */}
+                  {/* 2段目: 出勤時間（受付終了・精算済みがある場合はその枠にバッジを表示） */}
                   <div className="sm:hidden text-[9px] font-semibold leading-tight flex-shrink-0 mt-0.5">
-                    {therapist.id === 'unassigned' ? (
+                    {(therapist.receptionClosedFrom || therapist.isSettled) ? (
+                      <div className="flex items-center gap-0.5 flex-wrap">
+                        {therapist.receptionClosedFrom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
+                            }}
+                            className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
+                            title="クリックで受付終了を解除"
+                          >
+                            受付終了 {therapist.receptionClosedFrom}〜
+                          </button>
+                        )}
+                        {therapist.isSettled && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSettlementToggle?.(therapist.id, date || '', true);
+                            }}
+                            className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-red-600 text-white border border-red-700"
+                            title="クリックで未精算に戻す"
+                          >
+                            精算済み
+                          </button>
+                        )}
+                      </div>
+                    ) : therapist.id === 'unassigned' ? (
                       <span className="text-amber-600 bg-amber-50 px-1 py-0.2 rounded border border-amber-100 font-bold">要対応</span>
                     ) : isOff ? (
                       <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
@@ -724,7 +752,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   {/* 4段目: インターバル + メモ/編集ボタン */}
                   <div className="flex sm:hidden items-center justify-between gap-1 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
                     <div className="flex items-center gap-0.5 min-w-0">
-                      {therapist.id !== 'unassigned' && (
+                      {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
                         <span className="text-[8px] font-medium px-1 py-0.2 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
                           {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                         </span>
@@ -733,32 +761,6 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         <span className="text-[8px] text-amber-600 font-bold max-w-[45px] truncate" title={therapist.notes}>
                           {therapist.notes}
                         </span>
-                      )}
-                      {therapist.receptionClosedFrom && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
-                          }}
-                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300"
-                          title="クリックで受付終了を解除"
-                        >
-                          受付終了
-                        </button>
-                      )}
-                      {therapist.isSettled && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSettlementToggle?.(therapist.id, date || '', true);
-                          }}
-                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-red-600 text-white border border-red-700"
-                          title="クリックで未精算に戻す"
-                        >
-                          精算済み
-                        </button>
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 flex-shrink-0">
