@@ -12,52 +12,50 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
   const reserveUrl = `/${storeSlug}/reserve?therapistId=${therapist.id}`;
 
   return (
-    <div className="group relative bg-slate-900/80 rounded-2xl border border-slate-800/80 overflow-hidden shadow-xl hover:border-rose-500/50 hover:shadow-2xl hover:shadow-rose-950/30 transition-all duration-300 flex flex-col">
+    <div className="group relative bg-white rounded-sm border border-[#d1b464]/30 overflow-hidden shadow-sm hover:shadow-md hover:border-[#d1b464] transition-all duration-300 flex flex-col font-serif">
       {/* メイン写真 */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-950">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-stone-100">
         <img
           src={therapist.avatarUrl}
           alt={therapist.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/70 via-transparent to-transparent" />
 
         {/* バッジ (NEW / 新人 / PICKUP) */}
         {therapist.badge && (
-          <div className="absolute top-3 left-3 bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg shadow-rose-900/50 tracking-wider animate-pulse">
+          <div className="absolute top-2 left-2 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-[10px] px-2.5 py-0.5 rounded-sm shadow-sm tracking-wider">
             {therapist.badge}
           </div>
         )}
 
         {/* グレード (例: トップセラピスト) */}
         {therapist.grade && (
-          <div className="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-md border border-amber-500/40 text-amber-300 font-semibold text-[10px] px-2.5 py-0.5 rounded-full">
+          <div className="absolute top-2 right-2 bg-stone-900/80 text-[#d1b464] border border-[#d1b464]/40 font-medium text-[9px] px-2 py-0.5 rounded-sm tracking-wider">
             {therapist.grade}
           </div>
         )}
 
         {/* 下部オーバーレイ情報 */}
-        <div className="absolute bottom-3 left-3 right-3">
-          <div className="flex items-baseline gap-2 mb-1">
-            <h3 className="text-xl font-bold text-white group-hover:text-rose-300 transition-colors">
-              {therapist.name}
-            </h3>
-            <span className="text-sm font-semibold text-rose-300">({therapist.age}歳)</span>
+        <div className="absolute bottom-2.5 left-3 right-3 text-white">
+          <div className="flex items-baseline gap-2 mb-0.5">
+            <h3 className="text-lg font-bold tracking-wider">{therapist.name}</h3>
+            <span className="text-xs text-[#d1b464] font-semibold">({therapist.age}歳)</span>
           </div>
-          <p className="text-xs font-medium text-slate-300 tracking-wide">
-            T{therapist.height}cm ({therapist.bustCup}cup) {therapist.threeSize && `• ${therapist.threeSize}`}
+          <p className="text-[11px] text-stone-200 tracking-wide">
+            T{therapist.height} ({therapist.bustCup}cup) {therapist.threeSize && `• ${therapist.threeSize}`}
           </p>
         </div>
       </div>
 
       {/* コンテンツエリア */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-3 bg-[#faf9f5]">
         {/* 特徴タグバッジ */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1">
           {therapist.tags.map((tag) => (
             <span
               key={tag}
-              className="text-[11px] font-medium bg-slate-800/90 text-rose-300 px-2.5 py-0.5 rounded-md border border-rose-500/20"
+              className="text-[10px] font-medium bg-white text-[#a39573] px-2 py-0.5 border border-[#d1b464]/30 rounded-sm"
             >
               #{tag}
             </span>
@@ -66,7 +64,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
 
         {/* 一言コメント */}
         {therapist.comment && (
-          <p className="text-xs text-slate-400 line-clamp-2 italic">
+          <p className="text-xs text-stone-600 line-clamp-2 italic tracking-wide">
             "{therapist.comment}"
           </p>
         )}
@@ -75,13 +73,13 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
         <div className="pt-2 grid grid-cols-2 gap-2">
           <Link
             href={detailUrl}
-            className="py-2 text-center text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
+            className="py-2 text-center text-xs font-semibold text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-colors"
           >
-            プロフィール
+            詳細を見る
           </Link>
           <Link
             href={reserveUrl}
-            className="py-2 text-center text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 rounded-xl shadow-md shadow-rose-600/30 transition-all"
+            className="py-2 text-center text-xs font-bold text-white bg-[#a39573] hover:bg-[#8f8263] border border-[#a39573] transition-colors tracking-wider"
           >
             指名予約
           </Link>

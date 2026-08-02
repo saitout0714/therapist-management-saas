@@ -73,6 +73,9 @@ interface Schedule {
   availableCourses?: AvailableCourse[];
   isOtherShop?: boolean;
   notes?: string | null;
+  optionsPaymentMethod?: string | null;
+  extensionPaymentMethod?: string | null;
+  paymentSettledAt?: string | null;
 }
 
 interface TimeChartProps {
@@ -85,10 +88,12 @@ interface TimeChartProps {
   onReceptionCloseOpen?: (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => void;
   onReceptionCloseClear?: (reservationId: string) => void;
   onSettlementToggle?: (therapistId: string, date: string, currentlySettled: boolean) => void;
+  onPaymentSettle?: (reservationId: string, methodLabel: string) => void;
 }
 
 import { toDisplayTime } from '@/lib/timeUtils';
 import { useIsDesktop } from '@/lib/useIsDesktop';
+import { getCashlessMethod, cashlessLabel, settledLabel } from '@/lib/paymentStatus';
 
 const TimeChart: React.FC<TimeChartProps> = ({
   therapists: rawTherapists,
@@ -100,6 +105,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   onReceptionCloseOpen,
   onReceptionCloseClear,
   onSettlementToggle,
+  onPaymentSettle,
 }) => {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -1271,16 +1277,26 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const isOwner = schedule.receptionSource === 'owner' || schedule.receptionSource?.startsWith('owner_');
                 const isHime = (schedule.isHime ?? false) || schedule.receptionSource === 'therapist';
 
+                // クレジット/PayPay の未決済判定（入金確認が済むと通常色に戻る）
+                const cashlessMethod = getCashlessMethod({
+                  payment_method: schedule.paymentMethod,
+                  options_payment_method: schedule.optionsPaymentMethod,
+                  extension_payment_method: schedule.extensionPaymentMethod,
+                });
+                const isUnpaidCard = isReservation && !schedule.isPending && cashlessMethod !== null && !schedule.paymentSettledAt;
+
                 const bgClasses = schedule.color
                   ? ''
                   : isReservation
                     ? isNotificationUnsent
                       ? 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] border-2 border-amber-300 shadow-lg shadow-amber-500/40 animate-pulse-subtle'
-                      : isOwner
-                        ? 'bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 border border-teal-400/80 shadow-md shadow-teal-600/20 text-white'
-                        : isHime
-                          ? 'bg-gradient-to-br from-pink-500 via-rose-500 to-pink-600 border border-pink-300/80 shadow-md shadow-pink-500/20 text-white'
-                          : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20 text-white'
+                      : isUnpaidCard
+                        ? 'bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-700 border-2 border-violet-300 shadow-md shadow-violet-600/30 text-white'
+                        : isOwner
+                          ? 'bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 border border-teal-400/80 shadow-md shadow-teal-600/20 text-white'
+                          : isHime
+                            ? 'bg-gradient-to-br from-pink-500 via-rose-500 to-pink-600 border border-pink-300/80 shadow-md shadow-pink-500/20 text-white'
+                            : 'bg-gradient-to-br from-[#1f3c6d] to-[#0a1b3a] border border-[#0a1b3a]/40 shadow-md shadow-[#0a1b3a]/20 text-white'
                     : 'bg-gradient-to-br from-slate-600 to-slate-700 border border-slate-500 shadow-md shadow-slate-900/20 text-white';
 
                 return (
@@ -1370,15 +1386,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             -¥{schedule.discountAmount.toLocaleString()}
                           </span>
                         )}
-                        {isReservation && schedule.paymentMethod === 'credit' && (
-                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-amber-400 text-slate-900 border border-amber-300 shadow-sm whitespace-nowrap">
-                            💳 クレジット
-                          </span>
-                        )}
-                        {isReservation && schedule.paymentMethod === 'paypay' && (
-                          <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-red-400 text-white border border-red-300 shadow-sm whitespace-nowrap">
-                            📱 PayPay
-                          </span>
+                        {isReservation && cashlessMethod && (
+                          isUnpaidCard ? (
+                            // 未決済: その場で入金確認できるボタン
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (schedule.reservationId) onPaymentSettle?.(schedule.reservationId, cashlessLabel(cashlessMethod));
+                              }}
+                              className="flex-shrink-0 text-[9px] px-1 rounded-sm font-extrabold bg-white text-violet-700 border border-violet-200 shadow-sm whitespace-nowrap hover:bg-violet-50"
+                              title={`クリックで「${settledLabel(cashlessMethod)}」にする`}
+                            >
+                              {cashlessMethod === 'credit' ? '💳' : '📱'} {cashlessLabel(cashlessMethod)}未決済
+                            </button>
+                          ) : (
+                            <span className="flex-shrink-0 text-[9px] px-1 rounded-sm font-bold bg-white/20 text-white border border-white/20 whitespace-nowrap">
+                              {cashlessMethod === 'credit' ? '💳' : '📱'} {settledLabel(cashlessMethod)}
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

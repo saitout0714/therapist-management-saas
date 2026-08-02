@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
 import { parseDispatchFromNotes, DispatchInfo } from '@/lib/dispatchUtils'
 import { getPricingShopId } from '@/lib/shopUtils'
+import { getCashlessMethod, cashlessLabel, settledLabel } from '@/lib/paymentStatus'
 
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -115,6 +116,7 @@ type Reservation = {
   therapist_notified?: boolean
   customer_type_override?: 'new' | 'member' | null
   is_hime?: boolean
+  payment_settled_at?: string | null
 }
 
 type RoomInfo = {
@@ -999,6 +1001,22 @@ export default function ReservationPreviewPage() {
       console.error('Failed to update notification status:', error.message)
     } else {
       setReservation(prev => prev ? { ...prev, ...updatePayload } : null)
+    }
+  }
+
+  // クレジット/PayPay の入金確認（未決済 ⇔ 決済完了）
+  const updatePaymentSettled = async (settled: boolean) => {
+    if (!reservation) return
+    const value = settled ? new Date().toISOString() : null
+    const { error } = await supabase
+      .from('reservations')
+      .update({ payment_settled_at: value })
+      .eq('id', reservation.id)
+
+    if (error) {
+      alert('決済状態の更新に失敗しました: ' + error.message)
+    } else {
+      setReservation(prev => prev ? { ...prev, payment_settled_at: value } : null)
     }
   }
 
@@ -2022,6 +2040,34 @@ export default function ReservationPreviewPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* クレジット/PayPay の入金確認 */}
+                    {(() => {
+                      const cashless = getCashlessMethod(reservation)
+                      if (!cashless) return null
+                      const settled = !!reservation.payment_settled_at
+                      return (
+                        <div className={`mt-2 flex items-center justify-between gap-2 flex-wrap rounded-lg border px-2.5 py-2 ${settled ? 'border-slate-200 bg-slate-50' : 'border-violet-300 bg-violet-50'}`}>
+                          <div className="min-w-0">
+                            <p className={`text-[11px] sm:text-xs font-bold ${settled ? 'text-slate-600' : 'text-violet-700'}`}>
+                              {settled ? `✓ ${settledLabel(cashless)}` : `${cashlessLabel(cashless)}決済：未決済`}
+                            </p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {settled
+                                ? `${new Date(reservation.payment_settled_at!).toLocaleString('ja-JP')} に確認`
+                                : '入金を確認したら「決済完了にする」を押してください'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updatePaymentSettled(!settled)}
+                            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-colors ${settled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                          >
+                            {settled ? '未決済に戻す' : '決済完了にする'}
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
                 

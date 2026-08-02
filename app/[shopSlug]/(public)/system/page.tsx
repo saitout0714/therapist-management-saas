@@ -11,49 +11,47 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
       <Header store={MOCK_STORE} />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
         <div className="text-center mb-10">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-pink-300">
+          <h1 className="text-2xl font-bold text-stone-800 tracking-widest">System</h1>
+          <span className="inline-block text-xs text-[#a39573] border-t border-stone-800 px-4 pt-1 mt-1 tracking-widest">
             システム・料金案内
-          </h1>
-          <p className="text-xs text-slate-400 mt-2">
-            明朗会計・安心の料金体系でお迎えいたします
-          </p>
+          </span>
         </div>
 
         <div className="space-y-8">
           {MOCK_SYSTEM_MENU.map((cat, idx) => (
             <div
               key={idx}
-              className="bg-slate-900/80 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4"
+              className="bg-white rounded-sm border border-[#d1b464]/30 p-6 shadow-sm space-y-4"
             >
-              <h2 className="text-lg font-bold text-rose-300 border-b border-slate-800 pb-2">
+              <h2 className="text-base font-bold text-[#a39573] border-b border-stone-200 pb-2 tracking-wider">
                 {cat.categoryName}
               </h2>
               {cat.description && (
-                <p className="text-xs text-slate-400">{cat.description}</p>
+                <p className="text-xs text-stone-600 tracking-wide">{cat.description}</p>
               )}
 
               <div className="space-y-3">
                 {cat.courses.map((course) => (
                   <div
                     key={course.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 gap-2"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#faf7f0] p-4 rounded-sm border border-[#d1b464]/20 gap-2"
                   >
                     <div>
-                      <h3 className="font-bold text-slate-100 text-sm">{course.name}</h3>
+                      <h3 className="font-bold text-stone-800 text-sm tracking-wider">{course.name}</h3>
                       {course.description && (
-                        <p className="text-xs text-slate-400 mt-0.5">{course.description}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">{course.description}</p>
                       )}
                     </div>
                     <div className="text-right">
-                      <span className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-pink-300">
+                      <span className="text-lg font-extrabold text-stone-900 tracking-wider">
                         ¥{course.price.toLocaleString()}
                       </span>
-                      <span className="text-xs text-slate-400 ml-1">(税込)</span>
+                      <span className="text-xs text-stone-500 ml-1">(税込)</span>
                     </div>
                   </div>
                 ))}
@@ -65,7 +63,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         <div className="mt-12 text-center">
           <Link
             href={`/${shopSlug}/reserve`}
-            className="inline-block px-10 py-4 bg-gradient-to-r from-rose-600 to-pink-600 text-white font-bold text-sm rounded-full shadow-lg shadow-rose-600/30 hover:scale-105 transition-all"
+            className="inline-block px-10 py-3.5 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-xs rounded-sm shadow-md hover:brightness-105 transition-all tracking-widest"
           >
             この料金でWEB予約する
           </Link>

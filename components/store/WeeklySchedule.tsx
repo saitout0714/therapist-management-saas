@@ -8,7 +8,6 @@ interface WeeklyScheduleProps {
 }
 
 export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ therapists, storeSlug }) => {
-  // 本日から7日間の日付データを生成
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -24,20 +23,20 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ therapists, stor
   });
 
   return (
-    <div className="overflow-x-auto bg-slate-900/60 rounded-2xl border border-slate-800 p-4 shadow-xl">
-      <table className="w-full text-left text-xs text-slate-300 min-w-[600px]">
+    <div className="overflow-x-auto bg-white rounded-sm border border-[#d1b464]/30 p-4 shadow-sm font-serif">
+      <table className="w-full text-left text-xs text-stone-700 min-w-[600px]">
         <thead>
-          <tr className="border-b border-slate-800">
-            <th className="py-3 px-4 font-bold text-slate-400 w-44">セラピスト</th>
+          <tr className="border-b border-[#d1b464]/30 bg-[#faf7f0]">
+            <th className="py-3 px-4 font-bold text-stone-700 w-44">セラピスト</th>
             {days.map((day) => (
               <th
                 key={day.fullDate}
                 className={`py-3 px-2 text-center font-bold ${
                   day.isToday
-                    ? 'text-rose-400 font-extrabold bg-rose-950/30 rounded-t-lg'
+                    ? 'text-[#a39573] font-extrabold bg-[#f4eee0]'
                     : day.isWeekend
-                    ? 'text-pink-400'
-                    : 'text-slate-300'
+                    ? 'text-amber-700'
+                    : 'text-stone-700'
                 }`}
               >
                 {day.label}
@@ -45,9 +44,9 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ therapists, stor
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60">
+        <tbody className="divide-y divide-stone-100">
           {therapists.map((th) => (
-            <tr key={th.id} className="hover:bg-slate-800/40 transition-colors">
+            <tr key={th.id} className="hover:bg-[#faf9f5] transition-colors">
               <td className="py-3 px-4">
                 <Link
                   href={`/${storeSlug}/therapists/${th.id}`}
@@ -56,20 +55,19 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ therapists, stor
                   <img
                     src={th.avatarUrl}
                     alt={th.name}
-                    className="w-10 h-10 rounded-full object-cover border border-rose-500/30 group-hover:scale-105 transition-transform"
+                    className="w-10 h-10 rounded-full object-cover border border-[#d1b464]/40 group-hover:scale-105 transition-transform"
                   />
                   <div>
-                    <div className="font-bold text-white group-hover:text-rose-300 transition-colors">
+                    <div className="font-bold text-stone-800 group-hover:text-[#a39573] transition-colors">
                       {th.name}
                     </div>
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[10px] text-stone-400">
                       T{th.height} ({th.bustCup})
                     </div>
                   </div>
                 </Link>
               </td>
               {days.map((day, idx) => {
-                // ダミー出勤データ（偶数日や本日などは出勤中と仮定）
                 const isWorking = (th.id.charCodeAt(0) + idx) % 2 === 0 || day.isToday;
                 const timeSlot = isWorking ? '13:00~22:00' : '-';
 
@@ -77,15 +75,15 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ therapists, stor
                   <td
                     key={day.fullDate}
                     className={`py-3 px-2 text-center text-[11px] ${
-                      day.isToday ? 'bg-rose-950/20' : ''
+                      day.isToday ? 'bg-[#faf7f0]/60' : ''
                     }`}
                   >
                     {isWorking ? (
-                      <span className="inline-block px-2 py-1 bg-rose-900/40 text-rose-300 border border-rose-500/30 rounded font-medium">
+                      <span className="inline-block px-2 py-1 bg-[#f4eee0] text-[#7d7468] border border-[#d1b464]/30 rounded text-[10px] font-medium">
                         {timeSlot}
                       </span>
                     ) : (
-                      <span className="text-slate-600">お休み</span>
+                      <span className="text-stone-400">お休み</span>
                     )}
                   </td>
                 );

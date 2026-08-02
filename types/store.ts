@@ -5,9 +5,10 @@ export interface StoreConfig {
   catchphrase: string;
   logoUrl?: string;
   themeColor: {
-    primary: string; // e.g. '#e11d48'
-    accent: string;  // e.g. '#f43f5e'
-    darkBg: string;  // e.g. '#0f172a'
+    primary: string; // e.g. '#d1b464' (Gold)
+    accent: string;  // e.g. '#a39573' (Champagne)
+    darkBg: string;  // e.g. '#464646' (Chic Dark)
+    lightBg: string; // e.g. '#faf7f0' (Beige Light)
   };
   address: string;
   accessInfo: string;
@@ -26,7 +27,7 @@ export interface Therapist {
   age: number;
   height: number;
   bustCup: string;
-  threeSize?: string; // B88(F) W58 H86
+  threeSize?: string; // B86(E) W58 H87
   avatarUrl: string;
   images: string[];
   badge?: string;     // e.g. 'NEW', '新人', 'PICKUP'

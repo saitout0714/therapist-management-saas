@@ -38,6 +38,9 @@ interface Reservation {
   is_hime: boolean | null;
   notes?: string | null;
   payment_method: string | null;
+  options_payment_method?: string | null;
+  extension_payment_method?: string | null;
+  payment_settled_at?: string | null;
   customers: { name: string; created_at: string } | null;
   courses: { name: string; duration: number } | null;
   is_handled?: boolean;
@@ -157,6 +160,9 @@ interface Schedule {
   therapistNotified?: boolean;
   extensionMinutes?: number;
   availableCourses?: AvailableCourse[];
+  optionsPaymentMethod?: string | null;
+  extensionPaymentMethod?: string | null;
+  paymentSettledAt?: string | null;
 }
 
 type ViewMode = 'day' | 'vertical' | 'week';
@@ -795,6 +801,17 @@ function ShiftsContent() {
     return true;
   };
 
+  // クレジット/PayPay の入金確認。カード上の「決済完了」ボタンから呼ばれる
+  const handlePaymentSettle = async (reservationId: string, methodLabel: string) => {
+    if (!confirm(`この予約を「${methodLabel}決済完了」にしますか？`)) return;
+    const { error } = await supabase
+      .from('reservations')
+      .update({ payment_settled_at: new Date().toISOString() })
+      .eq('id', reservationId);
+    if (error) { alert('更新に失敗しました: ' + error.message); return; }
+    setRefreshCounter(c => c + 1);
+  };
+
   const handlePrevDay = () => {
     const prevDate = new Date(filterDate);
     prevDate.setDate(prevDate.getDate() - 1);
@@ -1227,6 +1244,9 @@ function ShiftsContent() {
           customer_type_override,
           reception_source,
           booking_method,
+          options_payment_method,
+          extension_payment_method,
+          payment_settled_at,
           customers(name, created_at),
           courses(name, duration),
           therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
@@ -1491,6 +1511,9 @@ function ShiftsContent() {
         receptionSource: reservation.reception_source,
         bookingMethod: reservation.booking_method,
         paymentMethod: reservation.payment_method,
+        optionsPaymentMethod: reservation.options_payment_method,
+        extensionPaymentMethod: reservation.extension_payment_method,
+        paymentSettledAt: reservation.payment_settled_at,
         customerNotified: reservation.customer_notified,
         therapistNotified: reservation.therapist_notified,
         extensionMinutes: (reservation.extension_count || 0) * extensionUnitMinutes,
@@ -2223,6 +2246,7 @@ function ShiftsContent() {
                     onReceptionCloseOpen={handleOpenReceptionClose}
                     onReceptionCloseClear={handleClearReceptionClosed}
                     onSettlementToggle={handleToggleSettlement}
+                    onPaymentSettle={handlePaymentSettle}
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
@@ -2257,6 +2281,7 @@ function ShiftsContent() {
                     onReceptionCloseOpen={handleOpenReceptionClose}
                     onReceptionCloseClear={handleClearReceptionClosed}
                     onSettlementToggle={handleToggleSettlement}
+                    onPaymentSettle={handlePaymentSettle}
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">

@@ -14,13 +14,13 @@ export const TherapistFilter: React.FC<TherapistFilterProps> = ({
   onSelectTag,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 py-4">
+    <div className="flex flex-wrap items-center justify-center gap-2 py-4 font-serif">
       <button
         onClick={() => onSelectTag(null)}
-        className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all ${
+        className={`px-4 py-1.5 text-xs font-bold transition-all ${
           selectedTag === null
-            ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-600/30'
-            : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+            ? 'bg-[#a39573] text-white shadow-sm'
+            : 'bg-white border border-[#d1b464]/30 text-stone-600 hover:border-[#a39573]'
         }`}
       >
         すべてを表示
@@ -32,10 +32,10 @@ export const TherapistFilter: React.FC<TherapistFilterProps> = ({
           <button
             key={tag}
             onClick={() => onSelectTag(isSelected ? null : tag)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
+            className={`px-3 py-1.5 text-xs font-medium border transition-all ${
               isSelected
-                ? 'bg-rose-600/90 border-rose-500 text-white shadow-md shadow-rose-600/30'
-                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                ? 'bg-[#a39573] border-[#a39573] text-white shadow-sm'
+                : 'bg-white border-[#d1b464]/30 text-stone-600 hover:border-[#a39573]'
             }`}
           >
             #{tag}
