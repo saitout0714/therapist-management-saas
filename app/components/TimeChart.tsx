@@ -436,7 +436,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   </div>
 
                   {/* テキスト情報（スマホ） */}
-                  <div className="flex sm:hidden flex-col justify-center flex-1 min-w-0 px-1 py-1 gap-[2px]">
+                  <div className="flex sm:hidden flex-col justify-center flex-1 min-w-0 px-1 py-0.5 gap-[1px]">
                     {/* 名前 */}
                     <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between w-full min-w-0 gap-0.5 sm:gap-1.5">
                       <div className="flex flex-col items-start sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 min-w-0 w-full">
@@ -537,7 +537,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
                     {/* ルーム + インターバル */}
                     {!isOff && (therapist.room || therapist.id !== 'unassigned') && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      // flex-nowrap: 折り返すと1行分の高さを余計に取り、下のメモが潰れて見えなくなるため
+                      <div className="flex items-center gap-1.5 flex-nowrap min-w-0 flex-shrink-0">
                         {therapist.room && (
                           <span
                             className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-0.5 cursor-default leading-none max-w-[60px] sm:max-w-none"
@@ -570,9 +571,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       </div>
                     )}
 
-                    {/* notes */}
+                    {/* notes — flex-shrink-0 が無いと上の行に押し潰されて高さ0になり見えなくなる */}
                     {therapist.notes && (
-                      <p className="text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={therapist.notes}>
+                      <p className="flex-shrink-0 text-[9px] text-amber-600 font-medium leading-none whitespace-nowrap truncate" title={therapist.notes}>
                         {therapist.notes}
                       </p>
                     )}
@@ -583,10 +584,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     {/* 1段目: 名前 + ランク + 休み */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       {therapist.isRookie && (
-                        <span className="text-sm flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                        <span className="text-[13px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
                       )}
                       <span
-                        className={`text-[15px] font-bold leading-none truncate group-hover:text-indigo-700 transition-colors cursor-default
+                        className={`text-[13px] font-bold leading-none truncate group-hover:text-indigo-700 transition-colors cursor-default
                           ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
                         onMouseEnter={(e) => {
                           if (therapist.id === 'unassigned') return;
@@ -602,15 +603,15 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         {therapist.name}
                       </span>
                       {therapist.linked_therapist_group_id && (
-                        <span className="text-sky-500 font-bold text-xs flex-shrink-0" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                        <span className="text-sky-500 font-bold text-[13px] flex-shrink-0" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                       )}
                       {therapist.rankName && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                        <span className="text-[13px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
                           {therapist.rankName}
                         </span>
                       )}
                       {isOff && (
-                        <span className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">
+                        <span className="flex-shrink-0 text-[13px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">
                           休み
                         </span>
                       )}
@@ -632,7 +633,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         </span>
                       )}
                       {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
-                        <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
+                        <span className="flex-shrink-0 text-[13px] font-bold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="予約間隔（インターバル）">
                           {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
                         </span>
                       )}
@@ -643,7 +644,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             e.stopPropagation();
                             if (therapist.receptionClosedReservationId) onReceptionCloseClear?.(therapist.receptionClosedReservationId);
                           }}
-                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap"
+                          className="flex-shrink-0 text-[13px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-amber-100 text-amber-700 border border-amber-300 whitespace-nowrap"
                           title="クリックで受付終了を解除"
                         >
                           受付終了 {therapist.receptionClosedFrom}〜
@@ -656,7 +657,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             e.stopPropagation();
                             onSettlementToggle?.(therapist.id, date || '', true);
                           }}
-                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700 whitespace-nowrap"
+                          className="flex-shrink-0 text-[13px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700 whitespace-nowrap"
                           title="クリックで未精算に戻す"
                         >
                           精算済み
@@ -669,7 +670,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       <div className="flex items-center gap-1.5 min-w-0">
                         {therapist.room && (
                           <span
-                            className="text-[11px] text-slate-600 font-semibold truncate flex items-center gap-0.5 cursor-default leading-none"
+                            className="text-[13px] text-slate-600 font-semibold truncate flex items-center gap-0.5 cursor-default leading-none"
                             onMouseEnter={(e) => {
                               if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -693,7 +694,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         )}
                         {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                           <span
-                            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[110px] whitespace-nowrap"
+                            className="flex-shrink-0 flex items-center gap-1 text-[13px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[110px] whitespace-nowrap"
                             title={`引継メモ: ${therapist.unresolvedMemos!.map(m => m.content).join(', ')}`}
                             onMouseEnter={e => {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -719,32 +720,35 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
 
-                  {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
-                    therapist.shiftStart && therapist.shiftEnd &&
-                    (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
-                      }}
-                      title="受付終了にする"
-                      className="flex-shrink-0 flex items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-all"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </button>
-                  )}
-                  {onShiftEditOpen && therapist.id !== 'unassigned' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShiftEditOpen(therapist.id);
-                      }}
-                      title="シフトを編集"
-                      className="flex-shrink-0 flex items-center justify-center self-center mr-1 w-6 h-6 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    </button>
-                  )}
+                  {/* 操作アイコン — スマホでは名前欄の幅を奪わないよう縦積み＋小型化する */}
+                  <div className="flex-shrink-0 self-center flex flex-col sm:flex-row items-center gap-0.5 sm:gap-0 mr-0.5 sm:mr-0">
+                    {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
+                      therapist.shiftStart && therapist.shiftEnd &&
+                      (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
+                        }}
+                        title="受付終了にする"
+                        className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 sm:mr-1 rounded-md text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                    )}
+                    {onShiftEditOpen && therapist.id !== 'unassigned' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShiftEditOpen(therapist.id);
+                        }}
+                        title="シフトを編集"
+                        className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 sm:mr-1 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
