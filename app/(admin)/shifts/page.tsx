@@ -2452,9 +2452,9 @@ function ShiftsContent() {
               )}
 
               {/* 精算済み */}
-              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${shiftEditModal.isSettled ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${shiftEditModal.isSettled ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
                 <div>
-                  <p className={`text-sm font-bold ${shiftEditModal.isSettled ? 'text-emerald-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
+                  <p className={`text-sm font-bold ${shiftEditModal.isSettled ? 'text-red-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">セラピストへ本日分の精算を送ったかどうかの状態です</p>
                 </div>
                 <button
@@ -2463,7 +2463,7 @@ function ShiftsContent() {
                     const ok = await handleToggleSettlement(shiftEditModal.therapistId, shiftEditModal.date, shiftEditModal.isSettled);
                     if (ok) setShiftEditModal(m => m ? { ...m, isSettled: !m.isSettled } : null);
                   }}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${shiftEditModal.isSettled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${shiftEditModal.isSettled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-red-600 text-white hover:bg-red-700'}`}
                 >
                   {shiftEditModal.isSettled ? '未精算に戻す' : '精算済みにする'}
                 </button>

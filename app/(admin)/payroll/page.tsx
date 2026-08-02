@@ -1180,7 +1180,7 @@ export default function PayrollPage() {
                       <button
                         onClick={handleToggleSettlement}
                         disabled={settlementSaving}
-                        className={`text-xs font-bold border px-2.5 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 ${isSettled ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-slate-600 hover:text-slate-800 border-slate-200'}`}
+                        className={`text-xs font-bold border px-2.5 py-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1 disabled:opacity-50 ${isSettled ? 'bg-red-600 text-white border-red-700 hover:bg-red-700' : 'bg-white text-slate-600 hover:text-slate-800 border-slate-200'}`}
                       >
                         {isSettled ? (
                           <>

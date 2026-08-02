@@ -533,7 +533,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                               e.stopPropagation();
                               onSettlementToggle?.(therapist.id, date || '', true);
                             }}
-                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100"
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700"
                             title="クリックで未精算に戻す"
                           >
                             精算済み
@@ -754,7 +754,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                             e.stopPropagation();
                             onSettlementToggle?.(therapist.id, date || '', true);
                           }}
-                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          className="flex-shrink-0 text-[8px] font-extrabold px-1 py-0.2 leading-none rounded bg-red-600 text-white border border-red-700"
                           title="クリックで未精算に戻す"
                         >
                           精算済み

@@ -527,7 +527,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                               e.stopPropagation();
                               onSettlementToggle?.(therapist.id, date || '', true);
                             }}
-                            className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap"
+                            className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700 whitespace-nowrap"
                             title="クリックで未精算に戻す"
                           >
                             精算済み
@@ -655,7 +655,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             e.stopPropagation();
                             onSettlementToggle?.(therapist.id, date || '', true);
                           }}
-                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap"
+                          className="flex-shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-red-600 text-white border border-red-700 whitespace-nowrap"
                           title="クリックで未精算に戻す"
                         >
                           精算済み
