@@ -439,6 +439,8 @@ export default function NewReservationPage() {
     let basePrice = selectedCourse?.base_price || 0
     let optionsPrice = 0
     let duration = selectedCourse?.duration || 0
+    let resolvedCoursePriceOverride: number | null = null
+    let resolvedPriceSource: 'matrix' | 'default' | 'fallback' | null = null
 
     // course_back_amounts から顧客料金を自動解決
     if (selectedShop && formData.course_id && formData.designation_type) {
@@ -453,6 +455,8 @@ export default function NewReservationPage() {
         getPricingShopId(selectedShop)
       )
       basePrice = resolved.customerPrice
+      resolvedCoursePriceOverride = resolved.coursePriceOverride
+      resolvedPriceSource = resolved.source
       setResolvedBasePrice(resolved.customerPrice)
     } else {
       setResolvedBasePrice(null)
@@ -490,9 +494,14 @@ export default function NewReservationPage() {
     } else if (formData.designation_type !== 'free') {
       // 指名フィーは course_back_amounts の customer_price に含まれている場合と
       // 別途 system_settings で設定されている場合がある
-      // customer_price と base_price の差分が指名料
-      const originalBase = selectedCourse?.base_price || 0
-      if (basePrice > originalBase) {
+      if (resolvedPriceSource === 'matrix') {
+        // ランク×コース×指名種別ごとの明示的な設定が存在する場合は、
+        // customer_price と course_price_override の差分を指名料として確定させる（0円も含めて信頼する）
+        const originalBase = resolvedCoursePriceOverride ?? (selectedCourse?.base_price || 0)
+        nominationFee = Math.max(0, basePrice - originalBase)
+        basePrice = originalBase
+      } else if (basePrice > (selectedCourse?.base_price || 0)) {
+        const originalBase = selectedCourse?.base_price || 0
         // course_back_amounts で解決した結果に指名料が含まれている
         nominationFee = basePrice - originalBase
         basePrice = originalBase // 基本料金を本来の金額にリセット

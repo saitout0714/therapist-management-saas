@@ -11,6 +11,8 @@ import VerticalTimeChart from '@/app/components/VerticalTimeChart';
 import WeeklyDayView from '@/app/components/WeeklyDayView';
 import { toDisplayTime } from '@/lib/timeUtils';
 import { getPricingShopId } from '@/lib/shopUtils';
+import ShiftRequestDrawer from '@/app/components/ShiftRequestDrawer';
+
 
 interface Shift {
   id: string;
@@ -1891,7 +1893,11 @@ function ShiftsContent() {
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
+        <ShiftRequestDrawer onRefresh={fetchTherapists} />
+
         <div className="mb-2 md:mb-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+
+
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <div className="flex items-center gap-2">
               <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap">

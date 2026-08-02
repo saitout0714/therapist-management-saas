@@ -35,6 +35,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/sync", label: "サイト同期" },
   ];
 
+  const therapistItems = [
+    { href: "/therapist/blog", label: "写メ日記・ブログ管理" },
+    { href: "/therapist/schedule", label: "出勤希望提出" },
+  ];
+
   const adminItems = ["developer", "system_admin", "agency_staff"].includes(user?.role || "") ? [
     { href: "/admin", label: "店舗管理" },
     { href: "/admin/agency-aggregation", label: "代行プラン集計" },
@@ -43,6 +48,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       { href: "/shifts/sync", label: "外部シフト同期" },
     ] : []),
   ] : [];
+
 
   return (
     <>
@@ -82,6 +88,35 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </Link>
               );
             })}
+
+            {user?.role === 'developer' && (
+              <div className="pt-4 border-t border-slate-100/60 mt-4">
+                <div className="px-4 mb-2 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                  セラピスト専用メニュー
+                </div>
+                <div className="space-y-1.5">
+                  {therapistItems.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center px-4 py-2.5 text-sm rounded-xl transition-all duration-200 group ${
+                          isActive
+                            ? "bg-rose-50 text-rose-700 font-semibold shadow-sm"
+                            : "text-slate-600 font-medium hover:bg-slate-50 hover:text-rose-600"
+                        }`}
+                      >
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+
+
 
             {adminItems.length > 0 && (
               <div className="pt-4 border-t border-slate-100/60 mt-4">

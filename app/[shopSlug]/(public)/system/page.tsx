@@ -1,18 +1,32 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Header } from '../../../../components/store/Header';
 import { Footer } from '../../../../components/store/Footer';
+import { fetchStoreConfig, fetchSystemCourses } from '../../../../lib/storeApi';
+import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
 import { MOCK_STORE, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
 
 export default function SystemPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
+  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
+  const [categories, setCategories] = useState<SystemMenuCategory[]>(MOCK_SYSTEM_MENU);
+
+  useEffect(() => {
+    async function loadData() {
+      const storeConfig = await fetchStoreConfig(shopSlug);
+      setStore(storeConfig);
+      const cList = await fetchSystemCourses(storeConfig.id);
+      setCategories(cList);
+    }
+    loadData();
+  }, [shopSlug]);
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
-      <Header store={MOCK_STORE} />
+      <Header store={store} />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
         <div className="text-center mb-10">
@@ -23,7 +37,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         </div>
 
         <div className="space-y-8">
-          {MOCK_SYSTEM_MENU.map((cat, idx) => (
+          {categories.map((cat, idx) => (
             <div
               key={idx}
               className="bg-white rounded-sm border border-[#d1b464]/30 p-6 shadow-sm space-y-4"
@@ -70,7 +84,8 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         </div>
       </main>
 
-      <Footer store={MOCK_STORE} />
+      <Footer store={store} />
     </div>
   );
 }
+

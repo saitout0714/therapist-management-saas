@@ -750,9 +750,15 @@ export async function POST(
   let nominationFee = 0
 
   if (designationType !== 'free' && !designationTypeRow?.is_store_paid_back) {
-    const originalBase = course?.base_price || 0
-    if (resolvedPrice.customerPrice > originalBase) {
-      // コース料金自体が matrix やデフォルト設定によって高くなっている場合、
+    if (resolvedPrice.source === 'matrix') {
+      // ランク×コース×指名種別ごとの明示的な設定（course_back_amounts）が存在する場合は、
+      // customer_price と course_price_override の差分を指名料として確定させる（0円も含めて信頼する）
+      const originalBase = resolvedPrice.coursePriceOverride ?? (course?.base_price || 0)
+      nominationFee = Math.max(0, resolvedPrice.customerPrice - originalBase)
+      basePrice = originalBase
+    } else if (resolvedPrice.customerPrice > (course?.base_price || 0)) {
+      const originalBase = course?.base_price || 0
+      // コース料金自体が デフォルト設定によって高くなっている場合、
       // 指名料はすでにその customerPrice に内包されているため、差し引いて分離する
       nominationFee = resolvedPrice.customerPrice - originalBase
       basePrice = originalBase
