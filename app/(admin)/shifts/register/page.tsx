@@ -207,9 +207,8 @@ export default function RegisterShift() {
           )}
         </div>
 
-        <ShiftRequestDrawer onRefresh={() => setRefreshKey((c) => c + 1)} />
-
         {loading && (
+
 
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>

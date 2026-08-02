@@ -1893,9 +1893,8 @@ function ShiftsContent() {
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="w-full mx-auto">
-        <ShiftRequestDrawer onRefresh={fetchTherapists} />
-
         <div className="mb-2 md:mb-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+
 
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
