@@ -317,8 +317,11 @@ export default function EditReservationPage() {
         .filter((ro: any) => !ro.option_id)
         .map((ro: any) => ({ name: ro.custom_name || '', price: ro.price || 0, backAmount: ro.custom_back_amount || 0 }))
       setCustomOptions(loadedCustomOptions)
+      // ポリシー割引と手入力（アドホック）割引は別レコードとして併存しうるため、
+      // 手入力欄には手入力分のレコードだけを反映する（合算後の reservation.discount_amount だと二重計上になる）
       const appliedDiscounts = (reservation.reservation_discounts as any[]) || []
-      const mainDiscount = appliedDiscounts[0]
+      const adhocDiscount = appliedDiscounts.find((d: any) => !d.policy_id)
+      const policyDiscounts = appliedDiscounts.filter((d: any) => d.policy_id)
 
       // 予約の顧客を直接取得してセット（customers配列の件数上限に依存しない）
       if (reservation.customer_id) {
@@ -352,9 +355,9 @@ export default function EditReservationPage() {
         designation_type: reservation.designation_type,
         selected_options: selectedOptions,
         extension_count: reservation.extension_count || 0,
-        discount_amount: reservation.discount_amount || 0,
-        discount_reason: mainDiscount?.note || '',
-        manual_therapist_burden: mainDiscount?.therapist_burden_amount ?? 0,
+        discount_amount: adhocDiscount?.applied_amount ?? 0,
+        discount_reason: (adhocDiscount?.note ?? policyDiscounts[0]?.note) || '',
+        manual_therapist_burden: adhocDiscount?.therapist_burden_amount ?? 0,
         notes: reservation.notes || '',
         status: reservation.status,
         reception_source: reservation.reception_source || 'staff',
@@ -384,7 +387,7 @@ export default function EditReservationPage() {
         setSelectedRoomId(reservation.room_id || '')
       }
 
-      const policyIds = appliedDiscounts.filter((d: any) => d.policy_id).map((d: any) => d.policy_id as string)
+      const policyIds = policyDiscounts.map((d: any) => d.policy_id as string)
       if (policyIds.length > 0) {
         setSelectedDiscountIds(policyIds)
       }
@@ -490,16 +493,14 @@ export default function EditReservationPage() {
     }
 
     const selectedPolicies = discountPolicies.filter(p => selectedDiscountIds.includes(p.id))
-    let dynamicDiscount = formData.discount_amount
-
-    if (selectedPolicies.length > 0) {
-      const subtotal = basePrice + optionsPrice + extensionPrice + nominationFee
-      dynamicDiscount = selectedPolicies.reduce((sum, policy) => {
-        if (policy.discount_type === 'fixed') return sum + policy.discount_value
-        if (policy.discount_type === 'percentage') return sum + Math.floor(subtotal * policy.discount_value / 100)
-        return sum
-      }, 0)
-    }
+    const subtotal = basePrice + optionsPrice + extensionPrice + nominationFee
+    const policyDiscount = selectedPolicies.reduce((sum, policy) => {
+      if (policy.discount_type === 'fixed') return sum + policy.discount_value
+      if (policy.discount_type === 'percentage') return sum + Math.floor(subtotal * policy.discount_value / 100)
+      return sum
+    }, 0)
+    // ポリシー割引と手入力割引は併用可能（両方の合計を最終割引額とする）
+    const dynamicDiscount = policyDiscount + (formData.discount_amount || 0)
 
     const totalPrice = basePrice + optionsPrice + extensionPrice + nominationFee - dynamicDiscount
 
@@ -916,38 +917,39 @@ export default function EditReservationPage() {
         await supabase.from('reservation_options').insert(allOptionInserts)
       }
 
-      // 割引情報の適用
+      // 割引情報の適用（ポリシー割引と手入力割引は併用可能）
       const savedTherapist = therapists.find(t => t.id === formData.therapist_id)
-      if (selectedDiscountIds.length > 0 && calculatedPrice.discountAmount > 0) {
-        const subtotal = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.extensionPrice + calculatedPrice.nominationFee
-        const discountInserts = selectedDiscountIds.map(id => {
-          const policy = discountPolicies.find(p => p.id === id)!
-          const amt = policy.discount_type === 'fixed'
-            ? policy.discount_value
-            : Math.floor(subtotal * policy.discount_value / 100)
-          return {
-            reservation_id: reservationId,
-            policy_id: policy.id,
-            applied_amount: amt,
-            burden_type: policy.burden_type,
-            therapist_burden_amount: resolveDiscountBurden(policy, savedTherapist?.rank_id ?? null),
-            is_adhoc: false,
-            adhoc_name: null,
-            note: formData.discount_reason || null,
-          }
-        })
-        await supabase.from('reservation_discounts').insert(discountInserts)
-      } else if (selectedDiscountIds.length === 0 && calculatedPrice.discountAmount > 0) {
-        await supabase.from('reservation_discounts').insert([{
+      const subtotal = calculatedPrice.basePrice + calculatedPrice.optionsPrice + calculatedPrice.extensionPrice + calculatedPrice.nominationFee
+      const discountInserts: any[] = selectedDiscountIds.map(id => {
+        const policy = discountPolicies.find(p => p.id === id)!
+        const amt = policy.discount_type === 'fixed'
+          ? policy.discount_value
+          : Math.floor(subtotal * policy.discount_value / 100)
+        return {
+          reservation_id: reservationId,
+          policy_id: policy.id,
+          applied_amount: amt,
+          burden_type: policy.burden_type,
+          therapist_burden_amount: resolveDiscountBurden(policy, savedTherapist?.rank_id ?? null),
+          is_adhoc: false,
+          adhoc_name: null,
+          note: formData.discount_reason || null,
+        }
+      })
+      if (formData.discount_amount > 0) {
+        discountInserts.push({
           reservation_id: reservationId,
           policy_id: null,
-          applied_amount: calculatedPrice.discountAmount,
+          applied_amount: formData.discount_amount,
           burden_type: 'shop_only',
           therapist_burden_amount: formData.manual_therapist_burden,
           is_adhoc: true,
           adhoc_name: '手動割引',
           note: formData.discount_reason || null,
-        }])
+        })
+      }
+      if (discountInserts.length > 0) {
+        await supabase.from('reservation_discounts').insert(discountInserts)
       }
 
       // ★ バック再計算
@@ -974,25 +976,24 @@ export default function EditReservationPage() {
             ...optionInserts.map(o => ({ option_id: o.option_id, price: o.price })),
             ...customOptionInserts.map(co => ({ option_id: null as string | null, price: co.price, custom_back_amount: co.custom_back_amount })),
           ],
-          discounts: selectedDiscountIds.length > 0
-            ? selectedDiscountIds.map(id => {
-                const policy = discountPolicies.find(p => p.id === id)!
-                const amt = policy.discount_type === 'fixed'
-                  ? policy.discount_value
-                  : Math.floor(subtotalForBack * policy.discount_value / 100)
-                return {
-                  applied_amount: amt,
-                  burden_type: policy.burden_type as 'shop_only' | 'split' | 'therapist_only',
-                  therapist_burden_amount: resolveDiscountBurden(policy, selectedTherapist?.rank_id ?? null),
-                }
-              })
-            : calculatedPrice.discountAmount > 0
-            ? [{
-                applied_amount: calculatedPrice.discountAmount,
-                burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
-                therapist_burden_amount: formData.manual_therapist_burden,
-              }]
-            : [],
+          discounts: [
+            ...selectedDiscountIds.map(id => {
+              const policy = discountPolicies.find(p => p.id === id)!
+              const amt = policy.discount_type === 'fixed'
+                ? policy.discount_value
+                : Math.floor(subtotalForBack * policy.discount_value / 100)
+              return {
+                applied_amount: amt,
+                burden_type: policy.burden_type as 'shop_only' | 'split' | 'therapist_only',
+                therapist_burden_amount: resolveDiscountBurden(policy, selectedTherapist?.rank_id ?? null),
+              }
+            }),
+            ...(formData.discount_amount > 0 ? [{
+              applied_amount: formData.discount_amount,
+              burden_type: 'shop_only' as 'shop_only' | 'split' | 'therapist_only',
+              therapist_burden_amount: formData.manual_therapist_burden,
+            }] : []),
+          ],
           date: formData.date,
           startTime: formData.start_time,
           himeBonus: formData.is_hime ? formData.hime_bonus : 0,
@@ -1807,12 +1808,7 @@ export default function EditReservationPage() {
                             className="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500"
                             checked={checked}
                             disabled={disabledByNonCombinable}
-                            onChange={() => {
-                              handleDiscountToggle(p.id)
-                              if (!selectedDiscountIds.includes(p.id)) {
-                                setFormData(prev => ({ ...prev, discount_amount: 0, discount_reason: '' }))
-                              }
-                            }}
+                            onChange={() => handleDiscountToggle(p.id)}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-[11px] sm:text-xs truncate">{p.name}</div>
@@ -1828,42 +1824,42 @@ export default function EditReservationPage() {
                     })}
                   </div>
                 )}
-                {selectedDiscountIds.length === 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">手入力割引額 (円)</label>
-                      <input
-                        type="number"
-                        value={formData.discount_amount}
-                        onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">セラピスト負担 (円)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={formData.manual_therapist_burden || ''}
-                        onChange={(e) => setFormData({ ...formData, manual_therapist_burden: Number(e.target.value) })}
-                        placeholder="0"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
-                      />
-                      <p className="mt-1 text-xs text-slate-400">0円＝店全額負担</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">割引理由</label>
-                      <input
-                        type="text"
-                        value={formData.discount_reason}
-                        onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm placeholder:text-xs"
-                        placeholder="初回割引、キャンペーン等"
-                      />
-                    </div>
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      手入力割引額 (円) {selectedDiscountIds.length > 0 && <span className="text-teal-600 font-bold">※上記と合算</span>}
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.discount_amount}
+                      onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
+                      placeholder="0"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">セラピスト負担 (円)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.manual_therapist_burden || ''}
+                      onChange={(e) => setFormData({ ...formData, manual_therapist_burden: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs font-medium text-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">0円＝店全額負担</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">割引理由</label>
+                    <input
+                      type="text"
+                      value={formData.discount_reason}
+                      onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-sm placeholder:text-xs"
+                      placeholder="初回割引、キャンペーン等"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* 支払方法 */}
