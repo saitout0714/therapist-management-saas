@@ -1641,9 +1641,19 @@ export default function NewReservationPage() {
                     })}
                   </select>
                   {isBlocked && (
-                    <p className="mt-1 text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded">
-                      予約不可ブロック：開始・終了時刻を指定してください。
-                    </p>
+                    <div className="mt-1.5">
+                      <p className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded mb-1.5">
+                        予約不可ブロック：開始・終了時刻を指定してください。
+                      </p>
+                      <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">メモ</label>
+                      <textarea
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="理由・備考など（例: 休憩、私用、送迎）"
+                        rows={2}
+                        className="w-full px-3 py-1.5 bg-rose-50/60 border border-rose-200 rounded-lg focus:ring-2 focus:ring-rose-400/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -2156,16 +2166,18 @@ export default function NewReservationPage() {
                   操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-40">{user?.name || user?.loginId || 'ログインユーザー'}</span>
                 </div>
               </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="特別なリクエストや店内共有事項など"
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
-                  rows={1}
-                />
-              </div>
+              {!isBlocked && (
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="特別なリクエストや店内共有事項など"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                    rows={1}
+                  />
+                </div>
+              )}
             </div>
           </section>
         </div>

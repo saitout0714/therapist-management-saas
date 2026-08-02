@@ -347,7 +347,7 @@ export default function EditReservationPage() {
         date: reservation.date,
         start_time: reservation.start_time,
         end_time: reservation.end_time || '',
-        course_id: reservation.course_id,
+        course_id: reservation.status === 'blocked' ? '__blocked__' : reservation.course_id,
         therapist_id: reservation.therapist_id || 'unassigned',
         designation_type: reservation.designation_type,
         selected_options: selectedOptions,
@@ -627,10 +627,12 @@ export default function EditReservationPage() {
     }
   }
 
+  const isBlocked = formData.course_id === '__blocked__'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if ((!formData.customer_id && !newCustomer.name) || !formData.course_id || !formData.therapist_id) {
+    if ((!isBlocked && !formData.customer_id && !newCustomer.name) || !formData.course_id || !formData.therapist_id) {
       alert('必須項目を入力してください')
       return
     }
@@ -779,6 +781,41 @@ export default function EditReservationPage() {
         alert('NGチェック中にエラーが発生しました')
         return
       }
+    }
+
+    // 予約不可ブロック
+    if (isBlocked) {
+      try {
+        const { error } = await supabase.from('reservations').update({
+          therapist_id: formData.therapist_id === 'unassigned' ? null : formData.therapist_id,
+          date: formData.date,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          status: 'blocked',
+          course_id: null,
+          customer_id: null,
+          base_price: 0,
+          options_price: 0,
+          nomination_fee: 0,
+          total_price: 0,
+          discount_amount: 0,
+          designation_type: 'free',
+          notes: formData.notes,
+        }).eq('id', reservationId)
+        if (error) throw error
+        if (fromPage === 'weekly') {
+          window.location.href = `/shifts?date=${formData.date}&view=week`
+        } else if (fromPage === 'vertical') {
+          window.location.href = `/shifts?date=${formData.date}&view=vertical&scroll_to_time=${formData.start_time}`
+        } else if (fromPage === 'shifts') {
+          window.location.href = `/shifts?date=${formData.date}&scroll_to_time=${formData.start_time}`
+        } else {
+          router.push('/reservations')
+        }
+      } catch (error: any) {
+        setSaveError(`予約の更新に失敗しました: ${error.message}`)
+      }
+      return
     }
 
     try {
@@ -1407,6 +1444,7 @@ export default function EditReservationPage() {
                     required
                   >
                     <option value="">選択してください</option>
+                    <option value="__blocked__">🚫 予約不可（ブロック）</option>
                     {courses.map(course => {
                       const isNg = therapists.find(t => t.id === formData.therapist_id)?.ng_course_ids?.includes(course.id)
                       return (
@@ -1416,6 +1454,21 @@ export default function EditReservationPage() {
                       )
                     })}
                   </select>
+                  {isBlocked && (
+                    <div className="mt-1.5">
+                      <p className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded mb-1.5">
+                        予約不可ブロック：開始・終了時刻を指定してください。
+                      </p>
+                      <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">メモ</label>
+                      <textarea
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="理由・備考など（例: 休憩、私用、送迎）"
+                        rows={2}
+                        className="w-full px-3 py-1.5 bg-rose-50/60 border border-rose-200 rounded-lg focus:ring-2 focus:ring-rose-400/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {systemSettings && (systemSettings.extension_unit_minutes ?? 0) > 0 && (
@@ -1610,19 +1663,21 @@ export default function EditReservationPage() {
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-3.5">
 
               {/* ステータス */}
-              <div>
-                <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">
-                  予約ステータス <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['pending', 'confirmed', 'cancelled'] as const).map(s => (
-                    <label key={s} className={`flex items-center justify-center gap-1 px-1.5 py-1.5 border rounded-lg cursor-pointer transition-all select-none text-center ${formData.status === s ? s === 'confirmed' ? 'bg-emerald-600 border-emerald-600 text-white' : s === 'cancelled' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                      <input type="radio" name="status" value={s} checked={formData.status === s} onChange={() => setFormData({ ...formData, status: s })} className="w-3 h-3 accent-indigo-600" />
-                      <span className="font-bold text-[10px] sm:text-xs whitespace-nowrap">{s === 'confirmed' ? '確定' : s === 'cancelled' ? 'キャンセル' : '保留中'}</span>
-                    </label>
-                  ))}
+              {!isBlocked && (
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1.5">
+                    予約ステータス <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['pending', 'confirmed', 'cancelled'] as const).map(s => (
+                      <label key={s} className={`flex items-center justify-center gap-1 px-1.5 py-1.5 border rounded-lg cursor-pointer transition-all select-none text-center ${formData.status === s ? s === 'confirmed' ? 'bg-emerald-600 border-emerald-600 text-white' : s === 'cancelled' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                        <input type="radio" name="status" value={s} checked={formData.status === s} onChange={() => setFormData({ ...formData, status: s })} className="w-3 h-3 accent-indigo-600" />
+                        <span className="font-bold text-[10px] sm:text-xs whitespace-nowrap">{s === 'confirmed' ? '確定' : s === 'cancelled' ? 'キャンセル' : '保留中'}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* オプション */}
               <div className="border-t border-slate-100 pt-3">
@@ -1939,16 +1994,18 @@ export default function EditReservationPage() {
                   操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-40">{creatorName || '不明'}</span>
                 </div>
               </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="特別なリクエストや店内共有事項など"
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
-                  rows={1}
-                />
-              </div>
+              {!isBlocked && (
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="特別なリクエストや店内共有事項など"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                    rows={1}
+                  />
+                </div>
+              )}
             </div>
           </section>
         </div>

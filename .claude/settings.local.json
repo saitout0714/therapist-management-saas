@@ -78,7 +78,9 @@
       "Bash(git commit *)",
       "Bash(cd \"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas\" && sed -i 's/minHour={0}/minHour={9}/g' \"app/\\(admin\\)/reservations/new/page.tsx\" \"app/\\(admin\\)/reservations/[id]/edit/page.tsx\" && grep -n \"minHour={9}\" \"app/\\(admin\\)/reservations/new/page.tsx\" \"app/\\(admin\\)/reservations/[id]/edit/page.tsx\")",
       "Bash(git log *)",
-      "mcp__claude-in-chrome__tabs_context_mcp"
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "Bash(grep -n \"^\\\\s*{/\\\\* [0-9]:\" \"app/\\(admin\\)/reservations/new/page.tsx\")",
+      "Bash(grep -n \"reservations/\\\\${.*}/edit\\\\|/edit\\\\`\\\\|router.push\\(\\\\`/reservations\" \"app/\\(admin\\)/reservations/[id]/page.tsx\")"
     ]
   }
 }
