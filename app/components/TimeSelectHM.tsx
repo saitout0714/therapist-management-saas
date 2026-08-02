@@ -52,6 +52,10 @@ export default function TimeSelectHM({
           className={selectClassName}
         >
           {placeholder && <option value="">時</option>}
+          {/* 既存データが範囲外の時刻（例: 旧データの 01:00）でも表示が消えないよう補う */}
+          {hourStr && !Number.isNaN(Number(hourStr)) && (Number(hourStr) < minHour || Number(hourStr) > maxHour) && (
+            <option value={hourStr}>{hourStr}時</option>
+          )}
           {Array.from({ length: maxHour - minHour + 1 }, (_, i) => {
             const h = minHour + i;
             const hs = String(h).padStart(2, '0');

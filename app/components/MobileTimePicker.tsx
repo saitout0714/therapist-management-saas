@@ -140,6 +140,10 @@ export default function MobileTimePicker({
     const hs = String(h).padStart(2, '0');
     return { label: hs, value: hs };
   });
+  // 既存データが範囲外の時刻（例: 旧データの 01:00）でも表示が消えないよう補う
+  if (tempHour && !hourItems.some(item => item.value === tempHour)) {
+    hourItems.unshift({ label: tempHour, value: tempHour });
+  }
 
   const minuteItems = Array.from({ length: 12 }, (_, i) => {
     const m = i * 5;

@@ -1599,7 +1599,7 @@ export default function NewReservationPage() {
                     value={formData.start_time}
                     onChange={v => setFormData({ ...formData, start_time: v })}
                     placeholder
-                    minHour={0}
+                    minHour={9}
                     required
                   />
                 </div>
@@ -1609,7 +1609,7 @@ export default function NewReservationPage() {
                     value={formData.end_time}
                     onChange={v => setFormData({ ...formData, end_time: v })}
                     placeholder
-                    minHour={0}
+                    minHour={9}
                     required
                   />
                 </div>
