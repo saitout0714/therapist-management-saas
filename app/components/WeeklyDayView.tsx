@@ -512,11 +512,18 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                       const endDisplay = toDisplayTime(shift.end_time)
                       const allDayReservations = reservationsByDateTherapist.get(`${dateStr}_${shift.therapist_id}`) || []
                       const dayReservations = allDayReservations.filter(r => r.status === 'confirmed')
-                      const blockedNote = allDayReservations.find(r => r.status === 'blocked')?.notes
-                      const shiftNote = blockedNote != null ? blockedNote : (shift.notes ?? null)
-
                       const shiftStartStr = toDisplayTime(shift.start_time)
                       const shiftEndStr = toDisplayTime(shift.end_time)
+
+                      // 休み（全日ブロック）のメモのみシフトのメモとして扱う
+                      // ※部分的な予約不可スロットのメモはブロック側に表示する
+                      const blockedNote = allDayReservations.find(r =>
+                        r.status === 'blocked' &&
+                        toDisplayTime(r.start_time) === shiftStartStr &&
+                        toDisplayTime(r.end_time) === shiftEndStr
+                      )?.notes
+                      const shiftNote = blockedNote != null ? blockedNote : (shift.notes ?? null)
+
                       const isOff = therapist.id !== 'unassigned' && allDayReservations.some(r =>
                         r.status === 'blocked' &&
                         toDisplayTime(r.start_time) === shiftStartStr &&

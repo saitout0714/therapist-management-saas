@@ -69,6 +69,7 @@ interface Schedule {
   extensionMinutes?: number;
   availableCourses?: AvailableCourse[];
   isOtherShop?: boolean;
+  notes?: string | null;
 }
 
 interface TimeChartProps {
@@ -840,7 +841,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         border: '1.5px solid rgba(120,0,20,0.9)',
                         color: 'white',
                       }}
-                      title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
+                      title={`${(!schedule.isOtherShop && schedule.notes) ? `${schedule.notes}\n` : ''}${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onBlockedClick && schedule.reservationId) {
@@ -862,20 +863,50 @@ const TimeChart: React.FC<TimeChartProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          color: 'rgba(255,230,230,0.95)',
-                          whiteSpace: 'nowrap',
-                          letterSpacing: '0.02em',
-                          maxWidth: '100%',
+                        // メモを最優先で表示し、余った幅にだけ時刻・ラベルを出す
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          width: '100%',
+                          padding: '0 4px',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          padding: '0 6px',
-                          textShadow: '0 1px 2px rgba(80,0,10,0.7)',
                         }}>
-                          {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
-                        </span>
+                          {schedule.notes && (
+                            <span style={{
+                              flex: '0 0 auto',
+                              maxWidth: '100%',
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              lineHeight: 1.2,
+                              color: '#7f1020',
+                              background: 'rgba(255,255,255,0.95)',
+                              borderRadius: '5px',
+                              padding: '1px 5px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              boxShadow: '0 1px 2px rgba(80,0,10,0.35)',
+                            }}>
+                              {schedule.notes}
+                            </span>
+                          )}
+                          <span style={{
+                            flex: '0 1 auto',
+                            minWidth: 0,
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            color: 'rgba(255,230,230,0.95)',
+                            whiteSpace: 'nowrap',
+                            letterSpacing: '0.02em',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            textShadow: '0 1px 2px rgba(80,0,10,0.7)',
+                          }}>
+                            {schedule.startTime}～{schedule.endTime} {schedule.customerName || schedule.title || '予約不可'}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );

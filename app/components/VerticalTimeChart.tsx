@@ -81,6 +81,7 @@ interface Schedule {
   extensionMinutes?: number;
   availableCourses?: AvailableCourse[];
   isOtherShop?: boolean;
+  notes?: string | null;
 }
 
 interface VerticalTimeChartProps {
@@ -825,7 +826,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           border: '1px solid rgba(120,0,20,0.9)',
                           color: 'white',
                         }}
-                        title={`${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
+                        title={`${(!schedule.isOtherShop && schedule.notes) ? `${schedule.notes}\n` : ''}${schedule.startTime}～${schedule.endTime} ${schedule.customerName || schedule.title || '予約不可'}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDragging || dragDistanceRef.current > 5) return;
@@ -848,9 +849,23 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                             </div>
                           </div>
                         ) : (
-                          <span className="text-[9px] font-bold text-rose-50 leading-none truncate px-1 text-center" style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}>
-                            {schedule.customerName || schedule.title || '予約不可'}
-                          </span>
+                          // メモを最優先で表示し、余った高さにだけラベルを出す
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 overflow-hidden px-1">
+                            {schedule.notes && (
+                              <span
+                                className="shrink-0 max-w-full text-[9px] font-extrabold leading-tight truncate rounded px-1 py-px text-center"
+                                style={{ color: '#7f1020', background: 'rgba(255,255,255,0.95)', boxShadow: '0 1px 2px rgba(80,0,10,0.35)' }}
+                              >
+                                {schedule.notes}
+                              </span>
+                            )}
+                            <span
+                              className="min-h-0 max-w-full text-[9px] font-bold text-rose-50 leading-none truncate text-center"
+                              style={{ textShadow: '0 1px 2px rgba(80,0,10,0.7)' }}
+                            >
+                              {schedule.customerName || schedule.title || '予約不可'}
+                            </span>
+                          </div>
                         )}
                       </div>
                     );

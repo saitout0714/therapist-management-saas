@@ -322,6 +322,7 @@ function ShiftsContent() {
     id: string;
     startTime: string;
     endTime: string;
+    memo: string;
   } | null>(null);
 
   // メモ追加フォーム
@@ -408,10 +409,11 @@ function ShiftsContent() {
     saving: boolean;
     error: string;
     unresolvedMemos: TherapistMemo[];
-    blockedSlots: { startTime: string; endTime: string }[];
+    blockedSlots: { startTime: string; endTime: string; memo: string }[];
     addingBlocked: boolean;
     newBlockedStart: string;
     newBlockedEnd: string;
+    newBlockedMemo: string;
   } | null>(null);
 
   const handleBlockedDelete = async (id: string) => {
@@ -444,7 +446,7 @@ function ShiftsContent() {
 
     let isOff = false;
     let offMemo = '';
-    const blockedSlots: { startTime: string; endTime: string }[] = [];
+    const blockedSlots: { startTime: string; endTime: string; memo: string }[] = [];
 
     for (const bl of allBlocked) {
       const blStart = toDisplayTime(bl.start_time);
@@ -453,7 +455,7 @@ function ShiftsContent() {
         isOff = true;
         offMemo = bl.notes ?? '';
       } else {
-        blockedSlots.push({ startTime: blStart, endTime: blEnd });
+        blockedSlots.push({ startTime: blStart, endTime: blEnd, memo: bl.notes ?? '' });
       }
     }
 
@@ -482,6 +484,7 @@ function ShiftsContent() {
       addingBlocked: false,
       newBlockedStart: defaultStart,
       newBlockedEnd: defaultEnd,
+      newBlockedMemo: '',
     });
   };
 
@@ -490,8 +493,9 @@ function ShiftsContent() {
       if (!m || !m.newBlockedStart || !m.newBlockedEnd) return m;
       return {
         ...m,
-        blockedSlots: [...m.blockedSlots, { startTime: m.newBlockedStart, endTime: m.newBlockedEnd }],
+        blockedSlots: [...m.blockedSlots, { startTime: m.newBlockedStart, endTime: m.newBlockedEnd, memo: m.newBlockedMemo }],
         addingBlocked: false,
+        newBlockedMemo: '',
       };
     });
   };
@@ -574,7 +578,7 @@ function ShiftsContent() {
           total_price: 0,
           discount_amount: 0,
           designation_type: 'free',
-          notes: null,
+          notes: slot.memo?.trim() || null,
         }))
       );
       if (error) {
@@ -592,6 +596,7 @@ function ShiftsContent() {
     const { error } = await supabase.from('reservations').update({
       start_time: blockedModal.startTime,
       end_time: blockedModal.endTime,
+      notes: blockedModal.memo.trim() || null,
     }).eq('id', blockedModal.id);
     if (error) { alert('更新に失敗しました'); return; }
     setBlockedModal(null);
@@ -1477,9 +1482,15 @@ function ShiftsContent() {
   ];
 
   const sortedTherapistsWithShift = useMemo(() => {
-    // blockedのメモを優先してnotesをマージ
+    // 休み（シフト全時間帯がblocked）のメモを優先してnotesをマージ
+    // ※部分的な予約不可スロットのメモはブロック側に表示するため、ここでは拾わない
     const withShift = therapists.filter(t => t.shiftStart && t.shiftEnd).map(t => {
-      const blockedNote = reservations.find(r => r.therapist_id === t.id && r.status === 'blocked')?.notes;
+      const blockedNote = reservations.find(r =>
+        r.therapist_id === t.id &&
+        r.status === 'blocked' &&
+        toDisplayTime(r.start_time) === t.shiftStart &&
+        toDisplayTime(r.end_time) === t.shiftEnd
+      )?.notes;
       return blockedNote != null ? { ...t, notes: blockedNote } : t;
     });
 
@@ -1967,7 +1978,7 @@ function ShiftsContent() {
                     date={filterDate}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
-                      setBlockedModal({ id, startTime, endTime })
+                      setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
                   />
@@ -1998,7 +2009,7 @@ function ShiftsContent() {
                     date={filterDate}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
-                      setBlockedModal({ id, startTime, endTime })
+                      setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
                   />
@@ -2138,6 +2149,16 @@ function ShiftsContent() {
                           />
                         </div>
                       </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">メモ（任意）</label>
+                        <input
+                          type="text"
+                          value={shiftEditModal.newBlockedMemo}
+                          onChange={e => setShiftEditModal(m => m ? { ...m, newBlockedMemo: e.target.value } : null)}
+                          placeholder="理由・備考など（例: 休憩、私用）"
+                          className="w-full px-2 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-400/50 outline-none"
+                        />
+                      </div>
                       <div className="flex justify-end">
                         <button
                           onClick={handleAddBlockedSlot}
@@ -2153,15 +2174,27 @@ function ShiftsContent() {
                   {shiftEditModal.blockedSlots.length > 0 && (
                     <div className="space-y-1.5">
                       {shiftEditModal.blockedSlots.map((slot, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                          <span className="text-xs font-bold text-rose-800 flex-1">{slot.startTime} ～ {slot.endTime}</span>
-                          <button
-                            onClick={() => setShiftEditModal(m => m ? { ...m, blockedSlots: m.blockedSlots.filter((_, j) => j !== i) } : null)}
-                            className="text-rose-400 hover:text-rose-600 transition-colors p-0.5"
-                            title="削除"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
+                        <div key={i} className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-rose-800 flex-1">{slot.startTime} ～ {slot.endTime}</span>
+                            <button
+                              onClick={() => setShiftEditModal(m => m ? { ...m, blockedSlots: m.blockedSlots.filter((_, j) => j !== i) } : null)}
+                              className="text-rose-400 hover:text-rose-600 transition-colors p-0.5"
+                              title="削除"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={slot.memo}
+                            onChange={e => setShiftEditModal(m => m ? {
+                              ...m,
+                              blockedSlots: m.blockedSlots.map((s, j) => j === i ? { ...s, memo: e.target.value } : s),
+                            } : null)}
+                            placeholder="メモ（任意）"
+                            className="w-full mt-1.5 px-2 py-1 bg-white border border-rose-200 rounded text-xs focus:ring-2 focus:ring-rose-400/50 outline-none"
+                          />
                         </div>
                       ))}
                     </div>
@@ -2364,6 +2397,16 @@ function ShiftsContent() {
                   value={blockedModal.endTime}
                   onChange={v => setBlockedModal({ ...blockedModal, endTime: v })}
                   selectClassName="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">メモ</label>
+                <textarea
+                  value={blockedModal.memo}
+                  onChange={e => setBlockedModal({ ...blockedModal, memo: e.target.value })}
+                  rows={2}
+                  placeholder="理由・備考など（例: 休憩、私用、送迎）"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
                 />
               </div>
             </div>
