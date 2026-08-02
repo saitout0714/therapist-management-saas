@@ -877,7 +877,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                             <span style={{
                               flex: '0 0 auto',
                               maxWidth: '100%',
-                              fontSize: '10px',
+                              fontSize: '13px',
                               fontWeight: 800,
                               lineHeight: 1.2,
                               color: '#7f1020',
