@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 70" width="300" height="70">
+  <rect width="300" height="70" rx="8" fill="#1c1917" />
+  <path d="M 25 15 L 33 30 L 48 18 L 41 42 L 9 42 L 2 18 L 17 30 Z" fill="#d1b464" />
+  <circle cx="25" cy="50" r="3" fill="#d1b464" />
+  <text x="60" y="38" font-family="sans-serif" font-size="22" font-weight="bold" fill="#ffffff" letter-spacing="1">SpecialGrade</text>
+  <text x="61" y="54" font-family="sans-serif" font-size="9" fill="#d1b464" letter-spacing="2">LUXURY SPA</text>
+</svg>

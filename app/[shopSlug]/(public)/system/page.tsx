@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Header } from '../../../../components/store/Header';
 import { Footer } from '../../../../components/store/Footer';
+import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchSystemCourses } from '../../../../lib/storeApi';
 import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
 import { MOCK_STORE, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
@@ -25,7 +26,8 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
   }, [shopSlug]);
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+    <ThemeProvider store={store}>
+      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
       <Header store={store} />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
@@ -53,16 +55,27 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
                 {cat.courses.map((course) => (
                   <div
                     key={course.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#faf7f0] p-4 rounded-sm border border-[#d1b464]/20 gap-2"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#faf7f0] p-4 rounded-sm border border-[#d1b464]/20 gap-3 hover:border-[#d1b464] transition-colors"
                   >
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-sm tracking-wider">{course.name}</h3>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-stone-800 text-sm sm:text-base tracking-wider">
+                          {course.name}
+                        </h3>
+                        {course.durationMinutes && (
+                          <span className="text-[11px] font-bold bg-[#d1b464]/20 text-[#a39573] border border-[#d1b464]/40 px-2 py-0.5 rounded-sm">
+                            {course.durationMinutes}分
+                          </span>
+                        )}
+                      </div>
                       {course.description && (
-                        <p className="text-xs text-stone-500 mt-0.5">{course.description}</p>
+                        <p className="text-xs text-stone-600 leading-relaxed tracking-wide">
+                          {course.description}
+                        </p>
                       )}
                     </div>
-                    <div className="text-right">
-                      <span className="text-lg font-extrabold text-stone-900 tracking-wider">
+                    <div className="text-left sm:text-right shrink-0">
+                      <span className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-wider">
                         ¥{course.price.toLocaleString()}
                       </span>
                       <span className="text-xs text-stone-500 ml-1">(税込)</span>
@@ -86,6 +99,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
 
       <Footer store={store} />
     </div>
+    </ThemeProvider>
   );
 }
 

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 90" width="360" height="90">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f6d365" />
+      <stop offset="50%" stop-color="#d1b464" />
+      <stop offset="100%" stop-color="#b8860b" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(10, 10)">
+    <!-- 王冠グラフィック -->
+    <path d="M 35 10 L 45 30 L 65 15 L 56 45 L 14 45 L 5 15 L 25 30 Z" fill="url(#goldGrad)" />
+    <circle cx="35" cy="55" r="3.5" fill="#d1b464" />
+    <circle cx="18" cy="55" r="2.5" fill="#d1b464" />
+    <circle cx="52" cy="55" r="2.5" fill="#d1b464" />
+    <!-- 店舗名 -->
+    <text x="80" y="38" font-family="serif, Georgia" font-size="26" font-weight="900" fill="url(#goldGrad)" letter-spacing="1.5">Special Grade</text>
+    <text x="82" y="58" font-family="serif" font-size="10" fill="#a39573" letter-spacing="3">LUXURY SPA &amp; ESTHETIC</text>
+  </g>
+</svg>

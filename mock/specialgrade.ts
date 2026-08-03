@@ -5,7 +5,7 @@ export const MOCK_STORE: StoreConfig = {
   slug: 'specialgrade',
   name: 'Special Grade',
   catchphrase: '赤羽・川口 メンズエステ ～上質で優雅な至福の空間～',
-  logoUrl: '/images/banners/somelogo.png',
+  logoUrl: undefined,
   themeColor: {
     primary: '#d1b464',
     accent: '#a39573',

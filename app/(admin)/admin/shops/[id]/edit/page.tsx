@@ -64,6 +64,8 @@ export default function EditShopPage() {
     short_name: '',
     description: '',
     phone: '',
+    logo_url: '',
+    theme_color: '#d1b464',
     is_active: true,
     is_dispatch_enabled: false,
   })
@@ -74,6 +76,44 @@ export default function EditShopPage() {
   const [codeActive, setCodeActive] = useState(true)
   const [codeSaving, setCodeSaving] = useState(false)
   const [codeError, setCodeError] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size < 500) {
+      alert('画像ファイルが破損しているか、小さすぎます（500バイト以上必要です）。別の画像を選択してください。')
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      const ext = file.name.split('.').pop() || 'png'
+      const filePath = `shops/${id}/logo_${Date.now()}.${ext}`
+
+      // まず therapist-photos バケットまたはパブリックバケットへ保存
+      const { error: uploadErr } = await supabase.storage
+        .from('therapist-photos')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadErr) {
+        throw uploadErr
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('therapist-photos')
+        .getPublicUrl(filePath)
+
+      if (publicUrlData?.publicUrl) {
+        setForm((prev) => ({ ...prev, logo_url: publicUrlData.publicUrl }))
+      }
+    } catch (err: any) {
+      alert('ロゴ画像のアップロードに失敗しました: ' + (err.message || 'ストレージエラー'))
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
 
   // クライアントオーナーアカウント状態
   const [hasOwner, setHasOwner] = useState(false)
@@ -129,6 +169,8 @@ export default function EditShopPage() {
         short_name: shopRes.data.short_name || '',
         description: shopRes.data.description || '',
         phone: shopRes.data.phone || '',
+        logo_url: shopRes.data.logo_url || '',
+        theme_color: typeof shopRes.data.theme_color === 'string' ? shopRes.data.theme_color : (shopRes.data.theme_color?.primary || '#d1b464'),
         is_active: shopRes.data.is_active,
         is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
       })
@@ -253,21 +295,35 @@ export default function EditShopPage() {
     setError('')
 
     // 1. 店舗の更新
-    const { error: updateError } = await supabase
+    let updatePayload: any = {
+      name: form.name,
+      owner_id: selectedOwnerId || null,
+      short_name: form.short_name.trim() || null,
+      description: form.description || null,
+      phone: form.phone.trim() || null,
+      logo_url: form.logo_url.trim() || null,
+      theme_color: form.theme_color.trim() || '#d1b464',
+      is_active: form.is_active,
+      is_dispatch_enabled: form.is_dispatch_enabled,
+      pricing_source_shop_id: pricingSourceShopId || null,
+      back_source_shop_id: backSourceShopId || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    let { error: updateError } = await supabase
       .from('shops')
-      .update({
-        name: form.name,
-        owner_id: selectedOwnerId || null,
-        short_name: form.short_name.trim() || null,
-        description: form.description || null,
-        phone: form.phone.trim() || null,
-        is_active: form.is_active,
-        is_dispatch_enabled: form.is_dispatch_enabled,
-        pricing_source_shop_id: pricingSourceShopId || null,
-        back_source_shop_id: backSourceShopId || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', id)
+
+    if (updateError && updateError.message.includes('logo_url')) {
+      delete updatePayload.logo_url
+      delete updatePayload.theme_color
+      const fallback = await supabase
+        .from('shops')
+        .update(updatePayload)
+        .eq('id', id)
+      updateError = fallback.error
+    }
 
     if (updateError) {
       setSaving(false)
@@ -408,6 +464,78 @@ export default function EditShopPage() {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
                   placeholder="例: 03-1234-5678"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  店舗ロゴ画像 <span className="text-slate-400 font-normal">（HPヘッダーに優先表示されるロゴ画像）</span>
+                </label>
+                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  {form.logo_url && (
+                    <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-slate-200">
+                      <div className="h-12 w-32 bg-slate-100 flex items-center justify-center rounded overflow-hidden border border-slate-200">
+                        <img src={form.logo_url} alt="Logo Preview" className="max-h-full max-w-full object-contain" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 truncate">{form.logo_url}</p>
+                        <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">✓ ロゴ画像が設定されています</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, logo_url: '' })}
+                        className="px-2.5 py-1 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded border border-rose-200 font-medium transition-colors"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label className="cursor-pointer px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all text-center flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {uploadingLogo ? 'アップロード中...' : 'PCから画像ファイルを選択して登録'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoFileUpload}
+                        disabled={uploadingLogo}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-slate-400 text-center sm:text-left">または画像URLを入力</span>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={form.logo_url}
+                    onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-slate-800 font-mono text-xs"
+                    placeholder="https://example.com/logo.png"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  テーマカラー (Hexカラーコード) <span className="text-slate-400 font-normal">（HP全体のテーマアクセント色。例: #d1b464）</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.theme_color.startsWith('#') ? form.theme_color : '#d1b464'}
+                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
+                    className="w-10 h-10 rounded border border-slate-200 cursor-pointer p-0.5"
+                  />
+                  <input
+                    type="text"
+                    value={form.theme_color}
+                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-mono text-xs"
+                    placeholder="#d1b464"
+                  />
+                </div>
               </div>
 
               <div>

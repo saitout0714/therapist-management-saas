@@ -22,17 +22,17 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
         />
         <div className="absolute inset-0 bg-gradient-to-t from-stone-900/70 via-transparent to-transparent" />
 
-        {/* バッジ (NEW / 新人 / PICKUP) */}
-        {therapist.badge && (
+        {/* バッジ (isRookie / NEW / 新人 / PICKUP) */}
+        {(therapist.isRookie || therapist.badge) && (
           <div className="absolute top-2 left-2 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-[10px] px-2.5 py-0.5 rounded-sm shadow-sm tracking-wider">
-            {therapist.badge}
+            {therapist.isRookie ? '新人' : therapist.badge}
           </div>
         )}
 
-        {/* グレード (例: トップセラピスト) */}
-        {therapist.grade && (
+        {/* ランク・グレード (例: トップ / 指名多数) */}
+        {(therapist.rankName || therapist.grade) && (
           <div className="absolute top-2 right-2 bg-stone-900/80 text-[#d1b464] border border-[#d1b464]/40 font-medium text-[9px] px-2 py-0.5 rounded-sm tracking-wider">
-            {therapist.grade}
+            {therapist.rankName || therapist.grade}
           </div>
         )}
 
@@ -43,7 +43,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
             <span className="text-xs text-[#d1b464] font-semibold">({therapist.age}歳)</span>
           </div>
           <p className="text-[11px] text-stone-200 tracking-wide">
-            T{therapist.height} ({therapist.bustCup}cup) {therapist.threeSize && `• ${therapist.threeSize}`}
+            T{therapist.height} ({therapist.bustCup}cup) {therapist.threeSize ? `• ${therapist.threeSize}` : (therapist.bust && `• B${therapist.bust} W${therapist.waist || ''} H${therapist.hip || ''}`)}
           </p>
         </div>
       </div>
@@ -62,7 +62,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({ therapist, storeSl
           ))}
         </div>
 
-        {/* 一言コメント */}
+        {/* 自己PR・一言コメント */}
         {therapist.comment && (
           <p className="text-xs text-stone-600 line-clamp-2 italic tracking-wide">
             "{therapist.comment}"

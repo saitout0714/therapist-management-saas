@@ -14,6 +14,7 @@ export interface StoreConfig {
   accessInfo: string;
   businessHours: string;
   phoneNumber: string;
+  googleMapUrl?: string;
   xUrl?: string;
   litlinkUrl?: string;
   lineUrl?: string;
@@ -22,21 +23,40 @@ export interface StoreConfig {
 
 export interface Therapist {
   id: string;
+  shopId?: string;
   name: string;
   nameKana?: string;
   age: number;
   height: number;
   bustCup: string;
+  bust?: number;
+  waist?: number;
+  hip?: number;
   threeSize?: string; // B86(E) W58 H87
   avatarUrl: string;
   images: string[];
   badge?: string;     // e.g. 'NEW', '新人', 'PICKUP'
+  rankName?: string;  // e.g. 'トップ', '高級', '指名多数'
   grade?: string;     // e.g. 'トップセラピスト', 'レギュラー'
+  isRookie?: boolean; // 新人フラグ
   tags: string[];     // e.g. ['癒し系', 'モデル体型', '密着マッサージ', '愛嬌抜群']
-  comment: string;
+  comment?: string;   // 自己PR文
   twitterUrl?: string;
   litlinkUrl?: string;
   isNew?: boolean;
+  affiliatedShops?: { id: string; name: string }[]; // 他店舗連携情報
+}
+
+export interface ConfirmedShift {
+  id: string;
+  therapistId: string;
+  shopId: string;
+  date: string;       // YYYY-MM-DD
+  startTime: string;  // HH:mm
+  endTime: string;    // HH:mm
+  roomId: string;     // 部屋割り確定済みID
+  roomName?: string;
+  notes?: string;
 }
 
 export interface ScheduleSlot {
@@ -49,6 +69,7 @@ export interface TherapistSchedule {
   date: string;       // YYYY-MM-DD
   slots: ScheduleSlot[];
   isTodayWork?: boolean;
+  shift?: ConfirmedShift;
 }
 
 export interface Campaign {

@@ -9,14 +9,16 @@ import { TherapistCard } from '../../../components/store/TherapistCard';
 import { TherapistFilter } from '../../../components/store/TherapistFilter';
 import { NewsList } from '../../../components/store/NewsList';
 import { DiarySection } from '../../../components/store/DiarySection';
+import { ThemeProvider } from '../../../components/store/ThemeProvider';
 import {
   fetchStoreConfig,
   fetchCampaigns,
   fetchTherapists,
   fetchBlogArticles,
   fetchNewsList,
+  fetchConfirmedShifts,
 } from '../../../lib/storeApi';
-import { StoreConfig, Campaign, Therapist, BlogArticle, NewsItem } from '../../../types/store';
+import { StoreConfig, Campaign, Therapist, BlogArticle, NewsItem, ConfirmedShift } from '../../../types/store';
 import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_BLOG_ARTICLES, MOCK_NEWS } from '../../../mock/specialgrade';
 
 export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: string }> }) {
@@ -26,6 +28,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
   const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
   const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
   const [therapists, setTherapists] = useState<Therapist[]>(MOCK_THERAPISTS);
+  const [confirmedShifts, setConfirmedShifts] = useState<ConfirmedShift[]>([]);
   const [blogs, setBlogs] = useState<BlogArticle[]>(MOCK_BLOG_ARTICLES);
   const [news, setNews] = useState<NewsItem[]>(MOCK_NEWS);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -34,28 +37,42 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
     async function loadData() {
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
-      const [c, t, b, n] = await Promise.all([
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const [c, t, b, n, shifts] = await Promise.all([
         fetchCampaigns(storeConfig.id),
         fetchTherapists(storeConfig.id),
         fetchBlogArticles(storeConfig.id),
         fetchNewsList(storeConfig.id),
+        fetchConfirmedShifts(storeConfig.id, todayStr, todayStr),
       ]);
       setCampaigns(c);
       setTherapists(t);
       setBlogs(b);
       setNews(n);
+      setConfirmedShifts(shifts);
     }
     loadData();
   }, [shopSlug]);
 
-  const allTags = Array.from(new Set(therapists.flatMap((t) => t.tags)));
+  // 本日部屋割り確定済みのセラピストIDセット
+  const confirmedTherapistIds = new Set(confirmedShifts.map((s) => s.therapistId));
 
-  const filteredTherapists = selectedTag
-    ? therapists.filter((t) => t.tags.includes(selectedTag))
+  // 確定シフトがあるセラピストのみ出勤（データがない場合はモック表示維持）
+  const todayTherapists = confirmedShifts.length > 0
+    ? therapists.filter((t) => confirmedTherapistIds.has(t.id))
     : therapists;
 
+  const allTags = Array.from(new Set(todayTherapists.flatMap((t) => t.tags)));
+
+  const filteredTherapists = selectedTag
+    ? todayTherapists.filter((t) => t.tags.includes(selectedTag))
+    : todayTherapists;
+
   return (
-    <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif selection:bg-[#d1b464] selection:text-white">
+    <ThemeProvider store={store}>
+      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif selection:bg-[#d1b464] selection:text-white">
       <Header store={store} />
 
       <main className="flex-1">
@@ -193,6 +210,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
 
       <Footer store={store} />
     </div>
+    </ThemeProvider>
   );
 }
 

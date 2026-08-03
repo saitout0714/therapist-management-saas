@@ -5,6 +5,7 @@ import { Header } from '../../../../components/store/Header';
 import { Footer } from '../../../../components/store/Footer';
 import { TherapistCard } from '../../../../components/store/TherapistCard';
 import { TherapistFilter } from '../../../../components/store/TherapistFilter';
+import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist } from '../../../../types/store';
 import { MOCK_STORE, MOCK_THERAPISTS } from '../../../../mock/specialgrade';
@@ -33,7 +34,8 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
     : therapists;
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+    <ThemeProvider store={store}>
+      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
       <Header store={store} />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
@@ -63,6 +65,7 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
 
       <Footer store={store} />
     </div>
+    </ThemeProvider>
   );
 }
 

@@ -16,15 +16,57 @@ import {
   SystemMenuCategory,
 } from '../types/store';
 
+function parseThemeColor(colorInput: any): StoreConfig['themeColor'] {
+  if (typeof colorInput === 'object' && colorInput && colorInput.primary) {
+    return {
+      primary: colorInput.primary || MOCK_STORE.themeColor.primary,
+      accent: colorInput.accent || MOCK_STORE.themeColor.accent,
+      darkBg: colorInput.darkBg || MOCK_STORE.themeColor.darkBg,
+      lightBg: colorInput.lightBg || MOCK_STORE.themeColor.lightBg,
+    };
+  }
+
+  if (typeof colorInput === 'string' && colorInput.trim().length > 0) {
+    const rawColor = colorInput.trim();
+    const primary = rawColor.startsWith('#') ? rawColor : `#${rawColor}`;
+    return {
+      primary,
+      accent: primary,
+      darkBg: MOCK_STORE.themeColor.darkBg,
+      lightBg: MOCK_STORE.themeColor.lightBg,
+    };
+  }
+
+  return MOCK_STORE.themeColor;
+}
+
 export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
   try {
-    const { data, error } = await supabase
+    let { data } = await supabase
       .from('shops')
       .select('*')
       .eq('slug', slug)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (!data) {
+      const { data: byName } = await supabase
+        .from('shops')
+        .select('*')
+        .ilike('name', slug)
+        .maybeSingle();
+      data = byName;
+    }
+
+    if (!data) {
+      const { data: byId } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('id', slug)
+        .maybeSingle();
+      data = byId;
+    }
+
+    if (!data) {
       return MOCK_STORE;
     }
 
@@ -33,12 +75,13 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       slug: data.slug || slug,
       name: data.name || MOCK_STORE.name,
       catchphrase: data.catchphrase || MOCK_STORE.catchphrase,
-      logoUrl: data.logo_url || MOCK_STORE.logoUrl,
-      themeColor: data.theme_color || MOCK_STORE.themeColor,
+      logoUrl: data.logo_url || undefined,
+      themeColor: parseThemeColor(data.theme_color),
       address: data.address || MOCK_STORE.address,
       accessInfo: data.access_info || MOCK_STORE.accessInfo,
       businessHours: data.business_hours || MOCK_STORE.businessHours,
       phoneNumber: data.phone || data.phone_number || MOCK_STORE.phoneNumber,
+      googleMapUrl: data.google_map_url || data.google_maps_url || MOCK_STORE.googleMapUrl,
       xUrl: data.x_url || MOCK_STORE.xUrl,
       litlinkUrl: data.litlink_url || MOCK_STORE.litlinkUrl,
       lineUrl: data.line_url || MOCK_STORE.lineUrl,
@@ -53,8 +96,9 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
   try {
     let query = supabase
       .from('therapists')
-      .select('*, therapist_photos(*)')
-      .eq('is_active', true);
+      .select('*, therapist_photos(*), therapist_ranks(name)')
+      .eq('is_active', true)
+      .order('order', { ascending: true });
 
     if (shopId) {
       query = query.eq('shop_id', shopId);
@@ -66,69 +110,164 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
       return MOCK_THERAPISTS;
     }
 
-    return data.map((t: any) => ({
-      id: t.id,
-      name: t.name,
-      nameKana: t.name_kana || t.nameKana,
-      age: t.age || 20,
-      height: t.height || 160,
-      bustCup: t.bust_cup || t.bustCup || 'C',
-      threeSize: t.three_size || (t.bust ? `B${t.bust} W${t.waist || ''} H${t.hip || ''}` : undefined),
-      avatarUrl: t.avatar_url || t.photo_url || MOCK_THERAPISTS[0].avatarUrl,
-      images: Array.isArray(t.therapist_photos) && t.therapist_photos.length > 0
-        ? t.therapist_photos.map((p: any) => p.photo_url)
-        : [t.photo_url || t.avatar_url || MOCK_THERAPISTS[0].avatarUrl],
-      badge: t.badge || undefined,
-      grade: t.grade || undefined,
-      tags: Array.isArray(t.tags) && t.tags.length > 0 ? t.tags : ['癒し系'],
-      comment: t.comment || '',
-      twitterUrl: t.twitter_url || t.x_url || undefined,
-      litlinkUrl: t.litlink_url || undefined,
-      isNew: t.is_new ?? false,
-    }));
+    return data.map((t: any) => {
+      const photos = Array.isArray(t.therapist_photos)
+        ? [...t.therapist_photos].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        : [];
+      
+      const photoUrls = photos.length > 0
+        ? photos.map((p: any) => p.photo_url)
+        : (t.photo_url ? [t.photo_url] : ['/icon.png']);
+
+      const defaultAvatar = t.photo_url || photoUrls[0] || '/icon.png';
+
+      // スリーサイズ形成 (例: B85(D) W58 H88)
+      const bStr = t.bust ? `B${t.bust}` : '';
+      const cStr = t.bust_cup ? `(${t.bust_cup})` : '';
+      const wStr = t.waist ? ` W${t.waist}` : '';
+      const hStr = t.hip ? ` H${t.hip}` : '';
+      const computedThreeSize = t.three_size || (bStr ? `${bStr}${cStr}${wStr}${hStr}` : undefined);
+
+      return {
+        id: t.id,
+        shopId: t.shop_id,
+        name: t.name,
+        nameKana: t.name_kana || t.nameKana,
+        age: t.age || 20,
+        height: t.height || 160,
+        bustCup: t.bust_cup || t.bustCup || 'C',
+        bust: t.bust || undefined,
+        waist: t.waist || undefined,
+        hip: t.hip || undefined,
+        threeSize: computedThreeSize,
+        avatarUrl: defaultAvatar,
+        images: photoUrls,
+        badge: t.is_rookie ? '新人' : (t.badge || undefined),
+        rankName: t.therapist_ranks?.name || t.grade || undefined,
+        grade: t.therapist_ranks?.name || t.grade || undefined,
+        isRookie: t.is_rookie ?? false,
+        tags: Array.isArray(t.tags) && t.tags.length > 0 ? t.tags : ['癒し系'],
+        comment: t.comment || '',
+        twitterUrl: t.twitter_url || t.x_url || undefined,
+        litlinkUrl: t.litlink_url || undefined,
+        isNew: t.is_new ?? t.is_rookie ?? false,
+      };
+    });
   } catch {
     return MOCK_THERAPISTS;
   }
 }
 
 export async function fetchTherapistDetail(id: string): Promise<Therapist | null> {
-  const therapists = await fetchTherapists();
-  const found = therapists.find((t) => t.id === id);
-  if (found) return found;
-
   try {
     const { data, error } = await supabase
       .from('therapists')
-      .select('*, therapist_photos(*)')
+      .select('*, therapist_photos(*), therapist_ranks(name)')
       .eq('id', id)
       .single();
 
     if (error || !data) {
-      return MOCK_THERAPISTS.find((t) => t.id === id) || MOCK_THERAPISTS[0];
+      const therapists = await fetchTherapists();
+      return therapists.find((t) => t.id === id) || MOCK_THERAPISTS[0];
+    }
+
+    const photos = Array.isArray(data.therapist_photos)
+      ? [...data.therapist_photos].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+      : [];
+    
+    const photoUrls = photos.length > 0
+      ? photos.map((p: any) => p.photo_url)
+      : [data.photo_url || data.avatar_url || MOCK_THERAPISTS[0].avatarUrl];
+
+    const bStr = data.bust ? `B${data.bust}` : '';
+    const cStr = data.bust_cup ? `(${data.bust_cup})` : '';
+    const wStr = data.waist ? ` W${data.waist}` : '';
+    const hStr = data.hip ? ` H${data.hip}` : '';
+    const computedThreeSize = data.three_size || (bStr ? `${bStr}${cStr}${wStr}${hStr}` : undefined);
+
+    // 他店舗情報の取得（同一法人・グループ内の他ショップ）
+    let affiliatedShops: { id: string; name: string }[] = [];
+    if (data.shop_id) {
+      const { data: shopsData } = await supabase
+        .from('shops')
+        .select('id, name')
+        .neq('id', data.shop_id)
+        .eq('is_active', true)
+        .limit(3);
+      if (shopsData) {
+        affiliatedShops = shopsData;
+      }
     }
 
     return {
       id: data.id,
+      shopId: data.shop_id,
       name: data.name,
       nameKana: data.name_kana,
       age: data.age || 20,
       height: data.height || 160,
       bustCup: data.bust_cup || 'C',
-      threeSize: data.three_size,
-      avatarUrl: data.avatar_url || data.photo_url || MOCK_THERAPISTS[0].avatarUrl,
-      images: Array.isArray(data.therapist_photos) && data.therapist_photos.length > 0
-        ? data.therapist_photos.map((p: any) => p.photo_url)
-        : [data.photo_url || data.avatar_url || MOCK_THERAPISTS[0].avatarUrl],
-      badge: data.badge || undefined,
-      grade: data.grade || undefined,
+      bust: data.bust || undefined,
+      waist: data.waist || undefined,
+      hip: data.hip || undefined,
+      threeSize: computedThreeSize,
+      avatarUrl: data.photo_url || data.avatar_url || photoUrls[0] || MOCK_THERAPISTS[0].avatarUrl,
+      images: photoUrls,
+      badge: data.is_rookie ? '新人' : (data.badge || undefined),
+      rankName: data.therapist_ranks?.name || data.grade || undefined,
+      grade: data.therapist_ranks?.name || data.grade || undefined,
+      isRookie: data.is_rookie ?? false,
       tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : ['癒し系'],
       comment: data.comment || '',
       twitterUrl: data.twitter_url || data.x_url || undefined,
       litlinkUrl: data.litlink_url || undefined,
-      isNew: data.is_new ?? false,
+      isNew: data.is_new ?? data.is_rookie ?? false,
+      affiliatedShops,
     };
   } catch {
-    return MOCK_THERAPISTS.find((t) => t.id === id) || MOCK_THERAPISTS[0];
+    const therapists = await fetchTherapists();
+    return therapists.find((t) => t.id === id) || MOCK_THERAPISTS[0];
+  }
+}
+
+/**
+ * オーナーが Yoyakl で部屋割り確定 (room_id IS NOT NULL) した確定シフトのみをリアルタイム抽出
+ */
+export async function fetchConfirmedShifts(
+  shopId: string,
+  startDate?: string,
+  endDate?: string
+) {
+  try {
+    let query = supabase
+      .from('shifts')
+      .select('*, rooms(name)')
+      .eq('shop_id', shopId)
+      .not('room_id', 'is', null);
+
+    if (startDate) {
+      query = query.gte('date', startDate);
+    }
+    if (endDate) {
+      query = query.lte('date', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    return data.map((s: any) => ({
+      id: s.id,
+      therapistId: s.therapist_id,
+      shopId: s.shop_id,
+      date: s.date,
+      startTime: s.start_time,
+      endTime: s.end_time,
+      roomId: s.room_id,
+      roomName: s.rooms?.name,
+      notes: s.notes,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -248,7 +387,12 @@ export async function fetchCampaigns(shopId?: string): Promise<Campaign[]> {
 
 export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCategory[]> {
   try {
-    let query = supabase.from('courses').select('*');
+    let query = supabase
+      .from('courses')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
@@ -257,15 +401,15 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
     const courses = data.map((c: any) => ({
       id: c.id,
       name: c.name,
-      durationMinutes: c.duration_minutes || c.durationMinutes || 60,
-      price: c.price || 10000,
+      durationMinutes: c.duration ?? c.duration_minutes ?? c.durationMinutes ?? 60,
+      price: c.base_price ?? c.price ?? 10000,
       description: c.description || '',
     }));
 
     return [
       {
-        categoryName: '基本リフレッシュコース',
-        description: '厳選されたオイルを使用し、全身の血行を促進して疲労を根本からケアします。',
+        categoryName: '基本アロマリフレッシュコース',
+        description: '厳選された最高級オイルを使用し、全身の血行を促進して深い疲労を効果的に解きほぐします。',
         courses,
       },
     ];

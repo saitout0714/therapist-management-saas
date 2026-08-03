@@ -204,7 +204,14 @@ function ShiftsContent() {
     }
   }, []);
 
+  // マウント直後の初回書き込み（読み込み完了前のデフォルト値）は保存済みの値を
+  // 上書きしてしまうためスキップし、実際の変更のみを保存する
+  const viewModeWriteSkippedRef = useRef(false);
   useEffect(() => {
+    if (!viewModeWriteSkippedRef.current) {
+      viewModeWriteSkippedRef.current = true;
+      return;
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('shifts_view_mode', viewMode);
     }
@@ -310,7 +317,14 @@ function ShiftsContent() {
     }
   }, []);
 
+  // マウント直後の初回書き込み（読み込み完了前のデフォルト値）は保存済みの値を
+  // 上書きしてしまうためスキップし、実際の変更のみを保存する
+  const sortModeWriteSkippedRef = useRef(false);
   useEffect(() => {
+    if (!sortModeWriteSkippedRef.current) {
+      sortModeWriteSkippedRef.current = true;
+      return;
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('shifts_sort_mode', sortMode);
     }

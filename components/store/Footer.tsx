@@ -44,20 +44,30 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
             </div>
           </div>
 
-          {/* SNS & お問い合わせ */}
+          {/* SNS & お問い合わせ & Google Maps */}
           <div>
             <h4 className="text-sm font-semibold text-[#d1b464] mb-3 border-b border-[#d1b464]/30 pb-1 inline-block tracking-widest">
-              CONTACT & SNS
+              CONTACT & ACCESS
             </h4>
-            <div className="flex gap-3 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
               {store.xUrl && (
                 <a
                   href={store.xUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 bg-stone-900 border border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200 text-xs rounded transition-colors"
+                  className="px-3.5 py-1.5 bg-stone-900 border border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200 text-[11px] rounded transition-colors"
                 >
                   X (Twitter)
+                </a>
+              )}
+              {store.googleMapUrl && (
+                <a
+                  href={store.googleMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 bg-stone-900 border border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200 text-[11px] rounded transition-colors"
+                >
+                  📍 Google Maps
                 </a>
               )}
             </div>

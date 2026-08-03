@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StoreConfig } from '../../types/store';
 
@@ -10,7 +10,12 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ store }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const basePath = `/${store.slug}`;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [store.logoUrl]);
 
   const navLinks = [
     { label: 'TOP', href: basePath },
@@ -22,6 +27,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
     { label: '求人情報', href: `${basePath}/recruit` },
   ];
 
+  const showLogoImage = store.logoUrl && !imageError;
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#d1b464]/30 text-stone-800 transition-all font-serif">
       {store.noticeBanner && (
@@ -32,15 +39,26 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* 店舗ロゴ / タイトル */}
-        <Link href={basePath} className="flex items-center gap-3 group">
-          <div className="text-center sm:text-left">
-            <h1 className="font-extrabold text-xl sm:text-2xl tracking-wider text-stone-800 group-hover:text-[#a39573] transition-colors">
-              Special Grade
-            </h1>
-            <p className="text-[11px] text-stone-500 tracking-widest hidden sm:block">
-              {store.catchphrase}
-            </p>
-          </div>
+        <Link href={basePath} className="flex items-center gap-3 group shrink-0">
+          {showLogoImage ? (
+            <img
+              src={store.logoUrl}
+              alt={store.name}
+              onError={() => setImageError(true)}
+              className="h-10 sm:h-12 w-auto max-w-[200px] sm:max-w-[260px] object-contain shrink-0"
+            />
+          ) : (
+            <div className="text-center sm:text-left">
+              <h1 className="font-extrabold text-xl sm:text-2xl tracking-wider text-stone-800 group-hover:text-[#a39573] transition-colors">
+                {store.name}
+              </h1>
+              {store.catchphrase && (
+                <p className="text-[11px] text-stone-500 tracking-widest hidden sm:block">
+                  {store.catchphrase}
+                </p>
+              )}
+            </div>
+          )}
         </Link>
 
         {/* デスクトップナビゲーション */}

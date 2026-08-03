@@ -1,23 +1,20 @@
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: '.env.local' });
+const fs = require('fs');
+const https = require('https');
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const url = 'https://pumkniqtgjsotsxhyvbq.supabase.co/storage/v1/object/public/therapist-photos/shops/150ee036-bd95-47ab-bf50-8132d3c62bdf/logo_1785725461653.png';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+https.get(url, (res) => {
+  console.log('Status:', res.statusCode);
+  console.log('Content-Type:', res.headers['content-type']);
+  console.log('Content-Length:', res.headers['content-length']);
 
-async function inspectShopsAndOwners() {
-  console.log("--- OWNERS ---");
-  const { data: owners, error: ownerErr } = await supabase.from('owners').select('*');
-  console.log(owners || ownerErr);
-
-  console.log("--- SHOPS ---");
-  const { data: shops, error: shopErr } = await supabase.from('shops').select('id, name, owner_id');
-  console.log(shops || shopErr);
-
-  console.log("--- CUSTOMERS BY SHOP ---");
-  const { data: customers, error: custErr } = await supabase.from('customers').select('id, name, shop_id, owner_id').limit(20);
-  console.log(customers || custErr);
-}
-
-inspectShopsAndOwners();
+  const chunks = [];
+  res.on('data', chunk => chunks.push(chunk));
+  res.on('end', () => {
+    const buffer = Buffer.concat(chunks);
+    console.log('Downloaded size in bytes:', buffer.length);
+    console.log('First 20 bytes hex:', buffer.slice(0, 20).toString('hex'));
+  });
+}).on('error', (e) => {
+  console.error('Error:', e);
+});
