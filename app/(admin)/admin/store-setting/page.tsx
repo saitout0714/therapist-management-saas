@@ -355,7 +355,7 @@ export default function OwnerStoreSettingPage() {
     setSuccess('✨ 店舗設定およびHPの表示内容を更新・保存しました！')
   }
 
-  const isMaster = ['developer', 'system_admin'].includes(user?.role || '')
+  const isMaster = user?.role === 'developer'
 
   if (!isMaster) {
     return (
