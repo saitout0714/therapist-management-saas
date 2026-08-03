@@ -5,11 +5,13 @@ import { supabase } from '@/lib/supabase';
 import { useShop } from '@/app/contexts/ShopContext';
 import { useAuth } from '@/app/contexts/AuthContext';
 import WeeklyShiftCalendar from '@/app/components/WeeklyShiftCalendar';
+import ShiftRequestDrawer from '@/app/components/ShiftRequestDrawer';
 
 interface Therapist {
   id: string;
   name: string;
   avatar?: string;
+  order?: number;
 }
 
 interface Room {
@@ -76,7 +78,7 @@ export default function RegisterShift() {
         query = query.in('shop_id', shopIds);
       }
 
-      const { data, error } = await query.order('name', { ascending: true });
+      const { data, error } = await query.order('order', { ascending: true, nullsFirst: false }).order('name', { ascending: true });
 
       if (error) {
         console.error('Error fetching therapists:', error);
@@ -86,7 +88,12 @@ export default function RegisterShift() {
       const list = (data || []).map((t) => ({
         id: t.id,
         name: aliasMap.get(t.id) || t.name,
-      })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
+        order: t.order ?? 999999,
+      })).sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return a.name.localeCompare(b.name, 'ja', { numeric: true });
+      });
+
 
       setTherapists(list);
     } catch (error) {
@@ -201,6 +208,8 @@ export default function RegisterShift() {
         </div>
 
         {loading && (
+
+
           <div className="flex justify-center items-center py-20 text-indigo-600">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             <span className="ml-3 font-medium">読み込み中...</span>

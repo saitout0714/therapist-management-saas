@@ -9,7 +9,9 @@ interface Therapist {
   id: string
   name: string
   avatar?: string
+  order?: number
 }
+
 
 interface Room {
   id: string
@@ -134,16 +136,12 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
   }, [shifts])
 
   const filteredTherapists = useMemo(() => {
-    const todayStr = formatDate(new Date())
-    // 当日以降の日付リスト（表示週内で今日以降）
-    const upcomingDates = weekDates.map(formatDate).filter(d => d >= todayStr)
+    const currentDisplayedDates = weekDates.map(formatDate)
 
-    // まず showOnlyWithShift でフィルター
     const listByShift = showOnlyWithShift
       ? (() => { const ids = new Set(shifts.map((s) => s.therapist_id)); return therapists.filter((t) => ids.has(t.id)) })()
       : therapists
 
-    // 検索クエリでフィルター（空白区切り複数ワード対応）
     const query = searchQuery.trim()
     const list = query
       ? listByShift.filter((t) =>
@@ -153,9 +151,9 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
         )
       : listByShift
 
-    // セラピストごとに「当日以降で最初にあるシフト」を取得（当日優先）
+    // セラピストごとに「現在表示中の週内で最初にあるシフト」を取得
     const firstShift = (therapistId: string): Shift | null => {
-      for (const d of upcomingDates) {
+      for (const d of currentDisplayedDates) {
         const s = shiftMap.get(`${therapistId}_${d}`)
         if (s) return s
       }
@@ -165,7 +163,12 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     return [...list].sort((a, b) => {
       const sa = firstShift(a.id)
       const sb = firstShift(b.id)
-      if (!sa && !sb) return 0
+      if (!sa && !sb) {
+        const orderA = a.order ?? 999999;
+        const orderB = b.order ?? 999999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.name.localeCompare(b.name, 'ja', { numeric: true });
+      }
       if (!sa) return 1
       if (!sb) return -1
       // 日付が違う場合は日付優先、同日なら開始時刻で比較
@@ -173,6 +176,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
       return sa.start_time.localeCompare(sb.start_time)
     })
   }, [therapists, shifts, showOnlyWithShift, shiftMap, weekDates, searchQuery])
+
 
   const openModal = (therapistId: string, date: string) => {
     const existing = shiftMap.get(`${therapistId}_${date}`) || null
@@ -369,30 +373,41 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
                 {weekDates.map((d) => {
                   const dateStr = formatDate(d)
                   const shift = shiftMap.get(`${t.id}_${dateStr}`)
+                  const isPendingRoom = shift && !shift.room_id
+
                   return (
                     <td key={dateStr} className="p-2 text-center">
                       <button
-                        className={`w-full rounded-xl border px-2.5 py-2 text-xs font-medium transition-all ${
+                        className={`w-full rounded-xl border px-2 py-1.5 text-xs font-medium transition-all ${
                           shift
-                            ? 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100'
+                            ? isPendingRoom
+                              ? 'bg-amber-50 border-amber-300 text-amber-900 border-dashed hover:bg-amber-100 shadow-sm animate-pulse'
+                              : 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100'
                             : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                         }`}
                         onClick={() => openModal(t.id, dateStr)}
                       >
                         {shift ? (
                           <div className="flex flex-col gap-0.5">
-                            <div>{dbToDisplay(shift.start_time)} - {dbToDisplay(shift.end_time)}</div>
-                            {shift.room_id && (
+                            <div className="font-bold">{dbToDisplay(shift.start_time)} - {dbToDisplay(shift.end_time)}</div>
+                            {isPendingRoom ? (
+                              <div className="text-[10px] text-amber-700 font-bold bg-amber-100/80 px-1 py-0.5 rounded border border-amber-300 whitespace-nowrap">
+                                ⚠️ 部屋割り未確定
+                              </div>
+                            ) : (
                               <div className="text-[10px] text-indigo-400 font-bold truncate">
-                                {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム不明'}
+                                🚪 {rooms.find(r => r.id === shift.room_id)?.name || 'ルーム設定済'}
                               </div>
                             )}
                           </div>
-                        ) : '未登録'}
+                        ) : (
+                          <span className="text-slate-400">未登録</span>
+                        )}
                       </button>
                     </td>
                   )
                 })}
+
               </tr>
             ))}
             {filteredTherapists.length === 0 && (

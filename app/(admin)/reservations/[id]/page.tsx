@@ -336,14 +336,9 @@ export default function ReservationPreviewPage() {
   const generateCustomerLineText = () => {
     if (!reservation) return ''
 
-    // 指名料がコース料金に含まれて保存されている場合の表示分離
-    const originalCoursePrice = reservation.courses?.base_price || 0
-    let displayBasePrice = reservation.base_price
-    let displayNominationFee = reservation.nomination_fee
-    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
-      displayNominationFee = reservation.base_price - originalCoursePrice
-      displayBasePrice = originalCoursePrice
-    }
+    // base_price / nomination_fee は登録時点で正しく分離されて保存されているため、そのまま表示する
+    const displayBasePrice = reservation.base_price
+    const displayNominationFee = reservation.nomination_fee
 
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     const dateVal = formatShortDate(reservation.business_date || reservation.date || '')
@@ -644,14 +639,9 @@ export default function ReservationPreviewPage() {
   const generateTherapistLineText = () => {
     if (!reservation) return ''
 
-    // 指名料がコース料金に含まれて保存されている場合の表示分離
-    const originalCoursePrice = reservation.courses?.base_price || 0
-    let displayBasePrice = reservation.base_price
-    let displayNominationFee = reservation.nomination_fee
-    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
-      displayNominationFee = reservation.base_price - originalCoursePrice
-      displayBasePrice = originalCoursePrice
-    }
+    // base_price / nomination_fee は登録時点で正しく分離されて保存されているため、そのまま表示する
+    const displayBasePrice = reservation.base_price
+    const displayNominationFee = reservation.nomination_fee
 
     // オプション（通常＋手入力）
     const allOptions = reservation.reservation_options?.filter(ro =>
@@ -1040,14 +1030,9 @@ export default function ReservationPreviewPage() {
   const generateCustomTemplateText = (templateContent: string) => {
     if (!reservation) return ''
 
-    // 指名料がコース料金に含まれて保存されている場合の表示分離
-    const originalCoursePrice = reservation.courses?.base_price || 0
-    let displayBasePrice = reservation.base_price
-    let displayNominationFee = reservation.nomination_fee
-    if (reservation.nomination_fee === 0 && reservation.base_price > originalCoursePrice && originalCoursePrice > 0 && reservation.designation_type !== 'free') {
-      displayNominationFee = reservation.base_price - originalCoursePrice
-      displayBasePrice = originalCoursePrice
-    }
+    // base_price / nomination_fee は登録時点で正しく分離されて保存されているため、そのまま表示する
+    const displayBasePrice = reservation.base_price
+    const displayNominationFee = reservation.nomination_fee
 
     const customerPrefix = activeIsNewCustomer ? '新規' : '会員'
     const dateVal = formatShortDate(reservation.business_date || reservation.date || '')

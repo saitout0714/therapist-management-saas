@@ -43,7 +43,7 @@ export default function TherapistsPage() {
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
   const [deleteCountLoading, setDeleteCountLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOrder, setSortOrder] = useState<'az' | 'manual'>('az');
+
 
   const fetchTherapists = async () => {
     if (!selectedShop) return;
@@ -72,13 +72,14 @@ export default function TherapistsPage() {
     }
 
     const [therapistsRes, memosRes] = await Promise.all([
-      query.order("name", { ascending: true }),
+      query.order("order", { ascending: true, nullsFirst: false }).order("name", { ascending: true }),
       supabase
         .from("therapist_memos")
         .select("therapist_id")
         .in("shop_id", shopIds)
         .eq("is_resolved", false),
     ]);
+
 
     if (therapistsRes.error) {
       setError(therapistsRes.error.message);
@@ -100,8 +101,14 @@ export default function TherapistsPage() {
         }
       }
 
-      list = list.sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
+      list = list.sort((a, b) => {
+        const orderA = a.order ?? 999999;
+        const orderB = b.order ?? 999999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.name.localeCompare(b.name, 'ja', { numeric: true });
+      });
       setTherapists(list);
+
       setError(null);
 
       // 他店舗連携先店舗名のフェッチ
@@ -242,13 +249,9 @@ export default function TherapistsPage() {
   };
 
   const sortTherapists = (list: TherapistItem[]) => {
-    if (sortOrder === 'az') {
-      return [...list].sort((a, b) => {
-        return a.name.trim().localeCompare(b.name.trim(), 'ja', { numeric: true, sensitivity: 'base' });
-      });
-    }
     return list;
   };
+
 
   const activeTherapists = therapists.filter((t) => t.is_active !== false);
   const inactiveTherapists = therapists.filter((t) => t.is_active === false);
@@ -427,30 +430,7 @@ export default function TherapistsPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setSortOrder('az')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
-                    sortOrder === 'az'
-                      ? 'bg-white text-indigo-600 shadow-sm font-bold'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  🔤 A-Z順
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortOrder('manual')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
-                    sortOrder === 'manual'
-                      ? 'bg-white text-indigo-600 shadow-sm font-bold'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  🖐️ 手動順
-                </button>
-              </div>
+
 
               {searchQuery.trim() ? (
                 <div className="flex items-center gap-2">

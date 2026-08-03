@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
@@ -10,31 +10,57 @@ import { TherapistFilter } from '../../../components/store/TherapistFilter';
 import { NewsList } from '../../../components/store/NewsList';
 import { DiarySection } from '../../../components/store/DiarySection';
 import {
-  MOCK_STORE,
-  MOCK_CAMPAIGNS,
-  MOCK_THERAPISTS,
-  MOCK_NEWS,
-  MOCK_BLOG_ARTICLES,
-} from '../../../mock/specialgrade';
+  fetchStoreConfig,
+  fetchCampaigns,
+  fetchTherapists,
+  fetchBlogArticles,
+  fetchNewsList,
+} from '../../../lib/storeApi';
+import { StoreConfig, Campaign, Therapist, BlogArticle, NewsItem } from '../../../types/store';
+import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_BLOG_ARTICLES, MOCK_NEWS } from '../../../mock/specialgrade';
 
 export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
+  
+  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+  const [therapists, setTherapists] = useState<Therapist[]>(MOCK_THERAPISTS);
+  const [blogs, setBlogs] = useState<BlogArticle[]>(MOCK_BLOG_ARTICLES);
+  const [news, setNews] = useState<NewsItem[]>(MOCK_NEWS);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const allTags = Array.from(new Set(MOCK_THERAPISTS.flatMap((t) => t.tags)));
+  useEffect(() => {
+    async function loadData() {
+      const storeConfig = await fetchStoreConfig(shopSlug);
+      setStore(storeConfig);
+      const [c, t, b, n] = await Promise.all([
+        fetchCampaigns(storeConfig.id),
+        fetchTherapists(storeConfig.id),
+        fetchBlogArticles(storeConfig.id),
+        fetchNewsList(storeConfig.id),
+      ]);
+      setCampaigns(c);
+      setTherapists(t);
+      setBlogs(b);
+      setNews(n);
+    }
+    loadData();
+  }, [shopSlug]);
+
+  const allTags = Array.from(new Set(therapists.flatMap((t) => t.tags)));
 
   const filteredTherapists = selectedTag
-    ? MOCK_THERAPISTS.filter((t) => t.tags.includes(selectedTag))
-    : MOCK_THERAPISTS;
+    ? therapists.filter((t) => t.tags.includes(selectedTag))
+    : therapists;
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif selection:bg-[#d1b464] selection:text-white">
-      <Header store={MOCK_STORE} />
+      <Header store={store} />
 
       <main className="flex-1">
         {/* メインヒーロー (smart-info & top-welcome & Information) */}
-        <HeroBanner campaigns={MOCK_CAMPAIGNS} store={MOCK_STORE} />
+        <HeroBanner campaigns={campaigns} store={store} />
 
         {/* 新人セラピスト / 本日の出勤 (Schedule) セクション */}
         <section className="py-12 bg-[#faf7f0] border-b border-[#d1b464]/20">
@@ -84,7 +110,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
               </span>
             </div>
 
-            <DiarySection articles={MOCK_BLOG_ARTICLES} storeSlug={shopSlug} />
+            <DiarySection articles={blogs} storeSlug={shopSlug} />
 
             <div className="text-center mt-8">
               <Link
@@ -108,7 +134,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
                     新着情報
                   </span>
                 </div>
-                <NewsList news={MOCK_NEWS} />
+                <NewsList news={news} />
               </div>
 
               <div className="space-y-4">
@@ -123,7 +149,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
                     最新の出勤・空き枠情報をリアルタイムで配信中！
                   </p>
                   <a
-                    href={MOCK_STORE.xUrl}
+                    href={store.xUrl || 'https://x.com'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-block px-6 py-2.5 bg-stone-900 text-white font-bold text-xs rounded-sm hover:bg-stone-800 transition-colors tracking-widest"
@@ -165,7 +191,8 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
         </section>
       </main>
 
-      <Footer store={MOCK_STORE} />
+      <Footer store={store} />
     </div>
   );
 }
+
