@@ -273,6 +273,39 @@ export async function fetchConfirmedShifts(
 
 export async function fetchBlogArticles(shopId?: string, therapistId?: string): Promise<BlogArticle[]> {
   try {
+    // まず therapist_blogs テーブルを検索
+    let tbQuery = supabase
+      .from('therapist_blogs')
+      .select('*, therapists(id, name, avatar_url, photo_url)')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
+
+    if (shopId) {
+      tbQuery = tbQuery.eq('shop_id', shopId);
+    }
+    if (therapistId) {
+      tbQuery = tbQuery.eq('therapist_id', therapistId);
+    }
+
+    const { data: tbData } = await tbQuery;
+
+    if (tbData && tbData.length > 0) {
+      return tbData.map((b: any) => ({
+        id: b.id,
+        therapistId: b.therapist_id || '',
+        therapistName: b.therapists?.name || 'セラピスト',
+        therapistAvatar: b.therapists?.avatar_url || b.therapists?.photo_url || MOCK_THERAPISTS[0].avatarUrl,
+        title: b.title,
+        content: b.content,
+        eyeCatchUrl: b.image_url || undefined,
+        publishedAt: b.created_at
+          ? new Date(b.created_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '最新',
+        tags: Array.isArray(b.tags) ? b.tags : ['写メ日記'],
+      }));
+    }
+
+    // フォールバック: blog_articles テーブルを検索
     let query = supabase
       .from('blog_articles')
       .select('*, therapists(id, name, avatar_url, photo_url)')
@@ -302,7 +335,7 @@ export async function fetchBlogArticles(shopId?: string, therapistId?: string): 
       therapistAvatar: b.therapists?.avatar_url || b.therapists?.photo_url || MOCK_THERAPISTS[0].avatarUrl,
       title: b.title,
       content: b.content,
-      eyeCatchUrl: b.eye_catch_url || undefined,
+      eyeCatchUrl: b.eye_catch_url || b.image_url || undefined,
       publishedAt: b.published_at ? new Date(b.published_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '最新',
       tags: Array.isArray(b.tags) ? b.tags : [],
     }));
