@@ -78,10 +78,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
       <Header store={store} />
 
       <main className="flex-1">
-        {/* メインヒーロー (スライドショー & コンセプト) */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-          <HeroBannerSlider campaigns={campaigns} />
-        </div>
+        {/* メインヒーロー (スマートインフォ・コンセプト・インフォメーションスライダー) */}
         <HeroBanner campaigns={campaigns} store={store} />
 
         {/* 新人セラピスト / 本日の出勤 (Schedule) セクション */}
@@ -107,6 +104,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
                   key={therapist.id}
                   therapist={therapist}
                   storeSlug={shopSlug}
+                  primaryColor={store.themeColor?.primary}
                 />
               ))}
             </div>

@@ -40,10 +40,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/therapist/schedule", label: "出勤希望提出" },
   ];
 
+  const isMasterAdmin = ["developer", "system_admin"].includes(user?.role || "");
+
   const adminItems = ["developer", "system_admin", "agency_staff"].includes(user?.role || "") ? [
+    ...(isMasterAdmin ? [{ href: "/admin/store-setting", label: "店舗情報 ＆ HP設定 (準備中)" }] : []),
     { href: "/admin", label: "店舗管理" },
     { href: "/admin/agency-aggregation", label: "代行プラン集計" },
-    ...(["developer", "system_admin"].includes(user?.role || "") ? [
+    ...(isMasterAdmin ? [
       { href: "/users", label: "アカウント管理" },
       { href: "/shifts/sync", label: "外部シフト同期" },
     ] : []),

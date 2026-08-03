@@ -16,13 +16,32 @@ import {
   SystemMenuCategory,
 } from '../types/store';
 
-function parseThemeColor(colorInput: any): StoreConfig['themeColor'] {
+function parseThemeColor(colorInput: any, templateId?: string): StoreConfig['themeColor'] {
+  // テンプレート指定によるデフォルトプリセットカラー
+  let presetPrimary = '#d1b464';
+  let presetAccent = '#a39573';
+  let presetLightBg = '#faf7f0';
+
+  if (templateId === 'cute') {
+    presetPrimary = '#ff6b8b';
+    presetAccent = '#e05270';
+    presetLightBg = '#fff0f3';
+  } else if (templateId === 'modern') {
+    presetPrimary = '#333333';
+    presetAccent = '#c5a059';
+    presetLightBg = '#f4f4f5';
+  } else if (templateId === 'minimal') {
+    presetPrimary = '#3b6e58';
+    presetAccent = '#52796f';
+    presetLightBg = '#f2f7f4';
+  }
+
   if (typeof colorInput === 'object' && colorInput && colorInput.primary) {
     return {
-      primary: colorInput.primary || MOCK_STORE.themeColor.primary,
-      accent: colorInput.accent || MOCK_STORE.themeColor.accent,
+      primary: colorInput.primary || presetPrimary,
+      accent: colorInput.accent || presetAccent,
       darkBg: colorInput.darkBg || MOCK_STORE.themeColor.darkBg,
-      lightBg: colorInput.lightBg || MOCK_STORE.themeColor.lightBg,
+      lightBg: colorInput.lightBg || presetLightBg,
     };
   }
 
@@ -33,11 +52,16 @@ function parseThemeColor(colorInput: any): StoreConfig['themeColor'] {
       primary,
       accent: primary,
       darkBg: MOCK_STORE.themeColor.darkBg,
-      lightBg: MOCK_STORE.themeColor.lightBg,
+      lightBg: presetLightBg,
     };
   }
 
-  return MOCK_STORE.themeColor;
+  return {
+    primary: presetPrimary,
+    accent: presetAccent,
+    darkBg: MOCK_STORE.themeColor.darkBg,
+    lightBg: presetLightBg,
+  };
 }
 
 export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
@@ -70,13 +94,16 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       return MOCK_STORE;
     }
 
+    const templateId = data.template_id || 'luxury';
+
     return {
       id: data.id,
       slug: data.slug || slug,
       name: data.name || MOCK_STORE.name,
       catchphrase: data.catchphrase || MOCK_STORE.catchphrase,
       logoUrl: data.logo_url || undefined,
-      themeColor: parseThemeColor(data.theme_color),
+      templateId: templateId as any,
+      themeColor: parseThemeColor(data.theme_color, templateId),
       address: data.address || MOCK_STORE.address,
       accessInfo: data.access_info || MOCK_STORE.accessInfo,
       businessHours: data.business_hours || MOCK_STORE.businessHours,

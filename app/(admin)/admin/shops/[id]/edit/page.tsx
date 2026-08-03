@@ -1,856 +1,585 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import React, { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import { useAuth } from '@/app/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
-function EmbedCodeBlock({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const embedCode = `<iframe\n  src="${origin}/reserve/${code}?embed=1"\n  width="100%"\n  height="900"\n  frameborder="0"\n  style="border:none;"\n></iframe>`
-
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(embedCode).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
-  return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-medium text-slate-600">ホームページ埋め込みコード（iframe）</p>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              コピーしました
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              コピー
-            </>
-          )}
-        </button>
-      </div>
-      <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap break-all bg-white border border-slate-100 rounded-lg p-3 leading-relaxed">{embedCode}</pre>
-      <p className="text-xs text-slate-400 mt-2">クライアントのホームページにこのコードを貼り付けると、予約フォームが埋め込まれます。</p>
-    </div>
-  )
-}
-
-export default function EditShopPage() {
+export default function EditShopPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
+  const id = resolvedParams.id
   const router = useRouter()
-  const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
+
+  const [activeTab, setActiveTab] = useState<'basic' | 'pricing_share' | 'code'>('basic')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  // オーナーアカウント選択肢
   const [owners, setOwners] = useState<{ id: string; name: string }[]>([])
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
+  const [allShops, setAllShops] = useState<{ id: string; name: string }[]>([])
+
+  // 店舗基本フォーム
   const [form, setForm] = useState({
     name: '',
     short_name: '',
-    description: '',
     phone: '',
-    logo_url: '',
-    theme_color: '#d1b464',
-    template_id: 'luxury',
     is_active: true,
     is_dispatch_enabled: false,
   })
+
+  // 代行・マルチ店舗共有
   const [pricingSourceShopId, setPricingSourceShopId] = useState<string>('')
   const [backSourceShopId, setBackSourceShopId] = useState<string>('')
+
+  // 予約連携コード
   const [reservationCode, setReservationCode] = useState('')
   const [savedCode, setSavedCode] = useState('')
   const [codeActive, setCodeActive] = useState(true)
   const [codeSaving, setCodeSaving] = useState(false)
   const [codeError, setCodeError] = useState('')
-  const [uploadingLogo, setUploadingLogo] = useState(false)
 
-  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // クライアントオーナーアカウント入力
+  const [hasOwner, setHasOwner] = useState(false)
+  const [ownerForm, setOwnerForm] = useState({
+    name: '',
+    plan: 'agency_plan',
+    login_id: '',
+    password: '',
+  })
 
-    if (file.size < 500) {
-      alert('画像ファイルが破損しているか、小さすぎます（500バイト以上必要です）。別の画像を選択してください。')
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true)
+      setError('')
+
+      try {
+        // 全店舗一覧（共有元選択用）
+        const { data: shopsData } = await supabase.from('shops').select('id, name').neq('id', id)
+        if (shopsData) setAllShops(shopsData)
+
+        // オーナー候補ユーザー一覧
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('role', ['client_owner', 'store_owner', 'agency_staff'])
+        if (usersData) setOwners(usersData)
+
+        // 1. 対象店舗データ
+        const { data: shopRes, error: shopErr } = await supabase
+          .from('shops')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        if (shopErr || !shopRes) {
+          setError('店舗データが見つかりません。')
+          setLoading(false)
+          return
+        }
+
+        setSelectedOwnerId(shopRes.owner_id || '')
+        setPricingSourceShopId(shopRes.pricing_source_shop_id || '')
+        setBackSourceShopId(shopRes.back_source_shop_id || '')
+
+        setForm({
+          name: shopRes.name || '',
+          short_name: shopRes.short_name || '',
+          phone: shopRes.phone || shopRes.phone_number || '',
+          is_active: !!shopRes.is_active,
+          is_dispatch_enabled: !!shopRes.is_dispatch_enabled,
+        })
+
+        // クライアントオーナーアカウント
+        const { data: ownerUser } = await supabase
+          .from('users')
+          .select('name, login_id, plan')
+          .eq('shop_id', id)
+          .eq('role', 'client_owner')
+          .maybeSingle()
+
+        if (ownerUser) {
+          setHasOwner(true)
+          setOwnerForm({
+            name: ownerUser.name || '',
+            plan: (ownerUser as any).plan || 'agency_plan',
+            login_id: ownerUser.login_id || '',
+            password: '',
+          })
+        }
+
+        // 予約連携コード
+        const { data: codeData } = await supabase
+          .from('reservation_codes')
+          .select('code, is_active')
+          .eq('shop_id', id)
+          .maybeSingle()
+
+        if (codeData) {
+          setReservationCode(codeData.code)
+          setSavedCode(codeData.code)
+          setCodeActive(codeData.is_active ?? true)
+        }
+
+      } catch (err: any) {
+        setError('読み込みエラー: ' + err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [id])
+
+  // 予約連携コード保存
+  const handleSaveCode = async () => {
+    const raw = reservationCode.trim()
+    if (!raw) {
+      setCodeError('コードを入力してください。')
       return
     }
 
-    setUploadingLogo(true)
+    setCodeSaving(true)
+    setCodeError('')
+
     try {
-      const ext = file.name.split('.').pop() || 'png'
-      const filePath = `shops/${id}/logo_${Date.now()}.${ext}`
+      const { data: dup } = await supabase
+        .from('reservation_codes')
+        .select('id')
+        .eq('code', raw)
+        .neq('shop_id', id)
+        .maybeSingle()
 
-      // まず therapist-photos バケットまたはパブリックバケットへ保存
-      const { error: uploadErr } = await supabase.storage
-        .from('therapist-photos')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadErr) {
-        throw uploadErr
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('therapist-photos')
-        .getPublicUrl(filePath)
-
-      if (publicUrlData?.publicUrl) {
-        setForm((prev) => ({ ...prev, logo_url: publicUrlData.publicUrl }))
-      }
-    } catch (err: any) {
-      alert('ロゴ画像のアップロードに失敗しました: ' + (err.message || 'ストレージエラー'))
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
-
-  // クライアントオーナーアカウント状態
-  const [hasOwner, setHasOwner] = useState(false)
-  const [ownerUserId, setOwnerUserId] = useState('')
-  const [ownerForm, setOwnerForm] = useState({
-    name: '',
-    login_id: '',
-    password: '',
-    role: 'agency_client_owner' as 'agency_client_owner' | 'simple_client_owner',
-  })
-
-  // 店舗連携設定用状態
-  const [otherShops, setOtherShops] = useState<{ id: string; name: string }[]>([])
-  const [links, setLinks] = useState<any[]>([])
-  const [linksLoading, setLinksLoading] = useState(true)
-  const [linksError, setLinksError] = useState('')
-
-  useEffect(() => {
-    const fetchOwners = async () => {
-      const { data } = await supabase.from('owners').select('id, name').order('name')
-      if (data) setOwners(data)
-    }
-    fetchOwners()
-  }, [])
-
-  useEffect(() => {
-    const fetchShop = async () => {
-      const [shopRes, codeRes, ownerRes] = await Promise.all([
-        supabase.from('shops').select('*').eq('id', id).single(),
-        supabase.from('shop_reservation_codes').select('code, is_active').eq('shop_id', id).single(),
-        supabase
-          .from('shop_owners')
-          .select(`
-            user_id,
-            users (
-              id,
-              login_id,
-              name,
-              role
-            )
-          `)
-          .eq('shop_id', id)
-      ])
-
-      if (shopRes.error || !shopRes.data) {
-        setError('店舗情報の取得に失敗しました')
-        setLoading(false)
+      if (dup) {
+        setCodeError('このコードは既に他の店舗で使用されています。')
+        setCodeSaving(false)
         return
       }
 
-      setForm({
-        name: shopRes.data.name,
-        short_name: shopRes.data.short_name || '',
-        description: shopRes.data.description || '',
-        phone: shopRes.data.phone || '',
-        logo_url: shopRes.data.logo_url || '',
-        theme_color: typeof shopRes.data.theme_color === 'string' ? shopRes.data.theme_color : (shopRes.data.theme_color?.primary || '#d1b464'),
-        template_id: shopRes.data.template_id || 'luxury',
-        is_active: shopRes.data.is_active,
-        is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
-      })
-      setSelectedOwnerId(shopRes.data.owner_id || '')
-      setPricingSourceShopId(shopRes.data.pricing_source_shop_id || '')
-      setBackSourceShopId(shopRes.data.back_source_shop_id || '')
+      const { data: existing } = await supabase
+        .from('reservation_codes')
+        .select('id')
+        .eq('shop_id', id)
+        .maybeSingle()
 
-      if (!codeRes.error && codeRes.data) {
-        setReservationCode(codeRes.data.code)
-        setSavedCode(codeRes.data.code)
-        setCodeActive(codeRes.data.is_active)
+      if (existing) {
+        const { error: updateErr } = await supabase
+          .from('reservation_codes')
+          .update({
+            code: raw,
+            is_active: codeActive,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('shop_id', id)
+
+        if (updateErr) throw updateErr
+      } else {
+        const { error: insertErr } = await supabase
+          .from('reservation_codes')
+          .insert({
+            shop_id: id,
+            code: raw,
+            is_active: codeActive,
+          })
+
+        if (insertErr) throw insertErr
       }
 
-      // クライアントオーナーアカウントの取得とマッピング
-      if (ownerRes.data && ownerRes.data.length > 0) {
-        // プランオーナーのロールに一致するものを探す
-        const ownerRelation = ownerRes.data.find((item: any) => {
-          const user = Array.isArray(item.users) ? item.users[0] : item.users
-          return user && (user.role === 'agency_client_owner' || user.role === 'simple_client_owner')
-        })
-
-        if (ownerRelation) {
-          const user = Array.isArray(ownerRelation.users) ? ownerRelation.users[0] : ownerRelation.users
-          if (user) {
-            setHasOwner(true)
-            setOwnerUserId(user.id)
-            setOwnerForm({
-              name: user.name || '',
-              login_id: user.login_id || '',
-              password: '', // パスワードは非表示
-              role: user.role as any,
-            })
-          }
-        }
-      }
-
-      setLoading(false)
-    }
-
-    void fetchShop()
-    void fetchLinks()
-  }, [id])
-
-  const fetchLinks = async () => {
-    setLinksLoading(true)
-    setLinksError('')
-    try {
-      const [otherShopsRes, linksRes] = await Promise.all([
-        supabase.from('shops').select('id, name').neq('id', id).order('name'),
-        supabase.from('shop_links').select('*').or(`shop_id_1.eq.${id},shop_id_2.eq.${id}`).eq('is_active', true)
-      ])
-      if (otherShopsRes.error) throw otherShopsRes.error
-      if (linksRes.error) throw linksRes.error
-
-      setOtherShops(otherShopsRes.data || [])
-      setLinks(linksRes.data || [])
+      setSavedCode(raw)
+      alert('Web予約連携コードを保存しました！')
     } catch (err: any) {
-      setLinksError('連携データの取得に失敗しました: ' + err.message)
+      setCodeError('保存失敗: ' + err.message)
     } finally {
-      setLinksLoading(false)
-    }
-  }
-
-  const handleToggleLink = async (targetShopId: string, isCurrentlyLinked: boolean) => {
-    setLinksError('')
-    const [id1, id2] = id < targetShopId ? [id, targetShopId] : [targetShopId, id]
-    try {
-      if (isCurrentlyLinked) {
-        const { error: deleteError } = await supabase
-          .from('shop_links')
-          .delete()
-          .eq('shop_id_1', id1)
-          .eq('shop_id_2', id2)
-        if (deleteError) throw deleteError
-      } else {
-        const { error: insertError } = await supabase
-          .from('shop_links')
-          .insert([{ shop_id_1: id1, shop_id_2: id2, is_active: true }])
-        if (insertError) throw insertError
-      }
-      await fetchLinks()
-    } catch (err: any) {
-      setLinksError('連携状態の更新に失敗しました: ' + err.message)
-    }
-  }
-
-  const handleSaveCode = async () => {
-    setCodeSaving(true)
-    setCodeError('')
-    const code = reservationCode.trim()
-    if (!code) {
-      setCodeError('URLコードを入力してください')
       setCodeSaving(false)
-      return
     }
-    if (!/^[a-z0-9-]+$/.test(code)) {
-      setCodeError('半角英小文字・数字・ハイフンのみ使用できます')
-      setCodeSaving(false)
-      return
-    }
-    const { error: upsertError } = await supabase
-      .from('shop_reservation_codes')
-      .upsert({ shop_id: id, code, is_active: codeActive }, { onConflict: 'shop_id' })
-    if (upsertError) {
-      const msg = upsertError.message
-      if (msg.includes('unique') || msg.includes('duplicate')) {
-        setCodeError('このコードは既に使用されています')
-      } else if (msg.includes('does not exist') || msg.includes('relation')) {
-        setCodeError('テーブルが存在しません。Supabaseホームで add-web-reservation.sql を実行してください。')
-      } else {
-        setCodeError('保存に失敗しました: ' + msg)
-      }
-    } else {
-      setSavedCode(code)
-    }
-    setCodeSaving(false)
   }
 
+  // 店舗管理全保存
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError('')
+    setSuccess('')
 
-    // 1. 店舗の更新
-    let updatePayload: any = {
-      name: form.name,
-      owner_id: selectedOwnerId || null,
-      short_name: form.short_name.trim() || null,
-      description: form.description || null,
-      phone: form.phone.trim() || null,
-      logo_url: form.logo_url.trim() || null,
-      theme_color: form.theme_color.trim() || '#d1b464',
-      template_id: form.template_id || 'luxury',
-      is_active: form.is_active,
-      is_dispatch_enabled: form.is_dispatch_enabled,
-      pricing_source_shop_id: pricingSourceShopId || null,
-      back_source_shop_id: backSourceShopId || null,
-      updated_at: new Date().toISOString(),
-    }
+    try {
+      // 1. 店舗情報更新
+      let updatePayload: any = {
+        name: form.name,
+        owner_id: selectedOwnerId || null,
+        short_name: form.short_name.trim() || null,
+        phone: form.phone.trim() || null,
+        is_active: form.is_active,
+        is_dispatch_enabled: form.is_dispatch_enabled,
+        pricing_source_shop_id: pricingSourceShopId || null,
+        back_source_shop_id: backSourceShopId || null,
+        updated_at: new Date().toISOString(),
+      }
 
-    let { error: updateError } = await supabase
-      .from('shops')
-      .update(updatePayload)
-      .eq('id', id)
-
-    if (updateError && updateError.message.includes('logo_url')) {
-      delete updatePayload.logo_url
-      delete updatePayload.theme_color
-      const fallback = await supabase
+      let { error: updateError } = await supabase
         .from('shops')
         .update(updatePayload)
         .eq('id', id)
-      updateError = fallback.error
-    }
 
-    if (updateError) {
-      setSaving(false)
-      setError('保存に失敗しました: ' + updateError.message)
-      return
-    }
+      if (updateError) throw updateError
 
-    // 2. クライアントオーナーアカウントの更新または新規作成
-    if (ownerForm.name) {
-      try {
+      // 2. オーナーアカウント設定
+      if (ownerForm.name) {
         if (hasOwner) {
-          // A. 既存オーナーの更新 (PUT API)
-          const res = await fetch('/api/admin/users', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: ownerUserId,
-              name: ownerForm.name.trim(),
-              role: ownerForm.role,
-              password: ownerForm.password || undefined, // 入力があった場合のみ送信
-            }),
-          })
-          const data = await res.json()
-          if (data.error) throw new Error(data.error)
-        } else if (ownerForm.login_id && ownerForm.password) {
-          // B. オーナーの新規作成 (POST API)
-          const res = await fetch('/api/admin/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              loginId: ownerForm.login_id.trim().toLowerCase(),
-              password: ownerForm.password,
-              name: ownerForm.name.trim(),
-              role: ownerForm.role,
-              shopId: id,
-            }),
-          })
-          const data = await res.json()
-          if (data.error) throw new Error(data.error)
-        }
-        alert('店舗情報およびオーナーアカウントを更新しました！')
-      } catch (err: any) {
-        alert(`店舗情報は更新されましたが、オーナーアカウントの保存に失敗しました: ${err.message}`)
-      }
-    } else {
-      alert('店舗情報を更新しました。')
-    }
+          const updateObj: any = { name: ownerForm.name }
+          if (ownerForm.login_id) updateObj.login_id = ownerForm.login_id
+          if (ownerForm.password) updateObj.password = ownerForm.password
 
-    setSaving(false)
-    router.push('/admin')
+          await supabase
+            .from('users')
+            .update(updateObj)
+            .eq('shop_id', id)
+            .eq('role', 'client_owner')
+        } else if (ownerForm.login_id && ownerForm.password) {
+          await supabase.from('users').insert({
+            shop_id: id,
+            role: 'client_owner',
+            name: ownerForm.name,
+            login_id: ownerForm.login_id,
+            password: ownerForm.password,
+          })
+          setHasOwner(true)
+        }
+      }
+
+      setSuccess('店舗基本情報、システム設定、オーナーアカウントを保存・更新しました！')
+    } catch (err: any) {
+      setError('保存処理に失敗しました: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
     return (
-      <div className="h-full bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      <div className="p-8 text-center text-slate-500 font-sans">
+        <div className="animate-spin inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-2" />
+        <p>店舗管理データを読み込み中...</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
-      <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-3 mb-4">
-          <Link
-            href="/admin"
-            className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 font-sans space-y-6">
+      
+      {/* ヘッダー */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-4">
+        <div>
+          <Link href="/admin" className="text-xs text-indigo-600 hover:underline flex items-center gap-1 mb-1 font-bold">
+            ← SaaS店舗一覧に戻る
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">店舗情報の編集</h1>
-            <p className="text-sm text-slate-500 mt-0.5">店舗情報とクライアント用アカウントを更新します。</p>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">店舗管理 ＆ システム設定</h1>
+          <p className="text-xs text-slate-500">店舗登録情報、オーナーアカウント、システム共有、Web予約コードを編集・管理します</p>
         </div>
+      </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
-          {error && (
-            <div className="mb-5 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{error}</div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* 店舗基本設定 */}
-            <div className="space-y-4">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">🏢 店舗基本情報</h2>
-              {owners.length > 0 && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">所属オーナーグループ / 法人</label>
-                  <select
-                    value={selectedOwnerId}
-                    onChange={(e) => setSelectedOwnerId(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  >
-                    <option value="">未設定（個別店舗）</option>
-                    {owners.map((ow) => (
-                      <option key={ow.id} value={ow.id}>
-                        {ow.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+      {/* 3つのSaaS管理タブ */}
+      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('basic')}
+          className={`px-4 py-3 font-bold text-xs border-b-2 shrink-0 transition-all ${
+            activeTab === 'basic'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          🏬 基本情報 ＆ オーナー設定
+        </button>
 
+        <button
+          onClick={() => setActiveTab('pricing_share')}
+          className={`px-4 py-3 font-bold text-xs border-b-2 shrink-0 transition-all ${
+            activeTab === 'pricing_share'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          💰 料金 ＆ バック計算共有 (代行グループ)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('code')}
+          className={`px-4 py-3 font-bold text-xs border-b-2 shrink-0 transition-all ${
+            activeTab === 'code'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          🔑 Web予約連携コード設定
+        </button>
+      </div>
+
+      {/* メッセージ */}
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold">
+          {success}
+        </div>
+      )}
+
+      {/* タブ1: 店舗基本情報 & オーナーアカウント割り当て */}
+      {activeTab === 'basic' && (
+        <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">店舗プロファイル基本設定</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">店舗名</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">店舗名 *</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 新宿本店"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  店舗略称・バッジ表記 <span className="text-slate-400 font-normal">（切替バーのアイコン文字。例: 周南、浅草。空欄時は自動切抜き）</span>
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">店舗略称・バッジ表記</label>
                 <input
                   type="text"
-                  maxLength={4}
                   value={form.short_name}
                   onChange={(e) => setForm({ ...form, short_name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 周南"
+                  placeholder="例: 周南、赤羽"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                 />
               </div>
+            </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="例: 070-1462-0389"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">担当オーナー選択（ユーザー紐付け）</label>
+              <select
+                value={selectedOwnerId}
+                onChange={(e) => setSelectedOwnerId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+              >
+                <option value="">未割り当て</option>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name} ({o.id.slice(0, 8)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-6 pt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                <span className="text-xs font-bold text-slate-700">店舗を有効（稼働中）にする</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_dispatch_enabled}
+                  onChange={(e) => setForm({ ...form, is_dispatch_enabled: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                <span className="text-xs font-bold text-slate-700">派遣（デリバリー）機能を有効にする</span>
+              </label>
+            </div>
+          </div>
+
+          {/* クライアントオーナーアカウント設定 */}
+          <div className="space-y-4 pt-4 border-t">
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center justify-between">
+              <span>🔑 クライアントオーナーアカウント ＆ 契約プラン設定</span>
+              <span className="text-xs text-slate-400 font-normal">店舗の権限と契約プランを設定します</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">電話番号</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">オーナー表示名</label>
                 <input
                   type="text"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 03-1234-5678"
+                  value={ownerForm.name}
+                  onChange={(e) => setOwnerForm({ ...ownerForm, name: e.target.value })}
+                  placeholder="例: SpecialGrade オーナー"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  店舗ロゴ画像 <span className="text-slate-400 font-normal">（HPヘッダーに優先表示されるロゴ画像）</span>
-                </label>
-                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  {form.logo_url && (
-                    <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-slate-200">
-                      <div className="h-12 w-32 bg-slate-100 flex items-center justify-center rounded overflow-hidden border border-slate-200">
-                        <img src={form.logo_url} alt="Logo Preview" className="max-h-full max-w-full object-contain" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-700 truncate">{form.logo_url}</p>
-                        <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">✓ ロゴ画像が設定されています</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, logo_url: '' })}
-                        className="px-2.5 py-1 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded border border-rose-200 font-medium transition-colors"
-                      >
-                        削除
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <label className="cursor-pointer px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all text-center flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      {uploadingLogo ? 'アップロード中...' : 'PCから画像ファイルを選択して登録'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoFileUpload}
-                        disabled={uploadingLogo}
-                        className="hidden"
-                      />
-                    </label>
-                    <span className="text-xs text-slate-400 text-center sm:text-left">または画像URLを入力</span>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={form.logo_url}
-                    onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-slate-800 font-mono text-xs"
-                    placeholder="https://example.com/logo.png"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  ホームページデザインテンプレート <span className="text-slate-400 font-normal">（HPのデザインスタイル・レイアウトを一括変更）</span>
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">契約プラン（権限）</label>
                 <select
-                  value={form.template_id}
-                  onChange={(e) => setForm({ ...form, template_id: e.target.value as any })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-bold text-xs"
+                  value={ownerForm.plan}
+                  onChange={(e) => setOwnerForm({ ...ownerForm, plan: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                 >
-                  <option value="luxury">✨ ラグジュアリーゴールド (SpecialGrade推奨 - 最高級スパ・ゴールド基調)</option>
-                  <option value="modern">🌙 ダークシック (モダン・ブラックベース & スタイリッシュ)</option>
-                  <option value="cute">🌸 キュート & スイート (フェミニン・パステルピンク基調)</option>
-                  <option value="minimal">🍃 シンプル & 和モダン (洗練されたナチュラル和テイスト)</option>
+                  <option value="agency_plan">代行プラン（全機能）</option>
+                  <option value="web_reserve_plan">web予約プラン</option>
+                  <option value="standard_plan">標準プラン</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  カスタムテーマカラー (Hexコード) <span className="text-slate-400 font-normal">（アクセントカラーの個別微調整）</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.theme_color.startsWith('#') ? form.theme_color : '#d1b464'}
-                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
-                    className="w-10 h-10 rounded border border-slate-200 cursor-pointer p-0.5"
-                  />
-                  <input
-                    type="text"
-                    value={form.theme_color}
-                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-mono text-xs"
-                    placeholder="#d1b464"
-                  />
-                </div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">ログインID</label>
+                <input
+                  type="text"
+                  value={ownerForm.login_id}
+                  onChange={(e) => setOwnerForm({ ...ownerForm, login_id: e.target.value })}
+                  placeholder="例: owner_sg"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">説明</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 text-sm"
-                  rows={2}
-                  placeholder="店舗の詳細情報やメモ（任意）"
+                <label className="block text-xs font-bold text-slate-700 mb-1">パスワード</label>
+                <input
+                  type="password"
+                  value={ownerForm.password}
+                  onChange={(e) => setOwnerForm({ ...ownerForm, password: e.target.value })}
+                  placeholder={hasOwner ? '変更する場合のみ入力' : 'パスワードを設定'}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
-
-              <div className="pt-1">
-                <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                  <div className="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={form.is_active}
-                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                      className="peer sr-only"
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
-                    {form.is_active ? '営業中（有効）' : '休業中（無効）'}
-                  </span>
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100">
-                <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                  <div className="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={form.is_dispatch_enabled}
-                      onChange={(e) => setForm({ ...form, is_dispatch_enabled: e.target.checked })}
-                      className="peer sr-only"
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-700 select-none group-hover:text-indigo-600 transition-colors">
-                    派遣（デリバリー）機能を有効にする
-                  </span>
-                </label>
-              </div>
-
-              {otherShops.length > 0 && (
-                <div className="pt-3 border-t border-slate-100 space-y-3">
-                  <p className="text-xs font-bold text-slate-500">
-                    マルチショップ設定共有 <span className="text-slate-400 font-normal">（同一運営の複数店舗で「料金設定」「バック設定」を1つのデータとして共有する場合に設定）</span>
-                  </p>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                      料金設定（コース・オプション・割引・指名種別・店舗ルール）の共有元店舗
-                    </label>
-                    <select
-                      value={pricingSourceShopId}
-                      onChange={(e) => setPricingSourceShopId(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium text-sm"
-                    >
-                      <option value="">共有しない（自店舗のデータを使用）</option>
-                      {otherShops.map((shop) => (
-                        <option key={shop.id} value={shop.id}>{shop.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                      バック設定（ランク・ランク別バック金額・延長料金・控除手当）の共有元店舗
-                    </label>
-                    <select
-                      value={backSourceShopId}
-                      onChange={(e) => setBackSourceShopId(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium text-sm"
-                    >
-                      <option value="">共有しない（自店舗のデータを使用）</option>
-                      {otherShops.map((shop) => (
-                        <option key={shop.id} value={shop.id}>{shop.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* クライアントオーナー設定 */}
-            <div className="space-y-4 pt-4 border-t border-slate-100">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
-                🔑 クライアントオーナーアカウント設定
-              </h2>
-              <p className="text-xs text-slate-500">
-                {hasOwner 
-                  ? 'この店舗を所有するクライアントのアカウント情報を編集します。' 
-                  : 'この店舗を所有するクライアント用のアカウントを新規作成します。'
-                }
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">オーナーお名前（氏名）</label>
-                  <input
-                    type="text"
-                    value={ownerForm.name}
-                    onChange={(e) => setOwnerForm({ ...ownerForm, name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                    placeholder="例: 田中 太郎"
-                    required={ownerForm.login_id !== '' || ownerForm.password !== ''}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">契約プラン（権限）</label>
-                  <select
-                    value={ownerForm.role}
-                    onChange={(e) => setOwnerForm({ ...ownerForm, role: e.target.value as any })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  >
-                    <option value="agency_client_owner">代行プラン (全機能)</option>
-                    {user?.role === 'developer' && <option value="simple_client_owner">web予約プラン (一部機能)</option>}
-                  </select>
-                </div>
-              </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+          >
+            {saving ? '保存中...' : '店舗基本情報 ＆ オーナー設定を保存'}
+          </button>
+        </form>
+      )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    ログインID
-                    {hasOwner && <span className="ml-2 text-[10px] text-slate-400 font-normal">※ 変更できません</span>}
-                  </label>
-                  <input
-                    type="text"
-                    value={ownerForm.login_id}
-                    onChange={(e) => setOwnerForm({ ...ownerForm, login_id: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
-                    disabled={hasOwner}
-                    className={`w-full px-4 py-2.5 rounded-xl font-mono text-sm outline-none border transition-all ${
-                      hasOwner 
-                        ? 'bg-slate-100 border-slate-150 text-slate-500 cursor-not-allowed' 
-                        : 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500/50'
-                    }`}
-                    placeholder="例: tanaka"
-                    required={ownerForm.name !== '' || ownerForm.password !== ''}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    {hasOwner ? '新パスワード (変更する場合のみ入力)' : '初期パスワード'}
-                  </label>
-                  <input
-                    type="password"
-                    value={ownerForm.password}
-                    onChange={(e) => setOwnerForm({ ...ownerForm, password: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
-                    placeholder={hasOwner ? '変更する場合のみ入力' : '8文字以上推奨'}
-                    required={!hasOwner && (ownerForm.name !== '' || ownerForm.login_id !== '')}
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 送信ボタン */}
-            <div className="flex gap-3 pt-6 border-t border-slate-100 justify-end">
-              <Link
-                href="/admin"
-                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                キャンセル
-              </Link>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                {saving ? '更新中...' : '更新する'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Web予約URL設定 */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 mt-4">
-          <h2 className="text-base font-bold text-slate-800 mb-1">Web予約URL設定</h2>
-          <p className="text-xs text-slate-500 mb-4">お客様がアクセスするWeb予約ページのURLコードを設定します。</p>
-
-          {codeError && (
-            <div className="mb-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600">{codeError}</div>
-          )}
-
+      {/* タブ2: 料金 ＆ バック計算共有設定 (代行・グループマルチ店舗共有) */}
+      {activeTab === 'pricing_share' && (
+        <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
           <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">代行プラン・マルチショップ共有設定</h2>
+            <p className="text-xs text-slate-500">
+              同一営業の複数店舗（グループ店）で「料金設定」「バック設定」を別店舗の1つのデータとして共有する場合に選択します。
+            </p>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">URLコード</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-400 whitespace-nowrap">/reserve/</span>
-                <input
-                  type="text"
-                  value={reservationCode}
-                  onChange={e => setReservationCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="shop-abc"
-                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-mono text-sm"
-                />
-              </div>
-              <p className="text-xs text-slate-400 mt-1">半角英小文字・数字・ハイフンのみ</p>
+              <label className="block text-xs font-bold text-slate-700 mb-1">料金設定 (コース・オプション・割引・指名種別) の共有元店舗</label>
+              <select
+                value={pricingSourceShopId}
+                onChange={(e) => setPricingSourceShopId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+              >
+                <option value="">共有しない（自店舗のデータを使用）</option>
+                {allShops.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} の料金データを共有する
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div className="relative flex items-center">
-                <input
-                  type="checkbox"
-                  checked={codeActive}
-                  onChange={e => setCodeActive(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors" />
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">バック計算設定 (セラピストバック・ルール) の共有元店舗</label>
+              <select
+                value={backSourceShopId}
+                onChange={(e) => setBackSourceShopId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+              >
+                <option value="">共有しない（自店舗のデータを使用）</option>
+                {allShops.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} のバック計算ルールを共有する
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+          >
+            {saving ? '保存中...' : '共有設定を保存'}
+          </button>
+        </form>
+      )}
+
+      {/* タブ3: Web予約連携コード設定 */}
+      {activeTab === 'code' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">Web予約システム連携用アクセスコード</h2>
+            <p className="text-xs text-slate-500">
+              一般お客様用Web予約画面（`/reserve/[code]`）で店舗を識別するための固有セキュリティコードです。
+            </p>
+
+            {codeError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold">
+                {codeError}
               </div>
-              <span className="text-sm font-medium text-slate-700">{codeActive ? '予約受付中' : '予約停止中'}</span>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">予約連携コード (英数字)</label>
+              <input
+                type="text"
+                value={reservationCode}
+                onChange={(e) => setReservationCode(e.target.value)}
+                placeholder="例: sg2026, specialgrade-code"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono text-slate-800"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={codeActive}
+                onChange={(e) => setCodeActive(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 rounded"
+              />
+              <span className="text-xs font-bold text-slate-700">このコードによる予約受付を有効にする</span>
             </label>
 
             {savedCode && (
-              <>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
-                  <p className="text-xs text-indigo-600 font-medium mb-1">現在の予約URL</p>
-                  <p className="text-sm font-mono text-indigo-800 break-all">
-                    {typeof window !== 'undefined' ? window.location.origin : ''}/reserve/{savedCode}
-                  </p>
-                </div>
-
-                <EmbedCodeBlock code={savedCode} />
-              </>
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <span className="text-[11px] text-slate-500 font-bold">一般顧客用 Web予約URL:</span>
+                <p className="text-xs font-mono font-bold text-indigo-600 select-all">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/reserve/${savedCode}` : `/reserve/${savedCode}`}
+                </p>
+              </div>
             )}
-
-            <button
-              type="button"
-              onClick={handleSaveCode}
-              disabled={codeSaving}
-              className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
-            >
-              {codeSaving ? '保存中...' : 'URLコードを保存'}
-            </button>
           </div>
+
+          <button
+            onClick={handleSaveCode}
+            disabled={codeSaving}
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+          >
+            {codeSaving ? '保存中...' : 'Web予約連携コードを保存'}
+          </button>
         </div>
+      )}
 
-        {/* 店舗連携設定 */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 mt-4">
-          <h2 className="text-base font-bold text-slate-800 mb-1">🤝 店舗連携（相互リンク）設定</h2>
-          <p className="text-xs text-slate-500 mb-4 font-normal leading-relaxed">
-            この店舗と他店舗との相互連携を設定します。連携をオンにした店舗間でのみ、セラピストの共有や部屋の共有、スケジュールの自動同期、精算の合算が許可されます。
-            未連携の店舗間ではお互いの情報が完全に遮断されます。
-          </p>
-
-          {linksError && (
-            <div className="mb-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600 font-medium">{linksError}</div>
-          )}
-
-          {linksLoading ? (
-            <div className="flex justify-center items-center py-6 text-indigo-600">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
-            </div>
-          ) : otherShops.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6 font-medium">連携可能な他の店舗がありません。</p>
-          ) : (
-            <div className="space-y-3">
-              {otherShops.map(shop => {
-                const isLinked = links.some(l => 
-                  (l.shop_id_1 === id && l.shop_id_2 === shop.id) || 
-                  (l.shop_id_1 === shop.id && l.shop_id_2 === id)
-                )
-                return (
-                  <div 
-                    key={shop.id} 
-                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                      isLinked ? 'border-indigo-150 bg-indigo-50/10' : 'border-slate-200 bg-white hover:bg-slate-50/40'
-                    }`}
-                  >
-                    <div>
-                      <span className="text-sm font-bold text-slate-800">{shop.name}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleLink(shop.id, isLinked)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-sm ${
-                        isLinked ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                      }`}
-                    >
-                      {isLinked ? '連携を解除' : '連携する'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
-

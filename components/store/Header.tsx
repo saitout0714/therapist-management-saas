@@ -27,36 +27,36 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
     { label: '求人情報', href: `${basePath}/recruit` },
   ];
 
-  const showLogoImage = store.logoUrl && !imageError;
+  const primaryColor = store.themeColor?.primary || '#d1b464';
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#d1b464]/30 text-stone-800 transition-all font-serif">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-sm font-serif">
       {store.noticeBanner && (
-        <div className="bg-gradient-to-r from-[#d1b464] via-[#e5cf87] to-[#d1b464] text-stone-900 text-xs py-1.5 px-4 text-center font-semibold tracking-widest shadow-sm">
+        <div style={{ backgroundColor: primaryColor }} className="text-white text-xs py-1.5 px-4 text-center font-semibold tracking-widest shadow-sm">
           {store.noticeBanner}
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* 店舗ロゴ / タイトル */}
-        <Link href={basePath} className="flex items-center gap-3 group shrink-0">
-          {showLogoImage ? (
-            <img
-              src={store.logoUrl}
-              alt={store.name}
-              onError={() => setImageError(true)}
-              className="h-10 sm:h-12 w-auto max-w-[200px] sm:max-w-[260px] object-contain shrink-0"
-            />
+        {/* ロゴ / 店舗名 */}
+        <Link href={basePath} className="flex items-center gap-3 group">
+          {store.logoUrl && !imageError ? (
+            <div className="h-12 max-w-[200px] flex items-center">
+              <img
+                src={store.logoUrl}
+                alt={store.name}
+                className="max-h-full w-auto object-contain transition-transform group-hover:scale-102"
+                onError={() => setImageError(true)}
+              />
+            </div>
           ) : (
-            <div className="text-center sm:text-left">
-              <h1 className="font-extrabold text-xl sm:text-2xl tracking-wider text-stone-800 group-hover:text-[#a39573] transition-colors">
+            <div className="flex flex-col">
+              <span className="text-xl sm:text-2xl font-bold tracking-widest text-stone-900 group-hover:text-opacity-80 transition-colors">
                 {store.name}
-              </h1>
-              {store.catchphrase && (
-                <p className="text-[11px] text-stone-500 tracking-widest hidden sm:block">
-                  {store.catchphrase}
-                </p>
-              )}
+              </span>
+              <span className="text-[10px] tracking-widest text-stone-600 font-sans">
+                {store.catchphrase}
+              </span>
             </div>
           )}
         </Link>
@@ -67,14 +67,15 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             <Link
               key={link.href}
               href={link.href}
-              className="px-3 py-2 text-xs font-semibold tracking-widest text-stone-700 hover:text-[#a39573] transition-all"
+              className="px-3 py-2 text-xs font-semibold tracking-widest text-stone-700 hover:opacity-80 transition-all"
             >
               {link.label}
             </Link>
           ))}
           <Link
             href={`${basePath}/reserve`}
-            className="ml-3 px-5 py-2.5 bg-gradient-to-r from-[#d1b464] to-[#a39573] hover:from-[#c2a353] hover:to-[#928462] text-white text-xs font-bold tracking-widest rounded-sm shadow-md transition-all border border-[#d1b464]"
+            style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
+            className="ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest rounded-sm shadow-md hover:brightness-110 transition-all"
           >
             WEB予約
           </Link>
@@ -84,7 +85,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         <div className="flex lg:hidden items-center gap-2">
           <Link
             href={`${basePath}/reserve`}
-            className="px-3 py-1.5 bg-[#d1b464] text-white text-xs font-bold rounded-sm shadow-sm"
+            style={{ backgroundColor: primaryColor }}
+            className="px-3 py-1.5 text-white text-xs font-bold rounded-sm shadow-sm"
           >
             予約
           </Link>

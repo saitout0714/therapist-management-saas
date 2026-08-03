@@ -7,19 +7,24 @@ import { Therapist } from '../../types/store';
 interface TherapistCardProps {
   therapist: Therapist;
   storeSlug: string;
-  confirmedShiftTime?: string; // 例: "12:00 ~ 21:00"
+  confirmedShiftTime?: string;
+  primaryColor?: string;
 }
 
 export const TherapistCard: React.FC<TherapistCardProps> = ({
   therapist,
   storeSlug,
   confirmedShiftTime,
+  primaryColor = '#d1b464',
 }) => {
   const detailUrl = `/${storeSlug}/therapists/${therapist.id}`;
   const reserveUrl = `/${storeSlug}/reserve?therapistId=${therapist.id}`;
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-[#d1b464]/40 overflow-hidden shadow-md hover:shadow-2xl hover:border-[#d1b464] transform hover:-translate-y-1.5 transition-all duration-500 flex flex-col font-serif">
+    <div
+      style={{ borderColor: `${primaryColor}60` }}
+      className="group relative bg-white rounded-2xl border overflow-hidden shadow-md hover:shadow-2xl transform hover:-translate-y-1.5 transition-all duration-500 flex flex-col font-serif"
+    >
       
       {/* 写真領域 */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-stone-900">
@@ -37,14 +42,20 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
 
         {/* 左上バッジ (isRookie / NEW / 新人 / PICKUP) */}
         {(therapist.isRookie || therapist.badge) && (
-          <div className="absolute top-3 left-3 bg-gradient-to-r from-[#f6d365] via-[#d1b464] to-[#b8860b] text-stone-950 font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest border border-yellow-200/50">
+          <div
+            style={{ backgroundColor: primaryColor }}
+            className="absolute top-3 left-3 text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest"
+          >
             {therapist.isRookie ? '新人' : therapist.badge}
           </div>
         )}
 
         {/* 右上ランク・グレード */}
         {(therapist.rankName || therapist.grade) && (
-          <div className="absolute top-3 right-3 bg-stone-950/80 backdrop-blur-md text-[#d1b464] border border-[#d1b464]/60 font-bold text-[10px] px-2.5 py-1 rounded-full tracking-wider shadow-md">
+          <div
+            style={{ color: primaryColor, borderColor: `${primaryColor}80` }}
+            className="absolute top-3 right-3 bg-stone-950/80 backdrop-blur-md border font-bold text-[10px] px-2.5 py-1 rounded-full tracking-wider shadow-md"
+          >
             {therapist.rankName || therapist.grade}
           </div>
         )}
@@ -52,10 +63,10 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         {/* 写真下部の情報レイヤー */}
         <div className="absolute bottom-3 left-3.5 right-3.5 text-stone-100 space-y-1">
           <div className="flex items-baseline gap-2">
-            <h3 className="text-xl font-bold tracking-wider drop-shadow-md text-stone-100 group-hover:text-[#f6d365] transition-colors">
+            <h3 className="text-xl font-bold tracking-wider drop-shadow-md text-stone-100 group-hover:text-white transition-colors">
               {therapist.name}
             </h3>
-            <span className="text-xs text-[#d1b464] font-semibold drop-shadow">({therapist.age}歳)</span>
+            <span style={{ color: primaryColor }} className="text-xs font-semibold drop-shadow">({therapist.age}歳)</span>
           </div>
 
           <p className="text-xs text-stone-200 font-sans tracking-wide drop-shadow">
@@ -69,7 +80,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                 本日出勤
               </span>
-              <span className="text-xs font-mono font-bold text-[#f6d365] drop-shadow">
+              <span style={{ color: primaryColor }} className="text-xs font-mono font-bold drop-shadow">
                 ⏰ {confirmedShiftTime}
               </span>
             </div>
@@ -84,7 +95,8 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {therapist.tags.map((tag) => (
             <span
               key={tag}
-              className="text-[10px] font-bold bg-white text-[#8c7853] px-2 py-0.5 border border-[#d1b464]/30 rounded-md shadow-2xs"
+              style={{ color: primaryColor, borderColor: `${primaryColor}40` }}
+              className="text-[10px] font-bold bg-white px-2 py-0.5 border rounded-md shadow-2xs"
             >
               #{tag}
             </span>
@@ -108,7 +120,8 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           </Link>
           <Link
             href={reserveUrl}
-            className="py-2.5 text-center text-xs font-bold text-stone-950 bg-gradient-to-r from-[#d1b464] to-[#a39573] hover:from-[#c2a353] hover:to-[#928462] border border-[#d1b464] rounded-xl transition-all shadow-md tracking-wider active:scale-95"
+            style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
+            className="py-2.5 text-center text-xs font-bold text-white rounded-xl transition-all shadow-md tracking-wider hover:brightness-110 active:scale-95"
           >
             指名WEB予約
           </Link>
