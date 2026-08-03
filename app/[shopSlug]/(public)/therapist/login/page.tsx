@@ -1,21 +1,33 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTherapistAuth } from '@/contexts/TherapistAuthContext';
+import { fetchStoreConfig } from '@/lib/storeApi';
 import { supabase } from '@/lib/supabase';
+import { StoreConfig } from '@/types/store';
 
-export default function TherapistLoginPage() {
+export default function ShopTherapistLoginPage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = use(params);
+  const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const router = useRouter();
   const { therapist, login } = useTherapistAuth();
 
+  const [store, setStore] = useState<StoreConfig | null>(null);
   const [loginInput, setLoginInput] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    // ログイン済みの場合はマイページへリダイレクト
+    async function loadShop() {
+      const storeConfig = await fetchStoreConfig(shopSlug);
+      setStore(storeConfig);
+    }
+    loadShop();
+  }, [shopSlug]);
+
+  useEffect(() => {
     if (therapist) {
       router.push('/therapist/schedule');
     }
@@ -31,21 +43,27 @@ export default function TherapistLoginPage() {
       return;
     }
 
+    if (!store) {
+      setError('店舗情報のロード中です。少々お待ちください。');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 1. therapists テーブルから login_id または name で一致するセラピストを検索
+      // 該当店舗 (shop.id) のセラピストのみに限定してログイン検索
       let { data: therapistMatch } = await supabase
         .from('therapists')
-        .select('*, shops(id, name)')
+        .select('*')
+        .eq('shop_id', store.id)
         .or(`login_id.eq.${queryTerm},name.eq.${queryTerm}`)
         .maybeSingle();
 
-      // もし部分一致または大文字小文字検索をフォールバック
       if (!therapistMatch) {
         const { data: fallbackList } = await supabase
           .from('therapists')
-          .select('*, shops(id, name)')
+          .select('*')
+          .eq('shop_id', store.id)
           .ilike('name', `%${queryTerm}%`)
           .limit(1);
 
@@ -55,21 +73,17 @@ export default function TherapistLoginPage() {
       }
 
       if (!therapistMatch) {
-        setError('該当するセラピストアカウントが見つかりません。ログインIDまたはお名前をご確認ください。');
+        setError(`「${store.name}」に所属する対象のセラピストが見つかりません。`);
         setLoading(false);
         return;
       }
 
-      // 店舗情報の取得
-      const shopName = therapistMatch.shops?.name || 'specialgrade';
-      const shopId = therapistMatch.shop_id || therapistMatch.shops?.id || '';
-
-      // ログインセッションの保存
+      // セッションログイン
       login({
         id: therapistMatch.id,
         name: therapistMatch.name,
-        shopId: shopId,
-        shopSlug: shopName,
+        shopId: store.id,
+        shopSlug: store.slug || shopSlug,
         avatarUrl: therapistMatch.photo_url || therapistMatch.avatar_url,
       });
 
@@ -87,10 +101,12 @@ export default function TherapistLoginPage() {
         
         <div className="text-center space-y-2">
           <div className="inline-block px-3 py-1 bg-[#d1b464]/20 border border-[#d1b464]/40 rounded-full text-[#d1b464] text-xs font-bold tracking-widest uppercase">
-            Therapist Portal
+            {store?.name || 'Therapist Portal'}
           </div>
           <h1 className="text-2xl font-bold text-stone-100 tracking-wider">セラピスト専用ログイン</h1>
-          <p className="text-xs text-stone-400">出勤希望の提出・写メ日記の投稿はこちらから</p>
+          <p className="text-xs text-stone-400">
+            {store ? `${store.name} のスタッフ専用ポータル` : '出勤希望の提出・写メ日記の投稿'}
+          </p>
         </div>
 
         {error && (
@@ -100,7 +116,6 @@ export default function TherapistLoginPage() {
         )}
 
         <form onSubmit={handleLogin} className="space-y-5">
-          {/* ログインIDまたはセラピスト名 */}
           <div>
             <label className="block text-xs font-bold text-stone-300 mb-1.5">
               ログインID または セラピスト名
@@ -115,7 +130,6 @@ export default function TherapistLoginPage() {
             />
           </div>
 
-          {/* パスワード */}
           <div>
             <label className="block text-xs font-bold text-stone-300 mb-1.5">パスワード / 認証ピン</label>
             <input
@@ -127,7 +141,6 @@ export default function TherapistLoginPage() {
             />
           </div>
 
-          {/* ログインボタン */}
           <button
             type="submit"
             disabled={loading}

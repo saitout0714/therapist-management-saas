@@ -66,6 +66,7 @@ export default function EditShopPage() {
     phone: '',
     logo_url: '',
     theme_color: '#d1b464',
+    template_id: 'luxury',
     is_active: true,
     is_dispatch_enabled: false,
   })
@@ -171,6 +172,7 @@ export default function EditShopPage() {
         phone: shopRes.data.phone || '',
         logo_url: shopRes.data.logo_url || '',
         theme_color: typeof shopRes.data.theme_color === 'string' ? shopRes.data.theme_color : (shopRes.data.theme_color?.primary || '#d1b464'),
+        template_id: shopRes.data.template_id || 'luxury',
         is_active: shopRes.data.is_active,
         is_dispatch_enabled: !!shopRes.data.is_dispatch_enabled,
       })
@@ -303,6 +305,7 @@ export default function EditShopPage() {
       phone: form.phone.trim() || null,
       logo_url: form.logo_url.trim() || null,
       theme_color: form.theme_color.trim() || '#d1b464',
+      template_id: form.template_id || 'luxury',
       is_active: form.is_active,
       is_dispatch_enabled: form.is_dispatch_enabled,
       pricing_source_shop_id: pricingSourceShopId || null,
@@ -519,7 +522,23 @@ export default function EditShopPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  テーマカラー (Hexカラーコード) <span className="text-slate-400 font-normal">（HP全体のテーマアクセント色。例: #d1b464）</span>
+                  ホームページデザインテンプレート <span className="text-slate-400 font-normal">（HPのデザインスタイル・レイアウトを一括変更）</span>
+                </label>
+                <select
+                  value={form.template_id}
+                  onChange={(e) => setForm({ ...form, template_id: e.target.value as any })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-bold text-xs"
+                >
+                  <option value="luxury">✨ ラグジュアリーゴールド (SpecialGrade推奨 - 最高級スパ・ゴールド基調)</option>
+                  <option value="modern">🌙 ダークシック (モダン・ブラックベース & スタイリッシュ)</option>
+                  <option value="cute">🌸 キュート & スイート (フェミニン・パステルピンク基調)</option>
+                  <option value="minimal">🍃 シンプル & 和モダン (洗練されたナチュラル和テイスト)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  カスタムテーマカラー (Hexコード) <span className="text-slate-400 font-normal">（アクセントカラーの個別微調整）</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <input

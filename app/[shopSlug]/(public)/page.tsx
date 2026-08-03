@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
 import { HeroBanner } from '../../../components/store/HeroBanner';
+import { HeroBannerSlider } from '../../../components/store/HeroBannerSlider';
+import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
 import { TherapistCard } from '../../../components/store/TherapistCard';
 import { TherapistFilter } from '../../../components/store/TherapistFilter';
 import { NewsList } from '../../../components/store/NewsList';
@@ -76,7 +78,10 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
       <Header store={store} />
 
       <main className="flex-1">
-        {/* メインヒーロー (smart-info & top-welcome & Information) */}
+        {/* メインヒーロー (スライドショー & コンセプト) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+          <HeroBannerSlider campaigns={campaigns} />
+        </div>
         <HeroBanner campaigns={campaigns} store={store} />
 
         {/* 新人セラピスト / 本日の出勤 (Schedule) セクション */}
@@ -209,6 +214,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
       </main>
 
       <Footer store={store} />
+      <MobileFloatingBar store={store} />
     </div>
     </ThemeProvider>
   );

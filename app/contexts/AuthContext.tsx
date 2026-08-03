@@ -46,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', sessionUser.id)
         .limit(1)
 
+      // 通信エラー等で取得に失敗しただけの場合は、既存のログイン状態を維持する。
+      // （ここでログアウトさせると、他アプリから戻った際の再読み込みで
+      //   通信が一瞬不安定なだけでログイン画面に飛ばされてしまう）
+      if (dbUserError) {
+        console.error('ユーザー情報の取得に失敗（セッションは維持）:', dbUserError)
+        return
+      }
+
       if (dbUserData && dbUserData.length > 0) {
         const dbUser = dbUserData[0]
         let shops: { id: string; name: string }[] = []

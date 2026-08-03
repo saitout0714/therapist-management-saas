@@ -19,6 +19,7 @@ export interface StoreConfig {
   litlinkUrl?: string;
   lineUrl?: string;
   noticeBanner?: string;
+  templateId?: 'luxury' | 'modern' | 'cute' | 'minimal';
 }
 
 export interface Therapist {

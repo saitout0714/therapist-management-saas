@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '../../../../../components/store/Header';
 import { Footer } from '../../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../../components/store/ThemeProvider';
+import { ImageLightboxModal } from '../../../../../components/store/ImageLightboxModal';
 import {
   fetchStoreConfig,
   fetchTherapistDetail,
@@ -28,6 +29,7 @@ export default function TherapistDetailPage({
   const [blogs, setBlogs] = useState<BlogArticle[]>([]);
   const [todayShift, setTodayShift] = useState<ConfirmedShift | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
   useEffect(() => {
     async function loadData() {
@@ -70,19 +72,27 @@ export default function TherapistDetailPage({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             {/* 写真＆ギャラリー (登録画像全件表示) */}
             <div className="space-y-4">
-              <div className="aspect-[3/4] w-full rounded-sm overflow-hidden bg-stone-100 border border-stone-200 relative">
+              <div
+                onClick={() => setIsLightboxOpen(true)}
+                className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-stone-900 border border-stone-800 relative cursor-pointer group shadow-lg"
+              >
                 <img
                   src={mainPhoto}
                   alt={currentTherapist.name}
-                  className="w-full h-full object-cover transition-all duration-300"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <span className="opacity-0 group-hover:opacity-100 bg-stone-950/80 text-white font-bold text-xs px-3 py-1.5 rounded-full border border-white/20 transition-opacity">
+                    🔍 タップで拡大表示
+                  </span>
+                </div>
                 {(currentTherapist.isRookie || currentTherapist.badge) && (
-                  <span className="absolute top-3 left-3 bg-[#d1b464] text-white font-bold text-[10px] px-3 py-1 rounded-sm shadow-sm tracking-wider">
+                  <span className="absolute top-3 left-3 bg-[#d1b464] text-stone-950 font-bold text-[10px] px-3 py-1 rounded-full shadow-sm tracking-wider">
                     {currentTherapist.isRookie ? '新人' : currentTherapist.badge}
                   </span>
                 )}
                 {(currentTherapist.rankName || currentTherapist.grade) && (
-                  <span className="absolute top-3 right-3 bg-stone-900/80 text-[#d1b464] border border-[#d1b464]/40 font-semibold text-[10px] px-2.5 py-1 rounded-sm tracking-wider">
+                  <span className="absolute top-3 right-3 bg-stone-900/80 text-[#d1b464] border border-[#d1b464]/40 font-semibold text-[10px] px-2.5 py-1 rounded-full tracking-wider">
                     {currentTherapist.rankName || currentTherapist.grade}
                   </span>
                 )}
@@ -248,6 +258,15 @@ export default function TherapistDetailPage({
 
       <Footer store={store} />
     </div>
+
+    {/* 写真拡大モーダル */}
+    <ImageLightboxModal
+      isOpen={isLightboxOpen}
+      images={photos}
+      currentIndex={selectedPhotoIndex}
+      onClose={() => setIsLightboxOpen(false)}
+      onSelectIndex={(idx) => setSelectedPhotoIndex(idx)}
+    />
     </ThemeProvider>
   );
 }
