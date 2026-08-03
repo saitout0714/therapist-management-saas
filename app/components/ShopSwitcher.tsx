@@ -90,8 +90,12 @@ export default function ShopSwitcher() {
   }, [isUserMenuOpen, isShopMenuOpen])
 
   const handleLogout = async () => {
-    await logout()
-    router.push('/login')
+    try {
+      await logout()
+    } finally {
+      // ログアウト処理で例外が出ても必ずログイン画面へ遷移させる
+      router.push('/login')
+    }
   }
 
   const handleShopSelect = (shop: typeof selectedShop) => {

@@ -287,14 +287,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // 1. Supabase Auth セッションをログアウト
       await supabase.auth.signOut()
-
+    } catch (error) {
+      // セッションが既に無効な場合など signOut 自体が失敗しても、
+      // ローカルの認証状態は必ずクリアする（ログイン画面に戻れなくなるのを防ぐ）
+      console.error('Supabase側のログアウト失敗:', error)
+    } finally {
       // 2. ローカル状態とクッキーをクリア
       setUser(null)
       localStorage.removeItem('auth_user')
       document.cookie = 'auth_user=; path=/; max-age=0'
-    } catch (error) {
-      console.error('ログアウト失敗:', error)
-      throw error
     }
   }
 
