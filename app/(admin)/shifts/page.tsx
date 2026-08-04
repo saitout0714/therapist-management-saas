@@ -782,6 +782,33 @@ function ShiftsContent() {
     setRefreshCounter(c => c + 1);
   };
 
+  // 当該店舗・当該日の予約を、お客様連絡／セラピスト連絡ともに一括で「送信済」にする
+  const handleBulkMarkNotified = async () => {
+    if (!selectedShop) return;
+
+    const targets = reservations.filter(r =>
+      r.shop_id === selectedShop.id &&
+      r.status === 'confirmed' &&
+      (!r.customer_notified || !r.therapist_notified)
+    );
+
+    if (targets.length === 0) {
+      alert('未送信の予約はありません。');
+      return;
+    }
+    if (!confirm(`${filterDate} の未送信 ${targets.length}件を、お客様・セラピストともに「送信済」にしますか？`)) return;
+
+    const { error } = await supabase
+      .from('reservations')
+      .update({ customer_notified: true, therapist_notified: true, is_handled: true })
+      .in('id', targets.map(r => r.id));
+
+    if (error) { alert('一括送信済みの設定に失敗しました: ' + error.message); return; }
+
+    alert(`${targets.length}件を送信済にしました。`);
+    setRefreshCounter(c => c + 1);
+  };
+
   const handleToggleSettlement = async (therapistId: string, date: string, currentlySettled: boolean): Promise<boolean> => {
     if (!selectedShop) return false;
     if (currentlySettled) {
@@ -2227,6 +2254,17 @@ function ShiftsContent() {
                 </>
               )}
             </div>
+
+            {/* 一括送信済み（お客様・セラピストまとめて） */}
+            {(viewMode === 'day' || viewMode === 'vertical') && (
+              <button
+                onClick={handleBulkMarkNotified}
+                className="px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
+                title="この日の未送信の予約を、お客様連絡・セラピスト連絡ともに送信済にします"
+              >
+                全員 送信済
+              </button>
+            )}
 
             {/* 一括受付終了（当日のみ） */}
             {(viewMode === 'day' || viewMode === 'vertical') && filterDate === getBusinessDateStr() && (
