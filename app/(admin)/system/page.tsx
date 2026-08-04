@@ -905,33 +905,70 @@ function StoreInfoTab() {
   const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
   const isAgencyOnly = shopPlan === 'agency_only_plan' || ((selectedShop as any)?.has_agency && !(selectedShop as any)?.has_reserve && !(selectedShop as any)?.has_hp)
 
-  const [form, setForm] = useState({
-    name: selectedShop?.name || '',
-    phone: (selectedShop as any)?.phone || '',
-    business_hours: (selectedShop as any)?.business_hours || '',
-    access_info: (selectedShop as any)?.access_info || '',
-    catchphrase: (selectedShop as any)?.catchphrase || '',
-    description: (selectedShop as any)?.description || '',
-    line_url: (selectedShop as any)?.line_url || '',
-    x_url: (selectedShop as any)?.x_url || '',
-    logo_url: (selectedShop as any)?.logo_url || '',
-  })
+  const EMPTY_FORM = {
+    name: '',
+    short_name: '',
+    phone: '',
+    business_hours: '',
+    address: '',
+    access_info: '',
+    google_map_url: '',
+    catchphrase: '',
+    description: '',
+    line_url: '',
+    x_url: '',
+    litlink_url: '',
+  }
 
+  const [form, setForm] = useState(EMPTY_FORM)
+
+  // selectedShop は店舗切替バー用に一部の列しか持っていないため、
+  // 編集フォームは必ず shops テーブルから直接読み直す。
+  // （読まずに保存すると、未取得の項目を空で上書きしてしまう）
   useEffect(() => {
-    if (selectedShop) {
+    let cancelled = false
+
+    async function loadShop() {
+      if (!selectedShop?.id) return
+      setLoading(true)
+      setError(null)
+
+      const { data, error: fetchErr } = await supabase
+        .from('shops')
+        .select('name, short_name, phone, business_hours, address, access_info, google_map_url, catchphrase, description, line_url, x_url, litlink_url')
+        .eq('id', selectedShop.id)
+        .single()
+
+      if (cancelled) return
+
+      if (fetchErr) {
+        setError('店舗情報の読み込みに失敗しました: ' + fetchErr.message)
+        setLoading(false)
+        return
+      }
+
       setForm({
-        name: selectedShop.name || '',
-        phone: (selectedShop as any).phone || '',
-        business_hours: (selectedShop as any).business_hours || '',
-        access_info: (selectedShop as any).access_info || '',
-        catchphrase: (selectedShop as any).catchphrase || '',
-        description: (selectedShop as any).description || '',
-        line_url: (selectedShop as any).line_url || '',
-        x_url: (selectedShop as any).x_url || '',
-        logo_url: (selectedShop as any).logo_url || '',
+        name: data?.name || '',
+        short_name: data?.short_name || '',
+        phone: data?.phone || '',
+        business_hours: data?.business_hours || '',
+        address: data?.address || '',
+        access_info: data?.access_info || '',
+        google_map_url: data?.google_map_url || '',
+        catchphrase: data?.catchphrase || '',
+        description: data?.description || '',
+        line_url: data?.line_url || '',
+        x_url: data?.x_url || '',
+        litlink_url: data?.litlink_url || '',
       })
+      setLoading(false)
     }
-  }, [selectedShop])
+
+    void loadShop()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedShop?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -946,16 +983,20 @@ function StoreInfoTab() {
         .from('shops')
         .update({
           name: form.name,
-          phone: form.phone,
-          business_hours: form.business_hours,
-          access_info: form.access_info,
+          short_name: form.short_name.trim() || null,
+          phone: form.phone.trim() || null,
+          business_hours: form.business_hours.trim() || null,
+          address: form.address.trim() || null,
+          access_info: form.access_info.trim() || null,
+          google_map_url: form.google_map_url.trim() || null,
           ...(!isAgencyOnly && {
-            catchphrase: form.catchphrase,
-            description: form.description,
-            line_url: form.line_url,
-            x_url: form.x_url,
-            logo_url: form.logo_url,
+            catchphrase: form.catchphrase.trim() || null,
+            description: form.description || null,
+            line_url: form.line_url.trim() || null,
+            x_url: form.x_url.trim() || null,
+            litlink_url: form.litlink_url.trim() || null,
           }),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', selectedShop.id)
 
@@ -975,6 +1016,15 @@ function StoreInfoTab() {
     return (
       <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500">
         店舗が選択されていません
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 flex items-center justify-center gap-3 text-slate-500">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+        <span className="text-xs font-bold">店舗情報を読み込み中...</span>
       </div>
     )
   }
@@ -1025,6 +1075,19 @@ function StoreInfoTab() {
           </div>
 
           <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">店舗略称・バッジ表記</label>
+            <input
+              type="text"
+              value={form.short_name}
+              onChange={(e) => setForm({ ...form, short_name: e.target.value })}
+              placeholder="例: 周南"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
             <input
               type="text"
@@ -1034,9 +1097,6 @@ function StoreInfoTab() {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">営業時間</label>
             <input
@@ -1044,6 +1104,19 @@ function StoreInfoTab() {
               value={form.business_hours}
               onChange={(e) => setForm({ ...form, business_hours: e.target.value })}
               placeholder="例: OPEN/11:00～5:00 (受付/10:30〜2:00)"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">住所</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="例: 東京都北区赤羽1-2-3"
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
             />
           </div>
@@ -1057,6 +1130,17 @@ function StoreInfoTab() {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">GoogleマップURL</label>
+          <input
+            type="text"
+            value={form.google_map_url}
+            onChange={(e) => setForm({ ...form, google_map_url: e.target.value })}
+            placeholder="https://maps.app.goo.gl/..."
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+          />
         </div>
 
         {!isAgencyOnly && (
@@ -1083,7 +1167,7 @@ function StoreInfoTab() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">公式LINE URL</label>
                 <input
@@ -1101,6 +1185,16 @@ function StoreInfoTab() {
                   value={form.x_url}
                   onChange={(e) => setForm({ ...form, x_url: e.target.value })}
                   placeholder="https://x.com/..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">リットリンク URL</label>
+                <input
+                  type="text"
+                  value={form.litlink_url}
+                  onChange={(e) => setForm({ ...form, litlink_url: e.target.value })}
+                  placeholder="https://lit.link/..."
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
                 />
               </div>

@@ -92,7 +92,10 @@
       "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect-shops.js\")",
       "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect2.js\")",
       "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect3.js\")",
-      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect4.js\")"
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect4.js\")",
+      "Bash(git rm *)",
+      "Bash(awk 'NR>=1100 && NR<=1135' \"app/\\(admin\\)/system/page.tsx\")",
+      "Bash(git check-ignore *)"
     ]
   }
 }

@@ -20,6 +20,9 @@ type Shop = {
   is_web_reserve_plan?: boolean
 }
 
+/** 電話代行を含むプラン。has_agency が未設定の店舗はこの一覧で判定する */
+const AGENCY_PLANS = ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan']
+
 export default function AdminPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -53,22 +56,15 @@ export default function AdminPage() {
           owners (
             id,
             name
-          ),
-          shop_owners (
-            users (
-              role
-            )
           )
         `)
         .order('order', { ascending: true, nullsFirst: false })
 
       if (error) throw error
-      
+
       const allShops = (data || []).map((shop: any) => {
-        const hasSimpleOwner = shop.shop_owners?.some((so: any) => {
-          const u = Array.isArray(so.users) ? so.users[0] : so.users
-          return u?.role === 'simple_client_owner'
-        })
+        // 「Web予約プランの店舗」＝電話代行を契約していない店舗（契約プランが正）
+        const isAgency = shop.has_agency ?? AGENCY_PLANS.includes(shop.plan || '')
 
         // owner_id があれば ownersMap から絶対にグループ名を取得
         const ownerName = shop.owners?.name || (shop.owner_id ? ownersMap.get(shop.owner_id) : null)
@@ -76,7 +72,7 @@ export default function AdminPage() {
         return {
           ...shop,
           owners: ownerName ? { id: shop.owner_id || '', name: ownerName } : shop.owners,
-          is_web_reserve_plan: !!hasSimpleOwner
+          is_web_reserve_plan: !isAgency
         }
       }) as Shop[]
       

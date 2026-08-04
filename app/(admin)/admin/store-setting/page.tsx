@@ -27,7 +27,7 @@ interface NewsItemData {
 export default function OwnerStoreSettingPage() {
   const { user } = useAuth()
   const { selectedShop } = useShop()
-  const [activeTab, setActiveTab] = useState<'basic' | 'banners' | 'news'>('basic')
+  const [activeTab, setActiveTab] = useState<'banners' | 'news'>('banners')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -36,25 +36,8 @@ export default function OwnerStoreSettingPage() {
   const [shopId, setShopId] = useState<string>('')
   const [shopSlug, setShopSlug] = useState<string>('')
 
-  // 店舗基本情報フォーム
-  const [form, setForm] = useState({
-    name: '',
-    short_name: '',
-    catchphrase: '',
-    description: '',
-    phone: '',
-    address: '',
-    access_info: '',
-    business_hours: '',
-    google_map_url: '',
-    line_url: '',
-    x_url: '',
-    litlink_url: '',
-    notice_banner: '',
-    logo_url: '',
-    theme_color: '#d1b464',
-    template_id: 'luxury',
-  })
+  // 店舗名（見出し表示用）。基本情報の編集は「店舗 ＆ システム設定」に集約した
+  const [shopName, setShopName] = useState('')
 
   // メインバナー一覧＆入力
   const [campaigns, setCampaigns] = useState<CampaignItem[]>([])
@@ -75,8 +58,6 @@ export default function OwnerStoreSettingPage() {
     category: 'お知らせ',
   })
 
-  const [uploadingLogo, setUploadingLogo] = useState(false)
-
   useEffect(() => {
     async function loadOwnerShopData() {
       if (!selectedShop) return
@@ -87,7 +68,7 @@ export default function OwnerStoreSettingPage() {
         // 選択中店舗の最新プロファイルを取得
         const { data: shopData, error: fetchErr } = await supabase
           .from('shops')
-          .select('*')
+          .select('id, name, slug, short_name')
           .eq('id', selectedShop.id)
           .single()
 
@@ -96,29 +77,7 @@ export default function OwnerStoreSettingPage() {
         if (shopData) {
           setShopId(shopData.id)
           setShopSlug(shopData.slug || shopData.short_name || 'specialgrade')
-
-          const rawLogo = shopData.logo_url || ''
-          const isSpecialGrade = shopData.name?.includes('SpecialGrade')
-          const cleanLogo = (!isSpecialGrade && (rawLogo.includes('logo.svg') || rawLogo.toLowerCase().includes('specialgrade'))) ? '' : rawLogo
-
-          setForm({
-            name: shopData.name || '',
-            short_name: shopData.short_name || '',
-            catchphrase: shopData.catchphrase || '',
-            description: shopData.description || '',
-            phone: shopData.phone || shopData.phone_number || '',
-            address: shopData.address || '',
-            access_info: shopData.access_info || '',
-            business_hours: shopData.business_hours || '',
-            google_map_url: shopData.google_map_url || shopData.google_maps_url || '',
-            line_url: shopData.line_url || '',
-            x_url: shopData.x_url || shopData.twitter_url || '',
-            litlink_url: shopData.litlink_url || '',
-            notice_banner: shopData.notice_banner || '',
-            logo_url: cleanLogo,
-            theme_color: typeof shopData.theme_color === 'string' ? shopData.theme_color : (shopData.theme_color?.primary || '#d1b464'),
-            template_id: shopData.template_id || 'luxury',
-          })
+          setShopName(shopData.name || '')
 
           // 2. メインバナー一覧 (campaigns)
           const { data: campData } = await supabase
@@ -147,35 +106,6 @@ export default function OwnerStoreSettingPage() {
 
     loadOwnerShopData()
   }, [selectedShop])
-
-  // ロゴファイルアップロード
-  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !shopId) return
-    setUploadingLogo(true)
-    try {
-      const ext = file.name.split('.').pop() || 'png'
-      const filePath = `shops/${shopId}/logo_${Date.now()}.${ext}`
-
-      const { error: uploadErr } = await supabase.storage
-        .from('therapist-photos')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadErr) throw uploadErr
-
-      const { data: publicUrlData } = supabase.storage
-        .from('therapist-photos')
-        .getPublicUrl(filePath)
-
-      if (publicUrlData?.publicUrl) {
-        setForm((prev) => ({ ...prev, logo_url: publicUrlData.publicUrl }))
-      }
-    } catch (err: any) {
-      alert('ロゴ画像の保存に失敗しました: ' + err.message)
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
 
   // バナー画像アップロード
   const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,67 +229,10 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
-  // 店舗基本保存
-  const handleSaveBasic = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!shopId) return
-    setSaving(true)
-    setError('')
-    setSuccess('')
-
-    let updatePayload: any = {
-      name: form.name,
-      short_name: form.short_name.trim() || null,
-      catchphrase: form.catchphrase.trim() || null,
-      description: form.description || null,
-      phone: form.phone.trim() || null,
-      address: form.address.trim() || null,
-      access_info: form.access_info.trim() || null,
-      business_hours: form.business_hours.trim() || null,
-      google_map_url: form.google_map_url.trim() || null,
-      line_url: form.line_url.trim() || null,
-      x_url: form.x_url.trim() || null,
-      litlink_url: form.litlink_url.trim() || null,
-      notice_banner: form.notice_banner.trim() || null,
-      logo_url: form.logo_url.trim() || null,
-      theme_color: form.theme_color.trim() || '#d1b464',
-      template_id: form.template_id || 'luxury',
-      updated_at: new Date().toISOString(),
-    }
-
-    let { error: updateError } = await supabase
-      .from('shops')
-      .update(updatePayload)
-      .eq('id', shopId)
-
-    if (updateError && (updateError.message.includes('template_id') || updateError.message.includes('logo_url'))) {
-      delete updatePayload.template_id
-      if (updateError.message.includes('logo_url')) {
-        delete updatePayload.logo_url
-        delete updatePayload.theme_color
-      }
-      const fallback = await supabase
-        .from('shops')
-        .update(updatePayload)
-        .eq('id', shopId)
-      updateError = fallback.error
-    }
-
-    if (updateError) {
-      setSaving(false)
-      setError('保存に失敗しました: ' + updateError.message)
-      return
-    }
-
-    setSaving(false)
-    setSuccess('✨ 店舗設定およびHPの表示内容を更新・保存しました！')
-  }
-
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const isHpModeRequested = searchParams?.get('mode') === 'hp'
   const shopPlan = (selectedShop as any)?.plan || ''
   const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
-  const isAgencyOnly = shopPlan === 'agency_only_plan' || ((selectedShop as any)?.has_agency && !(selectedShop as any)?.has_reserve && !(selectedShop as any)?.has_hp)
 
   // HP機能専用モードが要求されていて、かつ店舗がHP機能オフの場合のみガード画面を表示
   if (isHpModeRequested && !shopHasHp && selectedShop) {
@@ -401,14 +274,10 @@ export default function OwnerStoreSettingPage() {
             店舗オーナー専用
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-            {shopHasHp ? 'HPコンテンツ & 店舗情報設定' : '店舗基本情報設定'}
+            HPコンテンツ管理{shopName && <span className="text-slate-400 font-medium text-base ml-2">{shopName}</span>}
           </h1>
           <p className="text-xs text-slate-500">
-            {isAgencyOnly
-              ? '代行業務で必要な電話番号、営業時間、アクセス案内等の基本情報を管理します'
-              : shopHasHp
-              ? '店舗基本情報、バナー、トピックス、SNSリンクを自分でカンタンに変更できます'
-              : '店舗のお問合せ電話番号、営業時間、アクセス案内、SNSリンク等を変更・管理できます'}
+            ホームページに表示するメインバナーと新着トピックスを管理します
           </p>
         </div>
         {shopHasHp && (
@@ -423,19 +292,25 @@ export default function OwnerStoreSettingPage() {
         )}
       </div>
 
+      {/* 店舗名・電話・営業時間・SNS等は「店舗 ＆ システム設定」に集約した */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <div>
+          <p className="text-xs font-bold text-slate-700">店舗名・電話番号・営業時間・アクセス・SNSリンクの変更</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            これらの店舗基本情報は「店舗 ＆ システム設定」に集約しました。変更するとHPにも反映されます。
+          </p>
+        </div>
+        <Link
+          href="/system"
+          className="shrink-0 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all text-center"
+        >
+          店舗基本情報を開く
+        </Link>
+      </div>
+
       {/* タブナビゲーション（HP機能あり店舗のみサブタブを表示） */}
       {shopHasHp && (
         <div className="flex border-b border-slate-200 gap-2">
-          <button
-            onClick={() => setActiveTab('basic')}
-            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
-              activeTab === 'basic'
-                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            店舗基本情報・SNS・デザイン
-          </button>
           <button
             onClick={() => setActiveTab('banners')}
             className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
@@ -469,96 +344,6 @@ export default function OwnerStoreSettingPage() {
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold">
           {success}
         </div>
-      )}
-
-      {/* タブ1: 店舗基本情報 & SNSリンク & コンセプト */}
-      {activeTab === 'basic' && (
-        <form onSubmit={handleSaveBasic} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-          <div className="space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2 tracking-wider">店舗プロフィール設定</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">店舗名 *</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
-                <input
-                  type="text"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="例: 090-0000-0000"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            {!isAgencyOnly && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピー</label>
-                  <input
-                    type="text"
-                    value={form.catchphrase}
-                    onChange={(e) => setForm({ ...form, catchphrase: e.target.value })}
-                    placeholder="例: 上質で優雅な至福のアロマエステ空間"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">店舗コンセプト・紹介本文</label>
-                  <textarea
-                    rows={3}
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="店舗のこだわりやコンセプトを自由に入力できます..."
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">営業時間</label>
-                <input
-                  type="text"
-                  value={form.business_hours}
-                  onChange={(e) => setForm({ ...form, business_hours: e.target.value })}
-                  placeholder="例: OPEN/11:00～5:00 (受付/10:30〜2:00)"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">アクセス案内文</label>
-                <input
-                  type="text"
-                  value={form.access_info}
-                  onChange={(e) => setForm({ ...form, access_info: e.target.value })}
-                  placeholder="例: ○○駅徒歩2分"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                />
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all border border-amber-400/30"
-          >
-            {saving ? '保存中...' : (shopHasHp ? '店舗設定を保存・HPへ反映' : '店舗基本情報を保存')}
-          </button>
-        </form>
       )}
 
       {/* タブ2: メインバナー・スライドショー管理 */}

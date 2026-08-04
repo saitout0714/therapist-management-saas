@@ -4,6 +4,9 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
 
+/** 電話代行を含むプラン。has_agency が未設定の店舗はこの一覧で判定する */
+const AGENCY_PLANS = ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan']
+
 type Shop = {
   id: string
   owner_id?: string | null
@@ -79,11 +82,6 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           owners (
             id,
             name
-          ),
-          shop_owners (
-            users (
-              role
-            )
           )
         `)
         .eq('is_active', true)
@@ -92,10 +90,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       if (error) throw error
 
       const mappedShops: Shop[] = (data || []).map((shop: any) => {
-        const hasSimpleOwner = shop.shop_owners?.some((so: any) => {
-          const u = Array.isArray(so.users) ? so.users[0] : so.users
-          return u?.role === 'simple_client_owner'
-        })
+        // 「Web予約プランの店舗」＝電話代行を契約していない店舗。
+        // 以前はオーナーアカウントの役割から推測していたが、
+        // 契約プランが正であり、判断材料はそちらに一本化する。
+        const isAgency = shop.has_agency ?? AGENCY_PLANS.includes(shop.plan || '')
         return {
           id: shop.id,
           owner_id: shop.owner_id || null,
@@ -109,7 +107,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           order: shop.order,
           closing_date: shop.closing_date,
           therapist_line_mode: shop.therapist_line_mode,
-          is_web_reserve_plan: !!hasSimpleOwner,
+          is_web_reserve_plan: !isAgency,
           is_dispatch_enabled: !!shop.is_dispatch_enabled,
           pricing_source_shop_id: shop.pricing_source_shop_id || null,
           back_source_shop_id: shop.back_source_shop_id || null,

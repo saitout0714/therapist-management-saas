@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 /** メニュー項目を出す条件。すべて満たしたときだけ表示する */
-type Capability = "hp" | "agency" | "adminArea" | "systemAdmin" | "developer";
+type Capability = "hp" | "adminArea" | "systemAdmin" | "developer";
 
 type NavItem = {
   href: string;
@@ -43,17 +43,17 @@ const NAV_GROUPS: NavGroup[] = [
     title: "業務",
     items: [
       { href: "/", label: "ホーム", icon: "home" },
-      { href: "/reservations", label: "予約管理", icon: "calendar" },
       { href: "/shifts", label: "スケジュール", icon: "grid" },
-      { href: "/shifts/register", label: "シフト登録", icon: "plus" },
+      { href: "/reservations", label: "予約管理", icon: "calendar" },
       { href: "/customers", label: "顧客管理", icon: "users" },
+      { href: "/therapists", label: "セラピスト", icon: "user" },
+      { href: "/shifts/register", label: "シフト登録", icon: "plus" },
     ],
   },
   {
-    id: "staff",
-    title: "スタッフ・報酬",
+    id: "payroll",
+    title: "報酬",
     items: [
-      { href: "/therapists", label: "セラピスト", icon: "user" },
       { href: "/payroll", label: "報酬・バック計算", icon: "coin" },
       { href: "/memos", label: "報酬引継ぎメモ", icon: "note" },
     ],
@@ -61,15 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: "insight",
     title: "分析",
-    items: [
-      { href: "/aggregation", label: "集計レポート", icon: "chart" },
-      {
-        href: "/admin/agency-aggregation",
-        label: "代行プラン集計",
-        icon: "pie",
-        requires: ["adminArea", "agency"],
-      },
-    ],
+    items: [{ href: "/aggregation", label: "集計レポート", icon: "chart" }],
   },
   {
     id: "web",
@@ -98,6 +90,14 @@ const NAV_GROUPS: NavGroup[] = [
     title: "運営者メニュー",
     tone: "admin",
     items: [
+      {
+        // マスターは全店舗、管理者・受付スタッフは代行プランの店舗のみが集計表に出る。
+        // 中身を役割で絞るので、メニュー自体はこの3役割に出す。
+        href: "/admin/agency-aggregation",
+        label: "代行プラン集計",
+        icon: "pie",
+        requires: ["adminArea"],
+      },
       { href: "/admin", label: "店舗管理", icon: "store", requires: ["adminArea"] },
       { href: "/users", label: "アカウント管理", icon: "shield", requires: ["systemAdmin"] },
       { href: "/shifts/sync", label: "外部シフト同期", icon: "refresh", requires: ["systemAdmin"] },
@@ -116,7 +116,6 @@ const NAV_GROUPS: NavGroup[] = [
 
 const HP_PLANS = ["hp_web_reserve_plan", "hp_web_agency_plan"];
 const HP_USER_PLANS = ["agency_plan", "hp_web_reserve_plan", "hp_web_agency_plan"];
-const AGENCY_USER_PLANS = ["agency_plan", "web_agency_plan", "hp_web_agency_plan"];
 
 const SCROLL_KEY = "sidebarScrollTop";
 
@@ -171,7 +170,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     hp: selectedShop
       ? shopHasHp
       : userObj?.has_hp ?? (isDeveloper || HP_USER_PLANS.includes(userPlan)),
-    agency: userObj?.has_agency ?? (isDeveloper || AGENCY_USER_PLANS.includes(userPlan)),
     adminArea: ["developer", "system_admin", "agency_staff"].includes(role),
     systemAdmin: ["developer", "system_admin"].includes(role),
     developer: isDeveloper,

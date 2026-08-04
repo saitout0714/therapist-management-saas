@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 interface Shop {
   id: string
@@ -10,12 +11,19 @@ interface Shop {
   is_active: boolean
 }
 
+/** has_agency が未設定の店舗は、契約プラン名から代行プランかどうかを判定する */
+const AGENCY_PLANS = ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan']
+
 interface ReservationSummary {
   shop_id: string
   targetDate: string
 }
 
 export default function AgencyAggregationPage() {
+  const { user } = useAuth()
+  // マスター（開発者）は全店舗。管理者・受付スタッフは代行プランの店舗のみ。
+  const showsAllShops = user?.role === 'developer'
+
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date()
     // 21日以降は翌月の集計期間に入るため、デフォルトで翌月を選択
@@ -45,15 +53,20 @@ export default function AgencyAggregationPage() {
       const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-21`
       const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-20`
 
-      // 1. 店舗一覧を取得
+      // 1. 店舗一覧を取得（マスター以外は代行プランの店舗のみ）
       const { data: shopData, error: shopError } = await supabase
         .from('shops')
-        .select('id, name, is_active')
+        .select('id, name, is_active, plan, has_agency')
         .eq('is_active', true)
         .order('order', { ascending: true, nullsFirst: false })
 
       if (shopError) throw shopError
-      setShops(shopData || [])
+
+      const visibleShops = showsAllShops
+        ? (shopData || [])
+        : (shopData || []).filter((s: any) => s.has_agency ?? AGENCY_PLANS.includes(s.plan || ''))
+
+      setShops(visibleShops)
 
       // 2. 予約データをページネーションしながら全件取得 (Supabaseの1000件リミット回避)
       let allResData: any[] = []
@@ -99,7 +112,7 @@ export default function AgencyAggregationPage() {
 
   useEffect(() => {
     void fetchData()
-  }, [selectedMonth])
+  }, [selectedMonth, showsAllShops])
 
   // 単一の20日締め期間での日付リストおよびマトリクスデータの生成
   const matrixData = useMemo(() => {

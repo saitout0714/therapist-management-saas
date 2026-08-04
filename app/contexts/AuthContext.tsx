@@ -14,6 +14,11 @@ type User = {
     id: string
     name: string
   }>
+  // 契約プランと機能モジュール（未設定なら null。プラン名からの推測にフォールバックする）
+  plan?: string | null
+  has_hp?: boolean | null
+  has_reserve?: boolean | null
+  has_agency?: boolean | null
 }
 
 type AuthContextType = {
@@ -113,6 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ownerId: dbUser.owner_id || null,
           ownerName: ownerName,
           shops: shops.length > 0 ? shops : undefined,
+          plan: dbUser.plan ?? null,
+          has_hp: dbUser.has_hp ?? null,
+          has_reserve: dbUser.has_reserve ?? null,
+          has_agency: dbUser.has_agency ?? null,
         }
 
         setUser(userObj)
@@ -274,6 +283,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: dbUser.name,
         role: normalizedRole as User['role'],
         shops: shops.length > 0 ? shops : undefined,
+        plan: dbUser.plan ?? null,
+        has_hp: dbUser.has_hp ?? null,
+        has_reserve: dbUser.has_reserve ?? null,
+        has_agency: dbUser.has_agency ?? null,
       }
 
       setUser(userObj)
