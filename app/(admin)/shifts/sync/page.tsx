@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-type SyncType = 'caskan' | 'caskan_reservation' | 'scraper'
+type SyncType = 'caskan' | 'scraper'
 
 interface SiteConfig {
   name: string
@@ -45,7 +45,6 @@ const CAS_SHOPS: ShopConfig[] = [
 export default function SyncPage() {
   const [syncType, setSyncType] = useState<SyncType>('caskan')
   const [startDate, setStartDate] = useState<string>('')
-  const [reservationDateTo, setReservationDateTo] = useState<string>('')
   const [days, setDays] = useState<number>(1)
   const [weeks, setWeeks] = useState<number>(1)
   const [selectedSites, setSelectedSites] = useState<string[]>(SITES.map((s) => s.name))
@@ -68,10 +67,6 @@ export default function SyncPage() {
     const mm = String(today.getMonth() + 1).padStart(2, '0')
     const dd = String(today.getDate()).padStart(2, '0')
     setStartDate(`${yyyy}-${mm}-${dd}`)
-
-    const future = new Date(today)
-    future.setDate(future.getDate() + 90)
-    setReservationDateTo(future.toISOString().split('T')[0])
   }, [])
 
   // Fetch shop names from Supabase
@@ -117,7 +112,7 @@ export default function SyncPage() {
     setIsRunning(true)
     setLogs('')
 
-    const targets = (syncType === 'caskan' || syncType === 'caskan_reservation') ? selectedShops : selectedSites
+    const targets = syncType === 'caskan' ? selectedShops : selectedSites
 
     if (targets.length === 0) {
       setLogs('[ERROR] 同期対象が選択されていません。\n')
@@ -128,7 +123,7 @@ export default function SyncPage() {
     try {
       for (let i = 0; i < targets.length; i++) {
         const target = targets[i]
-        const displayLabel = (syncType === 'caskan' || syncType === 'caskan_reservation')
+        const displayLabel = syncType === 'caskan'
           ? (CAS_SHOPS.find(s => s.name === target)?.supabaseId ? (dbShops[CAS_SHOPS.find(s => s.name === target)!.supabaseId] || target) : target)
           : target
 
@@ -143,8 +138,6 @@ export default function SyncPage() {
           force,
           ...(syncType === 'caskan'
             ? { weeks, shop: target }
-            : syncType === 'caskan_reservation'
-            ? { dateTo: reservationDateTo, shop: target }
             : { days, update, delete: delShifts, site: target }),
         }
 
@@ -216,7 +209,7 @@ export default function SyncPage() {
         </div>
 
         {/* Sync Type Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             type="button"
             onClick={() => setSyncType('caskan')}
@@ -233,26 +226,6 @@ export default function SyncPage() {
               <div>
                 <h3 className="font-bold text-slate-800 text-sm">キャスカン シフト同期</h3>
                 <p className="text-xs text-slate-500">週単位でキャストスケジュールを取得</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSyncType('caskan_reservation')}
-            className={`p-4 rounded-2xl border text-left transition-all duration-300 ${
-              syncType === 'caskan_reservation'
-                ? 'bg-white border-indigo-600 ring-2 ring-indigo-600/20 shadow-md'
-                : 'bg-white border-slate-200 hover:bg-slate-50 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${syncType === 'caskan_reservation' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-                <span className="font-bold text-sm">R</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-800 text-sm">キャスカン 予約同期</h3>
-                <p className="text-xs text-slate-500">予約情報を取得して顧客・売上を反映</p>
               </div>
             </div>
           </button>
@@ -287,7 +260,7 @@ export default function SyncPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  {syncType === 'caskan_reservation' ? '対象予約日 (開始)' : '同期開始日'}
+                  同期開始日
                 </label>
                 <input
                   type="date"
@@ -296,18 +269,6 @@ export default function SyncPage() {
                   className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                 />
               </div>
-
-              {syncType === 'caskan_reservation' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">対象予約日 (終了)</label>
-                  <input
-                    type="date"
-                    value={reservationDateTo}
-                    onChange={(e) => setReservationDateTo(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                  />
-                </div>
-              )}
 
               {syncType === 'caskan' ? (
                 <div>
@@ -327,7 +288,7 @@ export default function SyncPage() {
                     <span>4週間</span>
                   </div>
                 </div>
-              ) : syncType === 'scraper' ? (
+              ) : (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">同期する日数 ({days} 日間)</label>
                   <input
@@ -344,7 +305,7 @@ export default function SyncPage() {
                     <span>14日</span>
                   </div>
                 </div>
-              ) : null}
+              )}
             </div>
 
             {/* Checkboxes / Toggles */}
@@ -412,7 +373,7 @@ export default function SyncPage() {
           </div>
 
           {/* Caskan target shops list */}
-          {(syncType === 'caskan' || syncType === 'caskan_reservation') && (
+          {syncType === 'caskan' && (
             <div className="border-t border-slate-100 pt-5">
               <label className="block text-xs font-semibold text-slate-600 mb-2.5">対象店舗選択（同期対象）</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
@@ -493,7 +454,7 @@ export default function SyncPage() {
               disabled={
                 isRunning ||
                 (syncType === 'scraper' && selectedSites.length === 0) ||
-                ((syncType === 'caskan' || syncType === 'caskan_reservation') && selectedShops.length === 0)
+                (syncType === 'caskan' && selectedShops.length === 0)
               }
               onClick={handleStartSync}
               className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm text-sm"

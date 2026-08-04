@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { syncCaskanShop, syncCaskanReservations } from '@/lib/sync/caskan'
+import { syncCaskanShop } from '@/lib/sync/caskan'
 import { syncScraperSite } from '@/lib/sync/scraper'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
     const {
       syncType,
       date,
-      dateTo,
       days,
       weeks,
       sites,
@@ -23,9 +22,9 @@ export async function POST(req: NextRequest) {
       force,
     } = body
 
-    if (!syncType || (syncType !== 'caskan' && syncType !== 'caskan_reservation' && syncType !== 'scraper')) {
+    if (!syncType || (syncType !== 'caskan' && syncType !== 'scraper')) {
       return new Response(
-        JSON.stringify({ error: 'syncType は "caskan", "caskan_reservation" または "scraper" である必要があります' }),
+        JSON.stringify({ error: 'syncType は "caskan" または "scraper" である必要があります' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
       targetSite = sites[0]
     }
 
-    if ((syncType === 'caskan' || syncType === 'caskan_reservation') && !targetShop) {
+    if (syncType === 'caskan' && !targetShop) {
       return new Response(
         JSON.stringify({ error: '同期対象の店舗 (shop) が指定されていません' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -68,15 +67,6 @@ export async function POST(req: NextRequest) {
             onLog(`[SYSTEM] キャスカン同期開始: 店舗=${targetShop}, 開始日=${date}, 週数=${weeks || 1}, 強制=${!!force}, テスト=${!!dryRun}\n\n`)
             await syncCaskanShop(targetShop, date, weeks || 1, !!force, !!dryRun, onLog)
             onLog(`\n[SYSTEM] キャスカン同期 (店舗: ${targetShop}) が終了しました。\n`)
-          } else if (syncType === 'caskan_reservation') {
-            const resolvedDateTo = dateTo || (() => {
-              const d = new Date(date)
-              d.setDate(d.getDate() + 180)
-              return d.toISOString().split('T')[0]
-            })()
-            onLog(`[SYSTEM] キャスカン予約同期開始: 店舗=${targetShop}, 予約日=${date}〜${resolvedDateTo}, テスト=${!!dryRun}\n\n`)
-            await syncCaskanReservations(targetShop, date, resolvedDateTo, !!dryRun, onLog)
-            onLog(`\n[SYSTEM] キャスカン予約同期 (店舗: ${targetShop}) が終了しました。\n`)
           } else {
             onLog(`[SYSTEM] サイトスクレイピング同期開始: サイト=${targetSite}, 開始日=${date}, 日数=${days || 1}, 更新=${!!update}, 削除=${!!delShifts}, 強制=${!!force}, テスト=${!!dryRun}\n\n`)
             await syncScraperSite(targetSite, date, days || 1, !!dryRun, !!update, !!delShifts, !!force, onLog)

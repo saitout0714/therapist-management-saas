@@ -367,23 +367,6 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
               />
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">担当オーナー選択（ユーザー紐付け）</label>
-              <select
-                value={selectedOwnerId}
-                onChange={(e) => setSelectedOwnerId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-              >
-                <option value="">未割り当て</option>
-                {owners.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name} ({o.id.slice(0, 8)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex items-center gap-6 pt-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
