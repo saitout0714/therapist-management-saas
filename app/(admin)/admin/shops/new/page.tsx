@@ -12,7 +12,7 @@ export default function NewShopPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [owners, setOwners] = useState<Array<{ id: string; name: string }>>([])
-  const [ownerMode, setOwnerMode] = useState<'existing' | 'new'>('new')
+  const [ownerMode, setOwnerMode] = useState<'existing' | 'none' | 'new'>('existing')
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const [newOwnerGroupName, setNewOwnerGroupName] = useState<string>('')
 
@@ -37,6 +37,8 @@ export default function NewShopPage() {
         setOwners(data)
         setOwnerMode('existing')
         setSelectedOwnerId(data[0].id)
+      } else {
+        setOwnerMode('none')
       }
     }
     fetchOwners()
@@ -51,7 +53,7 @@ export default function NewShopPage() {
 
     if (ownerMode === 'existing' && selectedOwnerId) {
       targetOwnerId = selectedOwnerId
-    } else {
+    } else if (ownerMode === 'new') {
       const groupName = newOwnerGroupName.trim() || form.owner_name.trim() || `${form.name}グループ`
       const { data: newOwner, error: ownerInsertError } = await supabase
         .from('owners')
@@ -62,6 +64,9 @@ export default function NewShopPage() {
       if (!ownerInsertError && newOwner) {
         targetOwnerId = newOwner.id
       }
+    } else {
+      // 単独店舗（none）の場合はグループIDなし
+      targetOwnerId = null
     }
 
     // 1. 店舗の登録と ID の取得
@@ -132,7 +137,7 @@ export default function NewShopPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">新しい店舗を登録</h1>
-            <p className="text-sm text-slate-500 mt-0.5">店舗情報とクライアント用アカウントを設定します。</p>
+            <p className="text-sm text-slate-500 mt-0.5">店舗情報と所属グループ・オーナーアカウントを設定します。</p>
           </div>
         </div>
 
@@ -146,53 +151,79 @@ export default function NewShopPage() {
             <div className="space-y-4">
               <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">🏢 店舗基本情報</h2>
               
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                <label className="block text-xs font-bold text-slate-700">🏢 所属オーナーグループ / 法人</label>
-                <div className="flex gap-4 text-xs font-semibold text-slate-700">
-                  {owners.length > 0 && (
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="ownerMode"
-                        checked={ownerMode === 'existing'}
-                        onChange={() => setOwnerMode('existing')}
-                        className="text-indigo-600 focus:ring-indigo-500"
-                      />
-                      既存グループから選択
-                    </label>
-                  )}
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="ownerMode"
-                      checked={ownerMode === 'new'}
-                      onChange={() => setOwnerMode('new')}
-                      className="text-indigo-600 focus:ring-indigo-500"
-                    />
-                    新規グループを作成
-                  </label>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <label className="block text-xs font-bold text-slate-800">🏢 店舗の所属タイプを選択してください</label>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOwnerMode('existing')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-left transition-all ${
+                      ownerMode === 'existing'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    👥 既存グループへ追加
+                    <span className="block text-[10px] font-normal text-slate-400 mt-0.5">バカラグループ等へ参加</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOwnerMode('none')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-left transition-all ${
+                      ownerMode === 'none'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    🏪 単独店舗 (グループなし)
+                    <span className="block text-[10px] font-normal text-slate-400 mt-0.5">どこにも属さない独立店</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOwnerMode('new')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-left transition-all ${
+                      ownerMode === 'new'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    🏢 新規グループ作成
+                    <span className="block text-[10px] font-normal text-slate-400 mt-0.5">新しい法人・グループ名</span>
+                  </button>
                 </div>
 
-                {ownerMode === 'existing' && owners.length > 0 ? (
-                  <select
-                    value={selectedOwnerId}
-                    onChange={(e) => setSelectedOwnerId(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {owners.map((ow) => (
-                      <option key={ow.id} value={ow.id}>
-                        {ow.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={newOwnerGroupName}
-                    onChange={(e) => setNewOwnerGroupName(e.target.value)}
-                    placeholder="例: ○○ヘルスグループ（空欄時は店舗名＋グループ）"
-                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                {ownerMode === 'existing' && (
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">追加先グループを選択</label>
+                    <select
+                      value={selectedOwnerId}
+                      onChange={(e) => setSelectedOwnerId(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {owners.map((ow) => (
+                        <option key={ow.id} value={ow.id}>
+                          🏢 {ow.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {ownerMode === 'new' && (
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいグループ名を入力</label>
+                    <input
+                      type="text"
+                      value={newOwnerGroupName}
+                      onChange={(e) => setNewOwnerGroupName(e.target.value)}
+                      placeholder="例: ○○グループ"
+                      className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                      required={ownerMode === 'new'}
+                    />
+                  </div>
                 )}
               </div>
 

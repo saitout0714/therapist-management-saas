@@ -17,7 +17,6 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
   const [success, setSuccess] = useState('')
 
   // オーナーアカウント選択肢
-  const [owners, setOwners] = useState<{ id: string; name: string }[]>([])
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const [allShops, setAllShops] = useState<{ id: string; name: string }[]>([])
 
@@ -41,16 +40,12 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
   const [codeSaving, setCodeSaving] = useState(false)
   const [codeError, setCodeError] = useState('')
 
-  // クライアントオーナーアカウント入力 & 3機能フラグ
-  const [hasOwner, setHasOwner] = useState(false)
+  // 契約プラン & 3機能フラグ（オーナーアカウントの編集は /users に集約）
   const [ownerForm, setOwnerForm] = useState({
-    name: '',
     plan: 'agency_only_plan',
     has_hp: false,
     has_reserve: false,
     has_agency: true,
-    login_id: '',
-    password: '',
   })
 
   useEffect(() => {
@@ -62,13 +57,6 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         // 全店舗一覧（共有元選択用）
         const { data: shopsData } = await supabase.from('shops').select('id, name').neq('id', id)
         if (shopsData) setAllShops(shopsData)
-
-        // オーナー候補ユーザー一覧
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, name')
-          .in('role', ['client_owner', 'store_owner', 'agency_staff'])
-        if (usersData) setOwners(usersData)
 
         // 1. 対象店舗データ
         const { data: shopRes, error: shopErr } = await supabase
@@ -95,42 +83,22 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           is_dispatch_enabled: !!shopRes.is_dispatch_enabled,
         })
 
-        // クライアントオーナーアカウント ＆ プラン情報復元
-        const { data: ownerUser } = await supabase
-          .from('users')
-          .select('*')
-          .eq('shop_id', id)
-          .eq('role', 'client_owner')
-          .maybeSingle()
+        // プラン情報の復元（DBに値が無い店舗はプラン名から推測）
+        const savedPlan = (shopRes as any).plan || 'agency_only_plan'
+        const savedHasHp = (shopRes as any).has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
+        const savedHasReserve = (shopRes as any).has_reserve ?? ['web_agency_plan', 'hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
+        const savedHasAgency = (shopRes as any).has_agency ?? ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan'].includes(savedPlan)
 
-        // ローカルストレージ（保存済みキャッシュ）からの優先復元
-        let cachedPlanInfo: any = null
-        if (typeof window !== 'undefined') {
-          try {
-            const rawCache = localStorage.getItem(`shop_plan_${id}`)
-            if (rawCache) cachedPlanInfo = JSON.parse(rawCache)
-          } catch (e) {}
-        }
-
-        const savedPlan = cachedPlanInfo?.plan || (shopRes as any).plan || (ownerUser as any)?.plan || 'agency_only_plan'
-        const savedHasHp = cachedPlanInfo?.has_hp ?? (shopRes as any).has_hp ?? (ownerUser as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
-        const savedHasReserve = cachedPlanInfo?.has_reserve ?? (shopRes as any).has_reserve ?? (ownerUser as any)?.has_reserve ?? ['web_agency_plan', 'hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
-        const savedHasAgency = cachedPlanInfo?.has_agency ?? (shopRes as any).has_agency ?? (ownerUser as any)?.has_agency ?? ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan'].includes(savedPlan)
-
-        setHasOwner(!!ownerUser)
         setOwnerForm({
-          name: ownerUser?.name || '',
           plan: savedPlan,
           has_hp: savedHasHp,
           has_reserve: savedHasReserve,
           has_agency: savedHasAgency,
-          login_id: ownerUser?.login_id || '',
-          password: '',
         })
 
         // 予約連携コード
         const { data: codeData } = await supabase
-          .from('reservation_codes')
+          .from('shop_reservation_codes')
           .select('code, is_active')
           .eq('shop_id', id)
           .maybeSingle()
@@ -164,7 +132,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
 
     try {
       const { data: dup } = await supabase
-        .from('reservation_codes')
+        .from('shop_reservation_codes')
         .select('id')
         .eq('code', raw)
         .neq('shop_id', id)
@@ -177,25 +145,24 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
       }
 
       const { data: existing } = await supabase
-        .from('reservation_codes')
+        .from('shop_reservation_codes')
         .select('id')
         .eq('shop_id', id)
         .maybeSingle()
 
       if (existing) {
         const { error: updateErr } = await supabase
-          .from('reservation_codes')
+          .from('shop_reservation_codes')
           .update({
             code: raw,
             is_active: codeActive,
-            updated_at: new Date().toISOString(),
           })
           .eq('shop_id', id)
 
         if (updateErr) throw updateErr
       } else {
         const { error: insertErr } = await supabase
-          .from('reservation_codes')
+          .from('shop_reservation_codes')
           .insert({
             shop_id: id,
             code: raw,
@@ -232,8 +199,8 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         updated_at: new Date().toISOString(),
       }
 
-      // プラン情報付き更新を試行
-      const fullShopPayload = {
+      // 契約プラン・機能フラグも同時に保存
+      const shopPayload = {
         ...baseShopPayload,
         plan: ownerForm.plan,
         has_hp: ownerForm.has_hp,
@@ -241,77 +208,8 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         has_agency: ownerForm.has_agency,
       }
 
-      const { error: shopErr } = await supabase.from('shops').update(fullShopPayload).eq('id', id)
-
-      if (shopErr) {
-        // カラム未存在時のフォールバック更新
-        const { error: fallbackErr } = await supabase.from('shops').update(baseShopPayload).eq('id', id)
-        if (fallbackErr) throw fallbackErr
-      }
-
-      // 2. オーナーアカウント設定 ＆ 3機能フラグ保存 (自動補完による上書き防止)
-      if (ownerForm.name) {
-        const ownerName = ownerForm.name.trim() || '店舗オーナー'
-        const baseUserPayload: any = {
-          name: ownerName,
-        }
-        
-        // ログイン中の管理者自身のID（例: saitou0714）が自動補完された場合は除外
-        if (ownerForm.login_id && ownerForm.login_id !== 'saitou0714' && ownerForm.login_id !== 'admin') {
-          baseUserPayload.login_id = ownerForm.login_id
-        }
-        if (ownerForm.password && ownerForm.password.length > 0) {
-          baseUserPayload.password = ownerForm.password
-        }
-
-        const fullUserPayload = {
-          ...baseUserPayload,
-          plan: ownerForm.plan,
-          has_hp: ownerForm.has_hp,
-          has_reserve: ownerForm.has_reserve,
-          has_agency: ownerForm.has_agency,
-        }
-
-        if (hasOwner) {
-          const { error: uErr } = await supabase
-            .from('users')
-            .update(fullUserPayload)
-            .eq('shop_id', id)
-            .eq('role', 'client_owner')
-
-          if (uErr) {
-            await supabase
-              .from('users')
-              .update(baseUserPayload)
-              .eq('shop_id', id)
-              .eq('role', 'client_owner')
-          }
-        } else if (ownerForm.login_id && ownerForm.login_id !== 'saitou0714') {
-          const { error: iErr } = await supabase.from('users').insert({
-            shop_id: id,
-            role: 'client_owner',
-            ...fullUserPayload,
-          })
-          if (iErr) {
-            await supabase.from('users').insert({
-              shop_id: id,
-              role: 'client_owner',
-              ...baseUserPayload,
-            })
-          }
-          setHasOwner(true)
-        }
-      }
-
-      // ローカルストレージにもバックアップ保存（即時プレビュー用）
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`shop_plan_${id}`, JSON.stringify({
-          plan: ownerForm.plan,
-          has_hp: ownerForm.has_hp,
-          has_reserve: ownerForm.has_reserve,
-          has_agency: ownerForm.has_agency,
-        }))
-      }
+      const { error: shopErr } = await supabase.from('shops').update(shopPayload).eq('id', id)
+      if (shopErr) throw shopErr
 
       setSuccess('✨ 店舗設定および契約プランを正常に保存しました！')
       alert('✨ 店舗設定および契約プランを正常に保存しました！')
@@ -461,7 +359,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           <div className="space-y-5 pt-4 border-t">
             <div className="border-b pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">🔑 クライアントオーナーアカウント ＆ 3機能モジュール設定</h2>
+                <h2 className="text-sm font-bold text-slate-800">🔑 契約プラン ＆ 3機能モジュール設定</h2>
                 <p className="text-xs text-slate-500">店舗の利用機能（HP管理 / Web予約 / 電話代行）をワンタップで契約・切り替えできます</p>
               </div>
             </div>
@@ -582,45 +480,20 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
 
-            {/* オーナーログイン情報 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* オーナーアカウントの作成・編集は「アカウント管理」に集約 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">オーナー表示名</label>
-                <input
-                  type="text"
-                  value={ownerForm.name}
-                  onChange={(e) => setOwnerForm({ ...ownerForm, name: e.target.value })}
-                  placeholder="例: 店舗オーナー"
-                  autoComplete="off"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-                />
+                <p className="text-xs font-bold text-slate-700">オーナーのログインID・パスワードの変更</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  アカウントの新規作成・編集・削除は「アカウント管理」画面に集約しました。
+                </p>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">ログインID (アカウント変更時のみ)</label>
-                <input
-                  type="text"
-                  name="disable_autofill_login_id"
-                  autoComplete="new-password"
-                  value={ownerForm.login_id}
-                  onChange={(e) => setOwnerForm({ ...ownerForm, login_id: e.target.value })}
-                  placeholder="例: store_owner"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">パスワード (変更時のみ)</label>
-                <input
-                  type="password"
-                  name="disable_autofill_password"
-                  autoComplete="new-password"
-                  value={ownerForm.password}
-                  onChange={(e) => setOwnerForm({ ...ownerForm, password: e.target.value })}
-                  placeholder={hasOwner ? '変更する場合のみ入力' : 'パスワードを設定'}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
+              <Link
+                href="/users"
+                className="shrink-0 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all text-center"
+              >
+                アカウント管理を開く
+              </Link>
             </div>
           </div>
 
@@ -629,7 +502,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
             disabled={saving}
             className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
           >
-            {saving ? '保存中...' : '店舗基本情報 ＆ オーナー設定を保存'}
+            {saving ? '保存中...' : '店舗基本情報 ＆ プラン設定を保存'}
           </button>
         </form>
       )}

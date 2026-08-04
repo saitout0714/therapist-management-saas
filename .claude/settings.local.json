@@ -81,7 +81,18 @@
       "mcp__claude-in-chrome__tabs_context_mcp",
       "Bash(grep -n \"^\\\\s*{/\\\\* [0-9]:\" \"app/\\(admin\\)/reservations/new/page.tsx\")",
       "Bash(grep -n \"reservations/\\\\${.*}/edit\\\\|/edit\\\\`\\\\|router.push\\(\\\\`/reservations\" \"app/\\(admin\\)/reservations/[id]/page.tsx\")",
-      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\(JSON.stringify\\(p.scripts\\)\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\(JSON.stringify\\(p.scripts\\)\\)\")",
+      "Bash(grep -oE \"label className=\\\\\"[^\\\\\"]*\\\\\">[^<]{2,40}\" \"app/\\(admin\\)/admin/shops/[id]/edit/page.tsx\")",
+      "Bash(grep -oE \"\\(label|>\\)[^<>]{2,30}\\(プラン|機能|設定|情報\\)[^<>]{0,20}\" \"app/\\(admin\\)/admin/shops/new/page.tsx\")",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(xargs grep -ln \"ALTER TABLE shops\\\\|CREATE TABLE.*shops\")",
+      "Bash(grep -E \"^\\(pg|postgres\\)$\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyebrpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect-shops.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect-shops.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect2.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect3.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/inspect4.js\")"
     ]
   }
 }

@@ -21,6 +21,11 @@ type Shop = {
   is_dispatch_enabled?: boolean
   pricing_source_shop_id?: string | null
   back_source_shop_id?: string | null
+  // 契約プランと機能モジュール（未設定の店舗は null。プラン名からの推測にフォールバックする）
+  plan?: string | null
+  has_hp?: boolean | null
+  has_reserve?: boolean | null
+  has_agency?: boolean | null
 }
 
 type ShopContextType = {
@@ -107,7 +112,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           is_web_reserve_plan: !!hasSimpleOwner,
           is_dispatch_enabled: !!shop.is_dispatch_enabled,
           pricing_source_shop_id: shop.pricing_source_shop_id || null,
-          back_source_shop_id: shop.back_source_shop_id || null
+          back_source_shop_id: shop.back_source_shop_id || null,
+          plan: shop.plan ?? null,
+          has_hp: shop.has_hp ?? null,
+          has_reserve: shop.has_reserve ?? null,
+          has_agency: shop.has_agency ?? null
         }
       })
 

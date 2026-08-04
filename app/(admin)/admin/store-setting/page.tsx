@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
+import { useShop } from '@/app/contexts/ShopContext'
 
 interface CampaignItem {
   id?: string
@@ -25,6 +26,7 @@ interface NewsItemData {
 
 export default function OwnerStoreSettingPage() {
   const { user } = useAuth()
+  const { selectedShop } = useShop()
   const [activeTab, setActiveTab] = useState<'basic' | 'banners' | 'news'>('basic')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -32,7 +34,7 @@ export default function OwnerStoreSettingPage() {
   const [success, setSuccess] = useState('')
 
   const [shopId, setShopId] = useState<string>('')
-  const [shopSlug, setShopSlug] = useState<string>('specialgrade')
+  const [shopSlug, setShopSlug] = useState<string>('')
 
   // 店舗基本情報フォーム
   const [form, setForm] = useState({
@@ -77,29 +79,27 @@ export default function OwnerStoreSettingPage() {
 
   useEffect(() => {
     async function loadOwnerShopData() {
+      if (!selectedShop) return
       setLoading(true)
       setError('')
 
       try {
-        // SpecialGrade またはログイン中の所属店舗を取得
-        let { data: shopData } = await supabase
+        // 選択中店舗の最新プロファイルを取得
+        const { data: shopData, error: fetchErr } = await supabase
           .from('shops')
           .select('*')
-          .ilike('name', '%SpecialGrade%')
-          .maybeSingle()
+          .eq('id', selectedShop.id)
+          .single()
 
-        if (!shopData) {
-          const { data: firstShop } = await supabase
-            .from('shops')
-            .select('*')
-            .limit(1)
-            .single()
-          shopData = firstShop
-        }
+        if (fetchErr) throw fetchErr
 
         if (shopData) {
           setShopId(shopData.id)
-          setShopSlug(shopData.slug || 'specialgrade')
+          setShopSlug(shopData.slug || shopData.short_name || 'specialgrade')
+
+          const rawLogo = shopData.logo_url || ''
+          const isSpecialGrade = shopData.name?.includes('SpecialGrade')
+          const cleanLogo = (!isSpecialGrade && (rawLogo.includes('logo.svg') || rawLogo.toLowerCase().includes('specialgrade'))) ? '' : rawLogo
 
           setForm({
             name: shopData.name || '',
@@ -115,7 +115,7 @@ export default function OwnerStoreSettingPage() {
             x_url: shopData.x_url || shopData.twitter_url || '',
             litlink_url: shopData.litlink_url || '',
             notice_banner: shopData.notice_banner || '',
-            logo_url: shopData.logo_url || '',
+            logo_url: cleanLogo,
             theme_color: typeof shopData.theme_color === 'string' ? shopData.theme_color : (shopData.theme_color?.primary || '#d1b464'),
             template_id: shopData.template_id || 'luxury',
           })
@@ -146,7 +146,7 @@ export default function OwnerStoreSettingPage() {
     }
 
     loadOwnerShopData()
-  }, [])
+  }, [selectedShop])
 
   // ロゴファイルアップロード
   const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -355,10 +355,14 @@ export default function OwnerStoreSettingPage() {
     setSuccess('✨ 店舗設定およびHPの表示内容を更新・保存しました！')
   }
 
-  const currentPlan = (user as any)?.plan || 'hp_web_reserve_plan'
-  const isMaster = user?.role === 'developer' || ['hp_web_reserve_plan', 'agency_plan'].includes(currentPlan)
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const isHpModeRequested = searchParams?.get('mode') === 'hp'
+  const shopPlan = (selectedShop as any)?.plan || ''
+  const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
+  const isAgencyOnly = shopPlan === 'agency_only_plan' || ((selectedShop as any)?.has_agency && !(selectedShop as any)?.has_reserve && !(selectedShop as any)?.has_hp)
 
-  if (!isMaster) {
+  // HP機能専用モードが要求されていて、かつ店舗がHP機能オフの場合のみガード画面を表示
+  if (isHpModeRequested && !shopHasHp && selectedShop) {
     return (
       <div className="max-w-3xl mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm text-center font-sans space-y-4">
         <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
@@ -366,12 +370,13 @@ export default function OwnerStoreSettingPage() {
         </div>
         <h1 className="text-lg font-bold text-slate-800">契約プラン対象外機能</h1>
         <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-          「店舗情報 ＆ HP設定」機能は、「HP ＋ web予約プラン」または「代行プラン」をご契約中のお客様専用メニューです。
+          選択中の店舗<strong>「{selectedShop.name}」</strong>は、<strong>「代行単体プラン」</strong>のため「HPバナー・コンテンツ設定」機能は含まれておりません。<br />
+          店舗基本情報・電話番号・アクセスの確認・変更は「店舗基本情報」メニューから行えます。
         </p>
         <div className="pt-2">
-          <Link href="/" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all inline-block">
-            ホームに戻る
-          </Link>
+          <a href="/admin/store-setting?mode=basic" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all inline-block">
+            店舗基本情報を開く
+          </a>
         </div>
       </div>
     )
@@ -395,52 +400,64 @@ export default function OwnerStoreSettingPage() {
           <div className="inline-block px-2.5 py-0.5 bg-amber-100 text-amber-800 text-[11px] font-bold rounded-full mb-1">
             店舗オーナー専用
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">HPコンテンツ & 店舗情報設定</h1>
-          <p className="text-xs text-slate-500">店舗基本情報、バナー、トピックス、SNSリンクを自分でカンタンに変更できます</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
+            {shopHasHp ? 'HPコンテンツ & 店舗情報設定' : '店舗基本情報設定'}
+          </h1>
+          <p className="text-xs text-slate-500">
+            {isAgencyOnly
+              ? '代行業務で必要な電話番号、営業時間、アクセス案内等の基本情報を管理します'
+              : shopHasHp
+              ? '店舗基本情報、バナー、トピックス、SNSリンクを自分でカンタンに変更できます'
+              : '店舗のお問合せ電話番号、営業時間、アクセス案内、SNSリンク等を変更・管理できます'}
+          </p>
         </div>
-        <a
-          href={`/${shopSlug}`}
-          target="_blank"
-          rel="noreferrer"
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 border border-amber-400/30"
-        >
-          <span>🌐 自店舗HPをプレビュー表示</span>
-        </a>
+        {shopHasHp && (
+          <a
+            href={`/${shopSlug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 border border-amber-400/30"
+          >
+            <span>🌐 自店舗HPをプレビュー表示</span>
+          </a>
+        )}
       </div>
 
-      {/* タブナビゲーション */}
-      <div className="flex border-b border-slate-200 gap-2">
-        <button
-          onClick={() => setActiveTab('basic')}
-          className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'basic'
-              ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          🏬 店舗基本情報・SNS・デザイン
-        </button>
-        <button
-          onClick={() => setActiveTab('banners')}
-          className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'banners'
-              ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          🖼️ メインバナー・スライドショー ({campaigns.length}件)
-        </button>
-        <button
-          onClick={() => setActiveTab('news')}
-          className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'news'
-              ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          📢 新着トピックス・ニュース ({newsList.length}件)
-        </button>
-      </div>
+      {/* タブナビゲーション（HP機能あり店舗のみサブタブを表示） */}
+      {shopHasHp && (
+        <div className="flex border-b border-slate-200 gap-2">
+          <button
+            onClick={() => setActiveTab('basic')}
+            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'basic'
+                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            店舗基本情報・SNS・デザイン
+          </button>
+          <button
+            onClick={() => setActiveTab('banners')}
+            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'banners'
+                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            メインバナー・スライドショー ({campaigns.length}件)
+          </button>
+          <button
+            onClick={() => setActiveTab('news')}
+            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'news'
+                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            新着トピックス・ニュース ({newsList.length}件)
+          </button>
+        </div>
+      )}
 
       {/* メッセージ */}
       {error && (
@@ -478,33 +495,37 @@ export default function OwnerStoreSettingPage() {
                   type="text"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="例: 070-1462-0389"
+                  placeholder="例: 090-0000-0000"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピー（HPメイン見出し）</label>
-              <input
-                type="text"
-                value={form.catchphrase}
-                onChange={(e) => setForm({ ...form, catchphrase: e.target.value })}
-                placeholder="例: 赤羽・川口のメンズエステ SpecialGrade ～上質で優雅な至福の空間～"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-              />
-            </div>
+            {!isAgencyOnly && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピー</label>
+                  <input
+                    type="text"
+                    value={form.catchphrase}
+                    onChange={(e) => setForm({ ...form, catchphrase: e.target.value })}
+                    placeholder="例: 上質で優雅な至福のアロマエステ空間"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">店舗コンセプト・紹介本文</label>
-              <textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="最高級をお求めのお客様のために「技術」「ルックス」「性格」の三点を厳選して日本人女性を採用..."
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">店舗コンセプト・紹介本文</label>
+                  <textarea
+                    rows={3}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="店舗のこだわりやコンセプトを自由に入力できます..."
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -523,108 +544,9 @@ export default function OwnerStoreSettingPage() {
                   type="text"
                   value={form.access_info}
                   onChange={(e) => setForm({ ...form, access_info: e.target.value })}
-                  placeholder="例: 赤羽駅徒歩2分・川口駅徒歩3分"
+                  placeholder="例: ○○駅徒歩2分"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                 />
-              </div>
-            </div>
-          </div>
-
-          {/* SNS ＆ テロップ */}
-          <div className="space-y-4 pt-2 border-t">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2 tracking-wider">SNS ＆ 告知テロップ</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">公式LINE URL</label>
-                <input
-                  type="text"
-                  value={form.line_url}
-                  onChange={(e) => setForm({ ...form, line_url: e.target.value })}
-                  placeholder="https://line.me/R/ti/p/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">X (旧Twitter) URL</label>
-                <input
-                  type="text"
-                  value={form.x_url}
-                  onChange={(e) => setForm({ ...form, x_url: e.target.value })}
-                  placeholder="https://x.com/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">ヘッダー最上部・告知テロップ</label>
-              <input
-                type="text"
-                value={form.notice_banner}
-                onChange={(e) => setForm({ ...form, notice_banner: e.target.value })}
-                placeholder="例: ✨ 赤羽・川口エリアで選ばれ続ける最高級メンズエステ ✨"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold text-amber-700"
-              />
-            </div>
-          </div>
-
-          {/* ロゴ ＆ テンプレート */}
-          <div className="space-y-4 pt-2 border-t">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2 tracking-wider">デザイン ＆ ロゴ設定</h2>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">店舗ロゴ画像</label>
-              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                {form.logo_url && (
-                  <div className="flex items-center gap-4 bg-white p-3 rounded-lg border">
-                    <img src={form.logo_url} alt="Logo" className="h-10 object-contain" />
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, logo_url: '' })}
-                      className="px-2.5 py-1 text-xs text-rose-600 bg-rose-50 rounded border border-rose-200"
-                    >
-                      削除
-                    </button>
-                  </div>
-                )}
-                <label className="cursor-pointer px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-[#d1b464] font-bold text-xs rounded-xl shadow-sm inline-block border border-[#d1b464]/40">
-                  {uploadingLogo ? 'アップロード中...' : '📸 PC・スマホからロゴ画像を選択'}
-                  <input type="file" accept="image/*" onChange={handleLogoFileUpload} disabled={uploadingLogo} className="hidden" />
-                </label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">デザインテンプレート</label>
-                <select
-                  value={form.template_id}
-                  onChange={(e) => setForm({ ...form, template_id: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                >
-                  <option value="luxury">✨ ラグジュアリーゴールド (SpecialGrade推奨)</option>
-                  <option value="modern">🌙 ダークシック</option>
-                  <option value="cute">🌸 キュート & スイート</option>
-                  <option value="minimal">🍃 シンプル & 和モダン</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">テーマカラー (Hexコード)</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={form.theme_color.startsWith('#') ? form.theme_color : '#d1b464'}
-                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
-                    className="w-9 h-9 rounded border p-0.5"
-                  />
-                  <input
-                    type="text"
-                    value={form.theme_color}
-                    onChange={(e) => setForm({ ...form, theme_color: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -632,9 +554,9 @@ export default function OwnerStoreSettingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3.5 bg-gradient-to-r from-[#d1b464] to-[#a39573] hover:from-[#c2a353] text-stone-950 font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all border border-amber-400/30"
           >
-            {saving ? '保存中...' : '店舗設定を保存・HPへ反映'}
+            {saving ? '保存中...' : (shopHasHp ? '店舗設定を保存・HPへ反映' : '店舗基本情報を保存')}
           </button>
         </form>
       )}

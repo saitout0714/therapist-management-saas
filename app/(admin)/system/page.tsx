@@ -13,6 +13,7 @@ import { CustomerTemplateTab } from './components/CustomerTemplateTab'
 import { WebReserveEmailTemplateTab } from './components/WebReserveEmailTemplateTab'
 import { CustomTemplatesTab } from './components/CustomTemplatesTab'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { getPricingShopId } from '@/lib/shopUtils'
@@ -50,12 +51,15 @@ type SystemSettings = {
   email_template_web_success: string | null
 }
 
-type ActiveTab = 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'web_email_template' | 'custom_templates' | 'notifications'
+type ActiveTab = 'store_info' | 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'web_email_template' | 'custom_templates' | 'notifications'
+
+type MainCategory = 'store' | 'pricing' | 'back' | 'templates' | 'basic'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ActiveTab>('pricing_defaults')
+  const [mainCat, setMainCat] = useState<MainCategory>('pricing')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -323,46 +327,136 @@ export default function SystemPage() {
     )
   }
 
-  const tabs: { key: ActiveTab; label: string }[] = [
-    { key: 'pricing_defaults', label: '基本設定' },
-    { key: 'notifications', label: '通知設定' },
+  const storeTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'store_info', label: '店舗基本情報' },
+  ]
+
+  const pricingTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'courses', label: 'コース設定' },
+    { key: 'options', label: 'オプション設定' },
+    { key: 'designation_types', label: '指名種別' },
+    { key: 'discounts', label: '割引ルール' },
+  ]
+
+  const backTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'ranks', label: 'セラピストランク設定' },
+    { key: 'back_amounts', label: 'ランク別料金バック' },
+    { key: 'deductions', label: '控除ルール' },
+  ]
+
+  const templateTabs: { key: ActiveTab; label: string }[] = [
     { key: 'therapist_template', label: 'セラピスト連絡テンプレート' },
     { key: 'customer_template', label: 'お客様連絡テンプレート' },
     { key: 'web_email_template', label: 'WEB予約完了メール' },
     { key: 'custom_templates', label: '追加連絡テンプレート' },
-    { key: 'courses', label: 'コース管理' },
-    { key: 'designation_types', label: '指名種別' },
-    { key: 'options', label: 'オプション管理' },
-    { key: 'discounts', label: '割引' },
-    { key: 'deductions', label: '控除' },
-    { key: 'ranks', label: 'ランク設定' },
-    { key: 'back_amounts', label: 'ランク別 料金バック' },
   ]
 
+  const basicTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'pricing_defaults', label: '基本設定・延長・指名料' },
+    { key: 'notifications', label: '通知・LINE設定' },
+  ]
+
+  const currentSubTabs = 
+    mainCat === 'store' ? storeTabs :
+    mainCat === 'pricing' ? pricingTabs :
+    mainCat === 'back' ? backTabs :
+    mainCat === 'templates' ? templateTabs : basicTabs
+
   return (
-    <div className="bg-gray-100 p-4 md:p-4">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">システム管理</h1>
-          <p className="text-sm text-slate-500 mt-1">サービス設定と店舗の初期料金設定を管理します。</p>
+    <div className="bg-gray-100 p-4 md:p-4 font-sans">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">店舗 ＆ システム設定</h1>
+          <p className="text-sm text-slate-500 mt-1">店舗基本情報、コース料金、給与バック、テンプレート、各種通知設定を一元管理します。</p>
         </div>
 
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          {tabs.map((tab) => (
+        {/* 1段階目：5つのメインカテゴリカードタブ */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <button
+            type="button"
+            onClick={() => { setMainCat('store'); setActiveTab('store_info'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'store'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            🏬 店舗基本情報
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">電話・電話受付・営業時間</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setMainCat('pricing'); setActiveTab('courses'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'pricing'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            💰 コース・料金
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">コース・オプション・指名</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setMainCat('back'); setActiveTab('ranks'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'back'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            👩‍💼 バック・給与
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">ランク設定・還元率・控除</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setMainCat('templates'); setActiveTab('therapist_template'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'templates'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            ✉️ テンプレート
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">自動メール・LINE文面</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setMainCat('basic'); setActiveTab('pricing_defaults'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'basic'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            ⚙️ 通知・初期設定
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">延長・指名料・LINE通知</span>
+          </button>
+        </div>
+
+        {/* 2段階目：サブカテゴリ切り替えタブ */}
+        <div className="flex gap-2 overflow-x-auto pb-1 border-b border-slate-200">
+          {currentSubTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.key
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeTab === tab.key
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
+        {activeTab === 'store_info' && <StoreInfoTab />}
         {activeTab === 'courses' && <CourseManagementTab />}
         {activeTab === 'designation_types' && <DesignationTypesTab />}
         {activeTab === 'options' && <OptionManagementTab />}
@@ -797,5 +891,233 @@ export default function SystemPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function StoreInfoTab() {
+  const { selectedShop, refreshShops } = useShop()
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const shopPlan = (selectedShop as any)?.plan || ''
+  const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
+  const isAgencyOnly = shopPlan === 'agency_only_plan' || ((selectedShop as any)?.has_agency && !(selectedShop as any)?.has_reserve && !(selectedShop as any)?.has_hp)
+
+  const [form, setForm] = useState({
+    name: selectedShop?.name || '',
+    phone: (selectedShop as any)?.phone || '',
+    business_hours: (selectedShop as any)?.business_hours || '',
+    access_info: (selectedShop as any)?.access_info || '',
+    catchphrase: (selectedShop as any)?.catchphrase || '',
+    description: (selectedShop as any)?.description || '',
+    line_url: (selectedShop as any)?.line_url || '',
+    x_url: (selectedShop as any)?.x_url || '',
+    logo_url: (selectedShop as any)?.logo_url || '',
+  })
+
+  useEffect(() => {
+    if (selectedShop) {
+      setForm({
+        name: selectedShop.name || '',
+        phone: (selectedShop as any).phone || '',
+        business_hours: (selectedShop as any).business_hours || '',
+        access_info: (selectedShop as any).access_info || '',
+        catchphrase: (selectedShop as any).catchphrase || '',
+        description: (selectedShop as any).description || '',
+        line_url: (selectedShop as any).line_url || '',
+        x_url: (selectedShop as any).x_url || '',
+        logo_url: (selectedShop as any).logo_url || '',
+      })
+    }
+  }, [selectedShop])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedShop?.id) return
+
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const { error: uErr } = await supabase
+        .from('shops')
+        .update({
+          name: form.name,
+          phone: form.phone,
+          business_hours: form.business_hours,
+          access_info: form.access_info,
+          ...(!isAgencyOnly && {
+            catchphrase: form.catchphrase,
+            description: form.description,
+            line_url: form.line_url,
+            x_url: form.x_url,
+            logo_url: form.logo_url,
+          }),
+        })
+        .eq('id', selectedShop.id)
+
+      if (uErr) throw uErr
+
+      setSuccess('店舗基本情報を正常に更新しました！')
+      if (refreshShops) await refreshShops()
+    } catch (err: any) {
+      console.error('Failed to save shop info:', err)
+      setError(err.message || '店舗情報の保存に失敗しました')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!selectedShop) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500">
+        店舗が選択されていません
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-800">🏬 店舗プロフィール・基本情報</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isAgencyOnly
+              ? '代行業務で必要な電話番号、営業時間、アクセス案内等の基本情報を設定します'
+              : '店舗のお問合せ電話番号、営業時間、アクセス案内、SNS等を変更できます'}
+          </p>
+        </div>
+        {shopHasHp && (
+          <Link
+            href="/admin/store-setting?mode=hp"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-all border border-amber-400/30 flex items-center gap-1.5"
+          >
+            🌐 HPコンテンツ・バナー管理を開く
+          </Link>
+        )}
+      </div>
+
+      {error && (
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold">
+          {success}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">店舗名 *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="例: 090-0000-0000"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">営業時間</label>
+            <input
+              type="text"
+              value={form.business_hours}
+              onChange={(e) => setForm({ ...form, business_hours: e.target.value })}
+              placeholder="例: OPEN/11:00～5:00 (受付/10:30〜2:00)"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">アクセス案内文</label>
+            <input
+              type="text"
+              value={form.access_info}
+              onChange={(e) => setForm({ ...form, access_info: e.target.value })}
+              placeholder="例: ○○駅徒歩2分"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+        </div>
+
+        {!isAgencyOnly && (
+          <>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピー</label>
+              <input
+                type="text"
+                value={form.catchphrase}
+                onChange={(e) => setForm({ ...form, catchphrase: e.target.value })}
+                placeholder="例: 上質で優雅な至福のアロマエステ空間"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">店舗コンセプト・紹介本文</label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="店舗のこだわりやコンセプトを自由に入力できます..."
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">公式LINE URL</label>
+                <input
+                  type="text"
+                  value={form.line_url}
+                  onChange={(e) => setForm({ ...form, line_url: e.target.value })}
+                  placeholder="https://line.me/R/ti/p/..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">X (旧Twitter) URL</label>
+                <input
+                  type="text"
+                  value={form.x_url}
+                  onChange={(e) => setForm({ ...form, x_url: e.target.value })}
+                  placeholder="https://x.com/..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="pt-4 border-t flex justify-end">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-all disabled:opacity-50"
+        >
+          {saving ? '保存中...' : '店舗基本情報を保存'}
+        </button>
+      </div>
+    </form>
   )
 }

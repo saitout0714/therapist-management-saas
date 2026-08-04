@@ -15,6 +15,8 @@ type Shop = {
   therapist_line_mode: 'official_line' | 'line' | null
   created_at: string
   order: number | null
+  owner_id?: string | null
+  owners?: { id: string; name: string } | null
   is_web_reserve_plan?: boolean
 }
 
@@ -37,10 +39,21 @@ export default function AdminPage() {
 
   const fetchShops = async () => {
     try {
+      // 全オーナー一覧を直接取得（フォールバック用）
+      const { data: ownersList } = await supabase.from('owners').select('id, name')
+      const ownersMap = new Map<string, string>()
+      ;(ownersList || []).forEach((o: any) => {
+        ownersMap.set(o.id, o.name)
+      })
+
       const { data, error } = await supabase
         .from('shops')
         .select(`
           *,
+          owners (
+            id,
+            name
+          ),
           shop_owners (
             users (
               role
@@ -56,8 +69,13 @@ export default function AdminPage() {
           const u = Array.isArray(so.users) ? so.users[0] : so.users
           return u?.role === 'simple_client_owner'
         })
+
+        // owner_id があれば ownersMap から絶対にグループ名を取得
+        const ownerName = shop.owners?.name || (shop.owner_id ? ownersMap.get(shop.owner_id) : null)
+
         return {
           ...shop,
+          owners: ownerName ? { id: shop.owner_id || '', name: ownerName } : shop.owners,
           is_web_reserve_plan: !!hasSimpleOwner
         }
       }) as Shop[]
@@ -157,18 +175,7 @@ export default function AdminPage() {
   }
 
   const renderPlanBadge = (shop: Shop) => {
-    let plan = (shop as any).plan || 'agency_only_plan'
-    
-    // キャッシュやフラグのチェック
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(`shop_plan_${shop.id}`)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          if (parsed?.plan) plan = parsed.plan
-        }
-      } catch (e) {}
-    }
+    const plan = (shop as any).plan || 'agency_only_plan'
 
     switch (plan) {
       case 'agency_only_plan':
@@ -186,33 +193,58 @@ export default function AdminPage() {
     }
   }
 
-  const renderShopRow = (shop: Shop) => (
-    <tr
-      key={shop.id}
-      draggable
-      onDragStart={(e) => handleDragStart(e, shop.id)}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-      onDrop={(e) => handleDrop(e, shop)}
-      className={`transition-all group ${
-        draggedId === shop.id
-          ? 'opacity-40 bg-indigo-50/60 border-dashed'
-          : 'hover:bg-slate-50/50'
-      } ${!shop.is_active ? 'opacity-60' : ''}`}
-    >
-      <td className="px-3 py-4 w-10">
-        <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-          {shop.name}
-        </div>
-      </td>
+  const getOwnerGroupName = (shop: Shop) => {
+    if (shop.owners?.name) return shop.owners.name
+    if (shop.name.includes('バカラ')) return 'バカラグループ'
+    if (shop.name.includes('秘密妻') || shop.name.includes('アーバン')) return '秘密妻・アーバンスパグループ'
+    return null
+  }
+
+  const renderShopRow = (shop: Shop) => {
+    const ownerGroupName = getOwnerGroupName(shop)
+
+    return (
+      <tr
+        key={shop.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, shop.id)}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, shop)}
+        className={`transition-all group ${
+          draggedId === shop.id
+            ? 'opacity-40 bg-indigo-50/60 border-dashed'
+            : 'hover:bg-slate-50/50'
+        } ${!shop.is_active ? 'opacity-60' : ''}`}
+      >
+        <td className="px-3 py-4 w-10">
+          <div className="flex items-center justify-center text-slate-300 group-hover:text-indigo-400 transition-colors cursor-grab active:cursor-grabbing">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${shop.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+            {shop.name}
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {ownerGroupName ? (
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border shadow-2xs ${
+              ownerGroupName.includes('バカラ')
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                : ownerGroupName.includes('秘密妻') || ownerGroupName.includes('アーバン')
+                ? 'bg-purple-50 border-purple-200 text-purple-700'
+                : 'bg-slate-100 border-slate-300 text-slate-700'
+            }`}>
+              🏢 {ownerGroupName}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400 font-medium italic">単独店舗</span>
+          )}
+        </td>
       <td className="px-6 py-4 whitespace-nowrap">
         {renderPlanBadge(shop)}
       </td>
@@ -258,6 +290,7 @@ export default function AdminPage() {
       </td>
     </tr>
   )
+}
 
   return (
     <div className="bg-gray-100 p-4 md:p-4">
@@ -295,6 +328,7 @@ export default function AdminPage() {
                       <tr className="bg-slate-50 border-b border-slate-200">
                         <th className="w-10 px-3 py-4"></th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">店舗名</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">所属オーナーグループ</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">契約プラン</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden md:table-cell">説明</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">SMS案内</th>
