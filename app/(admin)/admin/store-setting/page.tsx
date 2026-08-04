@@ -355,7 +355,8 @@ export default function OwnerStoreSettingPage() {
     setSuccess('✨ 店舗設定およびHPの表示内容を更新・保存しました！')
   }
 
-  const isMaster = user?.role === 'developer'
+  const currentPlan = (user as any)?.plan || 'hp_web_reserve_plan'
+  const isMaster = user?.role === 'developer' || ['hp_web_reserve_plan', 'agency_plan'].includes(currentPlan)
 
   if (!isMaster) {
     return (
@@ -363,10 +364,9 @@ export default function OwnerStoreSettingPage() {
         <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
           🔒
         </div>
-        <h1 className="text-lg font-bold text-slate-800">準備中・管理者制限機能</h1>
+        <h1 className="text-lg font-bold text-slate-800">契約プラン対象外機能</h1>
         <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-          「店舗情報 ＆ HP設定」機能は完成までマスター管理者のみに表示・制限されています。
-          管理者以下・店舗アカウントからはアクセスできません。
+          「店舗情報 ＆ HP設定」機能は、「HP ＋ web予約プラン」または「代行プラン」をご契約中のお客様専用メニューです。
         </p>
         <div className="pt-2">
           <Link href="/" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all inline-block">

@@ -20,8 +20,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [pathname]);
 
-  const navItems = [
+  // マスター（developer）判定
+  const isMasterDeveloper = user?.role === 'developer';
+
+  // ユーザー・店舗の3機能フラグ
+  const userObj = user as any;
+  const userPlan = userObj?.plan || 'web_agency_plan';
+
+  // HP管理機能フラグ
+  const showHpMenu = userObj?.has_hp ?? (isMasterDeveloper || ['agency_plan', 'hp_web_reserve_plan', 'hp_web_agency_plan'].includes(userPlan));
+  // 電話代行・mts集計機能フラグ
+  const showAgencyMenu = userObj?.has_agency ?? (isMasterDeveloper || ['agency_plan', 'web_agency_plan', 'hp_web_agency_plan'].includes(userPlan));
+
+  const mainNavItems = [
     { href: "/", label: "ホーム" },
+    ...(showHpMenu ? [{ href: "/admin/store-setting", label: "店舗情報 ＆ HP設定" }] : []),
     { href: "/shifts", label: "スケジュール" },
     { href: "/reservations", label: "予約管理" },
     { href: "/customers", label: "顧客管理" },
@@ -40,13 +53,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/therapist/schedule", label: "出勤希望提出" },
   ];
 
-  // マスター（developer）のみに限定（kasai等のsystem_adminやagency_staffには非表示）
-  const isMasterDeveloper = user?.role === 'developer';
-
   const adminItems = ["developer", "system_admin", "agency_staff"].includes(user?.role || "") ? [
-    ...(isMasterDeveloper ? [{ href: "/admin/store-setting", label: "店舗情報 ＆ HP設定 (準備中)" }] : []),
     { href: "/admin", label: "店舗管理" },
-    { href: "/admin/agency-aggregation", label: "代行プラン集計" },
+    ...(showAgencyMenu ? [{ href: "/admin/agency-aggregation", label: "代行プラン集計" }] : []),
     ...(["developer", "system_admin"].includes(user?.role || "") ? [
       { href: "/users", label: "アカウント管理" },
       { href: "/shifts/sync", label: "外部シフト同期" },
@@ -76,7 +85,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         
         <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
           <nav className="px-3 space-y-1.5">
-            {navItems.map((item) => {
+            {mainNavItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
               return (
                 <Link

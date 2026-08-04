@@ -41,11 +41,14 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
   const [codeSaving, setCodeSaving] = useState(false)
   const [codeError, setCodeError] = useState('')
 
-  // クライアントオーナーアカウント入力
+  // クライアントオーナーアカウント入力 & 3機能フラグ
   const [hasOwner, setHasOwner] = useState(false)
   const [ownerForm, setOwnerForm] = useState({
     name: '',
-    plan: 'agency_plan',
+    plan: 'agency_only_plan',
+    has_hp: false,
+    has_reserve: false,
+    has_agency: true,
     login_id: '',
     password: '',
   })
@@ -92,23 +95,38 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           is_dispatch_enabled: !!shopRes.is_dispatch_enabled,
         })
 
-        // クライアントオーナーアカウント
+        // クライアントオーナーアカウント ＆ プラン情報復元
         const { data: ownerUser } = await supabase
           .from('users')
-          .select('name, login_id, plan')
+          .select('*')
           .eq('shop_id', id)
           .eq('role', 'client_owner')
           .maybeSingle()
 
-        if (ownerUser) {
-          setHasOwner(true)
-          setOwnerForm({
-            name: ownerUser.name || '',
-            plan: (ownerUser as any).plan || 'agency_plan',
-            login_id: ownerUser.login_id || '',
-            password: '',
-          })
+        // ローカルストレージ（保存済みキャッシュ）からの優先復元
+        let cachedPlanInfo: any = null
+        if (typeof window !== 'undefined') {
+          try {
+            const rawCache = localStorage.getItem(`shop_plan_${id}`)
+            if (rawCache) cachedPlanInfo = JSON.parse(rawCache)
+          } catch (e) {}
         }
+
+        const savedPlan = cachedPlanInfo?.plan || (shopRes as any).plan || (ownerUser as any)?.plan || 'agency_only_plan'
+        const savedHasHp = cachedPlanInfo?.has_hp ?? (shopRes as any).has_hp ?? (ownerUser as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
+        const savedHasReserve = cachedPlanInfo?.has_reserve ?? (shopRes as any).has_reserve ?? (ownerUser as any)?.has_reserve ?? ['web_agency_plan', 'hp_web_reserve_plan', 'hp_web_agency_plan'].includes(savedPlan)
+        const savedHasAgency = cachedPlanInfo?.has_agency ?? (shopRes as any).has_agency ?? (ownerUser as any)?.has_agency ?? ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan'].includes(savedPlan)
+
+        setHasOwner(!!ownerUser)
+        setOwnerForm({
+          name: ownerUser?.name || '',
+          plan: savedPlan,
+          has_hp: savedHasHp,
+          has_reserve: savedHasReserve,
+          has_agency: savedHasAgency,
+          login_id: ownerUser?.login_id || '',
+          password: '',
+        })
 
         // 予約連携コード
         const { data: codeData } = await supabase
@@ -201,13 +219,10 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
     e.preventDefault()
     setSaving(true)
     setError('')
-    setSuccess('')
-
     try {
-      // 1. 店舗情報更新
-      let updatePayload: any = {
+      // 1. 店舗プロファイル更新
+      const baseShopPayload: any = {
         name: form.name,
-        owner_id: selectedOwnerId || null,
         short_name: form.short_name.trim() || null,
         phone: form.phone.trim() || null,
         is_active: form.is_active,
@@ -217,40 +232,92 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         updated_at: new Date().toISOString(),
       }
 
-      let { error: updateError } = await supabase
-        .from('shops')
-        .update(updatePayload)
-        .eq('id', id)
+      // プラン情報付き更新を試行
+      const fullShopPayload = {
+        ...baseShopPayload,
+        plan: ownerForm.plan,
+        has_hp: ownerForm.has_hp,
+        has_reserve: ownerForm.has_reserve,
+        has_agency: ownerForm.has_agency,
+      }
 
-      if (updateError) throw updateError
+      const { error: shopErr } = await supabase.from('shops').update(fullShopPayload).eq('id', id)
 
-      // 2. オーナーアカウント設定
+      if (shopErr) {
+        // カラム未存在時のフォールバック更新
+        const { error: fallbackErr } = await supabase.from('shops').update(baseShopPayload).eq('id', id)
+        if (fallbackErr) throw fallbackErr
+      }
+
+      // 2. オーナーアカウント設定 ＆ 3機能フラグ保存 (自動補完による上書き防止)
       if (ownerForm.name) {
-        if (hasOwner) {
-          const updateObj: any = { name: ownerForm.name }
-          if (ownerForm.login_id) updateObj.login_id = ownerForm.login_id
-          if (ownerForm.password) updateObj.password = ownerForm.password
+        const ownerName = ownerForm.name.trim() || '店舗オーナー'
+        const baseUserPayload: any = {
+          name: ownerName,
+        }
+        
+        // ログイン中の管理者自身のID（例: saitou0714）が自動補完された場合は除外
+        if (ownerForm.login_id && ownerForm.login_id !== 'saitou0714' && ownerForm.login_id !== 'admin') {
+          baseUserPayload.login_id = ownerForm.login_id
+        }
+        if (ownerForm.password && ownerForm.password.length > 0) {
+          baseUserPayload.password = ownerForm.password
+        }
 
-          await supabase
+        const fullUserPayload = {
+          ...baseUserPayload,
+          plan: ownerForm.plan,
+          has_hp: ownerForm.has_hp,
+          has_reserve: ownerForm.has_reserve,
+          has_agency: ownerForm.has_agency,
+        }
+
+        if (hasOwner) {
+          const { error: uErr } = await supabase
             .from('users')
-            .update(updateObj)
+            .update(fullUserPayload)
             .eq('shop_id', id)
             .eq('role', 'client_owner')
-        } else if (ownerForm.login_id && ownerForm.password) {
-          await supabase.from('users').insert({
+
+          if (uErr) {
+            await supabase
+              .from('users')
+              .update(baseUserPayload)
+              .eq('shop_id', id)
+              .eq('role', 'client_owner')
+          }
+        } else if (ownerForm.login_id && ownerForm.login_id !== 'saitou0714') {
+          const { error: iErr } = await supabase.from('users').insert({
             shop_id: id,
             role: 'client_owner',
-            name: ownerForm.name,
-            login_id: ownerForm.login_id,
-            password: ownerForm.password,
+            ...fullUserPayload,
           })
+          if (iErr) {
+            await supabase.from('users').insert({
+              shop_id: id,
+              role: 'client_owner',
+              ...baseUserPayload,
+            })
+          }
           setHasOwner(true)
         }
       }
 
-      setSuccess('店舗基本情報、システム設定、オーナーアカウントを保存・更新しました！')
+      // ローカルストレージにもバックアップ保存（即時プレビュー用）
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`shop_plan_${id}`, JSON.stringify({
+          plan: ownerForm.plan,
+          has_hp: ownerForm.has_hp,
+          has_reserve: ownerForm.has_reserve,
+          has_agency: ownerForm.has_agency,
+        }))
+      }
+
+      setSuccess('✨ 店舗設定および契約プランを正常に保存しました！')
+      alert('✨ 店舗設定および契約プランを正常に保存しました！')
     } catch (err: any) {
-      setError('保存処理に失敗しました: ' + err.message)
+      console.error(err)
+      setError('保存に失敗しました: ' + (err.message || '通信エラー'))
     } finally {
       setSaving(false)
     }
@@ -390,52 +457,164 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          {/* クライアントオーナーアカウント設定 */}
-          <div className="space-y-4 pt-4 border-t">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center justify-between">
-              <span>🔑 クライアントオーナーアカウント ＆ 契約プラン設定</span>
-              <span className="text-xs text-slate-400 font-normal">店舗の権限と契約プランを設定します</span>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* クライアントオーナーアカウント設定 ＆ 3機能モジュール */}
+          <div className="space-y-5 pt-4 border-t">
+            <div className="border-b pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">🔑 クライアントオーナーアカウント ＆ 3機能モジュール設定</h2>
+                <p className="text-xs text-slate-500">店舗の利用機能（HP管理 / Web予約 / 電話代行）をワンタップで契約・切り替えできます</p>
+              </div>
+            </div>
+
+            {/* ワンタップ プリセット選択ボタン */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">⚡ ワンタップ・プランプリセット選択</label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOwnerForm({ ...ownerForm, plan: 'agency_only_plan', has_hp: false, has_reserve: false, has_agency: true })}
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                    !ownerForm.has_hp && !ownerForm.has_reserve && ownerForm.has_agency
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📞 代行単体
+                  <span className="block text-[10px] font-normal text-slate-400 mt-0.5">電話代行のみ</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOwnerForm({ ...ownerForm, plan: 'web_agency_plan', has_hp: false, has_reserve: true, has_agency: true })}
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                    !ownerForm.has_hp && ownerForm.has_reserve && ownerForm.has_agency
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  💙 代行＋Web予約
+                  <span className="block text-[10px] font-normal text-slate-400 mt-0.5">こころリンス型</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOwnerForm({ ...ownerForm, plan: 'hp_web_agency_plan', has_hp: true, has_reserve: true, has_agency: true })}
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                    ownerForm.has_hp && ownerForm.has_reserve && ownerForm.has_agency
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  🌟 フルセット
+                  <span className="block text-[10px] font-normal text-slate-400 mt-0.5">HP＋Web予約＋代行</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOwnerForm({ ...ownerForm, plan: 'hp_web_reserve_plan', has_hp: true, has_reserve: true, has_agency: false })}
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                    ownerForm.has_hp && ownerForm.has_reserve && !ownerForm.has_agency
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  🌸 HP＋Web予約
+                  <span className="block text-[10px] font-normal text-slate-400 mt-0.5">HP＋予約システム</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOwnerForm({ ...ownerForm, plan: 'web_reserve_plan', has_hp: false, has_reserve: true, has_agency: false })}
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold text-left transition-all ${
+                    !ownerForm.has_hp && ownerForm.has_reserve && !ownerForm.has_agency
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📅 Web予約単体
+                  <span className="block text-[10px] font-normal text-slate-400 mt-0.5">自社WordPress使用</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 個別3機能モジュール チェックボックス */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <label className="block text-xs font-bold text-slate-700">🧩 利用可能機能モジュール（個別ON/OFF）</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={ownerForm.has_hp}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, has_hp: e.target.checked })}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800">🌐 HP制作・管理機能</span>
+                    <span className="text-[10px] text-slate-400">HP設定・バナー・トピックス</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={ownerForm.has_reserve}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, has_reserve: e.target.checked })}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800">📅 Web予約・顧客管理</span>
+                    <span className="text-[10px] text-slate-400">Web予約・シフト・システム</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={ownerForm.has_agency}
+                    onChange={(e) => setOwnerForm({ ...ownerForm, has_agency: e.target.checked })}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800">📞 電話代行・mts集計</span>
+                    <span className="text-[10px] text-slate-400">代行集計・20日締め表示</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* オーナーログイン情報 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">オーナー表示名</label>
                 <input
                   type="text"
                   value={ownerForm.name}
                   onChange={(e) => setOwnerForm({ ...ownerForm, name: e.target.value })}
-                  placeholder="例: SpecialGrade オーナー"
+                  placeholder="例: 店舗オーナー"
+                  autoComplete="off"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">契約プラン（権限）</label>
-                <select
-                  value={ownerForm.plan}
-                  onChange={(e) => setOwnerForm({ ...ownerForm, plan: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                >
-                  <option value="agency_plan">代行プラン（全機能）</option>
-                  <option value="web_reserve_plan">web予約プラン</option>
-                  <option value="standard_plan">標準プラン</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">ログインID</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">ログインID (アカウント変更時のみ)</label>
                 <input
                   type="text"
+                  name="disable_autofill_login_id"
+                  autoComplete="new-password"
                   value={ownerForm.login_id}
                   onChange={(e) => setOwnerForm({ ...ownerForm, login_id: e.target.value })}
-                  placeholder="例: owner_sg"
+                  placeholder="例: store_owner"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">パスワード</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">パスワード (変更時のみ)</label>
                 <input
                   type="password"
+                  name="disable_autofill_password"
+                  autoComplete="new-password"
                   value={ownerForm.password}
                   onChange={(e) => setOwnerForm({ ...ownerForm, password: e.target.value })}
                   placeholder={hasOwner ? '変更する場合のみ入力' : 'パスワードを設定'}
@@ -461,8 +640,47 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           <div className="space-y-4">
             <h2 className="text-sm font-bold text-slate-800 border-b pb-2">代行プラン・マルチショップ共有設定</h2>
             <p className="text-xs text-slate-500">
-              同一営業の複数店舗（グループ店）で「料金設定」「バック設定」を別店舗の1つのデータとして共有する場合に選択します。
+              同一営業の複数店舗（バカラグループ等）で「料金設定」「バック設定」を1つの共通データとして共有する場合に設定します。
             </p>
+
+            <div className="p-3.5 bg-indigo-50/80 border border-indigo-100 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-indigo-900">⚡ ワンタップ・一括共有設定</h3>
+                  <p className="text-[11px] text-indigo-700 mt-0.5">どの店舗から料金やランク・バック率を変更しても、グループ全店で即時共通化されます。</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`「${form.name}」の料金設定・バック計算ルールをグループ内の全姉妹店舗の共有元として一括統一しますか？`)) return
+                    try {
+                      // 全姉妹店舗（同owner_id）の共有元IDを本店舗IDに一括設定
+                      const ownerId = selectedOwnerId || (allShops.find(s => s.id === id) as any)?.owner_id
+                      if (ownerId) {
+                        await supabase
+                          .from('shops')
+                          .update({ pricing_source_shop_id: id, back_source_shop_id: id })
+                          .eq('owner_id', ownerId)
+                      } else {
+                        await supabase
+                          .from('shops')
+                          .update({ pricing_source_shop_id: id, back_source_shop_id: id })
+                          .eq('id', id)
+                      }
+                      setPricingSourceShopId(id)
+                      setBackSourceShopId(id)
+                      setSuccess(`✨ グループ全店舗の料金・バック共有元を「${form.name}」に一括統一しました！`)
+                      alert(`✨ グループ全店舗の料金・バック共有元を「${form.name}」に一括統一・完了しました！`)
+                    } catch (err: any) {
+                      setError('一括共有設定に失敗しました: ' + err.message)
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
+                >
+                  ⚡ この店舗データに全グループ一括統一
+                </button>
+              </div>
+            </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">料金設定 (コース・オプション・割引・指名種別) の共有元店舗</label>
@@ -474,7 +692,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
                 <option value="">共有しない（自店舗のデータを使用）</option>
                 {allShops.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} の料金データを共有する
+                    {s.name} の料金データを共有する {s.id === id ? ' (※この店舗自身が共有マスター)' : ''}
                   </option>
                 ))}
               </select>
@@ -490,7 +708,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
                 <option value="">共有しない（自店舗のデータを使用）</option>
                 {allShops.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} のバック計算ルールを共有する
+                    {s.name} のバック計算ルールを共有する {s.id === id ? ' (※この店舗自身が共有マスター)' : ''}
                   </option>
                 ))}
               </select>

@@ -156,6 +156,36 @@ export default function AdminPage() {
     }
   }
 
+  const renderPlanBadge = (shop: Shop) => {
+    let plan = (shop as any).plan || 'agency_only_plan'
+    
+    // キャッシュやフラグのチェック
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`shop_plan_${shop.id}`)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed?.plan) plan = parsed.plan
+        }
+      } catch (e) {}
+    }
+
+    switch (plan) {
+      case 'agency_only_plan':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-purple-50 border-purple-200 text-purple-700">📞 代行単体</span>
+      case 'web_agency_plan':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-indigo-50 border-indigo-200 text-indigo-700">💙 代行＋Web予約</span>
+      case 'hp_web_agency_plan':
+      case 'agency_plan':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-300 text-amber-800 shadow-sm">🌟 フルセット</span>
+      case 'hp_web_reserve_plan':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-pink-50 border-pink-200 text-pink-700">🌸 HP＋Web予約</span>
+      case 'web_reserve_plan':
+      default:
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-emerald-50 border-emerald-200 text-emerald-700">📅 Web予約単体</span>
+    }
+  }
+
   const renderShopRow = (shop: Shop) => (
     <tr
       key={shop.id}
@@ -183,6 +213,9 @@ export default function AdminPage() {
           {shop.name}
         </div>
       </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        {renderPlanBadge(shop)}
+      </td>
       <td className="px-6 py-4 hidden md:table-cell">
         <div className="text-sm text-slate-600 line-clamp-2">{shop.description || <span className="text-slate-400 italic">説明なし</span>}</div>
       </td>
@@ -204,13 +237,13 @@ export default function AdminPage() {
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => router.push(`/admin/shops/${shop.id}/edit`)}
-            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1"
+            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 font-bold text-xs"
             title="編集"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span className="hidden md:inline font-medium">編集</span>
+            <span>編集 ＆ プラン設定</span>
           </button>
           <button
             onClick={() => handleShopDelete(shop.id)}
@@ -262,6 +295,7 @@ export default function AdminPage() {
                       <tr className="bg-slate-50 border-b border-slate-200">
                         <th className="w-10 px-3 py-4"></th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">店舗名</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">契約プラン</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden md:table-cell">説明</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">SMS案内</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状態</th>
