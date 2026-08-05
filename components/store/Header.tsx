@@ -37,7 +37,14 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         : 'bg-white/95 border-stone-200 text-stone-800 font-serif'
     }`}>
       {store.noticeBanner && (
-        <div style={{ backgroundColor: primaryColor }} className="text-white text-xs py-1.5 px-4 text-center font-semibold tracking-widest shadow-md">
+        <div
+          style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+          className={`text-xs py-1.5 px-4 text-center font-bold tracking-widest shadow-md ${
+            isCyberTheme
+              ? 'bg-gradient-to-r from-[#ff007f] via-[#ff2a8d] to-[#1a0933] text-white shadow-[0_0_12px_rgba(255,0,127,0.5)]'
+              : 'text-white'
+          }`}
+        >
           {store.noticeBanner}
         </div>
       )}
@@ -85,12 +92,14 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           ))}
           <Link
             href={`${basePath}/reserve`}
-            style={{ backgroundColor: primaryColor }}
-            className={`ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest shadow-md hover:brightness-110 transition-all ${
-              isCyberTheme ? 'rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]' : 'rounded-sm'
+            style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+            className={`ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
+              isCyberTheme
+                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.7)] animate-neon-pulse'
+                : 'rounded-sm shadow-md hover:brightness-110'
             }`}
           >
-            WEB予約
+            WEB予約 🐾
           </Link>
         </nav>
 
@@ -98,8 +107,12 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         <div className="flex lg:hidden items-center gap-2">
           <Link
             href={`${basePath}/reserve`}
-            style={{ backgroundColor: primaryColor }}
-            className={`px-3 py-1.5 text-white text-xs font-bold shadow-sm ${isCyberTheme ? 'rounded-full' : 'rounded-sm'}`}
+            style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+            className={`px-3.5 py-1.5 text-white text-xs font-bold transition-all ${
+              isCyberTheme
+                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_12px_rgba(255,0,127,0.7)]'
+                : 'rounded-sm shadow-xs'
+            }`}
           >
             予約
           </Link>

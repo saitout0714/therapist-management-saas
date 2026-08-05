@@ -12,6 +12,7 @@ import { TherapistFilter } from '../../../components/store/TherapistFilter';
 import { NewsList } from '../../../components/store/NewsList';
 import { DiarySection } from '../../../components/store/DiarySection';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
+import { NeonOpeningSplash } from '../../../components/store/NeonOpeningSplash';
 import {
   fetchStoreConfig,
   fetchCampaigns,
@@ -22,17 +23,19 @@ import {
 } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, BlogArticle, NewsItem, ConfirmedShift } from '../../../types/store';
 import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_BLOG_ARTICLES, MOCK_NEWS } from '../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_BLOG_ARTICLES, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
 
 export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
+  const isOnyanko = shopSlug === 'onyankospa';
   
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
-  const [therapists, setTherapists] = useState<Therapist[]>(MOCK_THERAPISTS);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(isOnyanko ? MOCK_ONYANKO_CAMPAIGNS : MOCK_CAMPAIGNS);
+  const [therapists, setTherapists] = useState<Therapist[]>(isOnyanko ? MOCK_ONYANKO_THERAPISTS : MOCK_THERAPISTS);
   const [confirmedShifts, setConfirmedShifts] = useState<ConfirmedShift[]>([]);
-  const [blogs, setBlogs] = useState<BlogArticle[]>(MOCK_BLOG_ARTICLES);
-  const [news, setNews] = useState<NewsItem[]>(MOCK_NEWS);
+  const [blogs, setBlogs] = useState<BlogArticle[]>(isOnyanko ? MOCK_ONYANKO_BLOG_ARTICLES : MOCK_BLOG_ARTICLES);
+  const [news, setNews] = useState<NewsItem[]>(isOnyanko ? MOCK_ONYANKO_NEWS : MOCK_NEWS);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
@@ -102,7 +105,7 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                 {filteredTherapists.map((therapist) => (
                   <TherapistCard
                     key={therapist.id}
@@ -249,8 +252,9 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
     }
   };
 
-  // 重複セクションの排除（`today_shifts`と`therapists`など）
-  const uniqueSections = Array.from(new Set(sectionOrder));
+  // 'today_shifts' と 'therapists' を同等の出勤セクションとして統合し、重複描画を防止
+  const normalizedSections = sectionOrder.map((sec) => (sec === 'today_shifts' ? 'therapists' : sec));
+  const uniqueSections = Array.from(new Set(normalizedSections));
 
   return (
     <ThemeProvider store={store}>

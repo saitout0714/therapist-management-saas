@@ -8,12 +8,14 @@ import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchSystemCourses } from '../../../../lib/storeApi';
 import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
 import { MOCK_STORE, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_SYSTEM_MENU } from '../../../../mock/onyankospa';
 
 export default function SystemPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [categories, setCategories] = useState<SystemMenuCategory[]>(MOCK_SYSTEM_MENU);
+  const isOnyanko = shopSlug === 'onyankospa';
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [categories, setCategories] = useState<SystemMenuCategory[]>(isOnyanko ? MOCK_ONYANKO_SYSTEM_MENU : MOCK_SYSTEM_MENU);
 
   useEffect(() => {
     async function loadData() {

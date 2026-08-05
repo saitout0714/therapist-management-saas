@@ -258,4 +258,63 @@ input[type="time"]::-webkit-datetime-edit {
   box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
 }
 
+/* シネマティック Ken Burns アニメーション */
+@keyframes ken-burns {
+  0% {
+    transform: scale(1) translate(0%, 0%);
+  }
+  50% {
+    transform: scale(1.08) translate(-1.5%, -1%);
+  }
+  100% {
+    transform: scale(1) translate(0%, 0%);
+  }
+}
+
+/* ネオン粒子のゆっくりな浮遊 */
+@keyframes particle-rise {
+  0% {
+    transform: translateY(100%) scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-20%) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* オープニング・ネオングリッチスパーク */
+@keyframes glitch-flicker {
+  0% { opacity: 0.2; filter: hue-rotate(0deg) brightness(0.8); }
+  10% { opacity: 0.9; filter: hue-rotate(15deg) brightness(1.5); }
+  15% { opacity: 0.3; }
+  25% { opacity: 1; filter: hue-rotate(-15deg) brightness(2); }
+  30% { opacity: 0.4; }
+  45% { opacity: 1; filter: drop-shadow(0 0 25px #ff007f); }
+  100% { opacity: 1; filter: drop-shadow(0 0 15px #ff007f); }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 18s ease-in-out infinite alternate;
+}
+
+.animate-particle-1 {
+  animation: particle-rise 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-particle-2 {
+  animation: particle-rise 9s cubic-bezier(0.4, 0, 0.2, 1) 3s infinite;
+}
+
+.animate-particle-3 {
+  animation: particle-rise 12s cubic-bezier(0.4, 0, 0.2, 1) 6s infinite;
+}
+
+.animate-glitch-intro {
+  animation: glitch-flicker 1.4s ease-out forwards;
+}
+
 

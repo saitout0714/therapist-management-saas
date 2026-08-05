@@ -14,6 +14,7 @@ import {
 } from '../../../../../lib/storeApi';
 import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../../../../types/store';
 import { MOCK_STORE, MOCK_THERAPISTS } from '../../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_THERAPISTS } from '../../../../../mock/onyankospa';
 
 export default function TherapistDetailPage({
   params,
@@ -23,9 +24,13 @@ export default function TherapistDetailPage({
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const therapistId = resolvedParams.id;
+  const isOnyanko = shopSlug === 'onyankospa';
+  const initialTherapist = isOnyanko
+    ? (MOCK_ONYANKO_THERAPISTS.find((t) => t.id === therapistId) || MOCK_ONYANKO_THERAPISTS[0])
+    : (MOCK_THERAPISTS.find((t) => t.id === therapistId) || MOCK_THERAPISTS[0]);
 
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [therapist, setTherapist] = useState<Therapist | null>(null);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [therapist, setTherapist] = useState<Therapist | null>(initialTherapist);
   const [blogs, setBlogs] = useState<BlogArticle[]>([]);
   const [todayShift, setTodayShift] = useState<ConfirmedShift | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);

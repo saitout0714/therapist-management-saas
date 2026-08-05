@@ -7,12 +7,14 @@ import { DiarySection } from '../../../../components/store/DiarySection';
 import { fetchStoreConfig, fetchBlogArticles } from '../../../../lib/storeApi';
 import { StoreConfig, BlogArticle } from '../../../../types/store';
 import { MOCK_STORE, MOCK_BLOG_ARTICLES } from '../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_BLOG_ARTICLES } from '../../../../mock/onyankospa';
 
 export default function DiaryPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [articles, setArticles] = useState<BlogArticle[]>(MOCK_BLOG_ARTICLES);
+  const isOnyanko = shopSlug === 'onyankospa';
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [articles, setArticles] = useState<BlogArticle[]>(isOnyanko ? MOCK_ONYANKO_BLOG_ARTICLES : MOCK_BLOG_ARTICLES);
 
   useEffect(() => {
     async function loadData() {

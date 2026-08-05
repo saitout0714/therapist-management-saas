@@ -7,11 +7,13 @@ import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig } from '../../../../lib/storeApi';
 import { StoreConfig } from '../../../../types/store';
 import { MOCK_STORE } from '../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 export default function AccessPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
+  const isOnyanko = shopSlug === 'onyankospa';
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
 
   useEffect(() => {
     async function loadData() {

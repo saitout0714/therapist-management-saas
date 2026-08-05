@@ -57,11 +57,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ store, children })
           font-family: 'Hiragino Sans', 'ヒラギノ角ゴ Pro W3', sans-serif;
         }
 
-        .template-cute button,
-        .template-cute a {
-          border-radius: 9999px !important;
-        }
-
         .template-modern {
           background-color: #18181b !important;
           color: #f4f4f5 !important;

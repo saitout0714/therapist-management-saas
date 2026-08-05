@@ -8,12 +8,14 @@ import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist, ConfirmedShift } from '../../../../types/store';
 import { MOCK_STORE, MOCK_THERAPISTS } from '../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_THERAPISTS } from '../../../../mock/onyankospa';
 
 export default function SchedulePage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [therapists, setTherapists] = useState<Therapist[]>(MOCK_THERAPISTS);
+  const isOnyanko = shopSlug === 'onyankospa';
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [therapists, setTherapists] = useState<Therapist[]>(isOnyanko ? MOCK_ONYANKO_THERAPISTS : MOCK_THERAPISTS);
   const [confirmedShifts, setConfirmedShifts] = useState<ConfirmedShift[]>([]);
 
   useEffect(() => {

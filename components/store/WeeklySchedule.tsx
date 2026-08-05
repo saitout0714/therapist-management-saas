@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Therapist, ConfirmedShift } from '../../types/store';
-import Link from 'next/link';
+import { TherapistCard } from './TherapistCard';
 
 interface WeeklyScheduleProps {
   therapists: Therapist[];
@@ -15,6 +15,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 }) => {
   const isCyber = storeSlug === 'onyankospa';
 
+  // 向こう7日分の日付オブジェクトを生成
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -25,13 +26,18 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
     return {
       fullDate,
+      month: d.getMonth() + 1,
+      dateNum: d.getDate(),
+      dayOfWeek,
       label: `${d.getMonth() + 1}/${d.getDate()}(${dayOfWeek})`,
       isWeekend: d.getDay() === 0 || d.getDay() === 6,
       isToday: i === 0,
     };
   });
 
-  // (therapistId, fullDate) => ConfirmedShift Map を作成
+  const [selectedDate, setSelectedDate] = useState<string>(days[0].fullDate);
+
+  // (therapistId, fullDate) => ConfirmedShift Map
   const shiftMap = new Map<string, ConfirmedShift>();
   confirmedShifts.forEach((s) => {
     shiftMap.set(`${s.therapistId}_${s.date}`, s);
@@ -39,91 +45,98 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 
   const hasRealShifts = confirmedShifts.length > 0;
 
+  // 選択された日付の出勤セラピストとシフト時間のリストを抽出
+  const selectedDayIndex = days.findIndex((d) => d.fullDate === selectedDate);
+  const selectedDayObj = days.find((d) => d.fullDate === selectedDate) || days[0];
+
+  const workingTherapistsWithShift = therapists
+    .map((th) => {
+      const shift = shiftMap.get(`${th.id}_${selectedDate}`);
+      const isWorkingFallback =
+        !hasRealShifts &&
+        ((th.id.charCodeAt(th.id.length - 1) + (selectedDayIndex >= 0 ? selectedDayIndex : 0)) % 2 === 0 ||
+          selectedDayObj.isToday);
+
+      const shiftTime = shift
+        ? `${shift.startTime}~${shift.endTime}`
+        : isWorkingFallback
+        ? '13:00~22:00'
+        : null;
+
+      return {
+        therapist: th,
+        shiftTime,
+      };
+    })
+    .filter((item) => item.shiftTime !== null);
+
   return (
-    <div className={`overflow-x-auto p-4 ${
-      isCyber
-        ? 'cyber-card rounded-xl border-[#ff007f]/40 font-sans'
-        : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm font-serif'
-    }`}>
-      <table className="w-full text-left text-xs min-w-[600px]">
-        <thead>
-          <tr className={`border-b ${
-            isCyber ? 'border-[#ff007f]/30 bg-[#050014]' : 'border-[#d1b464]/30 bg-[#faf7f0]'
-          }`}>
-            <th className={`py-3 px-4 font-bold w-44 ${isCyber ? 'text-pink-100' : 'text-stone-700'}`}>セラピスト</th>
-            {days.map((day) => (
-              <th
+    <div className="space-y-6">
+      {/* 日付切り替えタブバー (横スクロール対応) */}
+      <div className="overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex gap-2 min-w-max px-1">
+          {days.map((day) => {
+            const isSelected = selectedDate === day.fullDate;
+            return (
+              <button
                 key={day.fullDate}
-                className={`py-3 px-2 text-center font-bold ${
-                  day.isToday
-                    ? isCyber ? 'neon-text-pink font-extrabold bg-[#ff007f]/20' : 'text-[#a39573] font-extrabold bg-[#f4eee0]'
-                    : day.isWeekend
-                    ? isCyber ? 'text-pink-300' : 'text-amber-700'
-                    : isCyber ? 'text-stone-300' : 'text-stone-700'
+                onClick={() => setSelectedDate(day.fullDate)}
+                className={`flex flex-col items-center justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                  isSelected
+                    ? isCyber
+                      ? 'bg-[#ff007f] text-white border-[#ff007f] shadow-[0_0_18px_rgba(255,0,127,0.7)] scale-105'
+                      : 'bg-[#a39573] text-white border-[#a39573] shadow-md scale-105'
+                    : isCyber
+                    ? 'bg-[#050014]/90 text-pink-200 border-[#ff007f]/30 hover:border-[#ff007f]/70 hover:bg-[#1a0933]'
+                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
                 }`}
               >
-                {day.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className={`divide-y ${isCyber ? 'divide-[#ff007f]/20' : 'divide-stone-100'}`}>
-          {therapists.map((th) => (
-            <tr key={th.id} className={`transition-colors ${isCyber ? 'hover:bg-[#1a0933]/60' : 'hover:bg-[#faf9f5]'}`}>
-              <td className="py-3 px-4">
-                <Link
-                  href={`/${storeSlug}/therapists/${th.id}`}
-                  className="flex items-center gap-3 group"
-                >
-                  <img
-                    src={th.avatarUrl}
-                    alt={th.name}
-                    className={`w-10 h-10 rounded-full object-cover border group-hover:scale-105 transition-transform ${
-                      isCyber ? 'border-[#ff007f]/50 shadow-[0_0_8px_rgba(255,0,127,0.4)]' : 'border-[#d1b464]/40'
-                    }`}
-                  />
-                  <div>
-                    <div className={`font-bold transition-colors ${
-                      isCyber ? 'neon-text-pink group-hover:text-white' : 'text-stone-800 group-hover:text-[#a39573]'
-                    }`}>
-                      {th.name}
-                    </div>
-                    <div className={`text-[10px] ${isCyber ? 'text-pink-300/80' : 'text-stone-400'}`}>
-                      T{th.height} ({th.bustCup})
-                    </div>
-                  </div>
-                </Link>
-              </td>
-              {days.map((day, idx) => {
-                const shift = shiftMap.get(`${th.id}_${day.fullDate}`);
-                const isWorkingFallback = !hasRealShifts && ((th.id.charCodeAt(0) + idx) % 2 === 0 || day.isToday);
-                const displayTime = shift ? `${shift.startTime}~${shift.endTime}` : (isWorkingFallback ? '13:00~22:00' : null);
+                <span className="text-[10px] opacity-80">
+                  {day.isToday ? '★ 本日' : `${day.month}月`}
+                </span>
+                <span className="text-sm font-extrabold tracking-wider">
+                  {day.dateNum}日({day.dayOfWeek})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-                return (
-                  <td
-                    key={day.fullDate}
-                    className={`py-3 px-2 text-center text-[11px] ${
-                      day.isToday ? (isCyber ? 'bg-[#ff007f]/10' : 'bg-[#faf7f0]/60') : ''
-                    }`}
-                  >
-                    {displayTime ? (
-                      <span className={`inline-block px-2 py-1 border rounded text-[10px] font-medium ${
-                        isCyber
-                          ? 'bg-[#ff007f]/20 text-pink-200 border-[#ff007f]/40 shadow-[0_0_6px_rgba(255,0,127,0.3)]'
-                          : 'bg-[#f4eee0] text-[#7d7468] border-[#d1b464]/30'
-                      }`}>
-                        {displayTime}
-                      </span>
-                    ) : (
-                      <span className={isCyber ? 'text-pink-300/40' : 'text-stone-400'}>お休み</span>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
+      {/* 選択日付タイトル */}
+      <div className="flex items-center justify-between border-b pb-3 border-[#ff007f]/30 px-1">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#ff007f] animate-ping" />
+          <h3 className={`text-base sm:text-lg font-bold tracking-wider ${isCyber ? 'neon-text-pink' : 'text-stone-800'}`}>
+            {selectedDayObj.label} の出勤セラピスト
+          </h3>
+        </div>
+        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+          isCyber ? 'bg-[#ff007f]/20 text-pink-200 border border-[#ff007f]/40' : 'bg-stone-100 text-stone-600'
+        }`}>
+          計 {workingTherapistsWithShift.length} 名出勤
+        </span>
+      </div>
+
+      {/* 出勤セラピスト 2列グリッド表示 */}
+      {workingTherapistsWithShift.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          {workingTherapistsWithShift.map(({ therapist, shiftTime }) => (
+            <TherapistCard
+              key={therapist.id}
+              therapist={therapist}
+              storeSlug={storeSlug}
+              confirmedShiftTime={shiftTime || undefined}
+            />
           ))}
-        </tbody>
-      </table>
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-[#050014]/60 rounded-2xl border border-[#ff007f]/20">
+          <p className="text-sm text-pink-300 font-semibold">
+            指定のお日付の出勤スケジュールは準備中です 🐾
+          </p>
+        </div>
+      )}
     </div>
   );
 };

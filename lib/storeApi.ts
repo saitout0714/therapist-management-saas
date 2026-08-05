@@ -132,6 +132,21 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
 
 export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
   try {
+    let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
+
+    // shopIdがUUID等の場合、店舗のslugを確認して判定
+    if (shopId && !isOnyanko && shopId.length > 20) {
+      const { data: shopInfo } = await supabase
+        .from('shops')
+        .select('slug, name')
+        .eq('id', shopId)
+        .maybeSingle();
+
+      if (shopInfo && (shopInfo.slug === 'onyankospa' || shopInfo.name?.includes('おニャンこ'))) {
+        isOnyanko = true;
+      }
+    }
+
     let query = supabase
       .from('therapists')
       .select('*, therapist_photos(*), therapist_ranks(name)')
@@ -145,7 +160,7 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
     const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
-      if (shopId === 'onyanko-001' || shopId === 'onyankospa') {
+      if (isOnyanko) {
         return MOCK_ONYANKO_THERAPISTS;
       }
       return MOCK_THERAPISTS;
@@ -158,9 +173,9 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
       
       const photoUrls = photos.length > 0
         ? photos.map((p: any) => p.photo_url)
-        : (t.photo_url ? [t.photo_url] : ['/icon.png']);
+        : (t.photo_url ? [t.photo_url] : [isOnyanko ? MOCK_ONYANKO_THERAPISTS[0].avatarUrl : MOCK_THERAPISTS[0].avatarUrl]);
 
-      const defaultAvatar = t.photo_url || photoUrls[0] || '/icon.png';
+      const defaultAvatar = t.photo_url || photoUrls[0] || (isOnyanko ? MOCK_ONYANKO_THERAPISTS[0].avatarUrl : MOCK_THERAPISTS[0].avatarUrl);
 
       // スリーサイズ形成 (例: B85(D) W58 H88)
       const bStr = t.bust ? `B${t.bust}` : '';
@@ -195,12 +210,21 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
       };
     });
   } catch {
+    if (shopId === 'onyanko-001' || shopId === 'onyankospa') {
+      return MOCK_ONYANKO_THERAPISTS;
+    }
     return MOCK_THERAPISTS;
   }
 }
 
 export async function fetchTherapistDetail(id: string): Promise<Therapist | null> {
   try {
+    // おニャンこスパ専用IDの場合は即時にモックから返却
+    const onyankoMatch = MOCK_ONYANKO_THERAPISTS.find((t) => t.id === id);
+    if (onyankoMatch) {
+      return onyankoMatch;
+    }
+
     const { data, error } = await supabase
       .from('therapists')
       .select('*, therapist_photos(*), therapist_ranks(name)')
@@ -266,6 +290,10 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
       affiliatedShops,
     };
   } catch {
+    const onyankoMatch = MOCK_ONYANKO_THERAPISTS.find((t) => t.id === id);
+    if (onyankoMatch) {
+      return onyankoMatch;
+    }
     const therapists = await fetchTherapists();
     return therapists.find((t) => t.id === id) || MOCK_THERAPISTS[0];
   }
@@ -423,12 +451,20 @@ export async function fetchBlogArticleDetail(id: string): Promise<BlogArticle | 
 
 export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
   try {
+    let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
+    if (shopId && !isOnyanko && shopId.length > 20) {
+      const { data: shopInfo } = await supabase.from('shops').select('slug, name').eq('id', shopId).maybeSingle();
+      if (shopInfo && (shopInfo.slug === 'onyankospa' || shopInfo.name?.includes('おニャンこ'))) {
+        isOnyanko = true;
+      }
+    }
+
     let query = supabase.from('news_items').select('*').order('published_at', { ascending: false });
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
-      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_NEWS;
+      if (isOnyanko) return MOCK_ONYANKO_NEWS;
       return MOCK_NEWS;
     }
 
@@ -440,18 +476,27 @@ export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
       category: n.category || 'お知らせ',
     }));
   } catch {
+    if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_NEWS;
     return MOCK_NEWS;
   }
 }
 
 export async function fetchCampaigns(shopId?: string): Promise<Campaign[]> {
   try {
+    let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
+    if (shopId && !isOnyanko && shopId.length > 20) {
+      const { data: shopInfo } = await supabase.from('shops').select('slug, name').eq('id', shopId).maybeSingle();
+      if (shopInfo && (shopInfo.slug === 'onyankospa' || shopInfo.name?.includes('おニャンこ'))) {
+        isOnyanko = true;
+      }
+    }
+
     let query = supabase.from('campaigns').select('*').eq('is_active', true).order('display_order', { ascending: true });
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
-      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_CAMPAIGNS;
+      if (isOnyanko) return MOCK_ONYANKO_CAMPAIGNS;
       return MOCK_CAMPAIGNS;
     }
 
@@ -464,6 +509,7 @@ export async function fetchCampaigns(shopId?: string): Promise<Campaign[]> {
       badgeText: c.badge_text || undefined,
     }));
   } catch {
+    if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_CAMPAIGNS;
     return MOCK_CAMPAIGNS;
   }
 }
