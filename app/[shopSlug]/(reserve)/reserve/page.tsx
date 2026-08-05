@@ -110,32 +110,47 @@ export default function ReservePage({
 
 
   const currentCourses = categories[0]?.courses || MOCK_SYSTEM_MENU[0].courses;
+  const isCyberTheme = shopSlug === 'onyankospa';
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+    <div className={`min-h-screen flex flex-col ${
+      isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+    }`}>
       <Header store={store} />
 
       <main className="flex-1 max-w-3xl mx-auto px-4 py-12 w-full">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-stone-800 tracking-widest">Reserve</h1>
-          <span className="inline-block text-xs text-[#a39573] border-t border-stone-800 px-4 pt-1 mt-1 tracking-widest">
+          <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Reserve</h1>
+          <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
+            isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+          }`}>
             24時間 WEB予約
           </span>
         </div>
 
         {isSubmitted ? (
-          <div className="bg-white rounded-sm border border-[#d1b464]/50 p-8 text-center space-y-4 shadow-sm animate-fadeIn">
-            <div className="w-16 h-16 bg-[#faf7f0] border border-[#d1b464] rounded-full flex items-center justify-center mx-auto text-2xl">
+          <div className={`p-8 text-center space-y-4 shadow-sm animate-fadeIn ${
+            isCyberTheme
+              ? 'cyber-card rounded-2xl border-[#ff007f]'
+              : 'bg-white rounded-sm border border-[#d1b464]/50'
+          }`}>
+            <div className={`w-16 h-16 border rounded-full flex items-center justify-center mx-auto text-2xl ${
+              isCyberTheme ? 'bg-[#ff007f]/20 border-[#ff007f] shadow-[0_0_15px_rgba(255,0,127,0.5)]' : 'bg-[#faf7f0] border-[#d1b464]'
+            }`}>
               🎉
             </div>
-            <h2 className="text-xl font-bold text-stone-800">予約の申し込みを完了しました！</h2>
-            <p className="text-xs text-stone-600 leading-relaxed">
+            <h2 className={`text-xl font-bold ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>予約の申し込みを完了しました！</h2>
+            <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
               ご入力いただいたお電話番号宛てに、スタッフより確認のお電話またはSMSをお送りいたします。しばらくお待ちくださいませ。
             </p>
             <div className="pt-4">
               <Link
                 href={`/${shopSlug}`}
-                className="inline-block px-8 py-3 bg-[#a39573] text-xs font-bold rounded-sm text-white transition-colors tracking-widest"
+                className={`inline-block px-8 py-3 text-xs font-bold text-white transition-all tracking-widest ${
+                  isCyberTheme
+                    ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
+                    : 'bg-[#a39573] rounded-sm hover:brightness-105'
+                }`}
               >
                 トップページへ戻る
               </Link>
@@ -144,17 +159,27 @@ export default function ReservePage({
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-sm border border-[#d1b464]/30 p-6 sm:p-8 shadow-sm space-y-6"
+            className={`p-6 sm:p-8 space-y-6 ${
+              isCyberTheme
+                ? 'cyber-card rounded-2xl border-[#ff007f]/40'
+                : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
+            }`}
           >
             {/* 1. セラピスト選択 */}
             <div className="space-y-3">
-              <label className="block text-xs font-bold text-[#a39573] border-b border-[#d1b464]/30 pb-1 tracking-wider">
+              <label className={`block text-xs font-bold border-b pb-1 tracking-wider ${
+                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+              }`}>
                 1. セラピストのご指名
               </label>
               <select
                 value={selectedTherapistId}
                 onChange={(e) => setSelectedTherapistId(e.target.value)}
-                className="w-full bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm px-4 py-3 text-xs font-semibold text-stone-800 focus:outline-none focus:border-[#a39573]"
+                className={`w-full px-4 py-3 text-xs font-semibold focus:outline-none ${
+                  isCyberTheme
+                    ? 'bg-[#050014] border border-[#ff007f]/40 text-pink-100 rounded-xl focus:border-[#ff007f]'
+                    : 'bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm text-stone-800 focus:border-[#a39573]'
+                }`}
               >
                 <option value="">フリー（おまかせ指名）</option>
                 {therapists.map((t) => (
@@ -167,7 +192,9 @@ export default function ReservePage({
 
             {/* 2. コース選択 */}
             <div className="space-y-3">
-              <label className="block text-xs font-bold text-[#a39573] border-b border-[#d1b464]/30 pb-1 tracking-wider">
+              <label className={`block text-xs font-bold border-b pb-1 tracking-wider ${
+                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+              }`}>
                 2. コースの選択
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -178,14 +205,18 @@ export default function ReservePage({
                       type="button"
                       key={course.id}
                       onClick={() => setSelectedCourseId(course.id)}
-                      className={`p-3 rounded-sm border text-left transition-all ${
-                        isSelected
-                          ? 'bg-[#faf7f0] border-[#a39573] shadow-sm'
-                          : 'bg-white border-stone-200 hover:border-stone-300'
+                      className={`p-3 border text-left transition-all ${
+                        isCyberTheme
+                          ? isSelected
+                            ? 'bg-[#ff007f]/20 border-[#ff007f] shadow-[0_0_12px_rgba(255,0,127,0.5)] rounded-xl'
+                            : 'bg-[#050014]/80 border-[#ff007f]/30 text-pink-100 hover:border-[#ff007f] rounded-xl'
+                          : isSelected
+                            ? 'bg-[#faf7f0] border-[#a39573] shadow-sm rounded-sm'
+                            : 'bg-white border-stone-200 hover:border-stone-300 rounded-sm'
                       }`}
                     >
-                      <div className="text-xs font-bold text-stone-800">{course.name}</div>
-                      <div className="text-sm font-extrabold text-[#a39573] mt-1">
+                      <div className={`text-xs font-bold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{course.name}</div>
+                      <div className={`text-sm font-extrabold mt-1 ${isCyberTheme ? 'neon-text-pink' : 'text-[#a39573]'}`}>
                         ¥{course.price.toLocaleString()}
                       </div>
                     </button>
@@ -197,73 +228,86 @@ export default function ReservePage({
             {/* 3. 日時選択 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#a39573] border-b border-[#d1b464]/30 pb-1 tracking-wider">
-                  ご希望日
+                <label className={`block text-xs font-bold border-b pb-1 tracking-wider ${
+                  isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                }`}>
+                  3. ご来店希望日
                 </label>
                 <input
                   type="date"
                   value={reserveDate}
                   onChange={(e) => setReserveDate(e.target.value)}
-                  className="w-full bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm px-4 py-3 text-xs font-semibold text-stone-800 focus:outline-none focus:border-[#a39573]"
-                  required
+                  className={`w-full px-4 py-3 text-xs font-semibold focus:outline-none ${
+                    isCyberTheme
+                      ? 'bg-[#050014] border border-[#ff007f]/40 text-pink-100 rounded-xl focus:border-[#ff007f]'
+                      : 'bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm text-stone-800 focus:border-[#a39573]'
+                  }`}
                 />
               </div>
-
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#a39573] border-b border-[#d1b464]/30 pb-1 tracking-wider">
-                  ご希望スタート時間
+                <label className={`block text-xs font-bold border-b pb-1 tracking-wider ${
+                  isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                }`}>
+                  ご来店希望時間
                 </label>
-                <select
+                <input
+                  type="time"
                   value={reserveTime}
                   onChange={(e) => setReserveTime(e.target.value)}
-                  className="w-full bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm px-4 py-3 text-xs font-semibold text-stone-800 focus:outline-none focus:border-[#a39573]"
-                >
-                  {['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '24:00'].map((time) => (
-                    <option key={time} value={time}>
-                      {time} ～
-                    </option>
-                  ))}
-                </select>
+                  className={`w-full px-4 py-3 text-xs font-semibold focus:outline-none ${
+                    isCyberTheme
+                      ? 'bg-[#050014] border border-[#ff007f]/40 text-pink-100 rounded-xl focus:border-[#ff007f]'
+                      : 'bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm text-stone-800 focus:border-[#a39573]'
+                  }`}
+                />
               </div>
             </div>
 
-            {/* 4. お客様情報 */}
-            <div className="space-y-4 pt-2 border-t border-stone-200">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-stone-700">
-                  お名前（カタカナ可）<span className="text-[#a39573] ml-1">*</span>
-                </label>
+            {/* 4. お客様情報入力 */}
+            <div className="space-y-4 pt-2">
+              <label className={`block text-xs font-bold border-b pb-1 tracking-wider ${
+                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+              }`}>
+                4. お客様情報のご入力
+              </label>
+              <div className="space-y-3">
                 <input
                   type="text"
-                  placeholder="例: サトウ タロウ"
+                  placeholder="お名前（ニックネーム可）"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm px-4 py-3 text-xs text-stone-800 focus:outline-none focus:border-[#a39573]"
                   required
+                  className={`w-full px-4 py-3 text-xs font-semibold focus:outline-none ${
+                    isCyberTheme
+                      ? 'bg-[#050014] border border-[#ff007f]/40 text-pink-100 rounded-xl focus:border-[#ff007f] placeholder-pink-300/40'
+                      : 'bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm text-stone-800 focus:border-[#a39573]'
+                  }`}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-stone-700">
-                  お電話番号（ハイフンなし）<span className="text-[#a39573] ml-1">*</span>
-                </label>
                 <input
                   type="tel"
-                  placeholder="例: 09012345678"
+                  placeholder="お電話番号 (例: 090-1234-5678)"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm px-4 py-3 text-xs text-stone-800 focus:outline-none focus:border-[#a39573]"
                   required
+                  className={`w-full px-4 py-3 text-xs font-semibold focus:outline-none ${
+                    isCyberTheme
+                      ? 'bg-[#050014] border border-[#ff007f]/40 text-pink-100 rounded-xl focus:border-[#ff007f] placeholder-pink-300/40'
+                      : 'bg-[#faf7f0] border border-[#d1b464]/30 rounded-sm text-stone-800 focus:border-[#a39573]'
+                  }`}
                 />
               </div>
             </div>
 
-            {/* 送信ボタン */}
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-xs rounded-sm shadow-md hover:brightness-105 transition-all tracking-widest"
+              disabled={submitting}
+              className={`w-full py-4 text-white font-bold text-sm shadow-md tracking-widest transition-all ${
+                isCyberTheme
+                  ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_20px_rgba(255,0,127,0.7)] animate-neon-pulse'
+                  : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
+              }`}
             >
-              予約内容を送信する
+              {submitting ? '送信中...' : '上記内容でWEB予約を申し込む 🐾'}
             </button>
           </form>
         )}

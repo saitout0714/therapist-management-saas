@@ -96,7 +96,22 @@
       "Bash(git rm *)",
       "Bash(awk 'NR>=1100 && NR<=1135' \"app/\\(admin\\)/system/page.tsx\")",
       "Bash(git check-ignore *)",
-      "Bash(xargs echo \"未pushコミット数:\")"
+      "Bash(xargs echo \"未pushコミット数:\")",
+      "Bash(git fetch *)",
+      "Bash(xargs echo \"未push:\")",
+      "Bash(xargs echo \"未取込:\")",
+      "Bash(python -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"GET /sync   → HTTP %{http_code}\\\\n\" http://localhost:3000/sync)",
+      "Bash(curl -s -o /dev/null -w \"GET /rooms  → HTTP %{http_code}\\\\n\" http://localhost:3000/rooms)",
+      "Bash(curl -s -o /dev/null -w \"GET /system → HTTP %{http_code}\\\\n\" http://localhost:3000/system)",
+      "Bash(curl -s -o /dev/null -w \"GET /specialgrade → HTTP %{http_code}\\\\n\" http://localhost:3000/specialgrade)",
+      "Bash(awk 'NR>=890' \"app/\\(admin\\)/system/page.tsx\")",
+      "Bash(python -)",
+      "Bash(cp \"app/\\(admin\\)/system/page.tsx\" \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/c4dae6ee-e0d3-4fd2-abb7-2a77f56f9b96/scratchpad/system-page.bak.tsx\")",
+      "Bash(curl -s -o /dev/null -w \"GET / → HTTP %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(rm -f \"app/\\(admin\\)/system/components/AddressSendModeTab.tsx\")",
+      "Bash(grep -oE \"bg-emerald-600[^\\\\\"]{0,70}|[ぁ-んァ-ヶ一-龠]{2,12}\")",
+      "Bash(grep -oE \">[^<>{]{2,30}<|\\\\{[^}]{0,40}未送信[^}]{0,30}\\\\}\")"
     ]
   }
 }

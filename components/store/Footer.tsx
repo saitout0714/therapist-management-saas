@@ -8,45 +8,56 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ store }) => {
   const basePath = `/${store.slug}`;
+  const primaryColor = store.themeColor?.primary || '#d1b464';
+  const accentColor = store.themeColor?.accent || '#a39573';
+  const isCyberTheme = store.slug === 'onyankospa';
 
   return (
-    <footer className="bg-[#1f1d1a] text-stone-300 border-t border-[#d1b464]/30 pt-12 pb-8 font-serif">
+    <footer className={`border-t pt-12 pb-8 ${
+      isCyberTheme
+        ? 'bg-[#050014] text-pink-100 border-[#ff007f]/40 font-sans'
+        : 'bg-[#1f1d1a] text-stone-300 border-[#d1b464]/30 font-serif'
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* 店舗情報 */}
           <div>
-            <h3 className="text-xl font-bold text-[#d1b464] mb-3 tracking-wider">
+            <h3 className={`text-xl font-bold mb-3 tracking-wider ${isCyberTheme ? 'neon-text-pink' : ''}`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               {store.name}
             </h3>
-            <p className="text-xs text-stone-400 mb-4 tracking-widest">{store.catchphrase}</p>
-            <div className="space-y-2 text-xs text-stone-300">
-              <p><span className="text-[#a39573]">住所：</span>{store.address}</p>
-              <p><span className="text-[#a39573]">アクセス：</span>{store.accessInfo}</p>
-              <p><span className="text-[#a39573]">営業時間：</span>{store.businessHours}</p>
-              <p><span className="text-[#a39573]">電話番号：</span>{store.phoneNumber}</p>
+            <p className={`text-xs mb-4 tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>{store.catchphrase}</p>
+            <div className="space-y-2 text-xs">
+              <p><span style={{ color: isCyberTheme ? '#ff2a8d' : accentColor }}>住所：</span>{store.address}</p>
+              <p><span style={{ color: isCyberTheme ? '#ff2a8d' : accentColor }}>アクセス：</span>{store.accessInfo}</p>
+              <p><span style={{ color: isCyberTheme ? '#ff2a8d' : accentColor }}>営業時間：</span>{store.businessHours}</p>
+              <p><span style={{ color: isCyberTheme ? '#ff2a8d' : accentColor }}>電話番号：</span>{store.phoneNumber}</p>
             </div>
           </div>
 
           {/* クイックリンク */}
           <div className="space-y-2 text-xs">
-            <h4 className="text-sm font-semibold text-[#d1b464] mb-3 border-b border-[#d1b464]/30 pb-1 inline-block tracking-widest">
+            <h4 className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
+              isCyberTheme ? 'neon-text-pink border-[#ff007f]/40' : 'border-[#d1b464]/30'
+            }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               CONTENTS
             </h4>
-            <div className="grid grid-cols-2 gap-2 text-stone-300">
-              <Link href={basePath} className="hover:text-[#d1b464] transition-colors">TOP</Link>
-              <Link href={`${basePath}/system`} className="hover:text-[#d1b464] transition-colors">システム・料金</Link>
-              <Link href={`${basePath}/therapists`} className="hover:text-[#d1b464] transition-colors">セラピスト一覧</Link>
-              <Link href={`${basePath}/schedule`} className="hover:text-[#d1b464] transition-colors">出勤スケジュール</Link>
-              <Link href={`${basePath}/diary`} className="hover:text-[#d1b464] transition-colors">セラピスト日記</Link>
-              <Link href={`${basePath}/access`} className="hover:text-[#d1b464] transition-colors">アクセス</Link>
-              <Link href={`${basePath}/recruit`} className="hover:text-[#d1b464] transition-colors">求人情報</Link>
-              <Link href={`${basePath}/reserve`} className="hover:text-[#d1b464] transition-colors">WEB予約</Link>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href={basePath} className="hover:opacity-80 transition-colors">TOP</Link>
+              <Link href={`${basePath}/system`} className="hover:opacity-80 transition-colors">システム・料金</Link>
+              <Link href={`${basePath}/therapists`} className="hover:opacity-80 transition-colors">セラピスト一覧</Link>
+              <Link href={`${basePath}/schedule`} className="hover:opacity-80 transition-colors">出勤スケジュール</Link>
+              <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors">セラピスト日記</Link>
+              <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors">アクセス</Link>
+              <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors">求人情報</Link>
+              <Link href={`${basePath}/reserve`} className="hover:opacity-80 transition-colors">WEB予約</Link>
             </div>
           </div>
 
           {/* SNS & お問い合わせ & Google Maps */}
           <div>
-            <h4 className="text-sm font-semibold text-[#d1b464] mb-3 border-b border-[#d1b464]/30 pb-1 inline-block tracking-widest">
+            <h4 className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
+              isCyberTheme ? 'neon-text-pink border-[#ff007f]/40' : 'border-[#d1b464]/30'
+            }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               CONTACT & ACCESS
             </h4>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -55,9 +66,27 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.xUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 bg-stone-900 border border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200 text-[11px] rounded transition-colors"
+                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                    isCyberTheme
+                      ? 'bg-[#1a0933] border-[#ff007f]/40 text-pink-100 hover:border-[#ff007f]'
+                      : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
+                  }`}
                 >
                   X (Twitter)
+                </a>
+              )}
+              {store.lineUrl && (
+                <a
+                  href={store.lineUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                    isCyberTheme
+                      ? 'bg-[#1a0933] border-[#ff007f]/40 text-pink-100 hover:border-[#ff007f]'
+                      : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
+                  }`}
+                >
+                  💬 公式LINE
                 </a>
               )}
               {store.googleMapUrl && (
@@ -65,7 +94,11 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.googleMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 bg-stone-900 border border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200 text-[11px] rounded transition-colors"
+                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                    isCyberTheme
+                      ? 'bg-[#1a0933] border-[#ff007f]/40 text-pink-100 hover:border-[#ff007f]'
+                      : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
+                  }`}
                 >
                   📍 Google Maps
                 </a>
@@ -73,14 +106,21 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
             </div>
             <Link
               href={`${basePath}/reserve`}
-              className="inline-block w-full py-3 text-center bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-xs tracking-widest shadow-md hover:brightness-105 transition-all"
+              style={{ backgroundColor: isCyberTheme ? '#ff007f' : undefined }}
+              className={`inline-block w-full py-3 text-center text-white font-bold text-xs tracking-widest shadow-md transition-all ${
+                isCyberTheme
+                  ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
+                  : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
+              }`}
             >
-              24時間 WEB予約
+              24時間 WEB予約 🐾
             </Link>
           </div>
         </div>
 
-        <div className="border-t border-stone-800 pt-6 text-center text-[11px] text-stone-500 tracking-widest">
+        <div className={`border-t pt-6 text-center text-[11px] tracking-widest ${
+          isCyberTheme ? 'border-[#ff007f]/20 text-pink-300' : 'border-stone-800 text-stone-500'
+        }`}>
           © {new Date().getFullYear()} {store.name}. All Rights Reserved.
         </div>
       </div>

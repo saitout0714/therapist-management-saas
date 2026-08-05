@@ -39,16 +39,22 @@ export default function SchedulePage({ params }: { params: Promise<{ shopSlug: s
     loadData();
   }, [shopSlug]);
 
+  const isCyberTheme = shopSlug === 'onyankospa';
+
   return (
     <ThemeProvider store={store}>
-      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+      <div className={`min-h-screen flex flex-col ${
+        isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+      }`}>
         <Header store={store} />
 
         <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-stone-800 tracking-widest">Schedule</h1>
-            <span className="inline-block text-xs text-[#a39573] border-t border-stone-800 px-4 pt-1 mt-1 tracking-widest">
-              週間出勤スケジュール (部屋割り確定リアルタイム反映)
+            <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Schedule</h1>
+            <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
+              isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+            }`}>
+              週間出勤スケジュール (リアルタイム反映)
             </span>
           </div>
 

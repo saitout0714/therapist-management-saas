@@ -25,15 +25,21 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
     loadData();
   }, [shopSlug]);
 
+  const isCyberTheme = shopSlug === 'onyankospa';
+
   return (
     <ThemeProvider store={store}>
-      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+      <div className={`min-h-screen flex flex-col ${
+        isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+      }`}>
       <Header store={store} />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
         <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-stone-800 tracking-widest">System</h1>
-          <span className="inline-block text-xs text-[#a39573] border-t border-stone-800 px-4 pt-1 mt-1 tracking-widest">
+          <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>System</h1>
+          <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
+            isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+          }`}>
             システム・料金案内
           </span>
         </div>
@@ -42,43 +48,65 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
           {categories.map((cat, idx) => (
             <div
               key={idx}
-              className="bg-white rounded-sm border border-[#d1b464]/30 p-6 shadow-sm space-y-4"
+              className={`p-6 space-y-4 ${
+                isCyberTheme
+                  ? 'cyber-card rounded-xl border-[#ff007f]/40'
+                  : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
+              }`}
             >
-              <h2 className="text-base font-bold text-[#a39573] border-b border-stone-200 pb-2 tracking-wider">
-                {cat.categoryName}
+              <h2 className={`text-base font-bold border-b pb-2 tracking-wider ${
+                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-stone-200'
+              }`}>
+                🐾 {cat.categoryName}
               </h2>
               {cat.description && (
-                <p className="text-xs text-stone-600 tracking-wide">{cat.description}</p>
+                <p className={`text-xs tracking-wide ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
+                  {cat.description}
+                </p>
               )}
 
               <div className="space-y-3">
                 {cat.courses.map((course) => (
                   <div
                     key={course.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#faf7f0] p-4 rounded-sm border border-[#d1b464]/20 gap-3 hover:border-[#d1b464] transition-colors"
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border gap-3 transition-colors ${
+                      isCyberTheme
+                        ? 'bg-[#050014]/90 border-[#ff007f]/30 hover:border-[#ff007f] rounded-xl'
+                        : 'bg-[#faf7f0] border-[#d1b464]/20 hover:border-[#d1b464] rounded-sm'
+                    }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-stone-800 text-sm sm:text-base tracking-wider">
+                        <h3 className={`font-bold text-sm sm:text-base tracking-wider ${
+                          isCyberTheme ? 'text-white' : 'text-stone-800'
+                        }`}>
                           {course.name}
                         </h3>
-                        {course.durationMinutes && (
-                          <span className="text-[11px] font-bold bg-[#d1b464]/20 text-[#a39573] border border-[#d1b464]/40 px-2 py-0.5 rounded-sm">
+                        {course.durationMinutes > 0 && (
+                          <span className={`text-[11px] font-bold px-2 py-0.5 border ${
+                            isCyberTheme
+                              ? 'bg-[#ff007f]/20 text-pink-300 border-[#ff007f]/50 rounded-full'
+                              : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/40 rounded-sm'
+                          }`}>
                             {course.durationMinutes}分
                           </span>
                         )}
                       </div>
                       {course.description && (
-                        <p className="text-xs text-stone-600 leading-relaxed tracking-wide">
+                        <p className={`text-xs leading-relaxed tracking-wide ${
+                          isCyberTheme ? 'text-pink-100/90' : 'text-stone-600'
+                        }`}>
                           {course.description}
                         </p>
                       )}
                     </div>
                     <div className="text-left sm:text-right shrink-0">
-                      <span className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-wider">
+                      <span className={`text-lg sm:text-xl font-extrabold tracking-wider ${
+                        isCyberTheme ? 'neon-text-pink' : 'text-stone-900'
+                      }`}>
                         ¥{course.price.toLocaleString()}
                       </span>
-                      <span className="text-xs text-stone-500 ml-1">(税込)</span>
+                      <span className={`text-xs ml-1 ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>(税込)</span>
                     </div>
                   </div>
                 ))}
@@ -90,9 +118,13 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         <div className="mt-12 text-center">
           <Link
             href={`/${shopSlug}/reserve`}
-            className="inline-block px-10 py-3.5 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-xs rounded-sm shadow-md hover:brightness-105 transition-all tracking-widest"
+            className={`inline-block px-10 py-3.5 font-bold text-xs shadow-md transition-all tracking-widest ${
+              isCyberTheme
+                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_20px_rgba(255,0,127,0.7)] animate-neon-pulse'
+                : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white rounded-sm hover:brightness-105'
+            }`}
           >
-            この料金でWEB予約する
+            この料金でWEB予約する 🐾
           </Link>
         </div>
       </main>

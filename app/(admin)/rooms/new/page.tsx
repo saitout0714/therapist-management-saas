@@ -340,7 +340,7 @@ export default function NewRoomPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-8 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
+                  className="btn-primary active:scale-95 disabled:opacity-70 disabled:pointer-events-none"
                 >
                   {loading ? '登録中...' : '登録する'}
                 </button>

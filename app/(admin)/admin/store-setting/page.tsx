@@ -258,7 +258,7 @@ export default function OwnerStoreSettingPage() {
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500 font-sans">
-        <div className="animate-spin inline-block w-6 h-6 border-2 border-[#d1b464] border-t-transparent rounded-full mb-2" />
+        <div className="animate-spin inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-2" />
         <p>店舗管理設定を読み込み中...</p>
       </div>
     )
@@ -285,7 +285,7 @@ export default function OwnerStoreSettingPage() {
             href={`/${shopSlug}`}
             target="_blank"
             rel="noreferrer"
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 border border-amber-400/30"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
           >
             <span>🌐 自店舗HPをプレビュー表示</span>
           </a>
@@ -315,7 +315,7 @@ export default function OwnerStoreSettingPage() {
             onClick={() => setActiveTab('banners')}
             className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
               activeTab === 'banners'
-                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
+                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -325,7 +325,7 @@ export default function OwnerStoreSettingPage() {
             onClick={() => setActiveTab('news')}
             className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
               activeTab === 'news'
-                ? 'border-[#d1b464] text-amber-700 bg-amber-50/50'
+                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -392,7 +392,7 @@ export default function OwnerStoreSettingPage() {
             <button
               onClick={handleAddBanner}
               disabled={!newBanner.image_url || uploadingBanner}
-              className="w-full py-3 bg-gradient-to-r from-[#d1b464] to-[#a39573] hover:from-[#c2a353] text-stone-950 font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
+              className="btn-primary w-full"
             >
               ＋ バナーを追加してスライドショーに反映
             </button>
@@ -478,7 +478,7 @@ export default function OwnerStoreSettingPage() {
             <button
               onClick={handleAddNews}
               disabled={!newNews.title || !newNews.content}
-              className="w-full py-3 bg-gradient-to-r from-[#d1b464] to-[#a39573] hover:from-[#c2a353] text-stone-950 font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
+              className="btn-primary w-full"
             >
               ＋ トピックスを投稿してHPに反映
             </button>

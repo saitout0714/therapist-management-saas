@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 
@@ -301,6 +302,12 @@ export function CustomTemplatesTab() {
                         </button>
                       ))}
                     </div>
+                    <p className="text-[11px] text-amber-800/90 mt-2 bg-amber-50/70 border border-amber-200 rounded-lg px-2.5 py-2 leading-relaxed">
+                      <code className="font-mono bg-white border border-amber-200 px-1 py-0.5 rounded text-[10px]">[道案内]</code>
+                      {' '}の中身は各ルームの編集画面で登録します。会員様用・新規様用に分けるかは
+                      <Link href="/rooms" className="font-bold underline mx-1">ルーム管理</Link>
+                      の「案内文の書き分け」で切り替えられます。
+                    </p>
                   </div>
                 )}
                 <textarea

@@ -8,6 +8,14 @@ import {
   MOCK_SYSTEM_MENU,
 } from '../mock/specialgrade';
 import {
+  MOCK_ONYANKO_STORE,
+  MOCK_ONYANKO_CAMPAIGNS,
+  MOCK_ONYANKO_THERAPISTS,
+  MOCK_ONYANKO_BLOG_ARTICLES,
+  MOCK_ONYANKO_NEWS,
+  MOCK_ONYANKO_SYSTEM_MENU,
+} from '../mock/onyankospa';
+import {
   StoreConfig,
   Therapist,
   Campaign,
@@ -91,6 +99,9 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
     }
 
     if (!data) {
+      if (slug === 'onyankospa' || slug === 'onyanko-001') {
+        return MOCK_ONYANKO_STORE;
+      }
       return MOCK_STORE;
     }
 
@@ -134,6 +145,9 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
     const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
+      if (shopId === 'onyanko-001' || shopId === 'onyankospa') {
+        return MOCK_ONYANKO_THERAPISTS;
+      }
       return MOCK_THERAPISTS;
     }
 
@@ -349,6 +363,9 @@ export async function fetchBlogArticles(shopId?: string, therapistId?: string): 
     const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
+      if (shopId === 'onyanko-001' || shopId === 'onyankospa') {
+        return MOCK_ONYANKO_BLOG_ARTICLES;
+      }
       if (therapistId) {
         return MOCK_BLOG_ARTICLES.filter((a) => a.therapistId === therapistId);
       }
@@ -410,7 +427,10 @@ export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
-    if (error || !data || data.length === 0) return MOCK_NEWS;
+    if (error || !data || data.length === 0) {
+      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_NEWS;
+      return MOCK_NEWS;
+    }
 
     return data.map((n: any) => ({
       id: n.id,
@@ -430,7 +450,10 @@ export async function fetchCampaigns(shopId?: string): Promise<Campaign[]> {
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
-    if (error || !data || data.length === 0) return MOCK_CAMPAIGNS;
+    if (error || !data || data.length === 0) {
+      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_CAMPAIGNS;
+      return MOCK_CAMPAIGNS;
+    }
 
     return data.map((c: any) => ({
       id: c.id,
@@ -456,7 +479,10 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
-    if (error || !data || data.length === 0) return MOCK_SYSTEM_MENU;
+    if (error || !data || data.length === 0) {
+      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_SYSTEM_MENU;
+      return MOCK_SYSTEM_MENU;
+    }
 
     const courses = data.map((c: any) => ({
       id: c.id,

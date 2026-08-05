@@ -1,3 +1,12 @@
+export type StoreSectionType =
+  | 'hero'          // メインビジュアル / バナースライダー
+  | 'today_shifts'  // 本日の出勤・確定部屋割り表
+  | 'therapists'    // セラピスト一覧カード
+  | 'diary'         // 写メ日記一覧
+  | 'news'          // 新着情報・トピックス
+  | 'system'        // 料金システム案内
+  | 'access';       // アクセス・店舗情報
+
 export interface StoreConfig {
   id: string;
   slug: string;
@@ -20,6 +29,7 @@ export interface StoreConfig {
   lineUrl?: string;
   noticeBanner?: string;
   templateId?: 'luxury' | 'modern' | 'cute' | 'minimal';
+  layoutSections?: StoreSectionType[]; // モジュールコンテンツの配置順＆表示ON/OFF設定
 }
 
 export interface Therapist {

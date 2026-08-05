@@ -118,6 +118,18 @@ export default function EditReservationPage() {
   const { selectedShop } = useShop()
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null)
+
+  // 利用できる決済方法（店舗設定）。値が無い店舗は従来どおり全て選べる。
+  // 既存予約で選ばれている方法は、無効化後も表示を残す（データの取り違えを防ぐ）。
+  const isPaymentAvailable = (m: 'cash' | 'credit' | 'paypay') => {
+    if (formData.payment_method === m) return true
+    const ss = systemSettings as any
+    const flag = m === 'cash' ? ss?.enable_cash_payment
+      : m === 'credit' ? ss?.enable_credit_payment
+      : ss?.enable_paypay_payment
+    return flag !== false
+  }
+
   const [discountPolicies, setDiscountPolicies] = useState<DiscountPolicy[]>([])
   const [discountRankOverrides, setDiscountRankOverrides] = useState<DiscountRankOverride[]>([])
   const [selectedDiscountIds, setSelectedDiscountIds] = useState<string[]>([])
@@ -1876,21 +1888,27 @@ export default function EditReservationPage() {
               <div className="border-t border-slate-100 pt-3">
                 <label className="block text-xs font-medium text-slate-500 mb-2">支払方法</label>
                 <div className="flex gap-2">
+                  {isPaymentAvailable('cash') && (
                   <label className={`relative flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 whitespace-nowrap focus-within:ring-2 focus-within:ring-indigo-400/60 ${formData.payment_method === 'cash' ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                     <input type="radio" name="payment_method" value="cash" checked={formData.payment_method === 'cash'} onChange={() => setFormData({ ...formData, payment_method: 'cash' })} className="sr-only" />
                     <span className="leading-none">💴</span>
                     <span className="font-bold text-xs">現金</span>
                   </label>
+                  )}
+                  {isPaymentAvailable('credit') && (
                   <label className={`relative flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 whitespace-nowrap focus-within:ring-2 focus-within:ring-indigo-400/60 ${formData.payment_method === 'credit' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                     <input type="radio" name="payment_method" value="credit" checked={formData.payment_method === 'credit'} onChange={() => setFormData({ ...formData, payment_method: 'credit' })} className="sr-only" />
                     <span className="leading-none">💳</span>
                     <span className="font-bold text-xs">クレジット</span>
                   </label>
+                  )}
+                  {isPaymentAvailable('paypay') && (
                   <label className={`relative flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-lg cursor-pointer transition-all select-none flex-1 whitespace-nowrap focus-within:ring-2 focus-within:ring-indigo-400/60 ${formData.payment_method === 'paypay' ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                     <input type="radio" name="payment_method" value="paypay" checked={formData.payment_method === 'paypay'} onChange={() => setFormData({ ...formData, payment_method: 'paypay' })} className="sr-only" />
                     <span className="leading-none">📱</span>
                     <span className="font-bold text-xs">PayPay</span>
                   </label>
+                  )}
                 </div>
                 <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-3">
                   <div>

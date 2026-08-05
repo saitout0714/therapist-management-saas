@@ -27,32 +27,32 @@ export default function RoomsList() {
   const [webReserveAddressMode, setWebReserveAddressMode] = useState<'unified' | 'split_by_membership'>('unified')
   const [updatingMode, setUpdatingMode] = useState(false)
 
-  const handleUpdateSmsMode = async (mode: 'unified' | 'split_by_membership') => {
+  /**
+   * 案内文の書き分け設定。
+   * 送信処理を切り替えるものではなく、各ルームの編集画面で
+   * 案内文の入力欄を1つ出すか（一律）、会員用・新規用の2つ出すか（書き分け）を決める。
+   */
+  const updateMode = async (
+    column: 'sms_address_mode' | 'web_reserve_address_mode',
+    mode: 'unified' | 'split_by_membership'
+  ) => {
     if (!selectedShop) return
-    setSmsAddressMode(mode)
-    setUpdatingMode(true)
-    const { error } = await supabase
-      .from('shops')
-      .update({ sms_address_mode: mode, updated_at: new Date().toISOString() })
-      .eq('id', selectedShop.id)
-    if (error) {
-      alert('設定の更新に失敗しました: ' + error.message)
-      void fetchRooms()
-    }
-    setUpdatingMode(false)
-  }
+    const prevSms = smsAddressMode
+    const prevWeb = webReserveAddressMode
+    if (column === 'sms_address_mode') setSmsAddressMode(mode)
+    else setWebReserveAddressMode(mode)
 
-  const handleUpdateWebMode = async (mode: 'unified' | 'split_by_membership') => {
-    if (!selectedShop) return
-    setWebReserveAddressMode(mode)
     setUpdatingMode(true)
     const { error } = await supabase
       .from('shops')
-      .update({ web_reserve_address_mode: mode, updated_at: new Date().toISOString() })
+      .update({ [column]: mode, updated_at: new Date().toISOString() })
       .eq('id', selectedShop.id)
+
     if (error) {
+      // 失敗したら画面の選択も戻す（実際と違う状態に見えるのを防ぐ）
+      setSmsAddressMode(prevSms)
+      setWebReserveAddressMode(prevWeb)
       alert('設定の更新に失敗しました: ' + error.message)
-      void fetchRooms()
     }
     setUpdatingMode(false)
   }
@@ -134,8 +134,8 @@ export default function RoomsList() {
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-start mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム ＆ 送信テンプレート</h1>
-            <p className="text-sm text-slate-500 mt-1">店舗のルーム情報と、ご来店時の案内文（自動送信テンプレート）の管理を行います。ドラッグで並び順を変更できます。</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">ルーム管理</h1>
+            <p className="text-sm text-slate-500 mt-1">ルームの住所・地図と、ご来店時の案内文をまとめて管理します。ドラッグで並び順を変更できます。</p>
           </div>
           <Link
             href="/rooms/new"
@@ -146,84 +146,60 @@ export default function RoomsList() {
           </Link>
         </div>
 
-        {/* 送信モード設定パネル */}
+        {/* 案内文の書き分け設定（各ルーム編集画面の入力欄の出し方を決める） */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
-          <h2 className="text-sm font-bold text-slate-800 mb-3.5 flex items-center gap-2">
-            <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span>住所送信モードの設定</span>
-            {updatingMode && (
-              <span className="text-xs font-normal text-indigo-600 flex items-center gap-1">
-                <svg className="animate-spin h-3.5 w-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>保存中...</span>
-              </span>
-            )}
-          </h2>
+          <div className="mb-3">
+            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>案内文の書き分け</span>
+              {updatingMode && <span className="text-xs font-normal text-indigo-600">保存中...</span>}
+            </h2>
+            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+              各ルームの案内文を1本にまとめるか、会員様用・新規様用に分けて書くかを選びます。
+              分けると、新規のお客様には近くの目印だけ、会員様には住所と部屋番号、といった書き分けができます。
+              ここで切り替えると、各ルームの編集画面に出る入力欄の数が変わります。
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* SMS住所送信モード */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <label className="block text-xs font-bold text-slate-500 mb-2.5">SMS住所送信モード</label>
-              <div className="flex gap-6">
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="unified"
-                    checked={smsAddressMode === 'unified'}
-                    onChange={() => handleUpdateSmsMode('unified')}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>一律送信</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="sms_address_mode"
-                    value="split_by_membership"
-                    checked={smsAddressMode === 'split_by_membership'}
-                    onChange={() => handleUpdateSmsMode('split_by_membership')}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>新規／会員で切替</span>
-                </label>
+            {([
+              { key: 'sms_address_mode' as const, label: 'SMSで送る案内文', current: smsAddressMode },
+              { key: 'web_reserve_address_mode' as const, label: 'WEB予約で送る案内文', current: webReserveAddressMode },
+            ]).map(({ key, label, current }) => (
+              <div key={key} className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <label className="block text-xs font-bold text-slate-500 mb-2.5">{label}</label>
+                <div className="flex flex-col gap-2">
+                  <label className="inline-flex items-start gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                    <input
+                      type="radio"
+                      name={key}
+                      checked={current === 'unified'}
+                      onChange={() => updateMode(key, 'unified')}
+                      className="accent-indigo-600 w-4 h-4 cursor-pointer mt-0.5"
+                    />
+                    <span>
+                      1本にまとめる
+                      <span className="block text-[10px] font-normal text-slate-400">新規・会員に同じ案内文を送る</span>
+                    </span>
+                  </label>
+                  <label className="inline-flex items-start gap-2 text-sm cursor-pointer font-bold text-slate-700">
+                    <input
+                      type="radio"
+                      name={key}
+                      checked={current === 'split_by_membership'}
+                      onChange={() => updateMode(key, 'split_by_membership')}
+                      className="accent-indigo-600 w-4 h-4 cursor-pointer mt-0.5"
+                    />
+                    <span>
+                      新規／会員で分ける
+                      <span className="block text-[10px] font-normal text-slate-400">相手に応じて案内文を書き分ける</span>
+                    </span>
+                  </label>
+                </div>
               </div>
-            </div>
-
-            {/* WEB予約住所送信モード */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <label className="block text-xs font-bold text-slate-500 mb-2.5">WEB予約住所送信モード</label>
-              <div className="flex gap-6">
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="web_reserve_address_mode"
-                    value="unified"
-                    checked={webReserveAddressMode === 'unified'}
-                    onChange={() => handleUpdateWebMode('unified')}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>一律送信</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="web_reserve_address_mode"
-                    value="split_by_membership"
-                    checked={webReserveAddressMode === 'split_by_membership'}
-                    onChange={() => handleUpdateWebMode('split_by_membership')}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>新規／会員で切替</span>
-                </label>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
+
+
 
         {loading ? (
           <div className="flex justify-center items-center py-20 text-indigo-600">

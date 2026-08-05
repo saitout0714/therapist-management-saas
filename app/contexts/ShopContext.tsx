@@ -19,7 +19,6 @@ type Shop = {
   created_at: string
   order: number | null
   closing_date: number
-  therapist_line_mode: 'official_line' | 'line'
   is_web_reserve_plan?: boolean
   is_dispatch_enabled?: boolean
   pricing_source_shop_id?: string | null
@@ -106,7 +105,6 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           created_at: shop.created_at,
           order: shop.order,
           closing_date: shop.closing_date,
-          therapist_line_mode: shop.therapist_line_mode,
           is_web_reserve_plan: !isAgency,
           is_dispatch_enabled: !!shop.is_dispatch_enabled,
           pricing_source_shop_id: shop.pricing_source_shop_id || null,

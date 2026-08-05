@@ -19,6 +19,7 @@ export const MOCK_STORE: StoreConfig = {
   xUrl: 'https://x.com',
   litlinkUrl: 'https://lit.link',
   noticeBanner: '✨ 赤羽・川口エリアで選ばれ続ける最高級メンズエステ ✨',
+  layoutSections: ['hero', 'today_shifts', 'therapists', 'diary', 'news', 'system', 'access'],
 };
 
 // 本物のSpecial Gradeオリジナルイベントバナー画像セット

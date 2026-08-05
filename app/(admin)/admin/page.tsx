@@ -170,23 +170,30 @@ export default function AdminPage() {
     }
   }
 
-  const renderPlanBadge = (shop: Shop) => {
-    const plan = (shop as any).plan || 'agency_only_plan'
+  const renderPlanBadge = (shop: Shop & { has_hp?: boolean; has_reserve?: boolean; has_agency?: boolean; plan?: string }) => {
+    const plan = shop.plan || ''
+    const hasHp = shop.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan', 'full_plan'].includes(plan)
+    const hasReserve = shop.has_reserve ?? ['web_agency_plan', 'hp_web_reserve_plan', 'hp_web_agency_plan', 'full_plan', 'web_reserve_plan'].includes(plan)
+    const hasAgency = shop.has_agency ?? ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan', 'full_plan'].includes(plan)
 
-    switch (plan) {
-      case 'agency_only_plan':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-purple-50 border-purple-200 text-purple-700">📞 代行単体</span>
-      case 'web_agency_plan':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-indigo-50 border-indigo-200 text-indigo-700">💙 代行＋Web予約</span>
-      case 'hp_web_agency_plan':
-      case 'agency_plan':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-300 text-amber-800 shadow-sm">🌟 フルセット</span>
-      case 'hp_web_reserve_plan':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-pink-50 border-pink-200 text-pink-700">🌸 HP＋Web予約</span>
-      case 'web_reserve_plan':
-      default:
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-emerald-50 border-emerald-200 text-emerald-700">📅 Web予約単体</span>
+    // 1. フルセット (HP + Web予約 + 代行)
+    if ((hasHp && hasReserve && hasAgency) || ['full_plan', 'hp_web_agency_plan', 'agency_plan'].includes(plan)) {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-amber-50 border-amber-300 text-amber-800 shadow-sm">🌟 フルセット (HP+Web予約+代行)</span>
     }
+    // 2. HP + Web予約
+    if ((hasHp && hasReserve && !hasAgency) || plan === 'hp_web_reserve_plan') {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-pink-50 border-pink-200 text-pink-700">🌸 HP＋Web予約</span>
+    }
+    // 3. 代行 + Web予約
+    if ((!hasHp && hasReserve && hasAgency) || plan === 'web_agency_plan') {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-indigo-50 border-indigo-200 text-indigo-700">💙 代行＋Web予約</span>
+    }
+    // 4. 代行単体
+    if ((!hasHp && !hasReserve && hasAgency) || plan === 'agency_only_plan') {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-purple-50 border-purple-200 text-purple-700">📞 代行単体</span>
+    }
+    // 5. Web予約単体
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-emerald-50 border-emerald-200 text-emerald-700">📅 Web予約単体</span>
   }
 
   const getOwnerGroupName = (shop: Shop) => {

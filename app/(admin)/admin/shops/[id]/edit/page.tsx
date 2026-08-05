@@ -500,7 +500,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+            className="btn-primary w-full"
           >
             {saving ? '保存中...' : '店舗基本情報 ＆ プラン設定を保存'}
           </button>
@@ -591,7 +591,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+            className="btn-primary w-full"
           >
             {saving ? '保存中...' : '共有設定を保存'}
           </button>
@@ -647,7 +647,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           <button
             onClick={handleSaveCode}
             disabled={codeSaving}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wider rounded-xl shadow-lg transition-all"
+            className="btn-primary w-full"
           >
             {codeSaving ? '保存中...' : 'Web予約連携コードを保存'}
           </button>

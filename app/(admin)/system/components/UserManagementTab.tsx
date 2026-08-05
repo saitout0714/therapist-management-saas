@@ -251,7 +251,7 @@ export function UserManagementTab() {
             <button
               type="button"
               onClick={resetForm}
-              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors text-sm"
+              className="btn-secondary"
             >
               キャンセル
             </button>

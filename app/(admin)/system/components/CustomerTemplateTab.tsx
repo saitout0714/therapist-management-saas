@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 
@@ -236,6 +237,22 @@ export function CustomerTemplateTab() {
                 </span>
               </button>
             ))}
+          </div>
+
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+            <p className="text-[11px] font-bold text-amber-900">
+              <code className="font-mono bg-white border border-amber-200 px-1 py-0.5 rounded text-[10px]">[道案内]</code> の中身はルームごとに登録します
+            </p>
+            <p className="text-[11px] text-amber-800/80 mt-1 leading-relaxed">
+              住所や行き方は部屋によって違うため、文面は各ルームの編集画面で登録します。
+              会員様用・新規様用に書き分けるかどうかは「ルーム管理」の<span className="font-bold">案内文の書き分け</span>で切り替えられます。
+            </p>
+            <Link
+              href="/rooms"
+              className="inline-block mt-2 px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 font-bold text-[11px] rounded-lg border border-amber-300 transition-all"
+            >
+              ルーム管理を開く
+            </Link>
           </div>
         </div>
       </div>

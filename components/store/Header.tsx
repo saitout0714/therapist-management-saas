@@ -28,11 +28,16 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   ];
 
   const primaryColor = store.themeColor?.primary || '#d1b464';
+  const isCyberTheme = store.slug === 'onyankospa';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-sm font-serif">
+    <header className={`sticky top-0 z-40 backdrop-blur-md shadow-sm border-b ${
+      isCyberTheme
+        ? 'bg-[#050014]/90 border-[#ff007f]/40 text-stone-100 font-sans'
+        : 'bg-white/95 border-stone-200 text-stone-800 font-serif'
+    }`}>
       {store.noticeBanner && (
-        <div style={{ backgroundColor: primaryColor }} className="text-white text-xs py-1.5 px-4 text-center font-semibold tracking-widest shadow-sm">
+        <div style={{ backgroundColor: primaryColor }} className="text-white text-xs py-1.5 px-4 text-center font-semibold tracking-widest shadow-md">
           {store.noticeBanner}
         </div>
       )}
@@ -45,16 +50,18 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               <img
                 src={store.logoUrl}
                 alt={store.name}
-                className="max-h-full w-auto object-contain transition-transform group-hover:scale-102"
+                className="max-h-full w-auto object-contain transition-transform group-hover:scale-102 rounded-md shadow-sm"
                 onError={() => setImageError(true)}
               />
             </div>
           ) : (
             <div className="flex flex-col">
-              <span className="text-xl sm:text-2xl font-bold tracking-widest text-stone-900 group-hover:text-opacity-80 transition-colors">
+              <span className={`text-xl sm:text-2xl font-bold tracking-widest group-hover:text-opacity-80 transition-colors ${
+                isCyberTheme ? 'neon-text-pink' : 'text-stone-900'
+              }`}>
                 {store.name}
               </span>
-              <span className="text-[10px] tracking-widest text-stone-600 font-sans">
+              <span className={`text-[10px] tracking-widest font-sans ${isCyberTheme ? 'text-pink-300' : 'text-stone-600'}`}>
                 {store.catchphrase}
               </span>
             </div>
@@ -67,15 +74,21 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             <Link
               key={link.href}
               href={link.href}
-              className="px-3 py-2 text-xs font-semibold tracking-widest text-stone-700 hover:opacity-80 transition-all"
+              className={`px-3 py-2 text-xs font-semibold tracking-widest transition-all ${
+                isCyberTheme
+                  ? 'text-pink-100 hover:text-[#ff007f] hover:drop-shadow-[0_0_8px_#ff007f]'
+                  : 'text-stone-700 hover:opacity-80'
+              }`}
             >
               {link.label}
             </Link>
           ))}
           <Link
             href={`${basePath}/reserve`}
-            style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
-            className="ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest rounded-sm shadow-md hover:brightness-110 transition-all"
+            style={{ backgroundColor: primaryColor }}
+            className={`ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest shadow-md hover:brightness-110 transition-all ${
+              isCyberTheme ? 'rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]' : 'rounded-sm'
+            }`}
           >
             WEB予約
           </Link>
@@ -86,13 +99,13 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           <Link
             href={`${basePath}/reserve`}
             style={{ backgroundColor: primaryColor }}
-            className="px-3 py-1.5 text-white text-xs font-bold rounded-sm shadow-sm"
+            className={`px-3 py-1.5 text-white text-xs font-bold shadow-sm ${isCyberTheme ? 'rounded-full' : 'rounded-sm'}`}
           >
             予約
           </Link>
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 text-stone-700 hover:text-stone-900 focus:outline-none"
+            className={`p-2 focus:outline-none ${isCyberTheme ? 'text-pink-200 hover:text-white' : 'text-stone-700 hover:text-stone-900'}`}
             aria-label="メニュー開閉"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,13 +121,21 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
       {/* モバイルドロワーナビゲーション */}
       {isOpen && (
-        <div className="lg:hidden bg-white border-b border-[#d1b464]/30 px-4 pt-2 pb-6 space-y-2 animate-fadeIn font-serif">
+        <div className={`lg:hidden border-b px-4 pt-2 pb-6 space-y-2 animate-fadeIn ${
+          isCyberTheme
+            ? 'bg-[#1a0933] border-[#ff007f]/30 font-sans'
+            : 'bg-white border-[#d1b464]/30 font-serif'
+        }`}>
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setIsOpen(false)}
-              className="block px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-[#faf7f0] hover:text-[#a39573] transition-colors border-b border-stone-100"
+              className={`block px-4 py-2.5 text-sm font-medium border-b ${
+                isCyberTheme
+                  ? 'text-pink-100 hover:bg-[#050014] hover:text-[#ff007f] border-[#ff007f]/20'
+                  : 'text-stone-700 hover:bg-[#faf7f0] hover:text-[#a39573] border-stone-100'
+              }`}
             >
               {link.label}
             </Link>
@@ -123,7 +144,11 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             <Link
               href={`${basePath}/reserve`}
               onClick={() => setIsOpen(false)}
-              className="block w-full py-3 text-center bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-sm tracking-widest shadow-md"
+              className={`block w-full py-3 text-center text-white font-bold text-sm tracking-widest shadow-md ${
+                isCyberTheme
+                  ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
+                  : 'bg-gradient-to-r from-[#d1b464] to-[#a39573]'
+              }`}
             >
               WEB予約はこちら
             </Link>

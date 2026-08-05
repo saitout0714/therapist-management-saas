@@ -30,6 +30,9 @@ type SystemSettings = {
   princess_back_amount: number
   credit_card_fee_rate: number
   paypay_fee_rate: number
+  enable_cash_payment: boolean | null
+  enable_credit_payment: boolean | null
+  enable_paypay_payment: boolean | null
   extension_unit_minutes: number
   extension_unit_price: number
   extension_unit_back: number
@@ -51,15 +54,26 @@ type SystemSettings = {
   email_template_web_success: string | null
 }
 
-type ActiveTab = 'store_info' | 'courses' | 'options' | 'ranks' | 'pricing_defaults' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'therapist_template' | 'customer_template' | 'web_email_template' | 'custom_templates' | 'notifications'
+type ActiveTab = 'store_info' | 'courses' | 'options' | 'ranks' | 'back_amounts' | 'discounts' | 'deductions' | 'designation_types' | 'special_rules' | 'extension' | 'reservation_rules' | 'payment' | 'integrations' | 'therapist_template' | 'customer_template' | 'web_email_template' | 'custom_templates' | 'notifications'
 
-type MainCategory = 'store' | 'pricing' | 'back' | 'templates' | 'basic'
+/** 1つの form / handleSave を共有するタブ（表示する項目だけを切り替える） */
+const SHARED_FORM_TABS: ActiveTab[] = ['special_rules', 'reservation_rules', 'extension', 'payment', 'integrations']
+
+const FORM_TAB_HEADINGS: Partial<Record<ActiveTab, { title: string; description: string }>> = {
+  special_rules: { title: '特殊ルール・注意事項', description: 'スケジュール画面の「店舗ルール / 料金システム」に表示される申し送りメモです。' },
+  reservation_rules: { title: '予約ルール', description: '予約の受け付け方に関する店舗共通のルールです。' },
+  extension: { title: '延長設定', description: '延長の最小単位・料金・セラピストバックを設定します。' },
+  payment: { title: '決済設定', description: '決済手数料率と、お客様へ案内する決済ページのURLを設定します。' },
+  integrations: { title: '外部連携', description: 'Googleカレンダーとの同期に使う設定です。' },
+}
+
+type MainCategory = 'store' | 'pricing' | 'back' | 'reservation' | 'payment' | 'templates' | 'notify'
 
 export default function SystemPage() {
   const { selectedShop } = useShop()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('pricing_defaults')
-  const [mainCat, setMainCat] = useState<MainCategory>('pricing')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('store_info')
+  const [mainCat, setMainCat] = useState<MainCategory>('store')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -82,6 +96,9 @@ export default function SystemPage() {
     princess_back_amount: number
     credit_card_fee_rate: number
     paypay_fee_rate: number
+    enable_cash_payment: boolean
+    enable_credit_payment: boolean
+    enable_paypay_payment: boolean
     extension_unit_minutes: number
     extension_unit_price: number
     extension_unit_back: number
@@ -93,7 +110,6 @@ export default function SystemPage() {
     smtp_from: string
     sms_address_mode: 'unified' | 'split_by_membership'
     web_reserve_address_mode: 'unified' | 'split_by_membership'
-    therapist_line_mode: 'official_line' | 'line'
     special_rules: string
     credit_payment_url: string
     google_calendar_id: string
@@ -117,6 +133,9 @@ export default function SystemPage() {
     princess_back_amount: 0,
     credit_card_fee_rate: 10,
     paypay_fee_rate: 0,
+    enable_cash_payment: true,
+    enable_credit_payment: true,
+    enable_paypay_payment: false,
     extension_unit_minutes: 30,
     extension_unit_price: 0,
     extension_unit_back: 0,
@@ -128,7 +147,6 @@ export default function SystemPage() {
     smtp_from: '',
     sms_address_mode: 'unified',
     web_reserve_address_mode: 'unified',
-    therapist_line_mode: 'official_line',
     special_rules: '',
     credit_payment_url: '',
     google_calendar_id: '',
@@ -149,7 +167,7 @@ export default function SystemPage() {
     setLoading(true)
     const [settingsRes, shopRes, pricingShopRes] = await Promise.all([
       supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
-      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url').eq('id', selectedShop.id).single(),
+      supabase.from('shops').select('sms_address_mode, web_reserve_address_mode, special_rules, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url').eq('id', selectedShop.id).single(),
       supabase.from('shops').select('special_rules').eq('id', getPricingShopId(selectedShop)).single()
     ])
 
@@ -158,7 +176,6 @@ export default function SystemPage() {
     const row = (settingsRes.data?.[0] as SystemSettings | undefined) || null
     const smsMode = shopRes.data?.sms_address_mode || 'unified'
     const webMode = shopRes.data?.web_reserve_address_mode || 'unified'
-    const lineMode = shopRes.data?.therapist_line_mode || 'official_line'
 
     setSettings(row)
     setForm({
@@ -171,6 +188,9 @@ export default function SystemPage() {
       princess_back_amount: row?.princess_back_amount ?? 0,
       credit_card_fee_rate: row?.credit_card_fee_rate ?? 10,
       paypay_fee_rate: row?.paypay_fee_rate ?? 0,
+      enable_cash_payment: row?.enable_cash_payment ?? true,
+      enable_credit_payment: row?.enable_credit_payment ?? true,
+      enable_paypay_payment: row?.enable_paypay_payment ?? false,
       extension_unit_minutes: row?.extension_unit_minutes ?? 30,
       extension_unit_price: row?.extension_unit_price ?? 0,
       extension_unit_back: row?.extension_unit_back ?? 0,
@@ -182,7 +202,6 @@ export default function SystemPage() {
       smtp_from: row?.smtp_from ?? '',
       sms_address_mode: smsMode,
       web_reserve_address_mode: webMode,
-      therapist_line_mode: lineMode,
       special_rules: pricingShopRes.data?.special_rules ?? '',
       credit_payment_url: row?.credit_payment_url ?? '',
       google_calendar_id: row?.google_calendar_id ?? '',
@@ -205,7 +224,7 @@ export default function SystemPage() {
     if (!selectedShop) { alert('店舗を選択してください'); return }
     setSaving(true)
 
-    const { sms_address_mode, web_reserve_address_mode, special_rules, therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, ...systemSettingsPayload } = form
+    const { sms_address_mode, web_reserve_address_mode, special_rules, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, ...systemSettingsPayload } = form
     const payload = {
       ...systemSettingsPayload,
       smtp_port: form.smtp_port === '' ? null : Number(form.smtp_port),
@@ -225,7 +244,7 @@ export default function SystemPage() {
       settings?.id
         ? supabase.from('system_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', settings.id)
         : supabase.from('system_settings').insert([{ ...payload, shop_id: selectedShop.id }]),
-      supabase.from('shops').update({ therapist_line_mode, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, updated_at: new Date().toISOString() }).eq('id', selectedShop.id),
+      supabase.from('shops').update({ esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, updated_at: new Date().toISOString() }).eq('id', selectedShop.id),
       supabase.from('shops').update({ special_rules, updated_at: new Date().toISOString() }).eq('id', getPricingShopId(selectedShop))
     ])
 
@@ -327,21 +346,30 @@ export default function SystemPage() {
     )
   }
 
-  const storeTabs: { key: ActiveTab; label: string }[] = [
-    { key: 'store_info', label: '店舗基本情報' },
-  ]
+  // 店舗情報カテゴリは項目が1つなので2段目のタブを出さない
+  const storeTabs: { key: ActiveTab; label: string }[] = []
 
   const pricingTabs: { key: ActiveTab; label: string }[] = [
     { key: 'courses', label: 'コース設定' },
     { key: 'options', label: 'オプション設定' },
     { key: 'designation_types', label: '指名種別' },
     { key: 'discounts', label: '割引ルール' },
+    { key: 'extension', label: '延長設定' },
+    { key: 'special_rules', label: '特殊ルール・注意事項' },
   ]
 
   const backTabs: { key: ActiveTab; label: string }[] = [
     { key: 'ranks', label: 'セラピストランク設定' },
     { key: 'back_amounts', label: 'ランク別料金バック' },
     { key: 'deductions', label: '控除ルール' },
+  ]
+
+  const reservationTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'reservation_rules', label: '予約ルール' },
+  ]
+
+  const paymentTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'payment', label: '決済設定' },
   ]
 
   const templateTabs: { key: ActiveTab; label: string }[] = [
@@ -351,16 +379,18 @@ export default function SystemPage() {
     { key: 'custom_templates', label: '追加連絡テンプレート' },
   ]
 
-  const basicTabs: { key: ActiveTab; label: string }[] = [
-    { key: 'pricing_defaults', label: '基本設定・延長・指名料' },
-    { key: 'notifications', label: '通知・LINE設定' },
+  const notifyTabs: { key: ActiveTab; label: string }[] = [
+    { key: 'notifications', label: '通知設定' },
+    { key: 'integrations', label: '外部連携' },
   ]
 
-  const currentSubTabs = 
+  const currentSubTabs =
     mainCat === 'store' ? storeTabs :
     mainCat === 'pricing' ? pricingTabs :
     mainCat === 'back' ? backTabs :
-    mainCat === 'templates' ? templateTabs : basicTabs
+    mainCat === 'reservation' ? reservationTabs :
+    mainCat === 'payment' ? paymentTabs :
+    mainCat === 'templates' ? templateTabs : notifyTabs
 
   return (
     <div className="bg-gray-100 p-4 md:p-4 font-sans">
@@ -370,8 +400,8 @@ export default function SystemPage() {
           <p className="text-sm text-slate-500 mt-1">店舗基本情報、コース料金、給与バック、テンプレート、各種通知設定を一元管理します。</p>
         </div>
 
-        {/* 1段階目：5つのメインカテゴリカードタブ */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {/* 1段階目：メインカテゴリのカード */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() => { setMainCat('store'); setActiveTab('store_info'); }}
@@ -381,8 +411,8 @@ export default function SystemPage() {
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            🏬 店舗基本情報
-            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">電話・電話受付・営業時間</span>
+            🏬 店舗情報
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">店舗名・電話・住所・SNS</span>
           </button>
 
           <button
@@ -395,7 +425,7 @@ export default function SystemPage() {
             }`}
           >
             💰 コース・料金
-            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">コース・オプション・指名</span>
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">コース・オプション・延長</span>
           </button>
 
           <button
@@ -413,6 +443,32 @@ export default function SystemPage() {
 
           <button
             type="button"
+            onClick={() => { setMainCat('reservation'); setActiveTab('reservation_rules'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'reservation'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            📅 予約ルール
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">インターバル・新規受付</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setMainCat('payment'); setActiveTab('payment'); }}
+            className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
+              mainCat === 'payment'
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            💳 決済
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">手数料率・決済リンク</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => { setMainCat('templates'); setActiveTab('therapist_template'); }}
             className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
               mainCat === 'templates'
@@ -421,24 +477,26 @@ export default function SystemPage() {
             }`}
           >
             ✉️ テンプレート
-            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">自動メール・LINE文面</span>
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">送信モード・自動文面</span>
           </button>
 
           <button
             type="button"
-            onClick={() => { setMainCat('basic'); setActiveTab('pricing_defaults'); }}
+            onClick={() => { setMainCat('notify'); setActiveTab('notifications'); }}
             className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all ${
-              mainCat === 'basic'
+              mainCat === 'notify'
                 ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            ⚙️ 通知・初期設定
-            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">延長・指名料・LINE通知</span>
+            ⚙️ 通知・連携
+            <span className="block text-[10px] font-normal text-slate-400 mt-0.5">メール・LINE・カレンダー</span>
           </button>
+
         </div>
 
-        {/* 2段階目：サブカテゴリ切り替えタブ */}
+        {/* 2段階目：サブカテゴリ切り替えタブ（項目が1つだけのカテゴリでは出さない） */}
+        {currentSubTabs.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1 border-b border-slate-200">
           {currentSubTabs.map((tab) => (
             <button
@@ -455,6 +513,7 @@ export default function SystemPage() {
             </button>
           ))}
         </div>
+        )}
 
         {activeTab === 'store_info' && <StoreInfoTab />}
         {activeTab === 'courses' && <CourseManagementTab />}
@@ -469,14 +528,14 @@ export default function SystemPage() {
         {activeTab === 'web_email_template' && <WebReserveEmailTemplateTab />}
         {activeTab === 'custom_templates' && <CustomTemplatesTab />}
 
-        {activeTab === 'pricing_defaults' && (
+        {SHARED_FORM_TABS.includes(activeTab) && (
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
             <div>
-              <h2 className="text-base font-bold text-slate-800 mb-1">店舗基本設定</h2>
-              <p className="text-sm text-slate-500">店舗全体の基本ルールを管理します。</p>
+              <h2 className="text-base font-bold text-slate-800 mb-1">{FORM_TAB_HEADINGS[activeTab]?.title}</h2>
+              <p className="text-sm text-slate-500">{FORM_TAB_HEADINGS[activeTab]?.description}</p>
             </div>
 
-            {/* 特殊ルール・注意事項 */}
+            {activeTab === 'special_rules' && (
             <div className="border-b border-slate-100 pb-6">
               <h3 className="text-sm font-bold text-slate-700 mb-2">特殊ルール・注意事項</h3>
               <p className="text-xs text-slate-400 mb-2">スケジュール画面の「店舗ルール」ツールチップに表示される内容です。</p>
@@ -488,7 +547,9 @@ export default function SystemPage() {
                 className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
               />
             </div>
+            )}
 
+            {activeTab === 'reservation_rules' && (<>
             {/* 予約インターバル */}
             <div className="border-b border-slate-100 pb-6">
               <h3 className="text-sm font-bold text-slate-700 mb-4">予約インターバル（準備時間）</h3>
@@ -535,42 +596,9 @@ export default function SystemPage() {
                 </label>
               </div>
             </div>
+            </>)}
 
-            {/* セラピスト連絡用LINEモード */}
-            <div className="border-b border-slate-100 pb-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-2">セラピスト用 LINE連絡モード</h3>
-              <p className="text-xs text-slate-400 mb-4">
-                セラピストへの連絡文面を送る際のLINE連携方法を設定します。
-              </p>
-              <div className="flex gap-6">
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="therapist_line_mode"
-                    value="official_line"
-                    checked={form.therapist_line_mode === 'official_line'}
-                    onChange={() => setForm({ ...form, therapist_line_mode: 'official_line' })}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>公式LINE（コピー機能のみ）</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer font-bold text-slate-700">
-                  <input
-                    type="radio"
-                    name="therapist_line_mode"
-                    value="line"
-                    checked={form.therapist_line_mode === 'line'}
-                    onChange={() => setForm({ ...form, therapist_line_mode: 'line' })}
-                    className="accent-indigo-600 w-4 h-4 cursor-pointer"
-                  />
-                  <span>普通のLINE（LINEアプリ起動）</span>
-                </label>
-              </div>
-            </div>
-
-
-
-            {/* 延長設定 */}
+            {activeTab === 'extension' && (
             <div className="border-b border-slate-100 pb-6">
               <h3 className="text-sm font-bold text-slate-700 mb-1">延長設定</h3>
               <p className="text-xs text-slate-400 mb-4">延長の最小単位・料金・セラピストバックを設定します。予約画面で延長回数を指定すると自動計算されます。</p>
@@ -625,60 +653,99 @@ export default function SystemPage() {
               )}
               <p className="mt-2 text-xs text-slate-400">ランク別の料金・バックは「ランク別 料金バック」タブで設定できます。</p>
             </div>
+            )}
 
-            {/* クレジット・PayPay決済設定 */}
-            <div className="border-b border-slate-100 pb-6 space-y-5">
+            {activeTab === 'payment' && (
+            <div className="space-y-5">
               <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
-                <p className="text-xs text-slate-400 mb-4">クレジット決済時にお客様へ請求する手数料です。0〜100%の範囲で設定できます。</p>
-                <div className="flex items-center gap-3 max-w-xs">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={form.credit_card_fee_rate}
-                      onChange={(e) => setForm({ ...form, credit_card_fee_rate: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
-                  </div>
-                  <span className="text-xs text-slate-500">（デフォルト: 10%）</span>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">利用できる決済方法</h3>
+                <p className="text-xs text-slate-400 mb-3">
+                  チェックを外した決済方法は、予約の登録・編集画面の選択肢に出なくなります。
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {([
+                    { key: 'enable_cash_payment' as const, label: '現金', hint: '当日セラピストへお支払い' },
+                    { key: 'enable_credit_payment' as const, label: 'クレジット', hint: '決済ページを案内' },
+                    { key: 'enable_paypay_payment' as const, label: 'PayPay', hint: 'PayPayでお支払い' },
+                  ]).map(({ key, label, hint }) => (
+                    <label key={key} className="flex items-start gap-2 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl p-3">
+                      <input
+                        type="checkbox"
+                        checked={form[key]}
+                        onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+                        className="w-4 h-4 accent-indigo-600 mt-0.5"
+                      />
+                      <span>
+                        <span className="block text-xs font-bold text-slate-800">{label}</span>
+                        <span className="block text-[10px] text-slate-400">{hint}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">PayPay決済手数料率</h3>
-                <p className="text-xs text-slate-400 mb-4">PayPay決済時にお客様へ請求する手数料です。0〜100%の範囲で設定できます。</p>
-                <div className="flex items-center gap-3 max-w-xs">
-                  <div className="relative flex-1">
+              {form.enable_credit_payment && (
+                <div className="border-t border-slate-100 pt-5 space-y-5">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済手数料率</h3>
+                    <p className="text-xs text-slate-400 mb-4">
+                      お客様へ請求する手数料です。0%にすると、ご案内の文面から「決済手数料○%込み」の表記が消えます。
+                    </p>
+                    <div className="flex items-center gap-3 max-w-xs">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={form.credit_card_fee_rate}
+                        onChange={(e) => setForm({ ...form, credit_card_fee_rate: Number(e.target.value) })}
+                        className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                      <span className="text-sm font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済リンク URL</h3>
+                    <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。未設定だとご案内に決済ページのリンクが入りません。</p>
+                    <input
+                      type="text"
+                      placeholder="https://pay.example.com/payment"
+                      value={form.credit_payment_url}
+                      onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                    {!form.credit_payment_url.trim() && (
+                      <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                        決済リンクが未設定です。クレジットを選んでも、お客様に決済ページを案内できません。
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {form.enable_paypay_payment && (
+                <div className="border-t border-slate-100 pt-5">
+                  <h3 className="text-sm font-bold text-slate-700 mb-1">PayPay決済手数料率</h3>
+                  <p className="text-xs text-slate-400 mb-4">PayPay決済時にお客様へ請求する手数料です。</p>
+                  <div className="flex items-center gap-3 max-w-xs">
                     <input
                       type="number"
                       min={0}
                       max={100}
-                      step={0.5}
                       value={form.paypay_fee_rate}
-                      onChange={(e) => setForm({ ...form, paypay_fee_rate: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                      className="w-full border border-slate-200 rounded-xl bg-slate-50 pr-8 pl-3 py-2.5 text-sm"
+                      onChange={(e) => setForm({ ...form, paypay_fee_rate: Number(e.target.value) })}
+                      className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+                    <span className="text-sm font-bold text-slate-500">%</span>
                   </div>
-                  <span className="text-xs text-slate-500">（デフォルト: 0%）</span>
                 </div>
-              </div>
+              )}
+            </div>
+            )}
 
-              <div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">クレジット決済リンク URL</h3>
-                <p className="text-xs text-slate-400 mb-4">お客様へ送信する決済ページのベースURLを設定します。</p>
-                <input
-                  type="text"
-                  placeholder="https://pay.example.com/payment"
-                  value={form.credit_payment_url}
-                  onChange={(e) => setForm({ ...form, credit_payment_url: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                />
-              </div>
+
+            {activeTab === 'integrations' && (
+            <div className="space-y-5">
 
               <div>
                 <h3 className="text-sm font-bold text-slate-700 mb-1">GoogleカレンダーID</h3>
@@ -703,13 +770,14 @@ export default function SystemPage() {
                   className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
-            </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+                className="btn-primary"
               >
                 {saving ? '保存中...' : '保存する'}
               </button>
@@ -874,7 +942,7 @@ export default function SystemPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+                className="btn-primary"
               >
                 {saving ? '保存中...' : '設定を保存'}
               </button>
@@ -912,7 +980,6 @@ function StoreInfoTab() {
     business_hours: '',
     address: '',
     access_info: '',
-    google_map_url: '',
     catchphrase: '',
     description: '',
     line_url: '',
@@ -935,7 +1002,7 @@ function StoreInfoTab() {
 
       const { data, error: fetchErr } = await supabase
         .from('shops')
-        .select('name, short_name, phone, business_hours, address, access_info, google_map_url, catchphrase, description, line_url, x_url, litlink_url')
+        .select('name, short_name, phone, business_hours, address, access_info, catchphrase, description, line_url, x_url, litlink_url')
         .eq('id', selectedShop.id)
         .single()
 
@@ -954,7 +1021,6 @@ function StoreInfoTab() {
         business_hours: data?.business_hours || '',
         address: data?.address || '',
         access_info: data?.access_info || '',
-        google_map_url: data?.google_map_url || '',
         catchphrase: data?.catchphrase || '',
         description: data?.description || '',
         line_url: data?.line_url || '',
@@ -988,7 +1054,6 @@ function StoreInfoTab() {
           business_hours: form.business_hours.trim() || null,
           address: form.address.trim() || null,
           access_info: form.access_info.trim() || null,
-          google_map_url: form.google_map_url.trim() || null,
           ...(!isAgencyOnly && {
             catchphrase: form.catchphrase.trim() || null,
             description: form.description || null,
@@ -1043,7 +1108,7 @@ function StoreInfoTab() {
         {shopHasHp && (
           <Link
             href="/admin/store-setting?mode=hp"
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-all border border-amber-400/30 flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
           >
             🌐 HPコンテンツ・バナー管理を開く
           </Link>
@@ -1132,16 +1197,6 @@ function StoreInfoTab() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">GoogleマップURL</label>
-          <input
-            type="text"
-            value={form.google_map_url}
-            onChange={(e) => setForm({ ...form, google_map_url: e.target.value })}
-            placeholder="https://maps.app.goo.gl/..."
-            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-          />
-        </div>
 
         {!isAgencyOnly && (
           <>
@@ -1207,7 +1262,7 @@ function StoreInfoTab() {
         <button
           type="submit"
           disabled={saving}
-          className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-all disabled:opacity-50"
+          className="btn-primary"
         >
           {saving ? '保存中...' : '店舗基本情報を保存'}
         </button>

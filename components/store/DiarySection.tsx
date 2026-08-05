@@ -8,25 +8,31 @@ interface DiarySectionProps {
 }
 
 export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug }) => {
+  const isCyber = storeSlug === 'onyankospa';
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-serif">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${isCyber ? 'font-sans' : 'font-serif'}`}>
       {articles.map((art) => (
         <Link
           key={art.id}
           href={`/${storeSlug}/diary/${art.id}`}
-          className="group bg-white rounded-sm border border-[#d1b464]/30 p-3.5 hover:border-[#a39573] transition-all flex gap-3 shadow-sm"
+          className={`group p-3.5 transition-all flex gap-3 ${
+            isCyber
+              ? 'cyber-card rounded-xl border-[#ff007f]/30 hover:border-[#ff007f]'
+              : 'bg-white rounded-sm border border-[#d1b464]/30 hover:border-[#a39573] shadow-sm'
+          }`}
         >
           {art.eyeCatchUrl ? (
             <img
               src={art.eyeCatchUrl}
               alt={art.title}
-              className="w-20 h-20 rounded-sm object-cover border border-stone-200 group-hover:scale-105 transition-transform"
+              className="w-20 h-20 rounded-lg object-cover border border-stone-200 group-hover:scale-105 transition-transform"
             />
           ) : (
             <img
               src={art.therapistAvatar}
               alt={art.therapistName}
-              className="w-20 h-20 rounded-sm object-cover border border-stone-200 group-hover:scale-105 transition-transform"
+              className="w-20 h-20 rounded-lg object-cover border border-stone-200 group-hover:scale-105 transition-transform"
             />
           )}
           <div className="flex-1 flex flex-col justify-between">
@@ -37,14 +43,16 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
                   alt={art.therapistName}
                   className="w-4 h-4 rounded-full object-cover"
                 />
-                <span className="text-xs font-bold text-stone-800">{art.therapistName}</span>
-                <span className="text-[10px] text-stone-400 ml-auto">{art.publishedAt}</span>
+                <span className={`text-xs font-bold ${isCyber ? 'text-pink-100' : 'text-stone-800'}`}>{art.therapistName}</span>
+                <span className={`text-[10px] ml-auto ${isCyber ? 'text-pink-300' : 'text-stone-400'}`}>{art.publishedAt}</span>
               </div>
-              <h4 className="text-xs font-bold text-stone-800 group-hover:text-[#a39573] transition-colors line-clamp-2 leading-snug">
+              <h4 className={`text-xs font-bold group-hover:text-[#ff007f] transition-colors line-clamp-2 leading-snug ${
+                isCyber ? 'text-white' : 'text-stone-800'
+              }`}>
                 {art.title}
               </h4>
             </div>
-            <p className="text-[11px] text-stone-500 line-clamp-1 mt-1">{art.content}</p>
+            <p className={`text-[11px] line-clamp-1 mt-1 ${isCyber ? 'text-pink-200/80' : 'text-stone-500'}`}>{art.content}</p>
           </div>
         </Link>
       ))}
