@@ -75,24 +75,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (normalizedRole === 'staff') normalizedRole = 'agency_staff'
 
         if (normalizedRole !== 'developer' && normalizedRole !== 'system_admin' && normalizedRole !== 'agency_staff') {
-          // オーナーグループIDが存在する場合、そのグループの全店舗を取得
-          if (dbUser.owner_id) {
-            const { data: ownerShopsData, error: ownerShopsError } = await supabase
-              .from('shops')
-              .select('id, name')
-              .eq('owner_id', dbUser.owner_id)
-              .eq('is_active', true)
+          // グループ店舗と個別紐付けは互いに独立しているので同時に投げる。
+          // ここはトークン更新のたびに走るため、往復回数がそのまま体感に響く。
+          const [ownerShopsRes, shopOwnersRes] = await Promise.all([
+            dbUser.owner_id
+              ? supabase
+                  .from('shops')
+                  .select('id, name')
+                  .eq('owner_id', dbUser.owner_id)
+                  .eq('is_active', true)
+              : Promise.resolve({ data: null as { id: string; name: string }[] | null, error: null }),
+            supabase
+              .from('shop_owners')
+              .select('shops(*)')
+              .eq('user_id', dbUser.id),
+          ])
 
-            if (!ownerShopsError && ownerShopsData) {
-              shops = ownerShopsData.map((s) => ({ id: s.id, name: s.name }))
-            }
+          // オーナーグループIDが存在する場合、そのグループの全店舗を取得
+          const { data: ownerShopsData, error: ownerShopsError } = ownerShopsRes
+          if (!ownerShopsError && ownerShopsData) {
+            shops = ownerShopsData.map((s) => ({ id: s.id, name: s.name }))
           }
 
           // owner_idによる取得結果限らずフォールバックとしてshop_ownersからの個別紐付けも結合
-          const { data: shopsData, error: shopsError } = await supabase
-            .from('shop_owners')
-            .select('shops(*)')
-            .eq('user_id', dbUser.id)
+          const { data: shopsData, error: shopsError } = shopOwnersRes
 
           if (!shopsError && shopsData) {
             const legacyShops = (shopsData as unknown as ShopOwnerRow[])

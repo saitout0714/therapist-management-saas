@@ -75,9 +75,10 @@ export default function CustomersPage() {
     return [selectedShop.id]
   }, [selectedShop])
 
-  const fetchVisitCounts = useCallback(async (customerIds: string[]) => {
+  // shopIds は呼び出し元が解決済みのものを渡す。ここで getGroupShopIds を
+  // 呼び直すと、1回の画面表示で同じ店舗一覧クエリを2度投げることになるため。
+  const fetchVisitCounts = useCallback(async (customerIds: string[], shopIds: string[]) => {
     if (!selectedShop || customerIds.length === 0) return
-    const shopIds = await getGroupShopIds()
     const { data } = await supabase
       .from('reservations')
       .select('customer_id')
@@ -88,7 +89,7 @@ export default function CustomersPage() {
       map.set(r.customer_id, (map.get(r.customer_id) || 0) + 1)
     })
     setVisitCounts(map)
-  }, [selectedShop, getGroupShopIds])
+  }, [selectedShop])
 
   const fetchRecentCustomers = useCallback(async (page: number = 1) => {
     if (!selectedShop) return
@@ -97,34 +98,38 @@ export default function CustomersPage() {
       const shopIds = await getGroupShopIds()
       const from = (page - 1) * 100
       const to = page * 100 - 1
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-        .in('shop_id', shopIds)
-        .order('created_at', { ascending: false })
-        .range(from, to)
+      // 一覧本体と総登録件数は互いに独立しているので同時に投げる
+      const [listRes, countRes] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+          .in('shop_id', shopIds)
+          .order('created_at', { ascending: false })
+          .range(from, to),
+        supabase
+          .from('customers')
+          .select('*', { count: 'exact', head: true })
+          .in('shop_id', shopIds),
+      ])
+
+      const { data, error } = listRes
       if (error) throw error
       const list = data || []
       setCustomers(list)
-      await fetchVisitCounts(list.map((c) => c.id))
+      if (countRes.count !== null) setTotalCount(countRes.count)
 
-      // NGセラピストを持つ顧客IDを取得
-      if (list.length > 0) {
-        const { data: ngData } = await supabase
-          .from('customer_therapist_ng')
-          .select('customer_id')
-          .in('customer_id', list.map((c) => c.id))
-        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
-      } else {
-        setNgCustomerIds(new Set())
-      }
-
-      // 総登録件数を取得
-      const { count } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true })
-        .in('shop_id', shopIds)
-      if (count !== null) setTotalCount(count)
+      // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
+      const customerIds = list.map((c) => c.id)
+      const [, ngRes] = await Promise.all([
+        fetchVisitCounts(customerIds, shopIds),
+        customerIds.length > 0
+          ? supabase
+              .from('customer_therapist_ng')
+              .select('customer_id')
+              .in('customer_id', customerIds)
+          : Promise.resolve({ data: null as { customer_id: string }[] | null }),
+      ])
+      setNgCustomerIds(new Set<string>((ngRes.data || []).map((n: { customer_id: string }) => n.customer_id)))
     } catch (err) {
       console.error('顧客の取得に失敗:', JSON.stringify(err))
     } finally {
@@ -141,36 +146,41 @@ export default function CustomersPage() {
       const from = (page - 1) * 100
       const to = page * 100 - 1
 
-      // 検索フィルタに合致する件数を取得
-      const { count } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true })
-        .in('shop_id', shopIds)
-        .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
-      if (count !== null) setFilteredCount(count)
+      // 検索結果本体と件数は互いに独立しているので同時に投げる
+      const filter = `name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`
+      const [listRes, countRes] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+          .in('shop_id', shopIds)
+          .or(filter)
+          .order('name')
+          .range(from, to),
+        supabase
+          .from('customers')
+          .select('*', { count: 'exact', head: true })
+          .in('shop_id', shopIds)
+          .or(filter),
+      ])
 
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-        .in('shop_id', shopIds)
-        .or(`name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`)
-        .order('name')
-        .range(from, to)
+      const { data, error } = listRes
       if (error) throw error
       const list = data || []
       setCustomers(list)
-      await fetchVisitCounts(list.map((c) => c.id))
+      if (countRes.count !== null) setFilteredCount(countRes.count)
 
-      // NGセラピストを持つ顧客IDを取得
-      if (list.length > 0) {
-        const { data: ngData } = await supabase
-          .from('customer_therapist_ng')
-          .select('customer_id')
-          .in('customer_id', list.map((c) => c.id))
-        setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
-      } else {
-        setNgCustomerIds(new Set())
-      }
+      // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
+      const customerIds = list.map((c) => c.id)
+      const [, ngRes] = await Promise.all([
+        fetchVisitCounts(customerIds, shopIds),
+        customerIds.length > 0
+          ? supabase
+              .from('customer_therapist_ng')
+              .select('customer_id')
+              .in('customer_id', customerIds)
+          : Promise.resolve({ data: null as { customer_id: string }[] | null }),
+      ])
+      setNgCustomerIds(new Set<string>((ngRes.data || []).map((n: { customer_id: string }) => n.customer_id)))
     } catch (err) {
       console.error('顧客検索に失敗:', err)
     } finally {

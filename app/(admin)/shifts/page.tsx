@@ -980,21 +980,45 @@ function ShiftsContent() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
     try {
+      // 互いに依存しない問い合わせは一度にまとめて投げる。
+      // 直列に await すると Supabase までの往復回数だけ待たされ、
+      // それがシフト画面の読み込みの遅さの主因になっていた。
+      const [groupShopsRes, tsRes, settingsRes, shiftsRes, memosRes] = await Promise.all([
+        selectedShop.owner_id
+          ? supabase
+              .from('shops')
+              .select('id')
+              .eq('owner_id', selectedShop.owner_id)
+          : Promise.resolve({ data: null as { id: string }[] | null }),
+        supabase
+          .from('therapist_shops')
+          .select('therapist_id, alias_name')
+          .eq('shop_id', selectedShop.id),
+        supabase
+          .from('system_settings')
+          .select('reservation_interval_minutes, extension_unit_minutes')
+          .eq('shop_id', selectedShop.id)
+          .limit(1),
+        supabase
+          .from('shifts')
+          .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
+          .eq('shop_id', selectedShop.id)
+          .eq('date', filterDate),
+        supabase
+          .from('therapist_memos')
+          .select('id, therapist_id, date, content, amount, resolved_at, resolved_date')
+          .eq('shop_id', selectedShop.id)
+          .eq('is_resolved', false)
+          .order('date', { ascending: false }),
+      ]);
+
+      const groupShops = groupShopsRes.data;
       let shopIds = [selectedShop.id];
-      if (selectedShop.owner_id) {
-        const { data: groupShops } = await supabase
-          .from('shops')
-          .select('id')
-          .eq('owner_id', selectedShop.owner_id);
-        if (groupShops && groupShops.length > 0) {
-          shopIds = groupShops.map(s => s.id);
-        }
+      if (groupShops && groupShops.length > 0) {
+        shopIds = groupShops.map(s => s.id);
       }
 
-      const { data: tsData } = await supabase
-        .from('therapist_shops')
-        .select('therapist_id, alias_name')
-        .eq('shop_id', selectedShop.id);
+      const tsData = tsRes.data;
       const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
       const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]));
 
@@ -1034,43 +1058,45 @@ function ShiftsContent() {
         name: aliasMap.get(t.id) || t.name,
       })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
 
-      const { data: settingsData } = await supabase
-        .from('system_settings')
-        .select('reservation_interval_minutes, extension_unit_minutes')
-        .eq('shop_id', selectedShop.id)
-        .limit(1);
+      const settingsData = settingsRes.data;
       const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
       setShopIntervalMinutes(shopInterval);
       setExtensionUnitMinutes(settingsData?.[0]?.extension_unit_minutes ?? 30);
 
-      // 他店舗連携先店舗名のフェッチ
+      // 連携先店舗名と写真は、どちらもセラピスト一覧が確定すれば投げられるので並列で取得する
       const groupIds = allTherapists.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
-      const linkedMap = new Map<string, string[]>();
-      if (groupIds.length > 0) {
-        const { data: linkedData } = await supabase
-          .from("therapists")
-          .select("linked_therapist_group_id, shops(name)")
-          .in("linked_therapist_group_id", groupIds)
-          .neq("shop_id", selectedShop.id);
-        
-        (linkedData || []).forEach((row: any) => {
-          const groupId = row.linked_therapist_group_id;
-          const shopName = row.shops?.name;
-          if (groupId && shopName) {
-            const arr = linkedMap.get(groupId) || [];
-            if (!arr.includes(shopName)) {
-              arr.push(shopName);
-            }
-            linkedMap.set(groupId, arr);
-          }
-        });
-      }
+      const therapistIds = allTherapists.map(t => t.id);
+      const [linkedRes, photosRes] = await Promise.all([
+        groupIds.length > 0
+          ? supabase
+              .from("therapists")
+              .select("linked_therapist_group_id, shops(name)")
+              .in("linked_therapist_group_id", groupIds)
+              .neq("shop_id", selectedShop.id)
+          : Promise.resolve({ data: null as any[] | null }),
+        therapistIds.length > 0
+          ? supabase
+              .from('therapist_photos')
+              .select('therapist_id, photo_url, display_order')
+              .in('therapist_id', therapistIds)
+              .order('display_order', { ascending: true })
+          : Promise.resolve({ data: null as any[] | null }),
+      ]);
 
-      const { data: shiftsData, error: shiftsError } = await supabase
-        .from('shifts')
-        .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
-        .eq('shop_id', selectedShop.id)
-        .eq('date', filterDate);
+      const linkedMap = new Map<string, string[]>();
+      (linkedRes.data || []).forEach((row: any) => {
+        const groupId = row.linked_therapist_group_id;
+        const shopName = row.shops?.name;
+        if (groupId && shopName) {
+          const arr = linkedMap.get(groupId) || [];
+          if (!arr.includes(shopName)) {
+            arr.push(shopName);
+          }
+          linkedMap.set(groupId, arr);
+        }
+      });
+
+      const { data: shiftsData, error: shiftsError } = shiftsRes;
 
       if (shiftsError) {
         console.error('Error fetching shifts:', shiftsError);
@@ -1136,12 +1162,7 @@ function ShiftsContent() {
       });
 
       // 未解決メモをセラピストごとにマージ
-      const { data: memosData } = await supabase
-        .from('therapist_memos')
-        .select('id, therapist_id, date, content, amount, resolved_at, resolved_date')
-        .eq('shop_id', selectedShop.id)
-        .eq('is_resolved', false)
-        .order('date', { ascending: false });
+      const memosData = memosRes.data;
 
       const memosMap = new Map<string, TherapistMemo[]>();
       (memosData || []).forEach((m: any) => {
@@ -1155,22 +1176,12 @@ function ShiftsContent() {
         unresolvedMemos: memosMap.get(t.id) || [],
       }));
 
-      // 先頭写真を取得して avatar にセット
-      const ids = withMemos.map(t => t.id)
-      if (ids.length > 0) {
-        const { data: photosData } = await supabase
-          .from('therapist_photos')
-          .select('therapist_id, photo_url, display_order')
-          .in('therapist_id', ids)
-          .order('display_order', { ascending: true })
-        const photoMap = new Map<string, string>()
-        for (const p of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
-          if (!photoMap.has(p.therapist_id)) photoMap.set(p.therapist_id, p.photo_url)
-        }
-        setTherapists(withMemos.map(t => ({ ...t, avatar: photoMap.get(t.id) })))
-      } else {
-        setTherapists(withMemos)
+      // 先頭写真を avatar にセット（写真は上の Promise.all で取得済み）
+      const photoMap = new Map<string, string>()
+      for (const p of (photosRes.data || []) as { therapist_id: string; photo_url: string }[]) {
+        if (!photoMap.has(p.therapist_id)) photoMap.set(p.therapist_id, p.photo_url)
       }
+      setTherapists(withMemos.map(t => ({ ...t, avatar: photoMap.get(t.id) })))
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
     }

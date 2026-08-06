@@ -102,38 +102,39 @@ export default function ReservationsPage() {
     const from = (currentPage - 1) * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    // Resolve customer IDs from name search
-    let customerIds: string[] | null = null
-    if (filters.customerName.trim()) {
-      const { data } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('shop_id', selectedShop.id)
-        .ilike('name', `%${filters.customerName.trim()}%`)
-      customerIds = data?.map((c: { id: string }) => c.id) ?? []
-      if (customerIds.length === 0) {
-        setReservations([])
-        setTotalCount(0)
-        setLoading(false)
-        return
-      }
-    }
+    // 顧客名・セラピスト名からのID解決は互いに独立しているので並列で引く
+    const customerNameQuery = filters.customerName.trim()
+    const therapistNameQuery = filters.therapistName.trim()
+    const [customerRes, therapistRes] = await Promise.all([
+      customerNameQuery
+        ? supabase
+            .from('customers')
+            .select('id')
+            .eq('shop_id', selectedShop.id)
+            .ilike('name', `%${customerNameQuery}%`)
+        : Promise.resolve({ data: null as { id: string }[] | null }),
+      therapistNameQuery
+        ? supabase
+            .from('therapists')
+            .select('id')
+            .eq('shop_id', selectedShop.id)
+            .ilike('name', `%${therapistNameQuery}%`)
+        : Promise.resolve({ data: null as { id: string }[] | null }),
+    ])
 
-    // Resolve therapist IDs from name search
-    let therapistIds: string[] | null = null
-    if (filters.therapistName.trim()) {
-      const { data } = await supabase
-        .from('therapists')
-        .select('id')
-        .eq('shop_id', selectedShop.id)
-        .ilike('name', `%${filters.therapistName.trim()}%`)
-      therapistIds = data?.map((t: { id: string }) => t.id) ?? []
-      if (therapistIds.length === 0) {
-        setReservations([])
-        setTotalCount(0)
-        setLoading(false)
-        return
-      }
+    const customerIds: string[] | null = customerNameQuery
+      ? customerRes.data?.map((c: { id: string }) => c.id) ?? []
+      : null
+    const therapistIds: string[] | null = therapistNameQuery
+      ? therapistRes.data?.map((t: { id: string }) => t.id) ?? []
+      : null
+
+    // 名前で絞り込んだのに一件も該当しなければ、予約は引くまでもなく0件
+    if ((customerIds && customerIds.length === 0) || (therapistIds && therapistIds.length === 0)) {
+      setReservations([])
+      setTotalCount(0)
+      setLoading(false)
+      return
     }
 
     let query = supabase
