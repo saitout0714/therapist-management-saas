@@ -34,6 +34,9 @@ export default function EditTherapistPage() {
     is_rookie: false,
     ng_course_ids: [] as string[],
     x_url: "",
+    litlink_url: "",
+    badge: "",
+    tags: "",
   });
   const [photos, setPhotos] = useState<{ id: string; photo_url: string; display_order: number }[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -309,6 +312,9 @@ export default function EditTherapistPage() {
           is_rookie: !!therapist.is_rookie,
           ng_course_ids: therapist.ng_course_ids || [],
           x_url: therapist.x_url || "",
+          litlink_url: therapist.litlink_url || "",
+          badge: therapist.badge || "",
+          tags: Array.isArray(therapist.tags) ? therapist.tags.join(", ") : "",
         });
         // 写真一覧を取得
         const { data: photoData } = await supabase
@@ -356,11 +362,16 @@ export default function EditTherapistPage() {
       }
       const { data: urlData } = supabase.storage.from('therapist-photos').getPublicUrl(path);
       const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 0;
-      const { data: inserted } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from("therapist_photos")
         .insert({ therapist_id: therapistId, photo_url: urlData.publicUrl, display_order: nextOrder })
         .select("id, photo_url, display_order")
         .single();
+      if (insertError) {
+        setError("写真の登録に失敗しました: " + insertError.message + "（ログインし直してから再度お試しください）");
+        setPhotoUploading(false);
+        continue;
+      }
       if (inserted) {
         setPhotos(prev => [...prev, inserted as { id: string; photo_url: string; display_order: number }]);
       }
@@ -444,6 +455,11 @@ export default function EditTherapistPage() {
         is_active: profile.is_active,
         is_rookie: profile.is_rookie || false,
         x_url: profile.x_url || null,
+        litlink_url: profile.litlink_url || null,
+        badge: profile.badge || null,
+        tags: profile.tags
+          ? profile.tags.split(",").map((t) => t.trim()).filter(Boolean)
+          : null,
       })
       .eq("id", therapistId);
 
@@ -855,6 +871,48 @@ export default function EditTherapistPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
                     placeholder="https://x.com/username"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    リットリンク(litlink) URL
+                  </label>
+                  <input
+                    type="url"
+                    name="litlink_url"
+                    value={profile.litlink_url}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="https://lit.link/username"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    バッジ文言（HP掲載用） <span className="text-xs text-slate-400 font-normal">※「看板猫」「人気」など。空欄の場合は新人設定時のみ「新人」と表示</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="badge"
+                    value={profile.badge}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 看板猫"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    タグ（HP掲載用） <span className="text-xs text-slate-400 font-normal">※カンマ区切りで複数入力（例: 癒し系, 小悪魔系, モチモチ肌）</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="tags"
+                    value={profile.tags}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="癒し系, 小悪魔系, モチモチ肌"
                   />
                 </div>
 

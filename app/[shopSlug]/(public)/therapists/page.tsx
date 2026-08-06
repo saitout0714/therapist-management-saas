@@ -8,15 +8,15 @@ import { TherapistFilter } from '../../../../components/store/TherapistFilter';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist } from '../../../../types/store';
-import { MOCK_STORE, MOCK_THERAPISTS } from '../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_THERAPISTS } from '../../../../mock/onyankospa';
+import { MOCK_STORE } from '../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 export default function TherapistsPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
-  const [therapists, setTherapists] = useState<Therapist[]>(isOnyanko ? MOCK_ONYANKO_THERAPISTS : MOCK_THERAPISTS);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {

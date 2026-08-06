@@ -8,7 +8,6 @@ import { HeroBanner } from '../../../components/store/HeroBanner';
 import { HeroBannerSlider } from '../../../components/store/HeroBannerSlider';
 import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
 import { TherapistCard } from '../../../components/store/TherapistCard';
-import { TherapistFilter } from '../../../components/store/TherapistFilter';
 import { NewsList } from '../../../components/store/NewsList';
 import { DiarySection } from '../../../components/store/DiarySection';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
@@ -22,8 +21,8 @@ import {
   fetchConfirmedShifts,
 } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, BlogArticle, NewsItem, ConfirmedShift } from '../../../types/store';
-import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_BLOG_ARTICLES, MOCK_NEWS } from '../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_BLOG_ARTICLES, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
+import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_BLOG_ARTICLES, MOCK_NEWS } from '../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_BLOG_ARTICLES, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
 
 export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
@@ -32,11 +31,10 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
   
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
   const [campaigns, setCampaigns] = useState<Campaign[]>(isOnyanko ? MOCK_ONYANKO_CAMPAIGNS : MOCK_CAMPAIGNS);
-  const [therapists, setTherapists] = useState<Therapist[]>(isOnyanko ? MOCK_ONYANKO_THERAPISTS : MOCK_THERAPISTS);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [confirmedShifts, setConfirmedShifts] = useState<ConfirmedShift[]>([]);
   const [blogs, setBlogs] = useState<BlogArticle[]>(isOnyanko ? MOCK_ONYANKO_BLOG_ARTICLES : MOCK_BLOG_ARTICLES);
   const [news, setNews] = useState<NewsItem[]>(isOnyanko ? MOCK_ONYANKO_NEWS : MOCK_NEWS);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -69,12 +67,6 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
     ? therapists.filter((t) => confirmedTherapistIds.has(t.id))
     : therapists;
 
-  const allTags = Array.from(new Set(todayTherapists.flatMap((t) => t.tags)));
-
-  const filteredTherapists = selectedTag
-    ? todayTherapists.filter((t) => t.tags.includes(selectedTag))
-    : todayTherapists;
-
   const isCyberTheme = shopSlug === 'onyankospa';
   const sectionOrder = store.layoutSections && store.layoutSections.length > 0
     ? store.layoutSections
@@ -95,18 +87,10 @@ export default function StoreHomePage({ params }: { params: Promise<{ shopSlug: 
                 <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
                   本日の出勤セラピスト
                 </span>
-
-                {/* タグによる絞り込み */}
-                <TherapistFilter
-                  tags={allTags}
-                  selectedTag={selectedTag}
-                  onSelectTag={setSelectedTag}
-                  isCyber={isCyberTheme}
-                />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                {filteredTherapists.map((therapist) => (
+                {todayTherapists.map((therapist) => (
                   <TherapistCard
                     key={therapist.id}
                     therapist={therapist}

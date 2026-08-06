@@ -114,7 +114,11 @@
       "Bash(grep -oE \">[^<>{]{2,30}<|\\\\{[^}]{0,40}未送信[^}]{0,30}\\\\}\")",
       "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bafb2192-35b1-44da-8e8a-6ab10a64f558/scratchpad/check_ranks.js\")",
       "Bash(cp \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bafb2192-35b1-44da-8e8a-6ab10a64f558/scratchpad/check_ranks.js\" ./_check_ranks_tmp.js)",
-      "Bash(node ./_check_ranks_tmp.js)"
+      "Bash(node ./_check_ranks_tmp.js)",
+      "Bash(curl -sI \"https://pumkniqtgjsotsxhyvbq.supabase.co/storage/v1/object/public/therapist-photos/bca58f0c-6bc0-4d59-9c34-e8e0a24460a2/84bb90a2-9d24-4f90-90a7-876a51ebf984.jpeg\")",
+      "Bash(xargs grep -l \"予約枠\\\\|タイムチャート\\\\|TimeChart\\\\|timechart\\\\|reservation.*card\\\\|ReservationCard\\\\|ReservationBlock\")",
+      "Bash(xargs grep -l \"interface Reservation\")",
+      "Bash(xargs grep -l \"CREATE TABLE.*reservations\\\\|create table.*reservations\" -i)"
     ]
   }
 }

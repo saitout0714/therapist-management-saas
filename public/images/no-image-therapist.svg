@@ -1,0 +1,7 @@
+<svg width="600" height="800" viewBox="0 0 600 800" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="800" fill="#e5e5e5"/>
+  <circle cx="300" cy="320" r="120" fill="#c7c7c7"/>
+  <path d="M300 460c-140 0-220 90-220 220v10h440v-10c0-130-80-220-220-220z" fill="#c7c7c7"/>
+  <text x="300" y="700" text-anchor="middle" font-family="'Hiragino Sans', 'Yu Gothic', sans-serif" font-size="34" font-weight="700" fill="#9a9a9a" letter-spacing="2">NO IMAGE</text>
+  <text x="300" y="740" text-anchor="middle" font-family="'Hiragino Sans', 'Yu Gothic', sans-serif" font-size="22" fill="#adadad" letter-spacing="4">準備中</text>
+</svg>

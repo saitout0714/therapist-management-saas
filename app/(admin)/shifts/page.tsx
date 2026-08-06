@@ -146,6 +146,7 @@ interface Schedule {
   reservationId?: string;
   customerId?: string;
   customerName?: string;
+  notes?: string | null;
   courseDuration?: number;
   designationLabel?: string;
   totalPrice?: number;
@@ -1553,6 +1554,7 @@ function ShiftsContent() {
         reservationId: reservation.id,
         customerId: reservation.customer_id,
         customerName: reservation.customers?.name,
+        notes: reservation.notes || undefined,
         courseDuration: reservation.courses?.duration,
         designationLabel: designationLabel(reservation.designation_type),
         totalPrice: reservation.total_price,

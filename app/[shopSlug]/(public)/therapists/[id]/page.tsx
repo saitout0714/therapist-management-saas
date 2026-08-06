@@ -13,8 +13,8 @@ import {
   fetchConfirmedShifts,
 } from '../../../../../lib/storeApi';
 import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../../../../types/store';
-import { MOCK_STORE, MOCK_THERAPISTS } from '../../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_THERAPISTS } from '../../../../../mock/onyankospa';
+import { MOCK_STORE } from '../../../../../mock/specialgrade';
+import { MOCK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
 
 export default function TherapistDetailPage({
   params,
@@ -25,12 +25,9 @@ export default function TherapistDetailPage({
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const therapistId = resolvedParams.id;
   const isOnyanko = shopSlug === 'onyankospa';
-  const initialTherapist = isOnyanko
-    ? (MOCK_ONYANKO_THERAPISTS.find((t) => t.id === therapistId) || MOCK_ONYANKO_THERAPISTS[0])
-    : (MOCK_THERAPISTS.find((t) => t.id === therapistId) || MOCK_THERAPISTS[0]);
 
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
-  const [therapist, setTherapist] = useState<Therapist | null>(initialTherapist);
+  const [therapist, setTherapist] = useState<Therapist | null>(null);
   const [blogs, setBlogs] = useState<BlogArticle[]>([]);
   const [todayShift, setTodayShift] = useState<ConfirmedShift | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
@@ -60,14 +57,30 @@ export default function TherapistDetailPage({
     loadData();
   }, [shopSlug, therapistId]);
 
-  const currentTherapist = therapist || MOCK_THERAPISTS[0];
+  const isCyberTheme = shopSlug === 'onyankospa';
+
+  if (!therapist) {
+    return (
+      <ThemeProvider store={store}>
+        <div className={`min-h-screen flex flex-col ${
+          isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        }`}>
+          <Header store={store} />
+          <main className="flex-1 max-w-5xl mx-auto px-4 py-24 w-full text-center">
+            <p className={`text-xs tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>読み込み中...</p>
+          </main>
+          <Footer store={store} />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  const currentTherapist = therapist;
   const photos = currentTherapist.images && currentTherapist.images.length > 0
     ? currentTherapist.images
     : [currentTherapist.avatarUrl];
 
   const mainPhoto = photos[selectedPhotoIndex] || photos[0] || currentTherapist.avatarUrl;
-
-  const isCyberTheme = shopSlug === 'onyankospa';
 
   return (
     <ThemeProvider store={store}>

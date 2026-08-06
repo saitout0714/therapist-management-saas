@@ -24,6 +24,9 @@ import {
   SystemMenuCategory,
 } from '../types/store';
 
+// 実写真が未登録のセラピストに使うプレースホルダー（他店舗のモック人物写真を誤って出さないため）
+const NO_IMAGE_THERAPIST = '/images/no-image-therapist.svg';
+
 function parseThemeColor(colorInput: any, templateId?: string): StoreConfig['themeColor'] {
   // テンプレート指定によるデフォルトプリセットカラー
   let presetPrimary = '#d1b464';
@@ -173,9 +176,9 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
       
       const photoUrls = photos.length > 0
         ? photos.map((p: any) => p.photo_url)
-        : (t.photo_url ? [t.photo_url] : [isOnyanko ? MOCK_ONYANKO_THERAPISTS[0].avatarUrl : MOCK_THERAPISTS[0].avatarUrl]);
+        : (t.photo_url ? [t.photo_url] : [NO_IMAGE_THERAPIST]);
 
-      const defaultAvatar = t.photo_url || photoUrls[0] || (isOnyanko ? MOCK_ONYANKO_THERAPISTS[0].avatarUrl : MOCK_THERAPISTS[0].avatarUrl);
+      const defaultAvatar = t.photo_url || photoUrls[0] || NO_IMAGE_THERAPIST;
 
       // スリーサイズ形成 (例: B85(D) W58 H88)
       const bStr = t.bust ? `B${t.bust}` : '';
@@ -242,7 +245,7 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
     
     const photoUrls = photos.length > 0
       ? photos.map((p: any) => p.photo_url)
-      : [data.photo_url || data.avatar_url || MOCK_THERAPISTS[0].avatarUrl];
+      : [data.photo_url || data.avatar_url || NO_IMAGE_THERAPIST];
 
     const bStr = data.bust ? `B${data.bust}` : '';
     const cStr = data.bust_cup ? `(${data.bust_cup})` : '';
@@ -276,7 +279,7 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
       waist: data.waist || undefined,
       hip: data.hip || undefined,
       threeSize: computedThreeSize,
-      avatarUrl: data.photo_url || data.avatar_url || photoUrls[0] || MOCK_THERAPISTS[0].avatarUrl,
+      avatarUrl: data.photo_url || data.avatar_url || photoUrls[0] || NO_IMAGE_THERAPIST,
       images: photoUrls,
       badge: data.is_rookie ? '新人' : (data.badge || undefined),
       rankName: data.therapist_ranks?.name || data.grade || undefined,
@@ -342,6 +345,14 @@ export async function fetchConfirmedShifts(
 
 export async function fetchBlogArticles(shopId?: string, therapistId?: string): Promise<BlogArticle[]> {
   try {
+    let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
+    if (shopId && !isOnyanko && shopId.length > 20) {
+      const { data: shopInfo } = await supabase.from('shops').select('slug, name').eq('id', shopId).maybeSingle();
+      if (shopInfo && (shopInfo.slug === 'onyankospa' || shopInfo.name?.includes('おニャンこ'))) {
+        isOnyanko = true;
+      }
+    }
+
     // まず therapist_blogs テーブルを検索
     let tbQuery = supabase
       .from('therapist_blogs')
@@ -391,7 +402,7 @@ export async function fetchBlogArticles(shopId?: string, therapistId?: string): 
     const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
-      if (shopId === 'onyanko-001' || shopId === 'onyankospa') {
+      if (isOnyanko) {
         return MOCK_ONYANKO_BLOG_ARTICLES;
       }
       if (therapistId) {
@@ -412,6 +423,7 @@ export async function fetchBlogArticles(shopId?: string, therapistId?: string): 
       tags: Array.isArray(b.tags) ? b.tags : [],
     }));
   } catch {
+    if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_BLOG_ARTICLES;
     return MOCK_BLOG_ARTICLES;
   }
 }
@@ -516,6 +528,14 @@ export async function fetchCampaigns(shopId?: string): Promise<Campaign[]> {
 
 export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCategory[]> {
   try {
+    let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
+    if (shopId && !isOnyanko && shopId.length > 20) {
+      const { data: shopInfo } = await supabase.from('shops').select('slug, name').eq('id', shopId).maybeSingle();
+      if (shopInfo && (shopInfo.slug === 'onyankospa' || shopInfo.name?.includes('おニャンこ'))) {
+        isOnyanko = true;
+      }
+    }
+
     let query = supabase
       .from('courses')
       .select('*')
@@ -526,7 +546,7 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
 
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
-      if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_SYSTEM_MENU;
+      if (isOnyanko) return MOCK_ONYANKO_SYSTEM_MENU;
       return MOCK_SYSTEM_MENU;
     }
 
@@ -546,6 +566,7 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
       },
     ];
   } catch {
+    if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_SYSTEM_MENU;
     return MOCK_SYSTEM_MENU;
   }
 }

@@ -82,12 +82,19 @@ export default function ReservePage({
         if (newCustomer) customerId = newCustomer.id;
       }
 
-      // 2. Calculate end_time (default 90 mins)
+      // 2. Calculate end_time from the selected course's duration
+      const selectedCourse = currentCourses.find((c) => c.id === selectedCourseId);
+      const durationMinutes = selectedCourse?.durationMinutes || 90;
       const [h, m] = reserveTime.split(':').map(Number);
-      const endH = (h + 1) % 24;
-      const endTimeStr = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      const totalEndMinutes = h * 60 + m + durationMinutes;
+      const endH = Math.floor(totalEndMinutes / 60) % 24;
+      const endM = totalEndMinutes % 60;
+      const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
       // 3. Create reservation in DB
+      // 選択したコースがDB未登録のmockコースの場合、course_idはUUIDでないため保存しない
+      const isValidCourseId = !!selectedCourse && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedCourse.id);
+
       await supabase.from('reservations').insert({
         shop_id: store.id,
         therapist_id: selectedTherapistId || null,
@@ -96,6 +103,12 @@ export default function ReservePage({
         start_time: `${reserveTime}:00`,
         end_time: `${endTimeStr}:00`,
         status: 'pending',
+        course_id: isValidCourseId ? selectedCourse!.id : null,
+        base_price: selectedCourse?.price ?? null,
+        total_price: selectedCourse?.price ?? null,
+        source: 'web',
+        booking_method: 'web',
+        notes: selectedCourse ? `WEB予約: ${selectedCourse.name}（¥${selectedCourse.price.toLocaleString()}）` : undefined,
       });
 
       setIsSubmitted(true);

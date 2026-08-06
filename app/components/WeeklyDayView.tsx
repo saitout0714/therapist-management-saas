@@ -780,6 +780,14 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           {/* Row 1: 時間 & 未送信バッジ */}
                                           <div className="text-[10px] font-medium text-white leading-none flex items-center gap-1 flex-wrap">
                                             <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
+                                            {res.notes && (
+                                              <span
+                                                className="bg-yellow-300 text-amber-900 font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-yellow-500 leading-none max-w-[140px] truncate"
+                                                title={res.notes}
+                                              >
+                                                📝 {res.notes}
+                                              </span>
+                                            )}
                                             {(() => {
                                               if (!res.booking_method || res.booking_method === 'web') return null;
                                               const methods: Record<string, { label: string, colorClass: string }> = {

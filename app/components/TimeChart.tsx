@@ -1206,13 +1206,21 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         border: '2px dashed rgba(217,119,6,0.8)',
                         color: '#92400e',
                       }}
-                      title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime}) 仮予約`}
+                      title={`${schedule.notes ? `📝 ${schedule.notes}\n` : ''}${schedule.title} (${schedule.startTime} - ${schedule.endTime}) 仮予約`}
                       onClick={handleScheduleClick}
                     >
                       <div className="w-full h-full flex flex-col justify-between overflow-hidden py-1.5">
                         <div className="text-[10px] font-medium leading-none flex items-center gap-1 flex-wrap">
                           <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
                           <span className="text-[9px] font-bold bg-amber-500 text-white px-1 rounded-sm">仮</span>
+                          {schedule.notes && (
+                            <span
+                              className="bg-yellow-300 text-amber-900 font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-yellow-500 leading-none max-w-[140px] truncate"
+                              title={schedule.notes}
+                            >
+                              📝 {schedule.notes}
+                            </span>
+                          )}
                           {(() => {
                             if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
                             const methods: Record<string, { label: string, colorClass: string }> = {
@@ -1311,7 +1319,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       ...(schedule.color ? { backgroundColor: schedule.color, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: '1px solid rgba(0,0,0,0.1)' } : {}),
                       color: 'white',
                     }}
-                    title={`${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
+                    title={`${schedule.notes ? `📝 ${schedule.notes}\n` : ''}${schedule.title} (${schedule.startTime} - ${schedule.endTime})`}
                     onClick={handleScheduleClick}
                   >
                     {/* Inner content wrapper to handle overflow nicely */}
@@ -1319,6 +1327,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       {/* Row 1: Time & Notification status */}
                       <div className="text-[10px] font-medium leading-none flex items-center gap-1.5 flex-wrap text-white">
                         <span className="whitespace-nowrap">{schedule.startTime}-{schedule.endTime}</span>
+                        {schedule.notes && (
+                          <span
+                            className="bg-yellow-300 text-amber-900 font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-yellow-500 leading-none max-w-[140px] truncate"
+                            title={schedule.notes}
+                          >
+                            📝 {schedule.notes}
+                          </span>
+                        )}
                         {(() => {
                           if (!schedule.bookingMethod || schedule.bookingMethod === 'web') return null;
                           const methods: Record<string, { label: string, colorClass: string }> = {
