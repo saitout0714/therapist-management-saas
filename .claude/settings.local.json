@@ -111,7 +111,10 @@
       "Bash(curl -s -o /dev/null -w \"GET / → HTTP %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(rm -f \"app/\\(admin\\)/system/components/AddressSendModeTab.tsx\")",
       "Bash(grep -oE \"bg-emerald-600[^\\\\\"]{0,70}|[ぁ-んァ-ヶ一-龠]{2,12}\")",
-      "Bash(grep -oE \">[^<>{]{2,30}<|\\\\{[^}]{0,40}未送信[^}]{0,30}\\\\}\")"
+      "Bash(grep -oE \">[^<>{]{2,30}<|\\\\{[^}]{0,40}未送信[^}]{0,30}\\\\}\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bafb2192-35b1-44da-8e8a-6ab10a64f558/scratchpad/check_ranks.js\")",
+      "Bash(cp \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/bafb2192-35b1-44da-8e8a-6ab10a64f558/scratchpad/check_ranks.js\" ./_check_ranks_tmp.js)",
+      "Bash(node ./_check_ranks_tmp.js)"
     ]
   }
 }
