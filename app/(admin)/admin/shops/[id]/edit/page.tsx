@@ -20,6 +20,86 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const [allShops, setAllShops] = useState<{ id: string; name: string }[]>([])
 
+  // 一括統一の実行状態と結果レポート
+  const [consolidating, setConsolidating] = useState(false)
+  const [consolidateReport, setConsolidateReport] = useState<string[]>([])
+
+  /**
+   * グループの料金・バック共有元をこの店舗に統一する。
+   * 参照先を切り替えるだけだと旧共有元のデータが取り残されて
+   * 「設定が消えた」状態になるため、サーバー側でデータ移送も行う。
+   * まず dryRun で移動内容を提示し、承諾を得てから本実行する。
+   */
+  const runConsolidate = async () => {
+    setError('')
+    setSuccess('')
+    setConsolidateReport([])
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token
+    if (!accessToken) {
+      setError('セッションが取得できませんでした。再ログインしてください')
+      return
+    }
+
+    const ownerId = selectedOwnerId || (allShops.find(s => s.id === id) as any)?.owner_id || null
+
+    const call = async (dryRun: boolean) => {
+      const res = await fetch('/api/admin/consolidate-shop-sharing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ targetShopId: id, ownerId, dryRun }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '不明なエラー')
+      return json as {
+        targetShopName: string
+        groupShopNames: string[]
+        moved: string[]
+        skipped: string[]
+        warnings: string[]
+      }
+    }
+
+    setConsolidating(true)
+    try {
+      // 1. まず何が起きるかを確認する（データは変更しない）
+      const plan = await call(true)
+
+      const lines = [
+        `「${plan.targetShopName}」のデータをグループ共通にします。`,
+        `対象店舗: ${plan.groupShopNames.join(' / ')}`,
+        '',
+        plan.moved.length > 0
+          ? `【移動するデータ】\n${plan.moved.join('\n')}`
+          : '【移動するデータ】\n・なし',
+      ]
+      if (plan.skipped.length > 0) lines.push('', `【そのままにするデータ】\n${plan.skipped.join('\n')}`)
+      if (plan.warnings.length > 0) lines.push('', `【注意】\n${plan.warnings.join('\n')}`)
+      lines.push('', '実行しますか？')
+
+      if (!confirm(lines.join('\n'))) {
+        setConsolidating(false)
+        return
+      }
+
+      // 2. 本実行
+      const result = await call(false)
+
+      setPricingSourceShopId('')
+      setBackSourceShopId('')
+      setConsolidateReport([...result.moved, ...result.skipped, ...result.warnings])
+      setSuccess(`✨ グループ全店舗の料金・バック共有元を「${result.targetShopName}」に統一しました`)
+    } catch (err: any) {
+      setError('一括共有設定に失敗しました: ' + err.message)
+    } finally {
+      setConsolidating(false)
+    }
+  }
+
   // 店舗基本フォーム
   const [form, setForm] = useState({
     name: '',
@@ -521,38 +601,27 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
                 <div>
                   <h3 className="text-xs font-bold text-indigo-900">⚡ ワンタップ・一括共有設定</h3>
                   <p className="text-[11px] text-indigo-700 mt-0.5">どの店舗から料金やランク・バック率を変更しても、グループ全店で即時共通化されます。</p>
+                  <p className="text-[11px] text-indigo-700 mt-1">
+                    旧共有元にデータが残っている場合は、この店舗へ移送してから切り替えます（実行前に内容を確認できます）。
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!confirm(`「${form.name}」の料金設定・バック計算ルールをグループ内の全姉妹店舗の共有元として一括統一しますか？`)) return
-                    try {
-                      // 全姉妹店舗（同owner_id）の共有元IDを本店舗IDに一括設定
-                      const ownerId = selectedOwnerId || (allShops.find(s => s.id === id) as any)?.owner_id
-                      if (ownerId) {
-                        await supabase
-                          .from('shops')
-                          .update({ pricing_source_shop_id: id, back_source_shop_id: id })
-                          .eq('owner_id', ownerId)
-                      } else {
-                        await supabase
-                          .from('shops')
-                          .update({ pricing_source_shop_id: id, back_source_shop_id: id })
-                          .eq('id', id)
-                      }
-                      setPricingSourceShopId(id)
-                      setBackSourceShopId(id)
-                      setSuccess(`✨ グループ全店舗の料金・バック共有元を「${form.name}」に一括統一しました！`)
-                      alert(`✨ グループ全店舗の料金・バック共有元を「${form.name}」に一括統一・完了しました！`)
-                    } catch (err: any) {
-                      setError('一括共有設定に失敗しました: ' + err.message)
-                    }
-                  }}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
+                  disabled={consolidating}
+                  onClick={runConsolidate}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
                 >
-                  ⚡ この店舗データに全グループ一括統一
+                  {consolidating ? '処理中...' : '⚡ この店舗データに全グループ一括統一'}
                 </button>
               </div>
+
+              {consolidateReport.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-[11px] text-indigo-900 bg-white/70 border border-indigo-100 rounded-lg p-2.5">
+                  {consolidateReport.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div>
