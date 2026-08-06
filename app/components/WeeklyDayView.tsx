@@ -782,7 +782,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                             <span className="whitespace-nowrap">{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
                                             {res.notes && (
                                               <span
-                                                className="bg-yellow-300 text-amber-900 font-extrabold px-1 py-0.5 rounded-[3px] text-[9px] whitespace-nowrap shadow-sm border border-yellow-500 leading-none max-w-[140px] truncate"
+                                                className="bg-yellow-300 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-[4px] text-[12px] whitespace-nowrap shadow-sm border border-yellow-500 leading-tight max-w-[220px] truncate"
                                                 title={res.notes}
                                               >
                                                 📝 {res.notes}
