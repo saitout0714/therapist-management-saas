@@ -378,6 +378,32 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     return h * 60 + m;
   };
 
+  const roomGroups = useMemo(() => {
+    if (sortMode !== 'room') return [];
+    const groups: { name: string; count: number }[] = [];
+    therapists.forEach((t) => {
+      const isOff = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
+        s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
+      );
+      let gName = 'フリー / ルーム未定';
+      if (isOff) {
+        gName = '休み (OFF)';
+      } else if (t.room) {
+        gName = t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
+      }
+      
+      if (groups.length === 0 || groups[groups.length - 1].name !== gName) {
+        groups.push({ name: gName, count: 1 });
+      } else {
+        groups[groups.length - 1].count++;
+      }
+    });
+    return groups;
+  }, [therapists, sortMode, schedules]);
+
+  const groupBarHeight = sortMode === 'room' ? 32 : 0;
+  const totalTopHeaderHeight = headerHeight + groupBarHeight;
+
   return (
     <div className="relative w-full h-full bg-slate-50 border border-slate-200 rounded-lg shadow-inner overflow-hidden">
       {/* Scrollable Container */}
@@ -396,45 +422,72 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           
           {/* Top Sticky Header */}
           <div
-            className="sticky top-0 flex z-30 bg-white border-b border-slate-200 shadow-sm"
-            style={{ height: `${headerHeight}px` }}
+            className="sticky top-0 flex flex-col z-30 bg-white border-b border-slate-200 shadow-sm"
+            style={{ height: `${totalTopHeaderHeight}px` }}
           >
-            {/* Top-Left Sticky Corner Spacer */}
-            <div
-              className="sticky left-0 bg-slate-100 border-r border-b border-slate-200 z-40 flex-shrink-0"
-              style={{ width: `${timeColumnWidth}px`, height: `${headerHeight}px` }}
-            />
-
-            {/* Therapist Column Headers */}
-            {therapists.map((therapist, index) => {
-              const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
-                s =>
-                  s.therapistId === therapist.id &&
-                  s.type === 'blocked' &&
-                  s.startTime === therapist.shiftStart &&
-                  s.endTime === therapist.shiftEnd
-              );
-
-              const getRoomGroupName = (t: Therapist): string => {
-                const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
-                  s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
-                );
-                if (off) return '休み (OFF)';
-                if (t.id === 'unassigned' || !t.room) return '未定';
-                return t.room;
-              };
-
-              const currentGroupName = getRoomGroupName(therapist);
-              const isFirstOfGroup = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
-
-              return (
+            {/* 1段目: ルームグループ帯 (sortMode === 'room' のときのみ) */}
+            {sortMode === 'room' && (
+              <div className="flex flex-shrink-0" style={{ height: '32px' }}>
+                {/* 左上角スペーサー (グループ行分) */}
                 <div
-                  key={`header-${therapist.id}`}
-                  className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 sm:p-2 select-none overflow-hidden
-                    ${isFirstOfGroup ? 'border-l-[3px] border-l-indigo-500' : ''}
-                    ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
-                  style={{ width: `${columnWidth}px`, height: `${headerHeight}px` }}
+                  className="sticky left-0 bg-indigo-100/90 border-r border-b border-indigo-200 z-40 flex-shrink-0 flex items-center justify-center font-bold text-[11px] text-indigo-900 shadow-sm"
+                  style={{ width: `${timeColumnWidth}px`, height: '32px' }}
                 >
+                  ルーム
+                </div>
+                {/* 各グループの横幅指定帯 */}
+                {roomGroups.map((g, gIdx) => (
+                  <div
+                    key={`room-group-${gIdx}`}
+                    style={{ width: `${g.count * columnWidth}px`, height: '32px' }}
+                    className="bg-indigo-50/95 text-indigo-900 font-bold text-xs border-r border-b border-indigo-200 px-3 flex items-center justify-center gap-1.5 shadow-sm truncate flex-shrink-0"
+                  >
+                    <span className="text-sm">🏠</span>
+                    <span className="truncate">{g.name}</span>
+                    <span className="text-[10px] text-indigo-600 font-normal flex-shrink-0">({g.count}名)</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 2段目: セラピスト個別カードヘッダー */}
+            <div className="flex flex-1">
+              {/* 左上角スペーサー (カードヘッダー分) */}
+              <div
+                className="sticky left-0 bg-slate-100 border-r border-b border-slate-200 z-40 flex-shrink-0"
+                style={{ width: `${timeColumnWidth}px`, height: `${headerHeight}px` }}
+              />
+
+              {/* Therapist Column Headers */}
+              {therapists.map((therapist, index) => {
+                const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
+                  s =>
+                    s.therapistId === therapist.id &&
+                    s.type === 'blocked' &&
+                    s.startTime === therapist.shiftStart &&
+                    s.endTime === therapist.shiftEnd
+                );
+
+                const getRoomGroupName = (t: Therapist): string => {
+                  const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
+                    s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
+                  );
+                  if (off) return '休み (OFF)';
+                  if (t.id === 'unassigned' || !t.room) return 'フリー / ルーム未定';
+                  return t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
+                };
+
+                const currentGroupName = getRoomGroupName(therapist);
+                const isFirstOfGroup = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+
+                return (
+                  <div
+                    key={`header-${therapist.id}`}
+                    className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 sm:p-2 select-none overflow-hidden
+                      ${isFirstOfGroup && index > 0 ? 'border-l-2 border-l-indigo-300' : ''}
+                      ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
+                    style={{ width: `${columnWidth}px`, height: `${headerHeight}px` }}
+                  >
                   {/* Active indicator bar */}
                   {!isOff && (
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -578,31 +631,29 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                       </div>
                     </div>
 
-                    {/* 中段: ルーム */}
-                    <div className="min-w-0">
-                      {therapist.room ? (
-                        <span
-                          className={`text-[10px] flex items-center gap-0.5 cursor-default leading-tight min-w-0 px-1 py-0.5 rounded ${
-                            sortMode === 'room'
-                              ? 'bg-indigo-100 text-indigo-900 font-bold border border-indigo-200'
-                              : 'text-slate-600 font-semibold'
-                          }`}
-                          onMouseEnter={(e) => {
-                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 6 });
-                          }}
-                          onMouseLeave={() => {
-                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                          }}
-                        >
-                          <svg className={`w-2.5 h-2.5 flex-shrink-0 ${sortMode === 'room' ? 'text-indigo-600' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                          <span className="truncate">{therapist.room}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 italic">ルーム未定</span>
-                      )}
-                    </div>
+                    {/* 中段: ルーム (ルーム順以外のときに表示。ルーム順の場合は最上部グループ帯に表示されるため非表示) */}
+                    {sortMode !== 'room' && (
+                      <div className="min-w-0">
+                        {therapist.room ? (
+                          <span
+                            className="text-[10px] text-slate-600 font-semibold flex items-center gap-0.5 cursor-default leading-tight min-w-0"
+                            onMouseEnter={(e) => {
+                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 6 });
+                            }}
+                            onMouseLeave={() => {
+                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                            }}
+                          >
+                            <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            <span className="truncate">{therapist.room}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 italic">ルーム未定</span>
+                        )}
+                      </div>
+                    )}
 
                     {/* notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
                     {therapist.notes && (
@@ -784,27 +835,29 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     )}
                   </div>
 
-                  {/* 3段目: ルーム名（折り返し2行） */}
-                  <div className="sm:hidden min-w-0 flex-1 flex flex-col justify-center py-0.5">
-                    {therapist.room ? (
-                      <span
-                        className="text-[9px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
-                        onMouseEnter={(e) => {
-                          if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
-                        }}
-                        onMouseLeave={() => {
-                          roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                        }}
-                      >
-                        <svg className="w-2 h-2 text-slate-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                        <span className="flex-1 line-clamp-2">{therapist.room}</span>
-                      </span>
-                    ) : (
-                      <span className="text-[9px] text-slate-300 italic">ルーム未定</span>
-                    )}
-                  </div>
+                  {/* 3段目: ルーム名（折り返し2行、ルーム順以外のときに表示） */}
+                  {sortMode !== 'room' && (
+                    <div className="sm:hidden min-w-0 flex-1 flex flex-col justify-center py-0.5">
+                      {therapist.room ? (
+                        <span
+                          className="text-[9px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
+                          onMouseEnter={(e) => {
+                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
+                          }}
+                          onMouseLeave={() => {
+                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                          }}
+                        >
+                          <svg className="w-2 h-2 text-slate-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          <span className="flex-1 line-clamp-2">{therapist.room}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-slate-300 italic">ルーム未定</span>
+                      )}
+                    </div>
+                  )}
 
                   {/* 4段目: インターバル + メモ/編集ボタン */}
                   <div className="flex sm:hidden items-center justify-between gap-1 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
@@ -852,6 +905,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                 </div>
               );
             })}
+            </div>
           </div>
 
           {/* Grid Area - Flex layout with left sticky time and columns side by side */}
@@ -904,8 +958,8 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
                   );
                   if (off) return '休み (OFF)';
-                  if (t.id === 'unassigned' || !t.room) return '未定';
-                  return t.room;
+                  if (t.id === 'unassigned' || !t.room) return 'フリー / ルーム未定';
+                  return t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
                 };
 
                 const currentGroupName = getRoomGroupName(therapist);
@@ -915,7 +969,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   <div
                     key={`col-${therapist.id}`}
                     className={`border-r border-slate-200 flex-shrink-0 relative bg-slate-50/50 ${
-                      isFirstOfGroup ? 'border-l-[3px] border-l-indigo-500' : ''
+                      isFirstOfGroup && tIdx > 0 ? 'border-l-2 border-l-indigo-300' : ''
                     }`}
                     style={{ width: `${columnWidth}px` }}
                   >

@@ -395,10 +395,38 @@ const TimeChart: React.FC<TimeChartProps> = ({
   }, [therapists, sortMode, schedules]);
 
   // Row height & Cell width adjustments for compact view
-  // デスクトップはセラピスト情報を読みやすくするため行高を広げる（スマホは従来通り）
-  // 名前・出勤時間・ルーム・notesバッジの4段がすべて揃うケースでも見切れず、かつ画面内に多く収まるよう詰めた高さ
   const rowHeight = isDesktop ? 100 : 76;
   const cellWidth = 14; // Cell width
+
+  const therapistTopMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let currentY = 0;
+
+    therapists.forEach((therapist, index) => {
+      const currentGroupName = getRoomGroupName(therapist);
+      const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+
+      if (showGroupHeader) {
+        currentY += 32;
+      }
+
+      map.set(therapist.id, currentY);
+      currentY += rowHeight;
+    });
+
+    return map;
+  }, [therapists, sortMode, rowHeight, schedules]);
+
+  const totalBodyHeight = useMemo(() => {
+    let total = 0;
+    therapists.forEach((therapist, index) => {
+      const currentGroupName = getRoomGroupName(therapist);
+      const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+      if (showGroupHeader) total += 32;
+      total += rowHeight;
+    });
+    return total;
+  }, [therapists, sortMode, rowHeight, schedules]);
 
   return (
     <div 
@@ -891,7 +919,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 left: `${seekIndex * cellWidth}px`,
                 top: 0,
                 width: '2px',
-                height: `${(therapists.length * rowHeight) + (sortMode === 'room' ? (Array.from(new Set(therapists.map(getRoomGroupName))).length * 32) : 0)}px`,
+                height: `${totalBodyHeight}px`,
                 background: 'linear-gradient(to bottom, rgb(99 102 241), rgba(99, 102, 241, 0.1))',
                 zIndex: 10,
                 pointerEvents: 'none'
@@ -979,7 +1007,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 const endMinutes = timeToMinutes(schedule.endTime);
                 const duration = endMinutes - startMinutes;
 
-                const top = therapistIndex * rowHeight + 4; // Slight padding from top
+                const topY = therapistTopMap.get(schedule.therapistId) ?? (therapistIndex * rowHeight);
+                const top = topY + 4; // Slight padding from top
                 const height = rowHeight - 8; // Padding from bottom
                 const startPixels = (startMinutes / 5) * cellWidth;
                 const widthPixels = (duration / 5) * cellWidth;

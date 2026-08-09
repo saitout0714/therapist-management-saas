@@ -531,13 +531,37 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                         toDisplayTime(r.end_time) === shiftEndStr
                       )
 
+                      const getShiftRoomGroupName = (s: Shift): string => {
+                        const t = therapistMap.get(s.therapist_id)
+                        const sStart = toDisplayTime(s.start_time)
+                        const sEnd = toDisplayTime(s.end_time)
+                        const res = reservationsByDateTherapist.get(`${dateStr}_${s.therapist_id}`) || []
+                        const isOffShift = t?.id !== 'unassigned' && res.some(r =>
+                          r.status === 'blocked' &&
+                          toDisplayTime(r.start_time) === sStart &&
+                          toDisplayTime(r.end_time) === sEnd
+                        )
+                        if (isOffShift) return '休み (OFF)'
+                        if (s.therapist_id === 'unassigned' || !s.room_id) return 'フリー / 未定'
+                        return roomMap.get(s.room_id) || 'フリー / 未定'
+                      }
+
+                      const currentGroupName = getShiftRoomGroupName(shift)
+                      const showGroupHeader = sortMode === 'room' && (shiftIdx === 0 || getShiftRoomGroupName(dayShifts[shiftIdx - 1]) !== currentGroupName)
+
                       return (
-                        <div
-                          key={shift.id}
-                          className={`transition-colors group relative
-                            ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}
-                            ${shiftIdx < dayShifts.length - 1 ? 'border-b border-slate-100' : ''}`}
-                        >
+                        <React.Fragment key={shift.id}>
+                          {showGroupHeader && (
+                            <div className="bg-indigo-50/95 border-y border-indigo-200 text-indigo-900 font-bold text-[11px] sm:text-xs px-2 py-1 flex items-center gap-1 sticky top-[57px] z-10 shadow-sm whitespace-nowrap">
+                              <span className="text-xs">🏠</span>
+                              <span className="truncate">{currentGroupName}</span>
+                            </div>
+                          )}
+                          <div
+                            className={`transition-colors group relative
+                              ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}
+                              ${shiftIdx < dayShifts.length - 1 ? 'border-b border-slate-100' : ''}`}
+                          >
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
                           {!isOff && (
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -895,8 +919,9 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                             }
                           })()}
                         </div>
-                      )
-                    })
+                      </React.Fragment>
+                    )
+                  })
                   )}
                 </div>
               </div>
