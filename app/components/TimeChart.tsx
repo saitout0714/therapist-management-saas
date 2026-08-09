@@ -83,6 +83,7 @@ interface TimeChartProps {
   therapists: Therapist[];
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
+  sortMode?: string;
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string) => void;
@@ -100,6 +101,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   therapists: rawTherapists,
   schedules: rawSchedules = [],
   date,
+  sortMode,
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
@@ -363,13 +365,34 @@ const TimeChart: React.FC<TimeChartProps> = ({
     seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
 
-  // 受付終了アイコンの表示可否判定用（シフト終了時刻を過ぎていたら非表示にする）
   const nowExtendedMins = (nowHour < 6 ? nowHour + 24 : nowHour) * 60 + nowMin;
   const hhmToMins = (hhmm?: string | null) => {
     if (!hhmm) return null;
     const [h, m] = hhmm.split(':').map(Number);
     return h * 60 + m;
   };
+
+  const getRoomGroupName = (therapist: Therapist): string => {
+    const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
+      s => s.therapistId === therapist.id && s.type === 'blocked' && s.startTime === therapist.shiftStart && s.endTime === therapist.shiftEnd
+    );
+    if (isOff) return '休み (OFF)';
+    if (therapist.id === 'unassigned' || !therapist.room) return 'フリー（未割当） / ルーム未定';
+    if (therapist.roomDisplayName) {
+      return `${therapist.room} (${therapist.roomDisplayName})`;
+    }
+    return therapist.room;
+  };
+
+  const roomGroupCounts = useMemo(() => {
+    if (sortMode !== 'room') return new Map<string, number>();
+    const counts = new Map<string, number>();
+    therapists.forEach((t) => {
+      const gName = getRoomGroupName(t);
+      counts.set(gName, (counts.get(gName) || 0) + 1);
+    });
+    return counts;
+  }, [therapists, sortMode, schedules]);
 
   // Row height & Cell width adjustments for compact view
   // デスクトップはセラピスト情報を読みやすくするため行高を広げる（スマホは従来通り）
@@ -405,7 +428,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
           {/* Therapist List */}
           <div className="flex-1">
-            {therapists.map((therapist) => {
+            {therapists.map((therapist, index) => {
               const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
                 s =>
                   s.therapistId === therapist.id &&
@@ -413,9 +436,25 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   s.startTime === therapist.shiftStart &&
                   s.endTime === therapist.shiftEnd
               );
+
+              const currentGroupName = getRoomGroupName(therapist);
+              const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+
               return (
+                <React.Fragment key={therapist.id}>
+                  {showGroupHeader && (
+                    <div
+                      style={{ height: '32px' }}
+                      className="bg-indigo-50/90 border-y border-indigo-200 text-indigo-900 font-bold text-xs px-2.5 sm:px-3 flex items-center gap-1.5 sticky left-0 z-20 shadow-sm whitespace-nowrap"
+                    >
+                      <span className="text-sm">🏠</span>
+                      <span className="truncate">{currentGroupName}</span>
+                      <span className="ml-auto text-[10px] text-indigo-600 font-normal flex-shrink-0">
+                        {roomGroupCounts.get(currentGroupName)}名
+                      </span>
+                    </div>
+                  )}
                 <div
-                  key={therapist.id}
                   style={{ height: `${rowHeight}px` }}
                   className={`flex items-stretch border-b border-slate-100 transition-colors group relative overflow-hidden
                     ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
@@ -778,94 +817,105 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Right timeline area */}
+      <div className="flex-1 relative bg-slate-50">
+        {/* Header timeline */}
+        <div
+          className="flex relative sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm"
+          style={{ minWidth: 'fit-content', height: '56px' }}
+          ref={headerTimelineRef}
+        >
+          {hourLabels.map((label, idx) => (
+            <div
+              key={`hour-${idx}`}
+              className="flex flex-col border-r border-slate-300"
+              style={{ width: `${(cellWidth * 12)}px` }}
+            >
+              <div className="h-8 flex items-center px-2 text-xs font-bold text-slate-700 tracking-wide">
+                {label}
+              </div>
+              <div className="h-6 flex text-[9px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
+                {Array.from({ length: 12 }).map((_, i) => {
+                  let borderClass = 'border-r border-slate-100';
+                  if (i === 5) {
+                    borderClass = 'border-r border-slate-200';
+                  } else if (i === 11) {
+                    borderClass = 'border-r-0';
+                  }
+                  return (
+                    <div key={i} className={`flex-1 flex justify-center items-center ${borderClass} relative`}>
+                      {i === 0 || i === 6 ? (
+                        <span>{String(i * 5).padStart(2, '0')}</span>
+                      ) : (
+                        <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Seek Bar Header Marker */}
+          {showSeek && seekIndex > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${seekIndex * cellWidth}px`,
+                top: '32px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'rgb(99 102 241)', // indigo-500
+                transform: 'translateX(-4px)',
+                boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.2)',
+                zIndex: 20,
+              }}
+            />
+          )}
         </div>
 
-        {/* Right timeline area */}
-        <div className="flex-1 relative bg-slate-50">
-          {/* Header timeline */}
-          <div
-            className="flex relative sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm"
-            style={{ minWidth: 'fit-content', height: '56px' }}
-            ref={headerTimelineRef}
-          >
-            {hourLabels.map((label, idx) => (
-              <div
-                key={`hour-${idx}`}
-                className="flex flex-col border-r border-slate-300"
-                style={{ width: `${(cellWidth * 12)}px` }}
-              >
-                <div className="h-8 flex items-center px-2 text-xs font-bold text-slate-700 tracking-wide">
-                  {label}
-                </div>
-                <div className="h-6 flex text-[9px] font-medium text-slate-400 border-t border-slate-100 bg-slate-100">
-                  {Array.from({ length: 12 }).map((_, i) => {
-                    let borderClass = 'border-r border-slate-100';
-                    if (i === 5) {
-                      borderClass = 'border-r border-slate-200';
-                    } else if (i === 11) {
-                      borderClass = 'border-r-0';
-                    }
-                    return (
-                      <div key={i} className={`flex-1 flex justify-center items-center ${borderClass} relative`}>
-                        {i === 0 || i === 6 ? (
-                          <span>{String(i * 5).padStart(2, '0')}</span>
-                        ) : (
-                          <div className="w-[1px] h-1 bg-slate-200 rounded-full" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+        {/* Grid body */}
+        <div className="relative" style={{ minWidth: 'fit-content' }}>
+          {/* Seek Bar Line */}
+          {showSeek && seekIndex > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${seekIndex * cellWidth}px`,
+                top: 0,
+                width: '2px',
+                height: `${(therapists.length * rowHeight) + (sortMode === 'room' ? (Array.from(new Set(therapists.map(getRoomGroupName))).length * 32) : 0)}px`,
+                background: 'linear-gradient(to bottom, rgb(99 102 241), rgba(99, 102, 241, 0.1))',
+                zIndex: 10,
+                pointerEvents: 'none'
+              }}
+            />
+          )}
 
-            {/* Seek Bar Header Marker */}
-            {showSeek && seekIndex > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${seekIndex * cellWidth}px`,
-                  top: '32px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'rgb(99 102 241)', // indigo-500
-                  transform: 'translateX(-4px)',
-                  boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.2)',
-                  zIndex: 20,
-                }}
-              />
-            )}
-          </div>
+          <div className="flex flex-col min-w-max">
+            {therapists.map((therapist, tIdx) => {
+              const currentGroupName = getRoomGroupName(therapist);
+              const showGroupHeader = sortMode === 'room' && (tIdx === 0 || getRoomGroupName(therapists[tIdx - 1]) !== currentGroupName);
 
-          {/* Grid body */}
-          <div className="relative" style={{ minWidth: 'fit-content' }}>
-            {/* Seek Bar Line */}
-            {showSeek && seekIndex > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${seekIndex * cellWidth}px`,
-                  top: 0,
-                  width: '2px',
-                  height: `${therapists.length * rowHeight}px`,
-                  background: 'linear-gradient(to bottom, rgb(99 102 241), rgba(99, 102, 241, 0.1))',
-                  zIndex: 10,
-                  pointerEvents: 'none'
-                }}
-              />
-            )}
-
-            <div className="flex flex-col min-w-max">
-              {therapists.map((therapist, tIdx) => (
-                <div
-                  key={therapist.id}
-                  style={{ height: `${rowHeight}px` }}
-                  className={`flex ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''}`}
-                >
+              return (
+                <React.Fragment key={`grid-${therapist.id}`}>
+                  {showGroupHeader && (
+                    <div
+                      style={{ height: '32px' }}
+                      className="bg-indigo-50/90 border-y border-indigo-200 flex items-center px-3 text-indigo-900/70 font-semibold text-xs sticky left-0"
+                    />
+                  )}
+                  <div
+                    style={{ height: `${rowHeight}px` }}
+                    className={`flex ${tIdx < therapists.length - 1 ? 'border-b border-slate-100' : ''}`}
+                  >
                   {hourLabels.map((_, hIdx) => (
                     <div
                       key={`hour-group-${hIdx}`}
@@ -914,8 +964,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     </div>
                   ))}
                 </div>
-              ))}
-            </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
 
             {/* Schedules Layer */}
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>

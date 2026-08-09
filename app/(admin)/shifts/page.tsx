@@ -2418,6 +2418,7 @@ function ShiftsContent() {
                     therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
+                    sortMode={sortMode}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
@@ -2453,6 +2454,7 @@ function ShiftsContent() {
                     therapists={sortedTherapistsWithShift}
                     schedules={schedules}
                     date={filterDate}
+                    sortMode={sortMode}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })

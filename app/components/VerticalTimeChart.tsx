@@ -96,6 +96,7 @@ interface VerticalTimeChartProps {
   therapists: Therapist[];
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
+  sortMode?: string;
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string, date?: string) => void;
@@ -105,10 +106,11 @@ interface VerticalTimeChartProps {
   onPaymentSettle?: (reservationId: string, methodLabel: string) => Promise<void>;
 }
 
-const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
+export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   therapists: rawTherapists,
   schedules: rawSchedules = [],
   date,
+  sortMode,
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
@@ -404,7 +406,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             />
 
             {/* Therapist Column Headers */}
-            {therapists.map((therapist) => {
+            {therapists.map((therapist, index) => {
               const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
                 s =>
                   s.therapistId === therapist.id &&
@@ -413,10 +415,23 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   s.endTime === therapist.shiftEnd
               );
 
+              const getRoomGroupName = (t: Therapist): string => {
+                const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
+                  s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
+                );
+                if (off) return '休み (OFF)';
+                if (t.id === 'unassigned' || !t.room) return '未定';
+                return t.room;
+              };
+
+              const currentGroupName = getRoomGroupName(therapist);
+              const isFirstOfGroup = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+
               return (
                 <div
                   key={`header-${therapist.id}`}
                   className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 sm:p-2 select-none overflow-hidden
+                    ${isFirstOfGroup ? 'border-l-[3px] border-l-indigo-500' : ''}
                     ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                   style={{ width: `${columnWidth}px`, height: `${headerHeight}px` }}
                 >
@@ -567,7 +582,11 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     <div className="min-w-0">
                       {therapist.room ? (
                         <span
-                          className="text-[10px] text-slate-600 font-semibold flex items-center gap-0.5 cursor-default leading-tight min-w-0"
+                          className={`text-[10px] flex items-center gap-0.5 cursor-default leading-tight min-w-0 px-1 py-0.5 rounded ${
+                            sortMode === 'room'
+                              ? 'bg-indigo-100 text-indigo-900 font-bold border border-indigo-200'
+                              : 'text-slate-600 font-semibold'
+                          }`}
                           onMouseEnter={(e) => {
                             if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -577,7 +596,7 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                             roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
                           }}
                         >
-                          <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          <svg className={`w-2.5 h-2.5 flex-shrink-0 ${sortMode === 'room' ? 'text-indigo-600' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                           <span className="truncate">{therapist.room}</span>
                         </span>
                       ) : (
@@ -879,12 +898,27 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               )}
 
               {/* Grid Cells column-by-column */}
-              {therapists.map((therapist, tIdx) => (
-                <div
-                  key={`col-${therapist.id}`}
-                  className="border-r border-slate-200 flex-shrink-0 relative bg-slate-50/50"
-                  style={{ width: `${columnWidth}px` }}
-                >
+              {therapists.map((therapist, tIdx) => {
+                const getRoomGroupName = (t: Therapist): string => {
+                  const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
+                    s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
+                  );
+                  if (off) return '休み (OFF)';
+                  if (t.id === 'unassigned' || !t.room) return '未定';
+                  return t.room;
+                };
+
+                const currentGroupName = getRoomGroupName(therapist);
+                const isFirstOfGroup = sortMode === 'room' && (tIdx === 0 || getRoomGroupName(therapists[tIdx - 1]) !== currentGroupName);
+
+                return (
+                  <div
+                    key={`col-${therapist.id}`}
+                    className={`border-r border-slate-200 flex-shrink-0 relative bg-slate-50/50 ${
+                      isFirstOfGroup ? 'border-l-[3px] border-l-indigo-500' : ''
+                    }`}
+                    style={{ width: `${columnWidth}px` }}
+                  >
                   {timeSlots.map((timeSlot, idx) => {
                     const inShift = isCellInShift(therapist, idx);
                     const cellStyle = getCellBackgroundStyle(inShift);
@@ -922,7 +956,8 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     );
                   })}
                 </div>
-              ))}
+              );
+            })}
 
               {/* Schedules Layer - absolute overlays */}
               <div
