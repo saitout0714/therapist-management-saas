@@ -493,10 +493,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                     ${isToday ? 'text-indigo-600' : isSun ? 'text-rose-500' : isSat ? 'text-blue-500' : 'text-slate-800'}`}>
                     {date.getMonth()+1}/{date.getDate()}
                   </span>
-                  {isToday
-                    ? <span className="mt-1 text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">今日</span>
-                    : <span className="mt-1 text-[10px] text-slate-400 font-medium">{dayShifts.length > 0 ? `${dayShifts.length}名` : '—'}</span>
-                  }
+                  <span className="mt-1 text-[10px] text-slate-400 font-medium">{dayShifts.length > 0 ? `${dayShifts.length}名` : '—'}</span>
                 </div>
 
                 {/* セラピストカード列 — bg-slate-50 でタイムラインエリアと統一 */}

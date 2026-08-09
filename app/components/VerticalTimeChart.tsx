@@ -380,20 +380,23 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
   const roomGroups = useMemo(() => {
     if (sortMode !== 'room') return [];
-    const groups: { name: string; count: number }[] = [];
-    therapists.forEach((t) => {
+    const groups: { name: string; count: number; start: number; kind: 'room' | 'free' | 'off' }[] = [];
+    therapists.forEach((t, i) => {
       const isOff = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
         s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
       );
       let gName = 'フリー / ルーム未定';
+      let kind: 'room' | 'free' | 'off' = 'free';
       if (isOff) {
         gName = '休み (OFF)';
+        kind = 'off';
       } else if (t.room) {
         gName = t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
+        kind = 'room';
       }
-      
+
       if (groups.length === 0 || groups[groups.length - 1].name !== gName) {
-        groups.push({ name: gName, count: 1 });
+        groups.push({ name: gName, count: 1, start: i, kind });
       } else {
         groups[groups.length - 1].count++;
       }
@@ -427,31 +430,48 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           >
             {/* 1段目: ルームグループ帯 (sortMode === 'room' のときのみ) */}
             {sortMode === 'room' && (
-              <div className="flex flex-shrink-0" style={{ height: '32px' }}>
+              <div className="flex flex-shrink-0 relative border-b border-slate-200" style={{ height: '32px' }}>
                 {/* 左上角スペーサー (グループ行分) */}
                 <div
-                  className="sticky left-0 bg-indigo-100/90 border-r border-b border-indigo-200 z-40 flex-shrink-0 flex items-center justify-center font-bold text-[11px] text-indigo-900 shadow-sm"
+                  className="sticky left-0 bg-slate-100 border-r border-slate-200 z-40 flex-shrink-0 flex items-center px-2 font-semibold text-[10px] tracking-wide text-slate-500"
                   style={{ width: `${timeColumnWidth}px`, height: '32px' }}
                 >
                   ルーム
                 </div>
                 {/* 各グループの横幅指定帯 */}
-                {roomGroups.map((g, gIdx) => (
+                {roomGroups.map((g, gIdx) => {
+                  const tone =
+                    g.kind === 'off'
+                      ? { bg: 'bg-rose-50/70', dot: 'bg-rose-300', text: 'text-rose-700' }
+                      : g.kind === 'free'
+                        ? { bg: 'bg-slate-50', dot: 'bg-slate-300', text: 'text-slate-500' }
+                        : { bg: gIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80', dot: 'bg-indigo-400', text: 'text-slate-700' };
+                  return (
+                    <div
+                      key={`room-group-${gIdx}`}
+                      style={{ width: `${g.count * columnWidth}px`, height: '32px' }}
+                      className={`${tone.bg} flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden`}
+                      title={`${g.name} / ${g.count}名`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tone.dot}`} />
+                      <span className={`truncate text-[11px] font-semibold tracking-tight ${tone.text}`}>{g.name}</span>
+                      <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">{g.count}</span>
+                    </div>
+                  );
+                })}
+                {/* グループ区切り線 (下のグリッドと同じ x 座標で描画) */}
+                {roomGroups.slice(1).map((g, i) => (
                   <div
-                    key={`room-group-${gIdx}`}
-                    style={{ width: `${g.count * columnWidth}px`, height: '32px' }}
-                    className="bg-indigo-50/95 text-indigo-900 font-bold text-xs border-r border-b border-indigo-200 px-3 flex items-center justify-center gap-1.5 shadow-sm truncate flex-shrink-0"
-                  >
-                    <span className="text-sm">🏠</span>
-                    <span className="truncate">{g.name}</span>
-                    <span className="text-[10px] text-indigo-600 font-normal flex-shrink-0">({g.count}名)</span>
-                  </div>
+                    key={`room-group-sep-${i}`}
+                    className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none z-20"
+                    style={{ left: `${timeColumnWidth + g.start * columnWidth}px` }}
+                  />
                 ))}
               </div>
             )}
 
             {/* 2段目: セラピスト個別カードヘッダー */}
-            <div className="flex flex-1">
+            <div className="flex flex-1 relative">
               {/* 左上角スペーサー (カードヘッダー分) */}
               <div
                 className="sticky left-0 bg-slate-100 border-r border-b border-slate-200 z-40 flex-shrink-0"
@@ -468,23 +488,10 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     s.endTime === therapist.shiftEnd
                 );
 
-                const getRoomGroupName = (t: Therapist): string => {
-                  const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
-                    s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
-                  );
-                  if (off) return '休み (OFF)';
-                  if (t.id === 'unassigned' || !t.room) return 'フリー / ルーム未定';
-                  return t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
-                };
-
-                const currentGroupName = getRoomGroupName(therapist);
-                const isFirstOfGroup = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
-
                 return (
                   <div
                     key={`header-${therapist.id}`}
                     className={`border-r border-slate-200 flex-shrink-0 flex flex-col justify-between transition-colors group relative p-1.5 sm:p-2 select-none overflow-hidden
-                      ${isFirstOfGroup && index > 0 ? 'border-l-2 border-l-indigo-300' : ''}
                       ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                     style={{ width: `${columnWidth}px`, height: `${headerHeight}px` }}
                   >
@@ -905,6 +912,15 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                 </div>
               );
             })}
+
+            {/* グループ区切り線 (カードヘッダー行) */}
+            {sortMode === 'room' && roomGroups.slice(1).map((g, i) => (
+              <div
+                key={`header-group-sep-${i}`}
+                className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none z-30"
+                style={{ left: `${timeColumnWidth + g.start * columnWidth}px` }}
+              />
+            ))}
             </div>
           </div>
 
@@ -952,25 +968,11 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               )}
 
               {/* Grid Cells column-by-column */}
-              {therapists.map((therapist, tIdx) => {
-                const getRoomGroupName = (t: Therapist): string => {
-                  const off = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
-                    s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
-                  );
-                  if (off) return '休み (OFF)';
-                  if (t.id === 'unassigned' || !t.room) return 'フリー / ルーム未定';
-                  return t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
-                };
-
-                const currentGroupName = getRoomGroupName(therapist);
-                const isFirstOfGroup = sortMode === 'room' && (tIdx === 0 || getRoomGroupName(therapists[tIdx - 1]) !== currentGroupName);
-
+              {therapists.map((therapist) => {
                 return (
                   <div
                     key={`col-${therapist.id}`}
-                    className={`border-r border-slate-200 flex-shrink-0 relative bg-slate-50/50 ${
-                      isFirstOfGroup && tIdx > 0 ? 'border-l-2 border-l-indigo-300' : ''
-                    }`}
+                    className="border-r border-slate-200 flex-shrink-0 relative bg-slate-50/50"
                     style={{ width: `${columnWidth}px` }}
                   >
                   {timeSlots.map((timeSlot, idx) => {
@@ -1012,6 +1014,15 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                 </div>
               );
             })}
+
+              {/* グループ区切り線 (グリッド全高 / セル上・予約カード下) */}
+              {sortMode === 'room' && roomGroups.slice(1).map((g, i) => (
+                <div
+                  key={`grid-group-sep-${i}`}
+                  className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none"
+                  style={{ left: `${g.start * columnWidth}px`, zIndex: 0 }}
+                />
+              ))}
 
               {/* Schedules Layer - absolute overlays */}
               <div
