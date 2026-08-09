@@ -120,26 +120,30 @@ export default function CustomersPage() {
       if (isStale()) return
       const from = (page - 1) * 100
       const to = page * 100 - 1
-      // 一覧本体と総登録件数は互いに独立しているので同時に投げる
-      const [listRes, countRes] = await Promise.all([
-        supabase
-          .from('customers')
-          .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-          .in('shop_id', shopIds)
-          .order('created_at', { ascending: false })
-          .range(from, to),
-        supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .in('shop_id', shopIds),
-      ])
+      // 総登録件数は投げるだけで待たない。count:exact は該当行を全件数えるため、
+      // 一覧（100件で打ち切り）よりずっと重い。ここを await していたので、
+      // 名前が出るまで重いほうの完了を待たされていた。件数はページャーの表示に
+      // 使うだけなので、後から入れば足りる。
+      const countPromise = supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .in('shop_id', shopIds)
+      void countPromise.then((res) => {
+        if (isStale()) return
+        if (res.count !== null && res.count !== undefined) setTotalCount(res.count)
+      })
 
-      const { data, error } = listRes
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+        .in('shop_id', shopIds)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
       if (error) throw error
       if (isStale()) return
       const list = data || []
       setCustomers(list)
-      if (countRes.count !== null) setTotalCount(countRes.count)
       // 一覧が揃った時点で表示してしまう。来店回数とNGバッジは後から埋まればよく、
       // これを待つと名前も出ないまま1往復ぶん待たされる。
       setLoading(false)
@@ -175,29 +179,30 @@ export default function CustomersPage() {
       const from = (page - 1) * 100
       const to = page * 100 - 1
 
-      // 検索結果本体と件数は互いに独立しているので同時に投げる
+      // 一覧と同じく、該当件数は投げるだけで待たない
       const filter = `name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`
-      const [listRes, countRes] = await Promise.all([
-        supabase
-          .from('customers')
-          .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
-          .in('shop_id', shopIds)
-          .or(filter)
-          .order('name')
-          .range(from, to),
-        supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .in('shop_id', shopIds)
-          .or(filter),
-      ])
+      const countPromise = supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .in('shop_id', shopIds)
+        .or(filter)
+      void countPromise.then((res) => {
+        if (isStale()) return
+        if (res.count !== null && res.count !== undefined) setFilteredCount(res.count)
+      })
 
-      const { data, error } = listRes
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+        .in('shop_id', shopIds)
+        .or(filter)
+        .order('name')
+        .range(from, to)
+
       if (error) throw error
       if (isStale()) return
       const list = data || []
       setCustomers(list)
-      if (countRes.count !== null) setFilteredCount(countRes.count)
       // 検索結果も、来店回数・NGバッジを待たずに先に出す
       setSearching(false)
 
