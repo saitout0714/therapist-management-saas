@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { toDisplayTime } from '@/lib/timeUtils'
-import { buildRoomToneMap, toneFor, GroupKind, GroupTone } from '@/lib/roomGroupTones'
+import { buildRoomToneMap, toneFor, GroupKind } from '@/lib/roomGroupTones'
 
 interface Therapist {
   id: string
@@ -336,12 +336,11 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   // ルームごとの配色 (縦・横チャートと共通パレット)
   // ルームマスタ全件を並び順どおりに色付けする → 曜日・画面をまたいでも同じルームは常に同じ色
   const roomToneMap = useMemo(() => {
-    if (sortMode !== 'room') return new Map<string, GroupTone>()
     const ordered = [...rooms].sort(
       (a, b) => (roomOrderMap.get(a.id) ?? 9999) - (roomOrderMap.get(b.id) ?? 9999)
     )
     return buildRoomToneMap(ordered.map(r => r.name).filter(Boolean))
-  }, [rooms, roomOrderMap, sortMode])
+  }, [rooms, roomOrderMap])
 
   const shiftsByDate = useMemo(() => {
     const map = new Map<string, Shift[]>()
@@ -441,7 +440,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
             date: dateStr,
             start_time: '10:00:00',
             end_time: '22:00:00',
-            notes: '未割当のフリー予約があります',
+            notes: null,
           },
           ...others,
         ])
@@ -555,22 +554,45 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                       }
 
                       const currentGroupName = getShiftRoomGroupName(shift)
-                      const showGroupHeader = sortMode === 'room' && (shiftIdx === 0 || getShiftRoomGroupName(dayShifts[shiftIdx - 1]) !== currentGroupName)
+                      // ルーム名の帯はどの並び順でも出す。ルーム順のときだけ連続する同じルームを1つにまとめる。
                       const groupKind: GroupKind =
                         currentGroupName === '休み (OFF)' ? 'off' : currentGroupName === 'フリー / 未定' ? 'free' : 'room'
-                      const groupTone = sortMode === 'room' ? toneFor(groupKind, currentGroupName, roomToneMap) : undefined
+                      // フリー（未割当）/ 未定 はシフト自体に「フリー（未割当）」と出るので帯は出さない
+                      const showGroupHeader =
+                        groupKind !== 'free' &&
+                        (sortMode !== 'room' ||
+                          shiftIdx === 0 ||
+                          getShiftRoomGroupName(dayShifts[shiftIdx - 1]) !== currentGroupName)
+                      const groupTone = toneFor(groupKind, currentGroupName, roomToneMap)
                       const groupCount = sortMode === 'room'
                         ? dayShifts.filter(s => getShiftRoomGroupName(s) === currentGroupName).length
                         : 0
 
                       return (
                         <React.Fragment key={shift.id}>
-                          {showGroupHeader && groupTone && (
+                          {showGroupHeader && (
                             <div
-                              className="relative font-bold text-[11px] sm:text-xs pl-3 pr-2 py-1 flex items-center gap-1.5 sticky top-[57px] z-10 whitespace-nowrap"
-                              style={{ backgroundColor: groupTone.band, color: groupTone.text, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
+                              className="relative font-bold text-[10px] sm:text-[11px] leading-none px-2 py-1 flex items-center gap-1.5 sticky top-[57px] z-10 whitespace-nowrap"
+                              style={{ backgroundColor: groupTone.band, color: groupTone.text, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
+                              title={currentGroupName}
+                              onMouseEnter={roomName ? (e) => {
+                                if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                const activeRoom = rooms.find(r => r.id === shift.room_id)
+                                setRoomMemoPopup({
+                                  roomName: roomName,
+                                  displayName: activeRoom?.display_name ?? null,
+                                  address: activeRoom?.address ?? null,
+                                  memo: activeRoom?.memo ?? '',
+                                  mapUrl: activeRoom?.google_map_url ?? null,
+                                  x: rect.left,
+                                  y: rect.bottom + 4
+                                })
+                              } : undefined}
+                              onMouseLeave={roomName ? () => {
+                                roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
+                              } : undefined}
                             >
-                              <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: groupTone.accent }} />
                               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: groupTone.accent }} />
                               <span className="truncate">{currentGroupName}</span>
                               {groupCount > 1 && (
@@ -586,15 +608,8 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               ${shiftIdx < dayShifts.length - 1 ? 'border-b border-slate-100' : ''}`}
                             style={groupTone && !isOff ? { backgroundImage: `linear-gradient(${groupTone.cell}, ${groupTone.cell})` } : undefined}
                           >
-                          {/* グループの縦アクセント (ルーム順のとき、どのシフトが同じルームか一目で分かる) */}
-                          {groupTone && !isOff && (
-                            <div
-                              className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none z-[1]"
-                              style={{ backgroundColor: groupTone.accent, opacity: 0.5 }}
-                            />
-                          )}
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
-                          {!isOff && !groupTone && (
+                          {!isOff && (
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
 
@@ -692,9 +707,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                               {/* 出勤時間 + インターバル */}
                               <div className="flex items-center gap-1.5 whitespace-nowrap">
                                 <p className="text-[11px] sm:text-[13px] font-semibold sm:font-bold leading-none">
-                                  {therapist.id === 'unassigned' ? (
-                                    <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                                  ) : isOff ? (
+                                  {therapist.id === 'unassigned' ? null : isOff ? (
                                     <span className="text-slate-400 line-through">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
                                   ) : (
                                     <span className="text-emerald-600">{toDisplayTime(shift.start_time)}〜{endDisplay}</span>
@@ -707,35 +720,8 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                 )}
                               </div>
  
-                              {/* ルーム */}
-                              <div className={`flex items-center gap-1.5 flex-wrap ${isOff ? 'opacity-40' : ''}`}>
-                                {roomName && (
-                                  <span
-                                    className="text-[10px] sm:text-[11px] text-slate-500 sm:text-slate-600 font-medium sm:font-semibold whitespace-nowrap flex items-center gap-0.5 cursor-default leading-none"
-                                    onMouseEnter={(e) => {
-                                      if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
-                                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                      const activeRoom = rooms.find(r => r.id === shift.room_id)
-                                      setRoomMemoPopup({
-                                        roomName: roomName,
-                                        displayName: activeRoom?.display_name ?? null,
-                                        address: activeRoom?.address ?? null,
-                                        memo: activeRoom?.memo ?? '',
-                                        mapUrl: activeRoom?.google_map_url ?? null,
-                                        x: rect.left,
-                                        y: rect.bottom + 4
-                                      })
-                                    }}
-                                    onMouseLeave={() => {
-                                      roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150)
-                                    }}
-                                  >
-                                    <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                    {roomName}
-                                  </span>
-                                )}
-                              </div>
- 
+                              {/* ルーム名はシフトの上のルーム帯に表示するため、ここには出さない */}
+
                               {/* notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
                               {shiftNote && therapist.id !== 'unassigned' && (
                                 <p

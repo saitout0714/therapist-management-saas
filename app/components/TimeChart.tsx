@@ -409,33 +409,39 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
   // ルームごとの配色 (縦チャート・週間表示と共通パレット)
   // ルームマスタの並び順で色を確定させるので、同じルームは日・画面をまたいでも常に同じ色になる
-  const roomToneMap: Map<string, GroupTone> =
-    sortMode === 'room'
-      ? buildRoomToneMap(
-          roomOrder && roomOrder.length > 0
-            ? roomOrder
-            : therapists.filter(t => t.room).map(t => t.room!)
-        )
-      : new Map();
+  const roomToneMap: Map<string, GroupTone> = buildRoomToneMap(
+    roomOrder && roomOrder.length > 0
+      ? roomOrder
+      : therapists.filter(t => t.room).map(t => t.room!)
+  );
 
   // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
   const getGroupTone = (therapist: Therapist): GroupTone =>
     toneFor(getRoomGroupKind(therapist), therapist.room ?? getRoomGroupName(therapist), roomToneMap);
 
+  // ルーム名の帯を出す条件: ルーム順のときはグループの先頭行だけ、それ以外の並び順では全行に出す
+  // フリー（未割当）/ ルーム未定は行自体に「フリー（未割当）」と出るので帯は出さない
+  const shouldShowGroupHeader = (index: number): boolean => {
+    if (getRoomGroupKind(therapists[index]) === 'free') return false;
+    return (
+      sortMode !== 'room' ||
+      index === 0 ||
+      getRoomGroupName(therapists[index - 1]) !== getRoomGroupName(therapists[index])
+    );
+  };
+
   // Row height & Cell width adjustments for compact view
   const rowHeight = isDesktop ? 100 : 76;
   const cellWidth = 14; // Cell width
+  const groupHeaderHeight = 24; // ルーム名の帯の高さ（行の高さ計算と描画で共通）
 
   const therapistTopMap = useMemo(() => {
     const map = new Map<string, number>();
     let currentY = 0;
 
     therapists.forEach((therapist, index) => {
-      const currentGroupName = getRoomGroupName(therapist);
-      const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
-
-      if (showGroupHeader) {
-        currentY += 32;
+      if (shouldShowGroupHeader(index)) {
+        currentY += groupHeaderHeight;
       }
 
       map.set(therapist.id, currentY);
@@ -443,18 +449,16 @@ const TimeChart: React.FC<TimeChartProps> = ({
     });
 
     return map;
-  }, [therapists, sortMode, rowHeight, schedules]);
+  }, [therapists, sortMode, rowHeight, schedules, groupHeaderHeight]);
 
   const totalBodyHeight = useMemo(() => {
     let total = 0;
-    therapists.forEach((therapist, index) => {
-      const currentGroupName = getRoomGroupName(therapist);
-      const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
-      if (showGroupHeader) total += 32;
+    therapists.forEach((_therapist, index) => {
+      if (shouldShowGroupHeader(index)) total += groupHeaderHeight;
       total += rowHeight;
     });
     return total;
-  }, [therapists, sortMode, rowHeight, schedules]);
+  }, [therapists, sortMode, rowHeight, schedules, groupHeaderHeight]);
 
   return (
     <div 
@@ -494,23 +498,41 @@ const TimeChart: React.FC<TimeChartProps> = ({
               );
 
               const currentGroupName = getRoomGroupName(therapist);
-              const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
-              const groupTone = sortMode === 'room' ? getGroupTone(therapist) : undefined;
-              const isLastOfGroup = sortMode === 'room' && (index === therapists.length - 1 || getRoomGroupName(therapists[index + 1]) !== currentGroupName);
+              const showGroupHeader = shouldShowGroupHeader(index);
+              const groupTone = getGroupTone(therapist);
+              const groupCount = roomGroupCounts.get(currentGroupName);
 
               return (
                 <React.Fragment key={therapist.id}>
-                  {showGroupHeader && groupTone && (
+                  {showGroupHeader && (
                     <div
-                      style={{ height: '32px', backgroundColor: groupTone.band, color: groupTone.text, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
-                      className="relative font-bold text-xs pl-3.5 pr-2.5 sm:pr-3 flex items-center gap-1.5 sticky left-0 z-20 whitespace-nowrap"
+                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band, color: groupTone.text, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
+                      className="relative font-bold text-[11px] px-2.5 sm:px-3 flex items-center gap-1.5 sticky left-0 z-20 whitespace-nowrap"
+                      title={currentGroupName}
+                      onMouseEnter={therapist.room ? (e) => {
+                        if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        setRoomMemoPopup({
+                          roomName: therapist.room ?? '',
+                          displayName: therapist.roomDisplayName ?? null,
+                          address: therapist.roomAddress ?? null,
+                          memo: therapist.roomMemo ?? '',
+                          mapUrl: therapist.roomMapUrl ?? null,
+                          x: rect.left,
+                          y: rect.bottom + 4,
+                        });
+                      } : undefined}
+                      onMouseLeave={therapist.room ? () => {
+                        roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                      } : undefined}
                     >
-                      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: groupTone.accent }} />
                       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: groupTone.accent }} />
                       <span className="truncate">{currentGroupName}</span>
-                      <span className="ml-auto text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70">
-                        {roomGroupCounts.get(currentGroupName)}名
-                      </span>
+                      {sortMode === 'room' && groupCount != null && groupCount > 1 && (
+                        <span className="ml-auto text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70">
+                          {groupCount}名
+                        </span>
+                      )}
                     </div>
                   )}
                 <div
@@ -521,15 +543,8 @@ const TimeChart: React.FC<TimeChartProps> = ({
                   className={`flex items-stretch border-b border-slate-100 transition-colors group relative overflow-hidden
                     ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                 >
-                  {/* グループの縦アクセント (ルーム順のとき、どの行が同じルームか一目で分かる) */}
-                  {groupTone && !isOff && (
-                    <div
-                      className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none"
-                      style={{ backgroundColor: groupTone.accent, opacity: 0.5, borderBottomRightRadius: isLastOfGroup ? '2px' : undefined }}
-                    />
-                  )}
                   {/* Active indicator bar */}
-                  {!isOff && !groupTone && (
+                  {!isOff && (
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
 
@@ -653,9 +668,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       </div>
                     ) : (
                       <p className="text-[11px] font-semibold leading-none whitespace-nowrap">
-                        {therapist.id === 'unassigned' ? (
-                          <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                        ) : isOff ? (
+                        {therapist.id === 'unassigned' ? null : isOff ? (
                           <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                         ) : therapist.shiftStart && therapist.shiftEnd ? (
                           <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
@@ -669,30 +682,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     {!isOff && (therapist.room || therapist.id !== 'unassigned') && (
                       // flex-nowrap: 折り返すと1行分の高さを余計に取り、下のメモが潰れて見えなくなるため
                       <div className="flex items-center gap-1.5 flex-nowrap min-w-0 flex-shrink-0">
-                        {therapist.room && (
-                          <span
-                            className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-0.5 cursor-default leading-none max-w-[60px] sm:max-w-none"
-                            onMouseEnter={(e) => {
-                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setRoomMemoPopup({
-                                roomName: therapist.room ?? '',
-                                displayName: therapist.roomDisplayName ?? null,
-                                address: therapist.roomAddress ?? null,
-                                memo: therapist.roomMemo ?? '',
-                                mapUrl: therapist.roomMapUrl ?? null,
-                                x: rect.left,
-                                y: rect.bottom + 4
-                              });
-                            }}
-                            onMouseLeave={() => {
-                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                            }}
-                          >
-                            <svg className="hidden sm:block w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            {therapist.room}
-                          </span>
-                        )}
+                        {/* ルーム名は行の上のルーム帯に表示するため、ここには出さない */}
                         {therapist.id !== 'unassigned' && !(therapist.receptionClosedFrom || therapist.isSettled) && (
                           <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 leading-none rounded bg-slate-100 text-slate-500 border border-slate-200">
                             {therapist.intervalMinutes && therapist.intervalMinutes > 0 ? `${therapist.intervalMinutes}分` : '20分'}
@@ -757,9 +747,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     <div className="flex items-center gap-1.5 min-w-0">
                       {!(therapist.receptionClosedFrom || therapist.isSettled) && (
                         <span className="text-[13px] font-bold leading-none whitespace-nowrap">
-                          {therapist.id === 'unassigned' ? (
-                            <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">要対応</span>
-                          ) : isOff ? (
+                          {therapist.id === 'unassigned' ? null : isOff ? (
                             <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                           ) : therapist.shiftStart && therapist.shiftEnd ? (
                             <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
@@ -801,33 +789,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
                       )}
                     </div>
 
-                    {/* 3段目: ルーム + 引継メモ */}
-                    {(therapist.room || (therapist.unresolvedMemos?.length ?? 0) > 0) && (
+                    {/* 3段目: 引継メモ (ルーム名は行の上のルーム帯に表示) */}
+                    {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {therapist.room && (
-                          <span
-                            className="text-[13px] text-slate-600 font-semibold truncate flex items-center gap-0.5 cursor-default leading-none"
-                            onMouseEnter={(e) => {
-                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setRoomMemoPopup({
-                                roomName: therapist.room ?? '',
-                                displayName: therapist.roomDisplayName ?? null,
-                                address: therapist.roomAddress ?? null,
-                                memo: therapist.roomMemo ?? '',
-                                mapUrl: therapist.roomMapUrl ?? null,
-                                x: rect.left,
-                                y: rect.bottom + 6
-                              });
-                            }}
-                            onMouseLeave={() => {
-                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                            }}
-                          >
-                            <svg className="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            {therapist.room}
-                          </span>
-                        )}
                         {(therapist.unresolvedMemos?.length ?? 0) > 0 && (
                           <span
                             className="flex-shrink-0 flex items-center gap-1 text-[13px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-50 text-rose-600 border border-rose-200 animate-pulse-subtle cursor-default truncate max-w-[110px] whitespace-nowrap"
@@ -970,15 +934,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
           <div className="flex flex-col min-w-max">
             {therapists.map((therapist, tIdx) => {
-              const currentGroupName = getRoomGroupName(therapist);
-              const showGroupHeader = sortMode === 'room' && (tIdx === 0 || getRoomGroupName(therapists[tIdx - 1]) !== currentGroupName);
-              const groupTone = sortMode === 'room' ? getGroupTone(therapist) : undefined;
+              const showGroupHeader = shouldShowGroupHeader(tIdx);
+              const groupTone = getGroupTone(therapist);
 
               return (
                 <React.Fragment key={`grid-${therapist.id}`}>
-                  {showGroupHeader && groupTone && (
+                  {showGroupHeader && (
                     <div
-                      style={{ height: '32px', backgroundColor: groupTone.band, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
+                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
                       className="flex items-center px-3 sticky left-0"
                     />
                   )}

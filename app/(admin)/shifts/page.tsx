@@ -1883,7 +1883,6 @@ function ShiftsContent() {
       id: 'unassigned',
       name: 'フリー（未割当）',
       intervalMinutes: shopIntervalMinutes,
-      notes: '未割当のフリー予約枠',
     };
 
     let sortedOthers = [...withShift];

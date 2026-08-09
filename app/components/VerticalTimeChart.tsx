@@ -384,9 +384,12 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     return h * 60 + m;
   };
 
+  // ルーム名の帯はどの並び順でも出す。ルーム順のときだけ連続する同じルームを1つにまとめる。
   const roomGroups = useMemo(() => {
-    if (sortMode !== 'room') return [];
-    const groups: { name: string; count: number; start: number; kind: 'room' | 'free' | 'off'; tone: GroupTone }[] = [];
+    const groups: {
+      name: string; count: number; start: number; kind: 'room' | 'free' | 'off'; tone: GroupTone;
+      room?: Therapist;
+    }[] = [];
     // 配色はルームマスタの並び順で確定させる (同じルームは日・画面をまたいでも常に同じ色)
     // roomOrder が無いときだけ、その日に出てくる順で割り当てる
     const toneMap = buildRoomToneMap(
@@ -408,11 +411,12 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
         kind = 'room';
       }
 
-      if (groups.length === 0 || groups[groups.length - 1].name !== gName) {
-        // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
-        groups.push({ name: gName, count: 1, start: i, kind, tone: toneFor(kind, t.room ?? gName, toneMap) });
-      } else {
+      const mergeWithPrev = sortMode === 'room' && groups.length > 0 && groups[groups.length - 1].name === gName;
+      if (mergeWithPrev) {
         groups[groups.length - 1].count++;
+      } else {
+        // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
+        groups.push({ name: gName, count: 1, start: i, kind, tone: toneFor(kind, t.room ?? gName, toneMap), room: t });
       }
     });
     return groups;
@@ -427,7 +431,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     return map;
   }, [roomGroups]);
 
-  const groupBarHeight = sortMode === 'room' ? 34 : 0;
+  const groupBarHeight = 26;
   const totalTopHeaderHeight = headerHeight + groupBarHeight;
 
   return (
@@ -451,56 +455,67 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             className="sticky top-0 flex flex-col z-30 bg-white border-b border-slate-200 shadow-sm"
             style={{ height: `${totalTopHeaderHeight}px` }}
           >
-            {/* 1段目: ルームグループ帯 (sortMode === 'room' のときのみ) */}
-            {sortMode === 'room' && (
-              <div className="flex flex-shrink-0 relative bg-white" style={{ height: `${groupBarHeight}px` }}>
-                {/* 左上角スペーサー (グループ行分) */}
+            {/* 1段目: ルーム名の帯 (ルーム順のときは同じルームをまとめて1つの帯にする) */}
+            <div className="flex flex-shrink-0 relative bg-white" style={{ height: `${groupBarHeight}px` }}>
+              {/* 左上角スペーサー (グループ行分) */}
+              <div
+                className="sticky left-0 bg-slate-100 border-r border-slate-200 z-40 flex-shrink-0 flex items-center px-2 font-semibold text-[10px] tracking-wide text-slate-500"
+                style={{ width: `${timeColumnWidth}px`, height: `${groupBarHeight}px` }}
+              >
+                ルーム
+              </div>
+              {/* 各グループの横幅指定帯 */}
+              {roomGroups.map((g, gIdx) => (
                 <div
-                  className="sticky left-0 bg-slate-100 border-r border-slate-200 z-40 flex-shrink-0 flex items-center px-2 font-semibold text-[10px] tracking-wide text-slate-500"
-                  style={{ width: `${timeColumnWidth}px`, height: `${groupBarHeight}px` }}
+                  key={`room-group-${gIdx}`}
+                  // フリー（未割当）/ ルーム未定は列自体に「フリー（未割当）」と出るので帯は空にする
+                  style={{
+                    width: `${g.count * columnWidth}px`,
+                    height: `${groupBarHeight}px`,
+                    backgroundColor: g.kind === 'free' ? 'transparent' : g.tone.band,
+                    border: g.kind === 'free' ? undefined : `1px solid ${g.tone.border}`,
+                  }}
+                  className={`relative flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden ${g.kind === 'room' ? 'cursor-default' : ''}`}
+                  title={g.kind === 'free' ? undefined : `${g.name} / ${g.count}名`}
+                  onMouseEnter={g.kind === 'room' && g.room ? (e) => {
+                    if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setRoomMemoPopup({
+                      roomName: g.room!.room ?? '',
+                      displayName: g.room!.roomDisplayName ?? null,
+                      address: g.room!.roomAddress ?? null,
+                      memo: g.room!.roomMemo ?? '',
+                      mapUrl: g.room!.roomMapUrl ?? null,
+                      x: rect.left,
+                      y: rect.bottom + 6,
+                    });
+                  } : undefined}
+                  onMouseLeave={g.kind === 'room' && g.room ? () => {
+                    roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
+                  } : undefined}
                 >
-                  ルーム
-                </div>
-                {/* 各グループの横幅指定帯 */}
-                {roomGroups.map((g, gIdx) => (
-                  <div
-                    key={`room-group-${gIdx}`}
-                    style={{ width: `${g.count * columnWidth}px`, height: `${groupBarHeight}px`, backgroundColor: g.tone.band }}
-                    className="relative flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden"
-                    title={`${g.name} / ${g.count}名`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.tone.accent }} />
-                    <span
-                      className="truncate text-[11px] font-bold tracking-tight"
-                      style={{ color: g.tone.text }}
-                    >
-                      {g.name}
-                    </span>
-                    {g.count > 1 && (
+                  {g.kind !== 'free' && (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.tone.accent }} />
                       <span
-                        className="text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70"
+                        className="truncate text-[11px] font-bold tracking-tight"
                         style={{ color: g.tone.text }}
                       >
-                        {g.count}
+                        {g.name}
                       </span>
-                    )}
-                    {/* グループ幅ぶんのアクセント下線 = どこからどこまでが同じルームか一目で分かる */}
-                    <span
-                      className="absolute left-0 right-0 bottom-0"
-                      style={{ height: '2px', backgroundColor: g.tone.accent, opacity: 0.85 }}
-                    />
-                  </div>
-                ))}
-                {/* グループ区切り線 (下のグリッドと同じ x 座標で描画) */}
-                {roomGroups.slice(1).map((g, i) => (
-                  <div
-                    key={`room-group-sep-${i}`}
-                    className="absolute top-0 bottom-0 w-px bg-white pointer-events-none z-20"
-                    style={{ left: `${timeColumnWidth + g.start * columnWidth}px` }}
-                  />
-                ))}
-              </div>
-            )}
+                      {g.count > 1 && (
+                        <span
+                          className="text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70"
+                          style={{ color: g.tone.text }}
+                        >
+                          {g.count}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
 
             {/* 2段目: セラピスト個別カードヘッダー */}
             <div className="flex flex-1 relative">
@@ -656,9 +671,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           </div>
                         ) : (
                           <div className="text-[11px] font-bold leading-none whitespace-nowrap">
-                            {therapist.id === 'unassigned' ? (
-                              <span className="text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-100 font-bold">要対応</span>
-                            ) : isOff ? (
+                            {therapist.id === 'unassigned' ? null : isOff ? (
                               <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                             ) : therapist.shiftStart && therapist.shiftEnd ? (
                               <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
@@ -671,28 +684,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     </div>
 
                     {/* 中段: ルーム (ルーム順以外のときに表示。ルーム順の場合は最上部グループ帯に表示されるため非表示) */}
-                    {sortMode !== 'room' && (
-                      <div className="min-w-0">
-                        {therapist.room ? (
-                          <span
-                            className="text-[10px] text-slate-600 font-semibold flex items-center gap-0.5 cursor-default leading-tight min-w-0"
-                            onMouseEnter={(e) => {
-                              if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 6 });
-                            }}
-                            onMouseLeave={() => {
-                              roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                            }}
-                          >
-                            <svg className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <span className="truncate">{therapist.room}</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-300 italic">ルーム未定</span>
-                        )}
-                      </div>
-                    )}
+                    {/* ルーム名はヘッダー上部の帯に表示するため、カード内には出さない */}
 
                     {/* notes（前日最終額など）— 目立たせるため大きめのバッジ表示 */}
                     {therapist.notes && (
@@ -863,9 +855,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           </button>
                         )}
                       </div>
-                    ) : therapist.id === 'unassigned' ? (
-                      <span className="text-amber-600 bg-amber-50 px-1 py-0.2 rounded border border-amber-100 font-bold">要対応</span>
-                    ) : isOff ? (
+                    ) : therapist.id === 'unassigned' ? null : isOff ? (
                       <span className="text-slate-400 line-through">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
                     ) : therapist.shiftStart && therapist.shiftEnd ? (
                       <span className="text-emerald-600">{therapist.shiftStart}〜{therapist.shiftEnd}</span>
@@ -875,28 +865,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   </div>
 
                   {/* 3段目: ルーム名（折り返し2行、ルーム順以外のときに表示） */}
-                  {sortMode !== 'room' && (
-                    <div className="sm:hidden min-w-0 flex-1 flex flex-col justify-center py-0.5">
-                      {therapist.room ? (
-                        <span
-                          className="text-[9px] text-slate-500 font-medium flex items-start gap-0.5 cursor-default leading-tight break-all"
-                          onMouseEnter={(e) => {
-                            if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current);
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setRoomMemoPopup({ roomName: therapist.room ?? '', displayName: therapist.roomDisplayName ?? null, address: therapist.roomAddress ?? null, memo: therapist.roomMemo ?? '', mapUrl: therapist.roomMapUrl ?? null, x: rect.left, y: rect.bottom + 4 });
-                          }}
-                          onMouseLeave={() => {
-                            roomMemoHideTimer.current = setTimeout(() => setRoomMemoPopup(null), 150);
-                          }}
-                        >
-                          <svg className="w-2 h-2 text-slate-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                          <span className="flex-1 line-clamp-2">{therapist.room}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[9px] text-slate-300 italic">ルーム未定</span>
-                      )}
-                    </div>
-                  )}
+                  {/* ルーム名はヘッダー上部の帯に表示するため、カード内には出さない */}
 
                   {/* 4段目: インターバル + メモ/編集ボタン */}
                   <div className="flex sm:hidden items-center justify-between gap-1 w-full pt-0.5 border-t border-slate-100 flex-shrink-0">
