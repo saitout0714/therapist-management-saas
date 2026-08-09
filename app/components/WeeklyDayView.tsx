@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { toDisplayTime } from '@/lib/timeUtils'
@@ -546,49 +547,66 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           <div className={`flex items-stretch sm:border-b sm:border-slate-100 ${isOff ? '' : 'sm:bg-slate-50/70'}`}>
                             {/* 写真 — 3:4固定比率 (スマホ表示時は非表示) */}
                             <div className="hidden sm:block w-[48px] flex-shrink-0 self-center pl-2 py-1.5">
-                              <div className={`relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`} style={{ aspectRatio: '3/4' }}>
-                                {therapist.id === 'unassigned' ? (
+                              {therapist.id !== 'unassigned' ? (
+                                <Link
+                                  href={`/therapists/${therapist.id}/edit`}
+                                  className={`relative block w-full overflow-hidden rounded bg-slate-100 border border-slate-200 hover:opacity-80 hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer ${isOff ? 'opacity-40' : ''}`}
+                                  style={{ aspectRatio: '3/4' }}
+                                  title={`${therapist.name}のプロフィール編集`}
+                                >
+                                  {therapist.avatar ? (
+                                    <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                                  ) : (
+                                    <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
+                                  )}
+                                </Link>
+                              ) : (
+                                <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
                                   <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                     </svg>
                                   </div>
-                                ) : therapist.avatar ? (
-                                  <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
-                                ) : (
-                                  <span className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-300">{therapist.name[0]}</span>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                             {/* テキスト情報 */}
                             <div className="flex flex-col justify-center flex-1 min-w-0 px-2 py-1.5 gap-[4px] sm:gap-[5px]">
                               {/* 名前 */}
                               <div className="min-w-0 flex items-center justify-between gap-1">
-                                <p
-                                  className={`text-[13px] sm:text-[15px] font-bold leading-none group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-1
-                                    ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
-                                  onMouseEnter={(e) => {
-                                    if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
-                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 })
-                                  }}
-                                  onMouseLeave={() => {
-                                    therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150)
-                                  }}
-                                >
-                                  {therapist.isRookie && (
-                                    <span className="text-[10px] sm:text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
-                                  )}
-                                  <span>{therapist.name}</span>
-                                  {therapist.rankName && (
-                                    <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
-                                      {therapist.rankName}
-                                    </span>
-                                  )}
-                                  {therapist.linked_therapist_group_id && (
-                                    <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
-                                  )}
-                                </p>
+                                {therapist.id !== 'unassigned' ? (
+                                  <Link
+                                    href={`/therapists/${therapist.id}/edit`}
+                                    className={`text-[13px] sm:text-[15px] font-bold leading-none hover:text-indigo-600 hover:underline transition-colors cursor-pointer truncate flex items-center gap-1
+                                      ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                                    onMouseEnter={(e) => {
+                                      if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current)
+                                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                      setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 })
+                                    }}
+                                    onMouseLeave={() => {
+                                      therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150)
+                                    }}
+                                    title={`${therapist.name}のプロフィール編集`}
+                                  >
+                                    {therapist.isRookie && (
+                                      <span className="text-[10px] sm:text-xs flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                                    )}
+                                    <span>{therapist.name}</span>
+                                    {therapist.rankName && (
+                                      <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                                        {therapist.rankName}
+                                      </span>
+                                    )}
+                                    {therapist.linked_therapist_group_id && (
+                                      <span className="text-sky-500 font-bold text-xs" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                                    )}
+                                  </Link>
+                                ) : (
+                                  <p className="text-[13px] sm:text-[15px] font-bold leading-none truncate flex items-center gap-1 text-slate-800">
+                                    <span>{therapist.name}</span>
+                                  </p>
+                                )}
                                 {isOff && (
                                   <span className="flex-shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
                                     休み
@@ -932,6 +950,16 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
             )}
             {therapistPopup.therapist.staffMemo && (
               <p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">{therapistPopup.therapist.staffMemo}</p>
+            )}
+            {therapistPopup.therapist.id !== 'unassigned' && (
+              <div className="pt-1">
+                <Link
+                  href={`/therapists/${therapistPopup.therapist.id}/edit`}
+                  className="w-full block text-center px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded transition-colors"
+                >
+                  ✏️ プロフィールを編集
+                </Link>
+              </div>
             )}
           </div>
         </div>

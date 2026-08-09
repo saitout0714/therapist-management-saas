@@ -6,6 +6,7 @@ import { toDisplayTime } from '@/lib/timeUtils';
 import { useIsDesktop } from '@/lib/useIsDesktop';
 import { getCashlessMethod, cashlessLabel, settledLabel } from '@/lib/paymentStatus';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface TherapistMemo {
   id: string;
@@ -429,19 +430,28 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     {/* 上段: 写真(3:4) + 名前 / バッジ / 出勤時間 */}
                     <div className="flex items-start gap-1.5 min-w-0">
                       <div className={`w-[38px] flex-shrink-0 ${isOff ? 'opacity-40' : ''}`}>
-                        <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
-                          {therapist.id === 'unassigned' ? (
+                        {therapist.id !== 'unassigned' ? (
+                          <Link
+                            href={`/therapists/${therapist.id}/edit`}
+                            className="relative block w-full overflow-hidden rounded bg-slate-100 border border-slate-200 hover:opacity-80 hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer"
+                            style={{ aspectRatio: '3/4' }}
+                            title={`${therapist.name}のプロフィール編集`}
+                          >
+                            {therapist.avatar ? (
+                              <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                            ) : (
+                              <span className="w-full h-full flex items-center justify-center text-base font-bold text-slate-300">{therapist.name[0]}</span>
+                            )}
+                          </Link>
+                        ) : (
+                          <div className="relative w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center border border-slate-200" style={{ aspectRatio: '3/4' }}>
                             <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
                             </div>
-                          ) : therapist.avatar ? (
-                            <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
-                          ) : (
-                            <span className="w-full h-full flex items-center justify-center text-base font-bold text-slate-300">{therapist.name[0]}</span>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col gap-1">
@@ -450,22 +460,28 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           {therapist.isRookie && (
                             <span className="text-[11px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
                           )}
-                          <span
-                            className={`text-[13px] font-bold leading-tight truncate group-hover:text-indigo-700 transition-colors cursor-default
-                              ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
-                            onMouseEnter={(e) => {
-                              if (therapist.id === 'unassigned') return;
-                              if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 6 });
-                            }}
-                            onMouseLeave={() => {
-                              if (therapist.id === 'unassigned') return;
-                              therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
-                            }}
-                          >
-                            {therapist.name}
-                          </span>
+                          {therapist.id !== 'unassigned' ? (
+                            <Link
+                              href={`/therapists/${therapist.id}/edit`}
+                              className={`text-[13px] font-bold leading-tight truncate hover:text-indigo-600 hover:underline transition-colors cursor-pointer
+                                ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                              onMouseEnter={(e) => {
+                                if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 6 });
+                              }}
+                              onMouseLeave={() => {
+                                therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                              }}
+                              title={`${therapist.name}のプロフィール編集`}
+                            >
+                              {therapist.name}
+                            </Link>
+                          ) : (
+                            <span className="text-[13px] font-bold leading-tight truncate text-slate-800 cursor-default">
+                              {therapist.name}
+                            </span>
+                          )}
                           {therapist.linked_therapist_group_id && (
                             <span className="text-sky-500 font-bold text-[11px] flex-shrink-0" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
                           )}
@@ -626,50 +642,66 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   <div className="flex sm:hidden items-center gap-1 min-w-0 flex-shrink-0">
                     {/* 写真 — 円形 (スマホ表示時は非表示) */}
                     <div className="hidden sm:block w-[22px] h-[22px] flex-shrink-0">
-                      <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
-                        {therapist.id === 'unassigned' ? (
+                      {therapist.id !== 'unassigned' ? (
+                        <Link
+                          href={`/therapists/${therapist.id}/edit`}
+                          className={`relative block w-full h-full overflow-hidden rounded-full bg-slate-100 border border-slate-200 hover:opacity-80 hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer ${isOff ? 'opacity-40' : ''}`}
+                          title={`${therapist.name}のプロフィール編集`}
+                        >
+                          {therapist.avatar ? (
+                            <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
+                          ) : (
+                            <span className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-300">{therapist.name[0]}</span>
+                          )}
+                        </Link>
+                      ) : (
+                        <div className={`relative w-full h-full overflow-hidden rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 ${isOff ? 'opacity-40' : ''}`}>
                           <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-500">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </div>
-                        ) : therapist.avatar ? (
-                          <Image src={therapist.avatar} alt={therapist.name} fill className="object-cover" unoptimized />
-                        ) : (
-                          <span className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-300">{therapist.name[0]}</span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* 名前 */}
                     <div className="flex-1 min-w-0 flex items-center justify-between gap-0.5">
-                      <p
-                        className={`text-[11px] font-bold leading-tight group-hover:text-indigo-700 transition-colors cursor-default truncate flex items-center gap-0.5
-                          ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
-                        onMouseEnter={(e) => {
-                          if (therapist.id === 'unassigned') return;
-                          if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
-                        }}
-                        onMouseLeave={() => {
-                          if (therapist.id === 'unassigned') return;
-                          therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
-                        }}
-                      >
-                        {therapist.isRookie && (
-                          <span className="text-[9px] sm:text-[10px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
-                        )}
-                        <span>{therapist.name}</span>
-                        {therapist.rankName && (
-                          <span className="text-[8px] px-1 py-0.2 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
-                            {therapist.rankName}
-                          </span>
-                        )}
-                        {therapist.linked_therapist_group_id && (
-                          <span className="text-sky-500 font-bold text-[10px]" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
-                        )}
-                      </p>
+                      {therapist.id !== 'unassigned' ? (
+                        <Link
+                          href={`/therapists/${therapist.id}/edit`}
+                          className={`text-[11px] font-bold leading-tight hover:text-indigo-600 hover:underline transition-colors cursor-pointer truncate flex items-center gap-0.5
+                            ${isOff ? 'text-slate-400' : 'text-slate-800'}`}
+                          onMouseEnter={(e) => {
+                            if (therapistPopupHideTimer.current) clearTimeout(therapistPopupHideTimer.current);
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setTherapistPopup({ therapist, x: rect.left, y: rect.bottom + 4 });
+                          }}
+                          onMouseLeave={() => {
+                            therapistPopupHideTimer.current = setTimeout(() => setTherapistPopup(null), 150);
+                          }}
+                          title={`${therapist.name}のプロフィール編集`}
+                        >
+                          {therapist.isRookie && (
+                            <span className="text-[9px] sm:text-[10px] flex-shrink-0 cursor-default select-none" title="新人（新人割対象）">🔰</span>
+                          )}
+                          <span>{therapist.name}</span>
+                          {therapist.rankName && (
+                            <span className="text-[8px] px-1 py-0.2 rounded bg-amber-50 text-amber-800 font-bold leading-none border border-amber-200 flex-shrink-0">
+                              {therapist.rankName}
+                            </span>
+                          )}
+                          {therapist.linked_therapist_group_id && (
+                            <span className="text-sky-500 font-bold text-[10px]" title={`連携店舗: ${(therapist.linked_shop_names && therapist.linked_shop_names.length > 0) ? therapist.linked_shop_names.join('・') : 'リンク中'}`}>🔗</span>
+                          )}
+                        </Link>
+                      ) : (
+                        <p
+                          className={`text-[11px] font-bold leading-tight truncate flex items-center gap-0.5 text-slate-800`}
+                        >
+                          <span>{therapist.name}</span>
+                        </p>
+                      )}
                       {isOff && (
                         <span className="flex-shrink-0 text-[7px] font-bold px-0.5 py-0.2 leading-none rounded bg-rose-100 text-rose-700 border border-rose-200">
                           休
@@ -1407,6 +1439,16 @@ const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             )}
             {therapistPopup.therapist.staffMemo && (
               <p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">{therapistPopup.therapist.staffMemo}</p>
+            )}
+            {therapistPopup.therapist.id !== 'unassigned' && (
+              <div className="pt-1">
+                <Link
+                  href={`/therapists/${therapistPopup.therapist.id}/edit`}
+                  className="w-full block text-center px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded transition-colors"
+                >
+                  ✏️ プロフィールを編集
+                </Link>
+              </div>
             )}
           </div>
         </div>
