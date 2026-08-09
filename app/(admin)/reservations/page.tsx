@@ -65,7 +65,7 @@ const EMPTY_FILTERS: SearchFilters = {
 
 export default function ReservationsPage() {
   const { selectedShop } = useShop()
-  const { user } = useAuth()
+  const { user, sessionEpoch } = useAuth()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -297,7 +297,8 @@ export default function ReservationsPage() {
     const isStale = nextGeneration()
     void fetchDesignationTypes(isStale)
     void fetchReservations(1, EMPTY_FILTERS, isStale)
-  }, [selectedShop])
+    // sessionEpoch: セッションが切れて復活したとき、顧客名が読めるようになるので取り直す
+  }, [selectedShop, sessionEpoch])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 

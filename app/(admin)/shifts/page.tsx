@@ -209,7 +209,7 @@ const getBusinessDateStr = () => {
 
 function ShiftsContent() {
   const { selectedShop } = useShop();
-  const { loading: authLoading, user } = useAuth();
+  const { loading: authLoading, user, sessionEpoch } = useAuth();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
 
@@ -920,7 +920,7 @@ function ShiftsContent() {
     ]).finally(() => {
       if (!isStale()) setLoading(false);
     });
-  }, [filterDate, selectedShop, refreshCounter, authLoading, user?.id]);
+  }, [filterDate, selectedShop, refreshCounter, authLoading, user?.id, sessionEpoch]);
 
   // 予約のリアルタイム更新（Supabase Realtime）
   useEffect(() => {
@@ -935,7 +935,7 @@ function ShiftsContent() {
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [selectedShop, filterDate, authLoading, user?.id]);
+  }, [selectedShop, filterDate, authLoading, user?.id, sessionEpoch]);
 
   useEffect(() => {
     if (!selectedShop || authLoading || !user) return;
@@ -962,7 +962,7 @@ function ShiftsContent() {
       });
     // 店舗を切り替えたとき、前の店舗の応答が後から届いて上書きするのを防ぐ
     return () => { cancelled = true; };
-  }, [selectedShop, refreshCounter, authLoading, user?.id]);
+  }, [selectedShop, refreshCounter, authLoading, user?.id, sessionEpoch]);
 
   useEffect(() => {
     if (!selectedShop || authLoading || !user) return;
@@ -1041,7 +1041,7 @@ function ShiftsContent() {
 
     // 店舗を切り替えたとき、前の店舗の料金・オプション設定が後から届いて上書きするのを防ぐ
     return () => { cancelled = true; };
-  }, [selectedShop, authLoading, user?.id]);
+  }, [selectedShop, authLoading, user?.id, sessionEpoch]);
 
   // 表示中の店舗・日付のシフト。fetchTherapists / fetchShifts / fetchReservations が
   // それぞれ同じ内容を引いていたので、ここで 1 回だけ引いて Promise を共有する。
@@ -1053,8 +1053,11 @@ function ShiftsContent() {
       .eq('shop_id', selectedShop.id)
       .eq('date', filterDate);
     if (error) {
+      // ここで throw すると、この Promise を共有している出勤・シフト・予約の
+      // 3 つすべてが同時に失敗して画面が真っ白になる。取得元をまとめた代わりに
+      // 失敗は握りつぶし、少なくとも予約は表示できるようにする。
       console.error('シフトの取得に失敗:', error);
-      throw error;
+      return [];
     }
     return (data as unknown as DayShiftRow[]) || [];
   };

@@ -8,6 +8,43 @@ import Sidebar from "./Sidebar";
 import ShopSwitcher from "./ShopSwitcher";
 import WebReservationNotifier from "./WebReservationNotifier";
 
+/**
+ * Supabase のセッションが切れている間に出す警告。
+ * この状態でも予約・セラピストは anon 向けポリシーで読めてしまうため、
+ * 画面は普通に見えるのにお客様名だけ "unknown" になる。黙って使い続けると
+ * 誤ったお客様に連絡しかねないので、はっきり知らせて再ログインを促す。
+ */
+function SessionWarningBanner() {
+  const { sessionValid, logout } = useAuth();
+  const router = useRouter();
+
+  if (sessionValid) return null;
+
+  const handleRelogin = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <p className="text-xs sm:text-sm font-bold text-amber-800 truncate">
+          ログインの有効期限が切れています。お客様情報が表示されません。
+        </p>
+      </div>
+      <button
+        onClick={handleRelogin}
+        className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs sm:text-sm font-bold hover:bg-amber-600 transition-colors"
+      >
+        再ログイン
+      </button>
+    </div>
+  );
+}
+
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
@@ -77,6 +114,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
                 </div>
                 <ShopSwitcher />
               </header>
+              <SessionWarningBanner />
               <main className="flex-1 overflow-x-hidden overflow-y-auto pb-24">
                 {children}
               </main>

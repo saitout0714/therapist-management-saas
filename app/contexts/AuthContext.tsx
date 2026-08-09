@@ -1,7 +1,18 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
+
+/**
+ * セッション再取得の失敗が「通信の問題」なのか「リフレッシュトークンの失効」なのかを判定する。
+ * 通信の問題でログアウトさせてしまうと、他アプリから戻るたびにログイン画面に飛ばされて
+ * 業務にならないため、明確な認証エラー（400/401/403）のときだけ失効とみなす。
+ */
+function isRefreshTokenExpired(error: unknown): boolean {
+  if (!error) return false
+  const status = (error as { status?: number }).status
+  return status === 400 || status === 401 || status === 403
+}
 
 type User = {
   id: string
@@ -27,6 +38,20 @@ type AuthContextType = {
   login: (loginId: string, password: string) => Promise<void>
   logout: () => Promise<void>
   isAuthenticated: boolean
+  /**
+   * Supabase のセッション（JWT）が有効かどうか。
+   * false の間は RLS の check_shop_access が通らないため、顧客情報など
+   * anon 向けポリシーを持たないテーブルが読めない。予約やセラピストは
+   * anon でも読めてしまうので、画面は動いているのにお客様名だけ出ない、
+   * という分かりにくい状態になる。それを利用者に伝えるためのフラグ。
+   */
+  sessionValid: boolean
+  /**
+   * セッションが「切れていた状態から復活した」ときだけ増える世代番号。
+   * データ取得の依存に入れておくと、復活時に取り直せる。
+   * 定期的なトークン更新では増やさない（毎回増やすと全画面が再取得して重くなる）。
+   */
+  sessionEpoch: number
 }
 
 type ShopOwnerRow = {
@@ -41,6 +66,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionValid, setSessionValid] = useState(true)
+  const [sessionEpoch, setSessionEpoch] = useState(0)
+
+  // null = まだ判定していない / true = セッションあり / false = セッションなし
+  const hasSessionRef = useRef<boolean | null>(null)
+
+  const markSessionActive = () => {
+    const previous = hasSessionRef.current
+    hasSessionRef.current = true
+    setSessionValid(true)
+    // 「無い」と判定した後に復活したときだけ世代を進める。初回確立では進めないので、
+    // 通常のページ読み込みで取得が二度走ることはない。
+    if (previous === false) {
+      setSessionEpoch((n) => n + 1)
+    }
+  }
+
+  // 世代管理のうえで「セッションが無い」と記録するだけ。まだ利用者には知らせない。
+  // これを復帰の試行前に呼んでおかないと、復帰が成功しても previous が null のままで
+  // 世代が進まず、取得済みの空データ（顧客名なし）が画面に残ってしまう。
+  const noteSessionMissing = () => {
+    hasSessionRef.current = false
+  }
+
+  // 復帰に失敗した。この状態では顧客情報が読めないので画面上でも警告する。
+  const markSessionLost = () => {
+    hasSessionRef.current = false
+    setSessionValid(false)
+  }
 
   // ユーザー情報の同期処理
   const syncUserWithSession = async (sessionUser: any) => {
@@ -153,6 +207,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.cookie = `auth_user=; path=/; max-age=0; SameSite=Lax${isSecure}`
   }
 
+  // セッションの張り直しを試みる。成功すれば顧客情報などが再び読めるようになる。
+  // 失敗しても、リフレッシュトークンが明確に失効している場合を除いてログアウトはさせない
+  // （通信が一瞬不安定なだけでログイン画面に飛ばさないため）。
+  const recoverSession = async (): Promise<boolean> => {
+    noteSessionMissing()
+    try {
+      const { data, error } = await supabase.auth.refreshSession()
+      if (data?.session?.user) {
+        markSessionActive()
+        await syncUserWithSession(data.session.user)
+        return true
+      }
+      if (isRefreshTokenExpired(error)) {
+        console.warn('リフレッシュトークンが失効しているため、ログイン状態を解除します')
+        markSessionLost()
+        clearUserSession()
+        return false
+      }
+      console.warn('セッションの再取得に失敗（ログイン状態は維持）:', error)
+      markSessionLost()
+      return false
+    } catch (err) {
+      console.error('セッション再取得で例外:', err)
+      markSessionLost()
+      return false
+    }
+  }
+
   // 初期ロード時と認証監視
   useEffect(() => {
     const initializeAuth = async () => {
@@ -192,14 +274,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
+          markSessionActive()
           await syncUserWithSession(session.user)
-        } else if (!hasValidCache) {
+        } else if (hasValidCache) {
+          // ログイン状態のキャッシュはあるが Supabase セッションが無い状態。
+          // このまま進むと RLS により顧客情報が読めず、画面は普通に動くのに
+          // お客様名だけ unknown になる“半壊”になるため、まず再取得を試みる。
+          await recoverSession()
+        } else {
           // キャッシュもなく、Supabaseセッションも存在しない場合のみ明確にクリアする
           clearUserSession()
         }
       } catch (err) {
         console.error('セッション取得失敗:', err)
         // エラー時は既存キャッシュを維持し、即時ログアウトは避ける（ネットワーク一時エラー等の対策）
+        markSessionLost()
       } finally {
         setLoading(false)
       }
@@ -212,17 +301,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Auth state change event:', event, session?.user?.id)
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (session?.user) {
+          markSessionActive()
           void syncUserWithSession(session.user)
         }
       } else if (event === 'SIGNED_OUT') {
         // 明示的なログアウト、またはセッション無効化のイベント発生時は確実にクリアする
+        markSessionLost()
         clearUserSession()
       }
       setLoading(false)
     })
 
+    // 他アプリ（SMS・LINE）から戻ってきたときに、切れていたセッションを張り直す。
+    // 旧型iPhoneでは案内のたびにアプリを往復するため、ここで復帰できないと
+    // 「お客様名だけ出ない」状態のまま業務を続けてしまう。
+    const handleVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (hasSessionRef.current === false) {
+        void recoverSession()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisible)
+    window.addEventListener('focus', handleVisible)
+
     return () => {
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisible)
+      window.removeEventListener('focus', handleVisible)
     }
   }, [])
 
@@ -248,6 +353,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!authUser) {
         throw new Error('ユーザー情報の取得に失敗しました')
       }
+
+      markSessionActive()
 
       // 2. 認証に成功したユーザーの付随情報（役割や店舗）を public.users から取得
       const { data: dbUserData, error: dbUserError } = await supabase
@@ -323,6 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Supabase側のログアウト失敗:', error)
     } finally {
       // 2. ローカル状態とクッキーをクリア
+      markSessionLost()
       setUser(null)
       localStorage.removeItem('auth_user')
       document.cookie = 'auth_user=; path=/; max-age=0'
@@ -337,6 +445,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         isAuthenticated: user !== null,
+        sessionValid,
+        sessionEpoch,
       }}
     >
       {children}
