@@ -57,6 +57,28 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     selectedShopIdRef.current = selectedShop?.id ?? null
   }, [selectedShop])
 
+  // 前回選択していた店舗を localStorage から即座に復元する。
+  // これが無いと、どの画面も「店舗一覧の取得（ネットワーク1往復）」が終わるまで
+  // 自分のデータ取得を開始できない。認証・店舗一覧・画面データで3回直列に待つことになり、
+  // 表示までの体感の大半がこの待ち時間だった。
+  // 内容が古い可能性はあるが、直後に走る fetchShops が同じ id で必ず上書きする。
+  // （この effect は fetchShops の effect より前に置くこと。順番に依存している）
+  useEffect(() => {
+    if (selectedShopIdRef.current) return
+    try {
+      const cached = localStorage.getItem('selectedShop')
+      if (!cached) return
+      const shop = JSON.parse(cached) as Shop
+      if (shop?.id) {
+        selectedShopIdRef.current = shop.id
+        setSelectedShopState(shop)
+      }
+    } catch {
+      // 壊れていたら無視して通常の取得に任せる
+      localStorage.removeItem('selectedShop')
+    }
+  }, [])
+
   // 店舗一覧を取得
   const fetchShops = async () => {
     if (!user) {
@@ -150,9 +172,12 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         if (shopToSelect.id !== savedShopId) {
           localStorage.setItem('selectedShopId', shopToSelect.id)
         }
+        // 次回の起動で即座に復元できるよう、id だけでなく店舗そのものを保存する
+        localStorage.setItem('selectedShop', JSON.stringify(shopToSelect))
       } else {
         setSelectedShopState(null)
         selectedShopIdRef.current = null
+        localStorage.removeItem('selectedShop')
       }
     } catch (error) {
       console.error('店舗の取得に失敗:', error)
@@ -167,6 +192,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     selectedShopIdRef.current = shop.id
     setSelectedShopState(shop)
     localStorage.setItem('selectedShopId', shop.id)
+    localStorage.setItem('selectedShop', JSON.stringify(shop))
   }
 
   const refreshShops = async () => {

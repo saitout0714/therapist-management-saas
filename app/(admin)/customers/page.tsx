@@ -71,6 +71,15 @@ export default function CustomersPage() {
   // 検索の1文字ごとに往復が1回増えていた。店舗ごとにキャッシュする。
   const groupShopIdsCache = useRef<{ shopId: string; ids: string[] } | null>(null)
 
+  // 取得の世代番号。店舗切り替えや検索語の変更で増える。
+  // 応答が返った時点で世代が進んでいれば古い取得なので state に書かない。
+  // 検索は打鍵のたびに走るため、遅い応答が新しい結果を上書きしやすい。
+  const fetchGenerationRef = useRef(0)
+  const nextGeneration = () => {
+    const generation = ++fetchGenerationRef.current
+    return () => generation !== fetchGenerationRef.current
+  }
+
   const getGroupShopIds = useCallback(async (): Promise<string[]> => {
     if (!selectedShop) return []
     const cached = groupShopIdsCache.current
@@ -87,13 +96,14 @@ export default function CustomersPage() {
 
   // shopIds は呼び出し元が解決済みのものを渡す。ここで getGroupShopIds を
   // 呼び直すと、1回の画面表示で同じ店舗一覧クエリを2度投げることになるため。
-  const fetchVisitCounts = useCallback(async (customerIds: string[], shopIds: string[]) => {
+  const fetchVisitCounts = useCallback(async (customerIds: string[], shopIds: string[], isStale: () => boolean) => {
     if (!selectedShop || customerIds.length === 0) return
     const { data } = await supabase
       .from('reservations')
       .select('customer_id')
       .in('customer_id', customerIds)
       .in('shop_id', shopIds)
+    if (isStale()) return
     const map = new Map<string, number>()
     ;(data || []).forEach((r: { customer_id: string }) => {
       map.set(r.customer_id, (map.get(r.customer_id) || 0) + 1)
@@ -103,9 +113,11 @@ export default function CustomersPage() {
 
   const fetchRecentCustomers = useCallback(async (page: number = 1) => {
     if (!selectedShop) return
+    const isStale = nextGeneration()
     setLoading(true)
     try {
       const shopIds = await getGroupShopIds()
+      if (isStale()) return
       const from = (page - 1) * 100
       const to = page * 100 - 1
       // 一覧本体と総登録件数は互いに独立しているので同時に投げる
@@ -124,6 +136,7 @@ export default function CustomersPage() {
 
       const { data, error } = listRes
       if (error) throw error
+      if (isStale()) return
       const list = data || []
       setCustomers(list)
       if (countRes.count !== null) setTotalCount(countRes.count)
@@ -134,7 +147,7 @@ export default function CustomersPage() {
       // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
       const customerIds = list.map((c) => c.id)
       const [, ngRes] = await Promise.all([
-        fetchVisitCounts(customerIds, shopIds),
+        fetchVisitCounts(customerIds, shopIds, isStale),
         customerIds.length > 0
           ? supabase
               .from('customer_therapist_ng')
@@ -142,19 +155,22 @@ export default function CustomersPage() {
               .in('customer_id', customerIds)
           : Promise.resolve({ data: null as { customer_id: string }[] | null }),
       ])
+      if (isStale()) return
       setNgCustomerIds(new Set<string>((ngRes.data || []).map((n: { customer_id: string }) => n.customer_id)))
     } catch (err) {
       console.error('顧客の取得に失敗:', JSON.stringify(err))
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
   }, [selectedShop, fetchVisitCounts, getGroupShopIds])
 
   const searchCustomers = useCallback(async (query: string, page: number = 1) => {
     if (!selectedShop) return
+    const isStale = nextGeneration()
     setSearching(true)
     try {
       const shopIds = await getGroupShopIds()
+      if (isStale()) return
       const normalized = query.replace(/-/g, '')
       const from = (page - 1) * 100
       const to = page * 100 - 1
@@ -178,6 +194,7 @@ export default function CustomersPage() {
 
       const { data, error } = listRes
       if (error) throw error
+      if (isStale()) return
       const list = data || []
       setCustomers(list)
       if (countRes.count !== null) setFilteredCount(countRes.count)
@@ -187,7 +204,7 @@ export default function CustomersPage() {
       // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
       const customerIds = list.map((c) => c.id)
       const [, ngRes] = await Promise.all([
-        fetchVisitCounts(customerIds, shopIds),
+        fetchVisitCounts(customerIds, shopIds, isStale),
         customerIds.length > 0
           ? supabase
               .from('customer_therapist_ng')
@@ -195,23 +212,38 @@ export default function CustomersPage() {
               .in('customer_id', customerIds)
           : Promise.resolve({ data: null as { customer_id: string }[] | null }),
       ])
+      if (isStale()) return
       setNgCustomerIds(new Set<string>((ngRes.data || []).map((n: { customer_id: string }) => n.customer_id)))
     } catch (err) {
       console.error('顧客検索に失敗:', err)
     } finally {
-      setSearching(false)
+      if (!isStale()) setSearching(false)
     }
-  }, [selectedShop, fetchVisitCounts])
+  }, [selectedShop, fetchVisitCounts, getGroupShopIds])
 
-  useEffect(() => {
-    setSearchQuery('')
-    setCurrentPage(1)
-    setFilteredCount(null)
-    void fetchRecentCustomers(1)
-  }, [selectedShop, fetchRecentCustomers])
+  // 店舗が変わったときの検索条件リセットはレンダー中に行う。
+  // effect でやると、リセット前の状態で下の取得 effect が一度走ってしまう。
+  const [renderedShopId, setRenderedShopId] = useState<string | null>(null)
+  if (selectedShop && renderedShopId !== selectedShop.id) {
+    if (renderedShopId !== null) {
+      setSearchQuery('')
+      setFilteredCount(null)
+      setCurrentPage(1)
+      // 前の店舗の顧客を表示したままにしない
+      setCustomers([])
+      setVisitCounts(new Map())
+      setNgCustomerIds(new Set())
+      setLoading(true)
+    }
+    setRenderedShopId(selectedShop.id)
+  }
 
+  // 一覧の取得はこの effect 1本にまとめる。
+  // 以前は「店舗変更で取得する effect」と「検索語の変更で取得する effect」が
+  // 別々にあり、初回表示でも店舗切り替えでも両方が発火していた。つまり
+  // 一覧・件数・来店回数・NG の 4 クエリを毎回二重に投げ、しかも互いに競合していた。
   useEffect(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    if (!selectedShop) return
     const q = searchQuery.trim()
     setCurrentPage(1)
     if (!q) {
@@ -219,13 +251,17 @@ export default function CustomersPage() {
       void fetchRecentCustomers(1)
       return
     }
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       void searchCustomers(q, 1)
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [searchQuery, fetchRecentCustomers, searchCustomers])
+    // fetchRecentCustomers / searchCustomers は selectedShop から作り直されるだけなので
+    // 依存に入れない。入れると店舗切り替えのたびに二重に走る。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShop?.id, searchQuery])
 
   const openHistoryModal = async (customer: Customer) => {
     setHistoryTarget(customer)

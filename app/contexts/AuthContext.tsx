@@ -203,6 +203,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearUserSession = () => {
     setUser(null)
     localStorage.removeItem('auth_user')
+    // 選択店舗のキャッシュも消す。別の担当者が同じ端末でログインしたときに、
+    // 前の利用者の店舗で一瞬取得が走らないようにするため。
+    localStorage.removeItem('selectedShop')
+    localStorage.removeItem('selectedShopId')
     const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
     document.cookie = `auth_user=; path=/; max-age=0; SameSite=Lax${isSecure}`
   }
@@ -433,6 +437,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       markSessionLost()
       setUser(null)
       localStorage.removeItem('auth_user')
+      localStorage.removeItem('selectedShop')
+      localStorage.removeItem('selectedShopId')
       document.cookie = 'auth_user=; path=/; max-age=0'
     }
   }
