@@ -1,0 +1,26 @@
+-- check_shop_access を STABLE にする
+--
+-- 背景:
+--   customers / reservations / therapists など、ほぼ全テーブルの RLS ポリシーが
+--   check_shop_access(shop_id) を呼んでいる。この関数は plpgsql の既定である
+--   VOLATILE のままだったため、PostgreSQL は「行ごとに結果が変わりうる」と判断し、
+--   走査した行の数だけ関数を呼び直していた。
+--
+--   関数の中身は最大3本のサブクエリ（users / shops / shop_owners）なので、
+--   予約1.2万件の店舗で予約管理を開くと、1回の表示で 3万回以上の索引参照が
+--   余計に発生していた。件数取得（count:exact）でも同じことがもう一度起きる。
+--
+-- なぜ STABLE が正しいか:
+--   - この関数は SELECT しかせず、データベースを一切変更しない
+--   - auth.uid() は1つの文の実行中は変わらない
+--   - よって「同じ引数なら同じ文の中では同じ結果」という STABLE の定義を満たす
+--   STABLE にすると PostgreSQL は同じ引数に対する結果を文の中で使い回せる。
+--   これらの画面は .eq('shop_id', ...) で単一店舗に絞っているため、
+--   実質1回の評価に collapse する。
+--
+-- 安全性:
+--   STABLE は判定を緩めるものではなく、プランナに再評価の省略を許すだけ。
+--   アクセス制御の結果は変わらない。戻したい場合は下記を実行する:
+--     ALTER FUNCTION public.check_shop_access(uuid) VOLATILE;
+
+ALTER FUNCTION public.check_shop_access(uuid) STABLE;

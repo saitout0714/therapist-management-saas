@@ -149,22 +149,46 @@ export default function ReservationsPage() {
       return
     }
 
-    let query = supabase
+    // 絞り込み条件は一覧用と件数用の両方に同じものを適用する
+    const applyFilters = <T extends {
+      gte: (c: string, v: string) => T
+      lte: (c: string, v: string) => T
+      eq: (c: string, v: string) => T
+      in: (c: string, v: string[]) => T
+    }>(q: T): T => {
+      let out = q
+      if (filters.dateFrom) out = out.gte('date', filters.dateFrom)
+      if (filters.dateTo) out = out.lte('date', filters.dateTo)
+      if (filters.status) out = out.eq('status', filters.status)
+      if (customerIds) out = out.in('customer_id', customerIds)
+      if (therapistIds) out = out.in('therapist_id', therapistIds)
+      return out
+    }
+
+    const baseList = supabase
       .from('reservations')
       .select(
-        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,reception_source,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)',
-        { count: 'exact' }
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,reception_source,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)'
       )
       .eq('shop_id', selectedShop.id)
       .neq('status', 'blocked')
 
-    if (filters.dateFrom) query = query.gte('date', filters.dateFrom)
-    if (filters.dateTo) query = query.lte('date', filters.dateTo)
-    if (filters.status) query = query.eq('status', filters.status)
-    if (customerIds) query = query.in('customer_id', customerIds)
-    if (therapistIds) query = query.in('therapist_id', therapistIds)
+    const baseCount = supabase
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('shop_id', selectedShop.id)
+      .neq('status', 'blocked')
 
-    const { data, error, count } = await query
+    // 件数は一覧と別クエリにして並列に投げ、一覧の描画は件数を待たない。
+    // count:exact は該当全件を数えるため、件数が増えるほど一覧より遅くなりうるが、
+    // ページャーの総件数表示にしか使っていないので後から入れば足りる。
+    const countPromise = applyFilters(baseCount)
+    void countPromise.then((res) => {
+      if (isStale()) return
+      if (res.count !== null && res.count !== undefined) setTotalCount(res.count)
+    })
+
+    const { data, error } = await applyFilters(baseList)
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -174,7 +198,8 @@ export default function ReservationsPage() {
     else {
       const reservationList = (data as unknown as Reservation[]) || []
       setReservations(reservationList)
-      setTotalCount(count ?? 0)
+      // 一覧は描き終えてよい。件数とNGバッジは後追いで入る
+      setLoading(false)
 
       // NGセラピストを持つ顧客IDを取得
       const cIds = reservationList.filter(r => r.customer).map(r => r.customer!.id)

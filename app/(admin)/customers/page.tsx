@@ -66,13 +66,23 @@ export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
+  // グループ店舗IDは店舗を切り替えない限り変わらないのにクエリが毎回走っていた。
+  // 一覧・検索・ページ送りのすべてが、本体のクエリを投げる前にこれを await するので、
+  // 検索の1文字ごとに往復が1回増えていた。店舗ごとにキャッシュする。
+  const groupShopIdsCache = useRef<{ shopId: string; ids: string[] } | null>(null)
+
   const getGroupShopIds = useCallback(async (): Promise<string[]> => {
     if (!selectedShop) return []
+    const cached = groupShopIdsCache.current
+    if (cached && cached.shopId === selectedShop.id) return cached.ids
+
+    let ids = [selectedShop.id]
     if (selectedShop.owner_id) {
       const { data } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
-      if (data && data.length > 0) return data.map(s => s.id)
+      if (data && data.length > 0) ids = data.map(s => s.id)
     }
-    return [selectedShop.id]
+    groupShopIdsCache.current = { shopId: selectedShop.id, ids }
+    return ids
   }, [selectedShop])
 
   // shopIds は呼び出し元が解決済みのものを渡す。ここで getGroupShopIds を
@@ -117,6 +127,9 @@ export default function CustomersPage() {
       const list = data || []
       setCustomers(list)
       if (countRes.count !== null) setTotalCount(countRes.count)
+      // 一覧が揃った時点で表示してしまう。来店回数とNGバッジは後から埋まればよく、
+      // これを待つと名前も出ないまま1往復ぶん待たされる。
+      setLoading(false)
 
       // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
       const customerIds = list.map((c) => c.id)
@@ -168,6 +181,8 @@ export default function CustomersPage() {
       const list = data || []
       setCustomers(list)
       if (countRes.count !== null) setFilteredCount(countRes.count)
+      // 検索結果も、来店回数・NGバッジを待たずに先に出す
+      setSearching(false)
 
       // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
       const customerIds = list.map((c) => c.id)
