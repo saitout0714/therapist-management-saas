@@ -27,6 +27,7 @@ export interface StoreConfig {
   xUrl?: string;
   litlinkUrl?: string;
   lineUrl?: string;
+  hpUrl?: string;
   noticeBanner?: string;
   templateId?: 'luxury' | 'modern' | 'cute' | 'minimal';
   layoutSections?: StoreSectionType[]; // モジュールコンテンツの配置順＆表示ON/OFF設定

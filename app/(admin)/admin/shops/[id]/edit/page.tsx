@@ -105,6 +105,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
     name: '',
     short_name: '',
     phone: '',
+    hp_url: '',
     is_active: true,
     is_dispatch_enabled: false,
   })
@@ -159,6 +160,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
           name: shopRes.name || '',
           short_name: shopRes.short_name || '',
           phone: shopRes.phone || shopRes.phone_number || '',
+          hp_url: shopRes.hp_url || '',
           is_active: !!shopRes.is_active,
           is_dispatch_enabled: !!shopRes.is_dispatch_enabled,
         })
@@ -272,6 +274,7 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         name: form.name,
         short_name: form.short_name.trim() || null,
         phone: form.phone.trim() || null,
+        hp_url: form.hp_url.trim() || null,
         is_active: form.is_active,
         is_dispatch_enabled: form.is_dispatch_enabled,
         pricing_source_shop_id: pricingSourceShopId || null,
@@ -402,15 +405,28 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
-              <input
-                type="text"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="例: 070-1462-0389"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="例: 070-1462-0389"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">店舗HP URL 🌐</label>
+                <input
+                  type="url"
+                  value={form.hp_url}
+                  onChange={(e) => setForm({ ...form, hp_url: e.target.value })}
+                  placeholder="例: https://example.com"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-6 pt-2">
               <label className="flex items-center gap-2 cursor-pointer">

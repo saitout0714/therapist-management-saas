@@ -977,6 +977,7 @@ function StoreInfoTab() {
     name: '',
     short_name: '',
     phone: '',
+    hp_url: '',
     business_hours: '',
     address: '',
     access_info: '',
@@ -1002,7 +1003,7 @@ function StoreInfoTab() {
 
       const { data, error: fetchErr } = await supabase
         .from('shops')
-        .select('name, short_name, phone, business_hours, address, access_info, catchphrase, description, line_url, x_url, litlink_url')
+        .select('name, short_name, phone, hp_url, business_hours, address, access_info, catchphrase, description, line_url, x_url, litlink_url')
         .eq('id', selectedShop.id)
         .single()
 
@@ -1018,6 +1019,7 @@ function StoreInfoTab() {
         name: data?.name || '',
         short_name: data?.short_name || '',
         phone: data?.phone || '',
+        hp_url: data?.hp_url || '',
         business_hours: data?.business_hours || '',
         address: data?.address || '',
         access_info: data?.access_info || '',
@@ -1051,6 +1053,7 @@ function StoreInfoTab() {
           name: form.name,
           short_name: form.short_name.trim() || null,
           phone: form.phone.trim() || null,
+          hp_url: form.hp_url.trim() || null,
           business_hours: form.business_hours.trim() || null,
           address: form.address.trim() || null,
           access_info: form.access_info.trim() || null,
@@ -1151,7 +1154,7 @@ function StoreInfoTab() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">お問合せ電話番号</label>
             <input
@@ -1159,6 +1162,16 @@ function StoreInfoTab() {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               placeholder="例: 090-0000-0000"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">店舗HP URL 🌐</label>
+            <input
+              type="url"
+              value={form.hp_url}
+              onChange={(e) => setForm({ ...form, hp_url: e.target.value })}
+              placeholder="例: https://example.com"
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
             />
           </div>

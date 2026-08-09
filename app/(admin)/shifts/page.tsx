@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import TimeSelectHM from '@/app/components/TimeSelectHM';
 import { supabase } from '@/lib/supabase';
@@ -2027,6 +2028,38 @@ function ShiftsContent() {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
+              {/* 店舗HPリンクボタン */}
+              {selectedShop?.hp_url ? (
+                <a
+                  href={selectedShop.hp_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all shadow-xs border border-indigo-200 text-xs md:text-sm font-bold whitespace-nowrap"
+                  title="店舗ホームページを新しいタブで開く"
+                >
+                  <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8" />
+                  </svg>
+                  <span>店舗HP</span>
+                  <svg className="w-3 h-3 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              ) : (
+                <Link
+                  href="/system"
+                  className="flex items-center gap-1.5 px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all border border-slate-200 text-xs md:text-sm font-medium whitespace-nowrap"
+                  title="店舗設定でHP URLを登録"
+                >
+                  <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8" />
+                  </svg>
+                  <span>店舗HP未登録</span>
+                </Link>
+              )}
+
               {/* 店舗ルールツールチップ */}
               <div 
                 ref={rulesRef}
@@ -2051,7 +2084,19 @@ function ShiftsContent() {
                   }`}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{selectedShop?.name} 店舗ルール</h3>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
+                    <h3 className="font-bold text-slate-800">{selectedShop?.name} 店舗ルール</h3>
+                    {selectedShop?.hp_url && (
+                      <a
+                        href={selectedShop.hp_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition-colors"
+                      >
+                        🌐 店舗HP ↗
+                      </a>
+                    )}
+                  </div>
                   
                   {/* 特殊ルール・注意事項 */}
                   {effectiveSpecialRules && (

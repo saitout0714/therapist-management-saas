@@ -21,6 +21,7 @@ export default function NewShopPage() {
     short_name: '',
     description: '',
     phone: '',
+    hp_url: '',
     is_active: true,
     is_dispatch_enabled: false,
     // クライアントオーナー設定
@@ -78,6 +79,7 @@ export default function NewShopPage() {
         short_name: form.short_name.trim() || null,
         description: form.description || null,
         phone: form.phone.trim() || null,
+        hp_url: form.hp_url.trim() || null,
         is_active: form.is_active,
         is_dispatch_enabled: form.is_dispatch_enabled,
       }])
@@ -253,15 +255,28 @@ export default function NewShopPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">電話番号</label>
-                <input
-                  type="text"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
-                  placeholder="例: 03-1234-5678"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">電話番号</label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    placeholder="例: 03-1234-5678"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">店舗HP URL 🌐</label>
+                  <input
+                    type="url"
+                    value={form.hp_url}
+                    onChange={(e) => setForm({ ...form, hp_url: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 font-medium"
+                    placeholder="例: https://example.com"
+                  />
+                </div>
               </div>
 
               <div>

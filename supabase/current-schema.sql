@@ -469,6 +469,7 @@ CREATE TABLE IF NOT EXISTS "public"."shops" (
   "sms_address_mode" text NOT NULL DEFAULT 'unified'::text,
   "special_rules" text,
   "phone" text,
+  "hp_url" text,
   CONSTRAINT "shops_pkey" PRIMARY KEY ("id")
 );
 

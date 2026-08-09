@@ -28,6 +28,7 @@ type Shop = {
   has_hp?: boolean | null
   has_reserve?: boolean | null
   has_agency?: boolean | null
+  hp_url?: string | null
 }
 
 type ShopContextType = {
@@ -134,7 +135,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           plan: shop.plan ?? null,
           has_hp: shop.has_hp ?? null,
           has_reserve: shop.has_reserve ?? null,
-          has_agency: shop.has_agency ?? null
+          has_agency: shop.has_agency ?? null,
+          hp_url: shop.hp_url || null
         }
       })
 
