@@ -100,19 +100,22 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
 
   // 部屋の取得
   useEffect(() => {
+    let cancelled = false
     const run = async () => {
       if (!selectedShop) {
         setRooms([])
         return
       }
       const { data } = await supabase.from('rooms').select('id, name').eq('shop_id', selectedShop.id).order('order', { ascending: true, nullsFirst: false })
+      if (cancelled) return
       setRooms((data as Room[]) || [])
     }
     void run()
+    return () => { cancelled = true }
   }, [selectedShop])
 
   // 週のシフトを取得
-  const fetchWeeklyShifts = async () => {
+  const fetchWeeklyShifts = async (isStale: () => boolean) => {
     if (!selectedShop) return
     const startDate = formatDate(weekDates[0])
     const endDate = formatDate(weekDates[6])
@@ -122,11 +125,15 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
       .eq('shop_id', selectedShop.id)
       .gte('date', startDate)
       .lte('date', endDate)
+    // 店舗・週を切り替えた後に前の取得の応答が届いた場合は捨てる
+    if (isStale()) return
     setShifts((data as Shift[]) || [])
   }
 
   useEffect(() => {
-    void fetchWeeklyShifts()
+    let cancelled = false
+    void fetchWeeklyShifts(() => cancelled)
+    return () => { cancelled = true }
   }, [selectedShop, weekDates])
 
   const shiftMap = useMemo(() => {
@@ -227,7 +234,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     }
 
     closeModal()
-    void fetchWeeklyShifts()
+    void fetchWeeklyShifts(() => false)
     onShiftUpdate?.()
   }
 
@@ -242,7 +249,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
       return
     }
     closeModal()
-    void fetchWeeklyShifts()
+    void fetchWeeklyShifts(() => false)
     onShiftUpdate?.()
   }
 

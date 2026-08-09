@@ -118,7 +118,8 @@
       "Bash(curl -sI \"https://pumkniqtgjsotsxhyvbq.supabase.co/storage/v1/object/public/therapist-photos/bca58f0c-6bc0-4d59-9c34-e8e0a24460a2/84bb90a2-9d24-4f90-90a7-876a51ebf984.jpeg\")",
       "Bash(xargs grep -l \"予約枠\\\\|タイムチャート\\\\|TimeChart\\\\|timechart\\\\|reservation.*card\\\\|ReservationCard\\\\|ReservationBlock\")",
       "Bash(xargs grep -l \"interface Reservation\")",
-      "Bash(xargs grep -l \"CREATE TABLE.*reservations\\\\|create table.*reservations\" -i)"
+      "Bash(xargs grep -l \"CREATE TABLE.*reservations\\\\|create table.*reservations\" -i)",
+      "Bash(git stash *)"
     ]
   }
 }

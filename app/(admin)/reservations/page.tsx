@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
@@ -77,12 +77,22 @@ export default function ReservationsPage() {
   const [applied, setApplied] = useState<SearchFilters>(EMPTY_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
 
-  async function fetchDesignationTypes() {
+  // 取得の世代番号。店舗の切り替えや検索のたびに増える。
+  // 応答が返った時点で世代が進んでいれば、それは切り替え前に投げた古い取得なので
+  // state に書き込まない（前の店舗の予約一覧が後から表示されるのを防ぐ）。
+  const fetchGenerationRef = useRef(0)
+  const nextGeneration = () => {
+    const generation = ++fetchGenerationRef.current
+    return () => generation !== fetchGenerationRef.current
+  }
+
+  async function fetchDesignationTypes(isStale: () => boolean) {
     if (!selectedShop) return
     const { data } = await supabase
       .from('designation_types')
       .select('slug, display_name')
       .eq('shop_id', selectedShop.id)
+    if (isStale()) return
     if (data) {
       const map: Record<string, string> = {}
       data.forEach((d: { slug: string; display_name: string }) => { map[d.slug] = d.display_name })
@@ -90,7 +100,7 @@ export default function ReservationsPage() {
     }
   }
 
-  async function fetchReservations(currentPage: number, filters: SearchFilters) {
+  async function fetchReservations(currentPage: number, filters: SearchFilters, isStale: () => boolean) {
     if (!selectedShop) {
       setReservations([])
       setTotalCount(0)
@@ -129,6 +139,8 @@ export default function ReservationsPage() {
       ? therapistRes.data?.map((t: { id: string }) => t.id) ?? []
       : null
 
+    if (isStale()) return
+
     // 名前で絞り込んだのに一件も該当しなければ、予約は引くまでもなく0件
     if ((customerIds && customerIds.length === 0) || (therapistIds && therapistIds.length === 0)) {
       setReservations([])
@@ -156,6 +168,8 @@ export default function ReservationsPage() {
       .order('created_at', { ascending: false })
       .range(from, to)
 
+    if (isStale()) return
+
     if (error) alert('予約の取得に失敗しました')
     else {
       const reservationList = (data as unknown as Reservation[]) || []
@@ -169,6 +183,7 @@ export default function ReservationsPage() {
           .from('customer_therapist_ng')
           .select('customer_id')
           .in('customer_id', cIds)
+        if (isStale()) return
         setNgCustomerIds(new Set<string>((ngData || []).map((n: { customer_id: string }) => n.customer_id)))
       } else {
         setNgCustomerIds(new Set())
@@ -180,14 +195,14 @@ export default function ReservationsPage() {
   const handleSearch = () => {
     setPage(1)
     setApplied(draft)
-    void fetchReservations(1, draft)
+    void fetchReservations(1, draft, nextGeneration())
   }
 
   const handleReset = () => {
     setDraft(EMPTY_FILTERS)
     setApplied(EMPTY_FILTERS)
     setPage(1)
-    void fetchReservations(1, EMPTY_FILTERS)
+    void fetchReservations(1, EMPTY_FILTERS, nextGeneration())
   }
 
   const handleDelete = async (id: string) => {
@@ -249,12 +264,12 @@ export default function ReservationsPage() {
       }
     }
 
-    void fetchReservations(page, applied)
+    void fetchReservations(page, applied, nextGeneration())
   }
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
-    void fetchReservations(newPage, applied)
+    void fetchReservations(newPage, applied, nextGeneration())
   }
 
   const designationLabel = (v: string) => {
@@ -274,8 +289,14 @@ export default function ReservationsPage() {
     setPage(1)
     setDraft(EMPTY_FILTERS)
     setApplied(EMPTY_FILTERS)
-    void fetchDesignationTypes()
-    void fetchReservations(1, EMPTY_FILTERS)
+    // 前の店舗の一覧を表示したままにしない
+    setReservations([])
+    setTotalCount(0)
+    setNgCustomerIds(new Set())
+    setLoading(true)
+    const isStale = nextGeneration()
+    void fetchDesignationTypes(isStale)
+    void fetchReservations(1, EMPTY_FILTERS, isStale)
   }, [selectedShop])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)

@@ -26,6 +26,26 @@ interface Shift {
   rooms: { name: string } | null;
 }
 
+// 表示中の店舗・日付のシフト 1 行。以前は用途ごとに shifts を 3 回引いていたので、
+// 3 つの取得が必要とする列をまとめた形にしている。
+interface DayShiftRow {
+  id: string;
+  therapist_id: string;
+  room_id: string | null;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  notes?: string | null;
+  therapists: { name: string } | null;
+  rooms: {
+    name: string;
+    display_name?: string | null;
+    address?: string | null;
+    memo?: string | null;
+    google_map_url?: string | null;
+  } | null;
+}
+
 interface Reservation {
   id: string;
   therapist_id: string;
@@ -278,19 +298,28 @@ function ShiftsContent() {
     }
   }, [searchParams]);
 
-  // 店舗（selectedShop）が変更された場合、日付を今日（当日）に戻す
-  const lastShopIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!selectedShop) return;
-    if (lastShopIdRef.current !== null && lastShopIdRef.current !== selectedShop.id) {
-      setFilterDate(getBusinessDateStr());
-      setWeekStartDate(getBusinessDate());
-    }
-    lastShopIdRef.current = selectedShop.id;
-  }, [selectedShop]);
   const [loading, setLoading] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [sortMode, setSortMode] = useState<SortMode>('shift');
+
+  // 店舗（selectedShop）が変更された場合、日付を今日（当日）に戻す。
+  // effect ではなくレンダー中に調整している。effect にすると、日付が戻る前に
+  // データ取得の effect が「新しい店舗 × 前の日付」で一度走ってしまい、
+  // 取得が二重になるうえ、その古い応答が後から届いて別の日を表示する事故が起きる。
+  // 併せて前の店舗のデータを捨てる（別店舗の出勤・予約が残って見えるのを防ぐ）。
+  const [renderedShopId, setRenderedShopId] = useState<string | null>(null);
+  if (selectedShop && renderedShopId !== selectedShop.id) {
+    if (renderedShopId !== null) {
+      setFilterDate(getBusinessDateStr());
+      setWeekStartDate(getBusinessDate());
+      setTherapists([]);
+      setShifts([]);
+      setReservations([]);
+      setPayrollEntries(new Map());
+      setLoading(true);
+    }
+    setRenderedShopId(selectedShop.id);
+  }
 
   // タイムチャートの高さをビューポートの残り高さいっぱいに追従させる
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -868,13 +897,30 @@ function ShiftsContent() {
     setFilterDate(nextDate.toISOString().split('T')[0]);
   };
 
+  // 取得の世代番号。店舗・日付が変わるたびに増える。
+  // 応答が返った時点で世代が進んでいれば、それは切り替え前に投げた古い取得なので
+  // state に書き込まない。取得は複数回の往復を伴い、店舗によって所要時間も違うため、
+  // ガードがないと前の店舗・前の日付の応答が後から届いて画面を上書きしてしまう。
+  const fetchGenerationRef = useRef(0);
+
   useEffect(() => {
-    if (authLoading || !user) return;
-    fetchTherapists();
-    fetchShifts();
-    fetchReservations();
-    fetchPayrollEntries();
-  }, [filterDate, selectedShop, refreshCounter, authLoading, user]);
+    if (authLoading || !user || !selectedShop || !filterDate) return;
+    const generation = ++fetchGenerationRef.current;
+    const isStale = () => generation !== fetchGenerationRef.current;
+
+    setLoading(true);
+    // 当日分のシフトは 3 つの取得すべてが必要としていたため、以前は同じ問い合わせを
+    // 3 回投げていた。1 回にまとめて結果を配る。
+    const shiftsPromise = fetchShiftsForDate();
+    void Promise.all([
+      fetchTherapists(shiftsPromise, isStale),
+      fetchShifts(shiftsPromise, isStale),
+      fetchReservations(shiftsPromise, isStale),
+      fetchPayrollEntries(isStale),
+    ]).finally(() => {
+      if (!isStale()) setLoading(false);
+    });
+  }, [filterDate, selectedShop, refreshCounter, authLoading, user?.id]);
 
   // 予約のリアルタイム更新（Supabase Realtime）
   useEffect(() => {
@@ -889,16 +935,18 @@ function ShiftsContent() {
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [selectedShop, filterDate, authLoading, user]);
+  }, [selectedShop, filterDate, authLoading, user?.id]);
 
   useEffect(() => {
     if (!selectedShop || authLoading || !user) return;
+    let cancelled = false;
     supabase
       .from('rooms')
       .select('id, name, order, linked_room_group_id, type, address, memo, google_map_url')
       .eq('shop_id', selectedShop.id)
       .order('order', { ascending: true, nullsFirst: false })
       .then(({ data }) => {
+        if (cancelled) return;
         const map = new Map<string, number>();
         (data || []).forEach((r: any, i: number) => map.set(r.id, r.order ?? i));
         setRoomOrderMap(map);
@@ -912,10 +960,13 @@ function ShiftsContent() {
           google_map_url: r.google_map_url
         })));
       });
-  }, [selectedShop, refreshCounter, authLoading, user]);
+    // 店舗を切り替えたとき、前の店舗の応答が後から届いて上書きするのを防ぐ
+    return () => { cancelled = true; };
+  }, [selectedShop, refreshCounter, authLoading, user?.id]);
 
   useEffect(() => {
     if (!selectedShop || authLoading || !user) return;
+    let cancelled = false;
     const pricingShopId = getPricingShopId(selectedShop);
     supabase
       .from('courses')
@@ -924,6 +975,7 @@ function ShiftsContent() {
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => {
+        if (cancelled) return;
         setShopCourses((data as any[])?.map(d => ({ name: d.name, duration: d.duration, price: d.base_price, showOnTimechart: d.show_on_timechart !== false })) || []);
         const timechartDurations = (data || [])
           .filter((c: any) => c.show_on_timechart !== false)
@@ -940,7 +992,10 @@ function ShiftsContent() {
       .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('created_at', { ascending: true })
-      .then(({ data }) => setShopDiscounts((data as any[])?.map(d => ({ name: d.name, value: d.discount_value })) || []));
+      .then(({ data }) => {
+        if (cancelled) return;
+        setShopDiscounts((data as any[])?.map(d => ({ name: d.name, value: d.discount_value })) || []);
+      });
 
     supabase
       .from('designation_types')
@@ -949,6 +1004,7 @@ function ShiftsContent() {
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
           const map: Record<string, string> = {};
           (data as any[]).forEach((d) => {
@@ -968,23 +1024,48 @@ function ShiftsContent() {
       .eq('shop_id', pricingShopId)
       .eq('is_active', true)
       .order('display_order', { ascending: true })
-      .then(({ data }) => setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []));
+      .then(({ data }) => {
+        if (cancelled) return;
+        setShopOptions((data as any[])?.map(d => ({ name: d.name, price: d.price, duration: d.duration_minutes_added, type: d.option_type })) || []);
+      });
 
     supabase
       .from('shops')
       .select('special_rules')
       .eq('id', pricingShopId)
       .single()
-      .then(({ data }) => setEffectiveSpecialRules((data as any)?.special_rules || null));
-  }, [selectedShop, authLoading, user]);
+      .then(({ data }) => {
+        if (cancelled) return;
+        setEffectiveSpecialRules((data as any)?.special_rules || null);
+      });
 
-  const fetchTherapists = async () => {
+    // 店舗を切り替えたとき、前の店舗の料金・オプション設定が後から届いて上書きするのを防ぐ
+    return () => { cancelled = true; };
+  }, [selectedShop, authLoading, user?.id]);
+
+  // 表示中の店舗・日付のシフト。fetchTherapists / fetchShifts / fetchReservations が
+  // それぞれ同じ内容を引いていたので、ここで 1 回だけ引いて Promise を共有する。
+  const fetchShiftsForDate = async (): Promise<DayShiftRow[]> => {
+    if (!selectedShop || !filterDate) return [];
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('id, therapist_id, room_id, date, start_time, end_time, notes, therapists(name), rooms(name, display_name, address, memo, google_map_url)')
+      .eq('shop_id', selectedShop.id)
+      .eq('date', filterDate);
+    if (error) {
+      console.error('シフトの取得に失敗:', error);
+      throw error;
+    }
+    return (data as unknown as DayShiftRow[]) || [];
+  };
+
+  const fetchTherapists = async (shiftsPromise: Promise<DayShiftRow[]>, isStale: () => boolean) => {
     if (!selectedShop) return;
     try {
       // 互いに依存しない問い合わせは一度にまとめて投げる。
       // 直列に await すると Supabase までの往復回数だけ待たされ、
       // それがシフト画面の読み込みの遅さの主因になっていた。
-      const [groupShopsRes, tsRes, settingsRes, shiftsRes, memosRes] = await Promise.all([
+      const [groupShopsRes, tsRes, settingsRes, shiftsData, memosRes] = await Promise.all([
         selectedShop.owner_id
           ? supabase
               .from('shops')
@@ -1000,11 +1081,7 @@ function ShiftsContent() {
           .select('reservation_interval_minutes, extension_unit_minutes')
           .eq('shop_id', selectedShop.id)
           .limit(1),
-        supabase
-          .from('shifts')
-          .select('therapist_id, room_id, rooms(name, display_name, address, memo, google_map_url), start_time, end_time, notes')
-          .eq('shop_id', selectedShop.id)
-          .eq('date', filterDate),
+        shiftsPromise,
         supabase
           .from('therapist_memos')
           .select('id, therapist_id, date, content, amount, resolved_at, resolved_date')
@@ -1059,6 +1136,8 @@ function ShiftsContent() {
         name: aliasMap.get(t.id) || t.name,
       })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
 
+      if (isStale()) return;
+
       const settingsData = settingsRes.data;
       const shopInterval = settingsData?.[0]?.reservation_interval_minutes ?? 20;
       setShopIntervalMinutes(shopInterval);
@@ -1097,15 +1176,8 @@ function ShiftsContent() {
         }
       });
 
-      const { data: shiftsData, error: shiftsError } = shiftsRes;
-
-      if (shiftsError) {
-        console.error('Error fetching shifts:', shiftsError);
-        return;
-      }
-
-      const shiftsMap = new Map<string, { therapist_id: string; room_id: string | null; start_time: string | null; end_time: string | null; notes?: string | null; rooms: { name: string; display_name?: string | null; address?: string | null; memo?: string | null; google_map_url?: string | null } | null }>();
-      (shiftsData || []).forEach((shift: any) => {
+      const shiftsMap = new Map<string, DayShiftRow>();
+      (shiftsData || []).forEach((shift) => {
         shiftsMap.set(shift.therapist_id, shift);
       });
 
@@ -1182,6 +1254,7 @@ function ShiftsContent() {
       for (const p of (photosRes.data || []) as { therapist_id: string; photo_url: string }[]) {
         if (!photoMap.has(p.therapist_id)) photoMap.set(p.therapist_id, p.photo_url)
       }
+      if (isStale()) return;
       setTherapists(withMemos.map(t => ({ ...t, avatar: photoMap.get(t.id) })))
     } catch (error) {
       console.error('Unexpected error in fetchTherapists:', error);
@@ -1199,33 +1272,22 @@ function ShiftsContent() {
     return null;
   };
 
-  const fetchShifts = async () => {
+  const fetchShifts = async (shiftsPromise: Promise<DayShiftRow[]>, isStale: () => boolean) => {
     if (!selectedShop) return;
-    setLoading(true);
-    let query = supabase
-      .from('shifts')
-      .select('id, therapist_id, room_id, date, start_time, end_time, notes, therapists(name), rooms(name)')
-      .eq('shop_id', selectedShop.id)
-      .order('date', { ascending: false });
-
-    if (filterDate) {
-      query = query.eq('date', filterDate);
-    }
-
-    const { data, error } = await query;
-    setLoading(false);
-    if (error) {
-      alert('Error fetching shifts: ' + error.message);
-    } else {
-      setShifts((data as unknown as Shift[]) || []);
+    try {
+      const data = await shiftsPromise;
+      if (isStale()) return;
+      setShifts(data as unknown as Shift[]);
+    } catch (error) {
+      console.error('シフトの取得に失敗:', error);
     }
   };
 
-  const fetchReservations = async () => {
+  const fetchReservations = async (shiftsPromise: Promise<DayShiftRow[]>, isStale: () => boolean) => {
     if (!selectedShop) return;
     try {
       // レースコンディションを避けるため、自店舗のセラピスト・部屋の紐付けグループ情報および店舗連携情報を直接取得
-      const [ownTherapistsRes, ownRoomsRes, linksRes, ownShiftsRes] = await Promise.all([
+      const [ownTherapistsRes, ownRoomsRes, linksRes, ownShiftsData] = await Promise.all([
         supabase
           .from('therapists')
           .select('id, linked_therapist_group_id')
@@ -1242,16 +1304,14 @@ function ShiftsContent() {
           .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`),
         // 自店舗に本日出勤しているセラピストID一覧（バカラ等、店舗を複製せず
         // 同一セラピスト行がそのまま複数店舗のシフトに登録される運用の判定用）
-        supabase
-          .from('shifts')
-          .select('therapist_id')
-          .eq('shop_id', selectedShop.id)
-          .eq('date', filterDate)
+        shiftsPromise
       ]);
       const ownTherapists = ownTherapistsRes.data || [];
       const ownRooms = ownRoomsRes.data || [];
       const linkedShopIds = (linksRes.data || []).map((l: any) => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
-      const ownShiftTherapistIds = new Set((ownShiftsRes.data || []).map((s: any) => s.therapist_id).filter(Boolean));
+      const ownShiftTherapistIds = new Set((ownShiftsData || []).map((s) => s.therapist_id).filter(Boolean));
+
+      if (isStale()) return;
 
       // 自店舗に出勤中のセラピストが、同日に他店舗のシフトにも入っている場合、
       // その店舗も予約取得の対象に含める（同一セラピスト行を複数店舗で共有する運用向け）
@@ -1398,13 +1458,14 @@ function ShiftsContent() {
         }
       });
 
+      if (isStale()) return;
       setReservations(processed);
     } catch (error) {
       console.error('予約の取得に失敗:', error);
     }
   };
 
-  const fetchPayrollEntries = async () => {
+  const fetchPayrollEntries = async (isStale: () => boolean) => {
     if (!selectedShop) return;
     try {
       const { data, error } = await supabase
@@ -1417,6 +1478,7 @@ function ShiftsContent() {
       (data || []).forEach((row: any) => {
         map.set(row.therapist_id, { status: row.status, confirmed_at: row.confirmed_at });
       });
+      if (isStale()) return;
       setPayrollEntries(map);
     } catch (error) {
       console.error('精算状況の取得に失敗:', error);

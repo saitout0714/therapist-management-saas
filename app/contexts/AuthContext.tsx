@@ -130,7 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           has_agency: dbUser.has_agency ?? null,
         }
 
-        setUser(userObj)
+        // 内容が同じなら参照を維持する。この同期はトークン更新のたびに走るため、
+        // 毎回新しいオブジェクトを渡すと user を依存に持つ画面が一斉に再取得を始め、
+        // 動作が重くなるうえ、その応答が画面を上書きしてしまう。
+        setUser((prev) => (prev && JSON.stringify(prev) === JSON.stringify(userObj) ? prev : userObj))
         localStorage.setItem('auth_user', JSON.stringify(userObj))
         const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : ''
         document.cookie = `auth_user=${JSON.stringify(userObj)}; path=/; max-age=2592000; SameSite=Lax${isSecure}`
