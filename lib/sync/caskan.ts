@@ -56,6 +56,10 @@ const CASKAN_ROOM_MAP: Record<string, string> = {
   '4814': '6154fad0-0b11-4de6-95c8-5190663ccc22',
   '3168': '657606f0-2f84-4ce6-9899-5e6e8445c428',
   '2560': '958d4d64-f535-4818-8873-5b197e7eae17',
+  '8184': 'ff2eebf3-11ba-4207-920c-0bd68ce50e98',
+  '8158': '9849e7b5-d56b-4728-9cf1-d98ed2ff85e4',
+  '8025': '968b414f-b11c-45ff-814d-05daa9240ee3',
+  '8089': '053f2c09-e720-4147-9e01-e9d685710f81',
 }
 
 class FetchSession {
@@ -116,7 +120,10 @@ class FetchSession {
 
 function normalizeCastName(raw: string): string {
   if (!raw) return ''
-  const s = raw.split('/')[0].split('(')[0].split('（')[0]
+  let s = raw
+  s = s.replace(/\s*\d{1,2}\/\d{1,2}.*$/, '')
+  s = s.replace(/\s*[\/（\(].*$/, '')
+  s = s.replace(/\s*体験.*$/, '')
   return s.trim()
 }
 
@@ -126,6 +133,8 @@ function matchTherapist(caskanName: string, therapistMap: Record<string, string>
   }
 
   const normCaskan = normalizeCastName(caskanName)
+  if (!normCaskan) return null
+
   if (therapistMap[normCaskan]) {
     return therapistMap[normCaskan]
   }
@@ -133,6 +142,15 @@ function matchTherapist(caskanName: string, therapistMap: Record<string, string>
   for (const [tName, tId] of Object.entries(therapistMap)) {
     if (normalizeCastName(tName) === normCaskan) {
       return tId
+    }
+  }
+
+  for (const [tName, tId] of Object.entries(therapistMap)) {
+    const normT = normalizeCastName(tName)
+    if (normT && normCaskan) {
+      if (normT.startsWith(normCaskan) || normCaskan.startsWith(normT)) {
+        return tId
+      }
     }
   }
 
@@ -338,18 +356,38 @@ interface ExistingShift {
 }
 
 async function getTherapistMap(shopUuid: string): Promise<Record<string, string>> {
-  const { data, error } = await supabaseAdmin
+  const mapping: Record<string, string> = {}
+
+  const { data: mainTherapists } = await supabaseAdmin
     .from('therapists')
     .select('id, name')
     .eq('shop_id', shopUuid)
 
-  if (error || !data) return {}
-  const mapping: Record<string, string> = {}
-  data.forEach((t) => {
-    if (!mapping[t.name]) {
-      mapping[t.name] = t.id
-    }
-  })
+  if (mainTherapists) {
+    mainTherapists.forEach((t) => {
+      if (t.name && !mapping[t.name]) {
+        mapping[t.name] = t.id
+      }
+    })
+  }
+
+  const { data: aliasTherapists } = await supabaseAdmin
+    .from('therapist_shops')
+    .select('therapist_id, alias_name, therapists(name)')
+    .eq('shop_id', shopUuid)
+
+  if (aliasTherapists) {
+    aliasTherapists.forEach((ts: any) => {
+      const tId = ts.therapist_id
+      if (ts.alias_name && !mapping[ts.alias_name]) {
+        mapping[ts.alias_name] = tId
+      }
+      if (ts.therapists?.name && !mapping[ts.therapists.name]) {
+        mapping[ts.therapists.name] = tId
+      }
+    })
+  }
+
   return mapping
 }
 

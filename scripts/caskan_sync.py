@@ -56,11 +56,14 @@ CASKAN_ROOM_MAP = {
     "3320": "8cdc1cef-4d4c-457d-9ae1-2e695c1e7745",
     "4892": "c61876a2-0121-4a3b-8bb2-9585b5101c7d",
     
-    # ⚠️ 【ここを書き換えてください】ログから判明した不足ルームID
     "4813": "60ea8984-197f-437b-b3f5-9e3a94e0037a",
     "4814": "6154fad0-0b11-4de6-95c8-5190663ccc22",
     "3168": "657606f0-2f84-4ce6-9899-5e6e8445c428",
     "4812": "debac2e1-22be-46ea-a5a0-d7f20b3bb3e8",
+    "8184": "ff2eebf3-11ba-4207-920c-0bd68ce50e98",
+    "8158": "9849e7b5-d56b-4728-9cf1-d98ed2ff85e4",
+    "8025": "968b414f-b11c-45ff-814d-05daa9240ee3",
+    "8089": "053f2c09-e720-4147-9e01-e9d685710f81",
 }
 
 SUPABASE_URL = "https://pumkniqtgjsotsxhyvbq.supabase.co"
@@ -73,11 +76,15 @@ SUPABASE_HEADERS = {
 }
 
 
+import re
+
 def normalize_cast_name(raw: str) -> str:
     if not raw:
         return ""
-    # スラッシュや括弧以降を取り除く
-    s = raw.split("/")[0].split("(")[0].split("（")[0]
+    s = raw
+    s = re.sub(r"\s*\d{1,2}/\d{1,2}.*$", "", s)
+    s = re.sub(r"\s*[/（\(].*$", "", s)
+    s = re.sub(r"\s*体験.*$", "", s)
     return s.strip()
 
 
@@ -88,6 +95,9 @@ def match_therapist(caskan_name: str, therapist_map: dict):
     
     # ② キャスカン名を正規化して一致するか
     norm_caskan = normalize_cast_name(caskan_name)
+    if not norm_caskan:
+        return None
+
     if norm_caskan in therapist_map:
         return therapist_map[norm_caskan]
         
@@ -104,8 +114,6 @@ def match_therapist(caskan_name: str, therapist_map: dict):
                 return t_id
                 
     return None
-
-
 
 def caskan_login(session):
     r = session.post("https://my.caskan.jp/login", data={"mode": "step1", "shop_code": CASKAN_SHOP_CODE, "code": CASKAN_LOGIN_ID}, allow_redirects=True)
@@ -158,11 +166,27 @@ def caskan_get_shifts(session, target_date):
 
 
 def get_therapist_map(supabase_id):
-    r = requests.get(SUPABASE_URL + "/rest/v1/therapists?select=id,name&shop_id=eq." + supabase_id, headers=SUPABASE_HEADERS)
     result = {}
-    for t in r.json():
-        if t["name"] not in result:
-            result[t["name"]] = t["id"]
+    r = requests.get(SUPABASE_URL + "/rest/v1/therapists?select=id,name&shop_id=eq." + supabase_id, headers=SUPABASE_HEADERS)
+    if r.status_code == 200:
+        for t in r.json():
+            if t.get("name") and t["name"] not in result:
+                result[t["name"]] = t["id"]
+                
+    r2 = requests.get(SUPABASE_URL + "/rest/v1/therapist_shops?select=therapist_id,alias_name,therapists(name)&shop_id=eq." + supabase_id, headers=SUPABASE_HEADERS)
+    if r2.status_code == 200:
+        for ts in r2.json():
+            t_id = ts.get("therapist_id")
+            if not t_id:
+                continue
+            alias = ts.get("alias_name")
+            if alias and alias not in result:
+                result[alias] = t_id
+            t_obj = ts.get("therapists")
+            if isinstance(t_obj, dict) and t_obj.get("name"):
+                if t_obj["name"] not in result:
+                    result[t_obj["name"]] = t_id
+                    
     return result
 
 
