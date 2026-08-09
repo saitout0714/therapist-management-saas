@@ -372,11 +372,34 @@ export default function ReservationsPage() {
   }
   const statusLabel = (v: string) => ({ pending: '保留中', confirmed: '確定', cancelled: 'キャンセル', completed: '完了' }[v] || v)
 
+  // 直前に読み込んでいた店舗。店舗を切り替えたかどうかの判定に使う。
+  const prevShopIdRef = useRef<string | null>(null)
+
   useEffect(() => {
+    const shopId = selectedShop?.id ?? null
+    // 店舗を切り替えたら、前の店舗で使っていた絞り込みは持ち越さない。
+    // （持ち越すと別店舗では該当0件になり、一覧が消えたように見えるため）
+    const shopChanged = prevShopIdRef.current !== null && prevShopIdRef.current !== shopId
+    prevShopIdRef.current = shopId
+
+    const filters = shopChanged ? EMPTY_FILTERS : applied
+    if (shopChanged) {
+      setDraft(EMPTY_FILTERS)
+      setApplied(EMPTY_FILTERS)
+      setShowFilters(false)
+      if (typeof window !== 'undefined') sessionStorage.removeItem('reservation_search_filters')
+    }
+
+    // 前の店舗の一覧を表示したままにしない
     setPage(1)
+    setReservations([])
+    setTotalCount(0)
+    setNgCustomerIds(new Set())
+    setLoading(true)
+
     const isStale = nextGeneration()
     void fetchDesignationTypes(isStale)
-    void fetchReservations(1, applied, isStale)
+    void fetchReservations(1, filters, isStale)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShop, sessionEpoch])
 
