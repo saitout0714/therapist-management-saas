@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
@@ -51,6 +51,7 @@ const customerStatusStyles: Record<string, string> = {
 
 export default function CustomerDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const customerId = params.id as string
 
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -213,7 +214,11 @@ export default function CustomerDetailPage() {
       <div className="max-w-4xl mx-auto">
         {/* ヘッダー部分 */}
         <div className="flex items-center gap-4 mb-4">
-          <Link href="/customers" className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200">
+          <Link
+            href="/customers"
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm border border-slate-200"
+            title="顧客一覧に戻る"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -224,7 +229,7 @@ export default function CustomerDetailPage() {
               <p className="text-sm text-slate-500 mt-1">顧客の基本情報と来店履歴を確認できます。</p>
             </div>
             <Link
-              href={`/customers/${customer.id}/edit`}
+              href={`/customers/${customer.id}/edit?redirect=/customers/${customer.id}`}
               className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition-colors text-sm"
             >
               情報を編集する

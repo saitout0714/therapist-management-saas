@@ -616,7 +616,7 @@ export default function EditTherapistPage() {
     }
 
     setLoading(false);
-    router.push("/therapists");
+    router.replace("/therapists");
   };
 
   if (initializing) {

@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
@@ -66,6 +67,9 @@ const EMPTY_FILTERS: SearchFilters = {
 export default function ReservationsPage() {
   const { selectedShop } = useShop()
   const { user, sessionEpoch } = useAuth()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -73,9 +77,66 @@ export default function ReservationsPage() {
   const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
   const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
-  const [draft, setDraft] = useState<SearchFilters>(EMPTY_FILTERS)
-  const [applied, setApplied] = useState<SearchFilters>(EMPTY_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
+  const initialFilters = useMemo<SearchFilters>(() => {
+    const cName = searchParams.get('cName')
+    const tName = searchParams.get('tName')
+    const df = searchParams.get('df')
+    const dt = searchParams.get('dt')
+    const st = searchParams.get('st')
+
+    if (cName !== null || tName !== null || df !== null || dt !== null || st !== null) {
+      return {
+        customerName: cName || '',
+        therapistName: tName || '',
+        dateFrom: df || '',
+        dateTo: dt || '',
+        status: st || '',
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('reservation_search_filters')
+      if (stored) {
+        try {
+          return JSON.parse(stored)
+        } catch { }
+      }
+    }
+    return EMPTY_FILTERS
+  }, [searchParams])
+
+  const [draft, setDraft] = useState<SearchFilters>(initialFilters)
+  const [applied, setApplied] = useState<SearchFilters>(initialFilters)
+  const [showFilters, setShowFilters] = useState(() => {
+    return !!(initialFilters.customerName || initialFilters.therapistName || initialFilters.dateFrom || initialFilters.dateTo || initialFilters.status)
+  })
+
+  // applied フィルターの変更を URL クエリと sessionStorage に即時反映
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hasAnyFilter = applied.customerName || applied.therapistName || applied.dateFrom || applied.dateTo || applied.status
+
+    if (hasAnyFilter) {
+      sessionStorage.setItem('reservation_search_filters', JSON.stringify(applied))
+      const params = new URLSearchParams(window.location.search)
+      if (applied.customerName) params.set('cName', applied.customerName); else params.delete('cName')
+      if (applied.therapistName) params.set('tName', applied.therapistName); else params.delete('tName')
+      if (applied.dateFrom) params.set('df', applied.dateFrom); else params.delete('df')
+      if (applied.dateTo) params.set('dt', applied.dateTo); else params.delete('dt')
+      if (applied.status) params.set('st', applied.status); else params.delete('st')
+      window.history.replaceState(null, '', `${pathname}?${params.toString()}`)
+    } else {
+      sessionStorage.removeItem('reservation_search_filters')
+      const params = new URLSearchParams(window.location.search)
+      params.delete('cName')
+      params.delete('tName')
+      params.delete('df')
+      params.delete('dt')
+      params.delete('st')
+      const queryStr = params.toString()
+      window.history.replaceState(null, '', queryStr ? `${pathname}?${queryStr}` : pathname)
+    }
+  }, [applied, pathname])
 
   // 取得の世代番号。店舗の切り替えや検索のたびに増える。
   // 応答が返った時点で世代が進んでいれば、それは切り替え前に投げた古い取得なので
@@ -217,19 +278,6 @@ export default function ReservationsPage() {
     setLoading(false)
   }
 
-  const handleSearch = () => {
-    setPage(1)
-    setApplied(draft)
-    void fetchReservations(1, draft, nextGeneration())
-  }
-
-  const handleReset = () => {
-    setDraft(EMPTY_FILTERS)
-    setApplied(EMPTY_FILTERS)
-    setPage(1)
-    void fetchReservations(1, EMPTY_FILTERS, nextGeneration())
-  }
-
   const handleDelete = async (id: string) => {
     if (!confirm('この予約を削除しますか？')) return
 
@@ -292,6 +340,20 @@ export default function ReservationsPage() {
     void fetchReservations(page, applied, nextGeneration())
   }
 
+  const handleSearch = () => {
+    setPage(1)
+    setApplied(draft)
+    void fetchReservations(1, draft, nextGeneration())
+  }
+
+  const handleReset = () => {
+    setPage(1)
+    setDraft(EMPTY_FILTERS)
+    setApplied(EMPTY_FILTERS)
+    if (typeof window !== 'undefined') sessionStorage.removeItem('reservation_search_filters')
+    void fetchReservations(1, EMPTY_FILTERS, nextGeneration())
+  }
+
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
     void fetchReservations(newPage, applied, nextGeneration())
@@ -312,17 +374,10 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     setPage(1)
-    setDraft(EMPTY_FILTERS)
-    setApplied(EMPTY_FILTERS)
-    // 前の店舗の一覧を表示したままにしない
-    setReservations([])
-    setTotalCount(0)
-    setNgCustomerIds(new Set())
-    setLoading(true)
     const isStale = nextGeneration()
     void fetchDesignationTypes(isStale)
-    void fetchReservations(1, EMPTY_FILTERS, isStale)
-    // sessionEpoch: セッションが切れて復活したとき、顧客名が読めるようになるので取り直す
+    void fetchReservations(1, applied, isStale)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShop, sessionEpoch])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)

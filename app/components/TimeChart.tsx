@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { buildRoomToneMap, toneFor, type GroupKind, type GroupTone } from '@/lib/roomGroupTones';
 
 interface Therapist {
   id: string;
@@ -84,6 +85,7 @@ interface TimeChartProps {
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
   sortMode?: string;
+  roomOrder?: string[]; // ルームマスタの並び順 (ルーム順表示の色分けを他ビューと揃えるため)
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string) => void;
@@ -102,6 +104,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
   schedules: rawSchedules = [],
   date,
   sortMode,
+  roomOrder,
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
@@ -249,9 +252,12 @@ const TimeChart: React.FC<TimeChartProps> = ({
     }
   };
 
-  const getCellBackgroundStyle = (isInShift: boolean) => {
+  const getCellBackgroundStyle = (isInShift: boolean, tone?: GroupTone) => {
     if (isInShift) {
-      return { backgroundColor: '#FFFFFF' };
+      // ルーム順のときはグループごとに極薄の色を敷いて「同じルームの行」を帯として見せる
+      return tone
+        ? { backgroundColor: '#FFFFFF', backgroundImage: `linear-gradient(${tone.cell}, ${tone.cell})` }
+        : { backgroundColor: '#FFFFFF' };
     } else {
       return {
         backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 10px, transparent 10px, transparent 20px)',
@@ -384,6 +390,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
     return therapist.room;
   };
 
+  const getRoomGroupKind = (therapist: Therapist): GroupKind => {
+    const name = getRoomGroupName(therapist);
+    if (name === '休み (OFF)') return 'off';
+    if (name === 'フリー（未割当） / ルーム未定') return 'free';
+    return 'room';
+  };
+
   const roomGroupCounts = useMemo(() => {
     if (sortMode !== 'room') return new Map<string, number>();
     const counts = new Map<string, number>();
@@ -393,6 +406,21 @@ const TimeChart: React.FC<TimeChartProps> = ({
     });
     return counts;
   }, [therapists, sortMode, schedules]);
+
+  // ルームごとの配色 (縦チャート・週間表示と共通パレット)
+  // ルームマスタの並び順で色を確定させるので、同じルームは日・画面をまたいでも常に同じ色になる
+  const roomToneMap: Map<string, GroupTone> =
+    sortMode === 'room'
+      ? buildRoomToneMap(
+          roomOrder && roomOrder.length > 0
+            ? roomOrder
+            : therapists.filter(t => t.room).map(t => t.room!)
+        )
+      : new Map();
+
+  // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
+  const getGroupTone = (therapist: Therapist): GroupTone =>
+    toneFor(getRoomGroupKind(therapist), therapist.room ?? getRoomGroupName(therapist), roomToneMap);
 
   // Row height & Cell width adjustments for compact view
   const rowHeight = isDesktop ? 100 : 76;
@@ -467,28 +495,41 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
               const currentGroupName = getRoomGroupName(therapist);
               const showGroupHeader = sortMode === 'room' && (index === 0 || getRoomGroupName(therapists[index - 1]) !== currentGroupName);
+              const groupTone = sortMode === 'room' ? getGroupTone(therapist) : undefined;
+              const isLastOfGroup = sortMode === 'room' && (index === therapists.length - 1 || getRoomGroupName(therapists[index + 1]) !== currentGroupName);
 
               return (
                 <React.Fragment key={therapist.id}>
-                  {showGroupHeader && (
+                  {showGroupHeader && groupTone && (
                     <div
-                      style={{ height: '32px' }}
-                      className="bg-indigo-50/90 border-y border-indigo-200 text-indigo-900 font-bold text-xs px-2.5 sm:px-3 flex items-center gap-1.5 sticky left-0 z-20 shadow-sm whitespace-nowrap"
+                      style={{ height: '32px', backgroundColor: groupTone.band, color: groupTone.text, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
+                      className="relative font-bold text-xs pl-3.5 pr-2.5 sm:pr-3 flex items-center gap-1.5 sticky left-0 z-20 whitespace-nowrap"
                     >
-                      <span className="text-sm">🏠</span>
+                      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: groupTone.accent }} />
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: groupTone.accent }} />
                       <span className="truncate">{currentGroupName}</span>
-                      <span className="ml-auto text-[10px] text-indigo-600 font-normal flex-shrink-0">
+                      <span className="ml-auto text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70">
                         {roomGroupCounts.get(currentGroupName)}名
                       </span>
                     </div>
                   )}
                 <div
-                  style={{ height: `${rowHeight}px` }}
+                  style={{
+                    height: `${rowHeight}px`,
+                    ...(groupTone && !isOff ? { backgroundImage: `linear-gradient(${groupTone.cell}, ${groupTone.cell})` } : {}),
+                  }}
                   className={`flex items-stretch border-b border-slate-100 transition-colors group relative overflow-hidden
                     ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}`}
                 >
+                  {/* グループの縦アクセント (ルーム順のとき、どの行が同じルームか一目で分かる) */}
+                  {groupTone && !isOff && (
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none"
+                      style={{ backgroundColor: groupTone.accent, opacity: 0.5, borderBottomRightRadius: isLastOfGroup ? '2px' : undefined }}
+                    />
+                  )}
                   {/* Active indicator bar */}
-                  {!isOff && (
+                  {!isOff && !groupTone && (
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
 
@@ -931,13 +972,14 @@ const TimeChart: React.FC<TimeChartProps> = ({
             {therapists.map((therapist, tIdx) => {
               const currentGroupName = getRoomGroupName(therapist);
               const showGroupHeader = sortMode === 'room' && (tIdx === 0 || getRoomGroupName(therapists[tIdx - 1]) !== currentGroupName);
+              const groupTone = sortMode === 'room' ? getGroupTone(therapist) : undefined;
 
               return (
                 <React.Fragment key={`grid-${therapist.id}`}>
-                  {showGroupHeader && (
+                  {showGroupHeader && groupTone && (
                     <div
-                      style={{ height: '32px' }}
-                      className="bg-indigo-50/90 border-y border-indigo-200 flex items-center px-3 text-indigo-900/70 font-semibold text-xs sticky left-0"
+                      style={{ height: '32px', backgroundColor: groupTone.band, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
+                      className="flex items-center px-3 sticky left-0"
                     />
                   )}
                   <div
@@ -954,7 +996,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                         const idx = hIdx * 12 + i;
                         const timeSlot = timeSlots[idx];
                         const inShift = isCellInShift(therapist, idx);
-                        const cellStyle = getCellBackgroundStyle(inShift);
+                        const cellStyle = getCellBackgroundStyle(inShift, groupTone);
 
                         const handleCellClick = () => {
                           if (isDragging || dragDistanceRef.current > 5) return;

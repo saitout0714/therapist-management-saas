@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { toDisplayTime } from '@/lib/timeUtils'
+import { buildRoomToneMap, toneFor, GroupKind, GroupTone } from '@/lib/roomGroupTones'
 
 interface Therapist {
   id: string
@@ -332,6 +333,16 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
     return map
   }, [rooms])
 
+  // ルームごとの配色 (縦・横チャートと共通パレット)
+  // ルームマスタ全件を並び順どおりに色付けする → 曜日・画面をまたいでも同じルームは常に同じ色
+  const roomToneMap = useMemo(() => {
+    if (sortMode !== 'room') return new Map<string, GroupTone>()
+    const ordered = [...rooms].sort(
+      (a, b) => (roomOrderMap.get(a.id) ?? 9999) - (roomOrderMap.get(b.id) ?? 9999)
+    )
+    return buildRoomToneMap(ordered.map(r => r.name).filter(Boolean))
+  }, [rooms, roomOrderMap, sortMode])
+
   const shiftsByDate = useMemo(() => {
     const map = new Map<string, Shift[]>()
     weekDates.forEach(d => map.set(formatDate(d), []))
@@ -545,27 +556,53 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
 
                       const currentGroupName = getShiftRoomGroupName(shift)
                       const showGroupHeader = sortMode === 'room' && (shiftIdx === 0 || getShiftRoomGroupName(dayShifts[shiftIdx - 1]) !== currentGroupName)
+                      const groupKind: GroupKind =
+                        currentGroupName === '休み (OFF)' ? 'off' : currentGroupName === 'フリー / 未定' ? 'free' : 'room'
+                      const groupTone = sortMode === 'room' ? toneFor(groupKind, currentGroupName, roomToneMap) : undefined
+                      const groupCount = sortMode === 'room'
+                        ? dayShifts.filter(s => getShiftRoomGroupName(s) === currentGroupName).length
+                        : 0
 
                       return (
                         <React.Fragment key={shift.id}>
-                          {showGroupHeader && (
-                            <div className="bg-indigo-50/95 border-y border-indigo-200 text-indigo-900 font-bold text-[11px] sm:text-xs px-2 py-1 flex items-center gap-1 sticky top-[57px] z-10 shadow-sm whitespace-nowrap">
-                              <span className="text-xs">🏠</span>
+                          {showGroupHeader && groupTone && (
+                            <div
+                              className="relative font-bold text-[11px] sm:text-xs pl-3 pr-2 py-1 flex items-center gap-1.5 sticky top-[57px] z-10 whitespace-nowrap"
+                              style={{ backgroundColor: groupTone.band, color: groupTone.text, boxShadow: `inset 0 -2px 0 0 ${groupTone.accent}` }}
+                            >
+                              <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: groupTone.accent }} />
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: groupTone.accent }} />
                               <span className="truncate">{currentGroupName}</span>
+                              {groupCount > 1 && (
+                                <span className="ml-auto text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70">
+                                  {groupCount}
+                                </span>
+                              )}
                             </div>
                           )}
                           <div
                             className={`transition-colors group relative
                               ${isOff ? 'bg-slate-100/80 hover:bg-slate-200/50 text-slate-400 border-l-4 border-rose-300' : 'bg-white hover:bg-indigo-50/40'}
                               ${shiftIdx < dayShifts.length - 1 ? 'border-b border-slate-100' : ''}`}
+                            style={groupTone && !isOff ? { backgroundImage: `linear-gradient(${groupTone.cell}, ${groupTone.cell})` } : undefined}
                           >
+                          {/* グループの縦アクセント (ルーム順のとき、どのシフトが同じルームか一目で分かる) */}
+                          {groupTone && !isOff && (
+                            <div
+                              className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none z-[1]"
+                              style={{ backgroundColor: groupTone.accent, opacity: 0.5 }}
+                            />
+                          )}
                           {/* ホバー時のインジゴ左バー — TimeChart と同じ */}
-                          {!isOff && (
+                          {!isOff && !groupTone && (
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
 
                           {/* セラピスト情報 */}
-                          <div className={`flex items-stretch sm:border-b sm:border-slate-100 ${isOff ? '' : 'sm:bg-slate-50/70'}`}>
+                          <div
+                            className={`flex items-stretch sm:border-b sm:border-slate-100 ${isOff ? '' : 'sm:bg-slate-50/70'}`}
+                            style={groupTone && !isOff ? { backgroundImage: `linear-gradient(${groupTone.cell}, ${groupTone.cell})` } : undefined}
+                          >
                             {/* 写真 — 3:4固定比率 (スマホ表示時は非表示) */}
                             <div className="hidden sm:block w-[48px] flex-shrink-0 self-center pl-2 py-1.5">
                               {therapist.id !== 'unassigned' ? (

@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useShop } from "@/app/contexts/ShopContext";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -29,6 +30,9 @@ type TherapistItem = {
 export default function TherapistsPage() {
   const { selectedShop } = useShop();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [therapists, setTherapists] = useState<TherapistItem[]>([]);
   const [photosMap, setPhotosMap] = useState<Map<string, string>>(new Map());
   const [unresolvedMemoCounts, setUnresolvedMemoCounts] = useState<Map<string, number>>(new Map());
@@ -42,7 +46,36 @@ export default function TherapistsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteReservationCount, setDeleteReservationCount] = useState(0);
   const [deleteCountLoading, setDeleteCountLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const qFromUrl = searchParams.get('q');
+    if (qFromUrl !== null) return qFromUrl;
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('therapist_search_q') || '';
+    }
+    return '';
+  });
+
+  // searchQuery の変更を URL クエリ (?q=) と sessionStorage に即時反映
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (searchQuery) {
+      sessionStorage.setItem('therapist_search_q', searchQuery);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('q') !== searchQuery) {
+        params.set('q', searchQuery);
+        window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
+      }
+    } else {
+      sessionStorage.removeItem('therapist_search_q');
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('q')) {
+        params.delete('q');
+        const queryStr = params.toString();
+        window.history.replaceState(null, '', queryStr ? `${pathname}?${queryStr}` : pathname);
+      }
+    }
+  }, [searchQuery, pathname]);
 
 
   const fetchTherapists = async () => {

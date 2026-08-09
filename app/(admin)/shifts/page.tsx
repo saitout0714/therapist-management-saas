@@ -1990,6 +1990,9 @@ function ShiftsContent() {
     return [unassignedTherapist, ...sortedOthers];
   }, [therapists, sortMode, roomOrderMap, reservations, shopIntervalMinutes, minCourseDuration, selectedShop, payrollEntries]);
 
+  // ルーム順表示の色分け用：ルームマスタの並び順（rooms は order 昇順で取得済み）
+  const roomOrder = useMemo(() => rooms.map(r => r.name), [rooms]);
+
   // 週間表示用：全セラピストを詳細な形式にマップ
   const therapistsForWeekly = therapists.map(t => ({
     id: t.id,
@@ -2419,6 +2422,7 @@ function ShiftsContent() {
                     schedules={schedules}
                     date={filterDate}
                     sortMode={sortMode}
+                    roomOrder={roomOrder}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
@@ -2455,6 +2459,7 @@ function ShiftsContent() {
                     schedules={schedules}
                     date={filterDate}
                     sortMode={sortMode}
+                    roomOrder={roomOrder}
                     scrollToTime={searchParams.get('scroll_to_time')}
                     onBlockedClick={(id, startTime, endTime) =>
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })

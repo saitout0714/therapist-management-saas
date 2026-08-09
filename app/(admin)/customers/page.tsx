@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import Link from 'next/link'
@@ -37,11 +38,23 @@ const statusStyles: Record<string, string> = {
 
 export default function CustomersPage() {
   const { selectedShop } = useShop()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
   const [customers, setCustomers] = useState<Customer[]>([])
   const [visitCounts, setVisitCounts] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+
+  // URLパラメータまたは sessionStorage から初期検索語を取得
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const qFromUrl = searchParams.get('q')
+    if (qFromUrl !== null) return qFromUrl
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('customer_search_q') || ''
+    }
+    return ''
+  })
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [historyTarget, setHistoryTarget] = useState<Customer | null>(null)
   const [selectedHistory, setSelectedHistory] = useState<Reservation[]>([])
@@ -205,6 +218,7 @@ export default function CustomersPage() {
       setCustomers(list)
       // 検索結果も、来店回数・NGバッジを待たずに先に出す
       setSearching(false)
+      setLoading(false)
 
       // 来店回数とNGセラピストは、どちらも顧客IDが揃えば投げられるので並列に取得する
       const customerIds = list.map((c) => c.id)
@@ -222,9 +236,33 @@ export default function CustomersPage() {
     } catch (err) {
       console.error('顧客検索に失敗:', err)
     } finally {
-      if (!isStale()) setSearching(false)
+      if (!isStale()) {
+        setSearching(false)
+        setLoading(false)
+      }
     }
   }, [selectedShop, fetchVisitCounts, getGroupShopIds])
+
+  // searchQuery の変更を URL クエリ (?q=) と sessionStorage に即時反映
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (searchQuery) {
+      sessionStorage.setItem('customer_search_q', searchQuery)
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('q') !== searchQuery) {
+        params.set('q', searchQuery)
+        window.history.replaceState(null, '', `${pathname}?${params.toString()}`)
+      }
+    } else {
+      sessionStorage.removeItem('customer_search_q')
+      const params = new URLSearchParams(window.location.search)
+      if (params.has('q')) {
+        params.delete('q')
+        const queryStr = params.toString()
+        window.history.replaceState(null, '', queryStr ? `${pathname}?${queryStr}` : pathname)
+      }
+    }
+  }, [searchQuery, pathname])
 
   // 店舗が変わったときの検索条件リセットはレンダー中に行う。
   // effect でやると、リセット前の状態で下の取得 effect が一度走ってしまう。
@@ -232,6 +270,7 @@ export default function CustomersPage() {
   if (selectedShop && renderedShopId !== selectedShop.id) {
     if (renderedShopId !== null) {
       setSearchQuery('')
+      if (typeof window !== 'undefined') sessionStorage.removeItem('customer_search_q')
       setFilteredCount(null)
       setCurrentPage(1)
       // 前の店舗の顧客を表示したままにしない
@@ -243,19 +282,32 @@ export default function CustomersPage() {
     setRenderedShopId(selectedShop.id)
   }
 
+  const isFirstRenderRef = useRef(true)
+
   // 一覧の取得はこの effect 1本にまとめる。
-  // 以前は「店舗変更で取得する effect」と「検索語の変更で取得する effect」が
-  // 別々にあり、初回表示でも店舗切り替えでも両方が発火していた。つまり
-  // 一覧・件数・来店回数・NG の 4 クエリを毎回二重に投げ、しかも互いに競合していた。
   useEffect(() => {
     if (!selectedShop) return
     const q = searchQuery.trim()
     setCurrentPage(1)
+
+    // 初回レンダリング（直リンクやブラウザバック含む）時はデバウンスを介さず即時検索・取得する
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false
+      if (!q) {
+        setFilteredCount(null)
+        void fetchRecentCustomers(1)
+      } else {
+        void searchCustomers(q, 1)
+      }
+      return
+    }
+
     if (!q) {
       setFilteredCount(null)
       void fetchRecentCustomers(1)
       return
     }
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       void searchCustomers(q, 1)
@@ -263,8 +315,6 @@ export default function CustomersPage() {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-    // fetchRecentCustomers / searchCustomers は selectedShop から作り直されるだけなので
-    // 依存に入れない。入れると店舗切り替えのたびに二重に走る。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShop?.id, searchQuery])
 
@@ -403,15 +453,6 @@ export default function CustomersPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-20 text-indigo-600">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        <span className="ml-3 font-medium">読み込み中...</span>
-      </div>
-    )
-  }
-
   return (
     <div className="bg-gray-100 p-2 md:p-4">
       <div className="mx-auto">
@@ -521,7 +562,16 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {customers.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={mergeMode ? 7 : 6} className="px-6 py-16 text-center">
+                      <div className="flex items-center justify-center text-indigo-600">
+                        <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600"></div>
+                        <span className="ml-3 font-medium text-sm">読み込み中...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : customers.length === 0 ? (
                   <tr>
                     <td colSpan={mergeMode ? 7 : 6} className="px-6 py-12 text-center">
                       <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">

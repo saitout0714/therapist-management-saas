@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toDisplayTime } from '@/lib/timeUtils';
 import { useIsDesktop } from '@/lib/useIsDesktop';
 import { getCashlessMethod, cashlessLabel, settledLabel } from '@/lib/paymentStatus';
+import { buildRoomToneMap, toneFor, type GroupTone } from '@/lib/roomGroupTones';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -97,6 +98,7 @@ interface VerticalTimeChartProps {
   schedules?: Schedule[];
   date?: string; // YYYY-MM-DD format
   sortMode?: string;
+  roomOrder?: string[]; // ルームマスタの並び順 (ルーム順表示の色分けを他ビューと揃えるため)
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string, date?: string) => void;
@@ -111,6 +113,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   schedules: rawSchedules = [],
   date,
   sortMode,
+  roomOrder,
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
@@ -259,9 +262,12 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     }
   };
 
-  const getCellBackgroundStyle = (isInShift: boolean) => {
+  const getCellBackgroundStyle = (isInShift: boolean, tone?: GroupTone) => {
     if (isInShift) {
-      return { backgroundColor: '#FFFFFF' };
+      // ルーム順のときはグループごとに極薄の色を敷いて「同じルームの列」を帯として見せる
+      return tone
+        ? { backgroundColor: '#FFFFFF', backgroundImage: `linear-gradient(${tone.cell}, ${tone.cell})` }
+        : { backgroundColor: '#FFFFFF' };
     } else {
       return {
         backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 10px, transparent 10px, transparent 20px)',
@@ -380,7 +386,14 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
   const roomGroups = useMemo(() => {
     if (sortMode !== 'room') return [];
-    const groups: { name: string; count: number; start: number; kind: 'room' | 'free' | 'off' }[] = [];
+    const groups: { name: string; count: number; start: number; kind: 'room' | 'free' | 'off'; tone: GroupTone }[] = [];
+    // 配色はルームマスタの並び順で確定させる (同じルームは日・画面をまたいでも常に同じ色)
+    // roomOrder が無いときだけ、その日に出てくる順で割り当てる
+    const toneMap = buildRoomToneMap(
+      roomOrder && roomOrder.length > 0
+        ? roomOrder
+        : therapists.filter(t => t.room).map(t => t.room!)
+    );
     therapists.forEach((t, i) => {
       const isOff = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
         s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
@@ -396,15 +409,25 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
       }
 
       if (groups.length === 0 || groups[groups.length - 1].name !== gName) {
-        groups.push({ name: gName, count: 1, start: i, kind });
+        // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
+        groups.push({ name: gName, count: 1, start: i, kind, tone: toneFor(kind, t.room ?? gName, toneMap) });
       } else {
         groups[groups.length - 1].count++;
       }
     });
     return groups;
-  }, [therapists, sortMode, schedules]);
+  }, [therapists, sortMode, schedules, roomOrder]);
 
-  const groupBarHeight = sortMode === 'room' ? 32 : 0;
+  // 列インデックス → 所属グループ (セルの色分け用)
+  const columnGroups = useMemo(() => {
+    const map: (typeof roomGroups)[number][] = [];
+    roomGroups.forEach((g) => {
+      for (let i = 0; i < g.count; i++) map[g.start + i] = g;
+    });
+    return map;
+  }, [roomGroups]);
+
+  const groupBarHeight = sortMode === 'room' ? 34 : 0;
   const totalTopHeaderHeight = headerHeight + groupBarHeight;
 
   return (
@@ -430,40 +453,49 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
           >
             {/* 1段目: ルームグループ帯 (sortMode === 'room' のときのみ) */}
             {sortMode === 'room' && (
-              <div className="flex flex-shrink-0 relative border-b border-slate-200" style={{ height: '32px' }}>
+              <div className="flex flex-shrink-0 relative bg-white" style={{ height: `${groupBarHeight}px` }}>
                 {/* 左上角スペーサー (グループ行分) */}
                 <div
                   className="sticky left-0 bg-slate-100 border-r border-slate-200 z-40 flex-shrink-0 flex items-center px-2 font-semibold text-[10px] tracking-wide text-slate-500"
-                  style={{ width: `${timeColumnWidth}px`, height: '32px' }}
+                  style={{ width: `${timeColumnWidth}px`, height: `${groupBarHeight}px` }}
                 >
                   ルーム
                 </div>
                 {/* 各グループの横幅指定帯 */}
-                {roomGroups.map((g, gIdx) => {
-                  const tone =
-                    g.kind === 'off'
-                      ? { bg: 'bg-rose-50/70', dot: 'bg-rose-300', text: 'text-rose-700' }
-                      : g.kind === 'free'
-                        ? { bg: 'bg-slate-50', dot: 'bg-slate-300', text: 'text-slate-500' }
-                        : { bg: gIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80', dot: 'bg-indigo-400', text: 'text-slate-700' };
-                  return (
-                    <div
-                      key={`room-group-${gIdx}`}
-                      style={{ width: `${g.count * columnWidth}px`, height: '32px' }}
-                      className={`${tone.bg} flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden`}
-                      title={`${g.name} / ${g.count}名`}
+                {roomGroups.map((g, gIdx) => (
+                  <div
+                    key={`room-group-${gIdx}`}
+                    style={{ width: `${g.count * columnWidth}px`, height: `${groupBarHeight}px`, backgroundColor: g.tone.band }}
+                    className="relative flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden"
+                    title={`${g.name} / ${g.count}名`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.tone.accent }} />
+                    <span
+                      className="truncate text-[11px] font-bold tracking-tight"
+                      style={{ color: g.tone.text }}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tone.dot}`} />
-                      <span className={`truncate text-[11px] font-semibold tracking-tight ${tone.text}`}>{g.name}</span>
-                      <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">{g.count}</span>
-                    </div>
-                  );
-                })}
+                      {g.name}
+                    </span>
+                    {g.count > 1 && (
+                      <span
+                        className="text-[10px] font-semibold flex-shrink-0 rounded-full px-1.5 leading-[15px] bg-white/70"
+                        style={{ color: g.tone.text }}
+                      >
+                        {g.count}
+                      </span>
+                    )}
+                    {/* グループ幅ぶんのアクセント下線 = どこからどこまでが同じルームか一目で分かる */}
+                    <span
+                      className="absolute left-0 right-0 bottom-0"
+                      style={{ height: '2px', backgroundColor: g.tone.accent, opacity: 0.85 }}
+                    />
+                  </div>
+                ))}
                 {/* グループ区切り線 (下のグリッドと同じ x 座標で描画) */}
                 {roomGroups.slice(1).map((g, i) => (
                   <div
                     key={`room-group-sep-${i}`}
-                    className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none z-20"
+                    className="absolute top-0 bottom-0 w-px bg-white pointer-events-none z-20"
                     style={{ left: `${timeColumnWidth + g.start * columnWidth}px` }}
                   />
                 ))}
@@ -479,7 +511,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               />
 
               {/* Therapist Column Headers */}
-              {therapists.map((therapist, index) => {
+              {therapists.map((therapist) => {
                 const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
                   s =>
                     s.therapistId === therapist.id &&
@@ -917,8 +949,8 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             {sortMode === 'room' && roomGroups.slice(1).map((g, i) => (
               <div
                 key={`header-group-sep-${i}`}
-                className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none z-30"
-                style={{ left: `${timeColumnWidth + g.start * columnWidth}px` }}
+                className="absolute top-0 bottom-0 w-px pointer-events-none z-30"
+                style={{ left: `${timeColumnWidth + g.start * columnWidth}px`, backgroundColor: g.tone.accent, opacity: 0.4 }}
               />
             ))}
             </div>
@@ -968,7 +1000,8 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               )}
 
               {/* Grid Cells column-by-column */}
-              {therapists.map((therapist) => {
+              {therapists.map((therapist, colIdx) => {
+                const groupTone = sortMode === 'room' ? columnGroups[colIdx]?.tone : undefined;
                 return (
                   <div
                     key={`col-${therapist.id}`}
@@ -977,7 +1010,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                   >
                   {timeSlots.map((timeSlot, idx) => {
                     const inShift = isCellInShift(therapist, idx);
-                    const cellStyle = getCellBackgroundStyle(inShift);
+                    const cellStyle = getCellBackgroundStyle(inShift, groupTone);
 
                     const handleCellClick = () => {
                       if (isDragging || dragDistanceRef.current > 5) return;
@@ -1019,8 +1052,8 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
               {sortMode === 'room' && roomGroups.slice(1).map((g, i) => (
                 <div
                   key={`grid-group-sep-${i}`}
-                  className="absolute top-0 bottom-0 w-px bg-slate-300 pointer-events-none"
-                  style={{ left: `${g.start * columnWidth}px`, zIndex: 0 }}
+                  className="absolute top-0 bottom-0 w-px pointer-events-none"
+                  style={{ left: `${g.start * columnWidth}px`, backgroundColor: g.tone.accent, opacity: 0.35, zIndex: 0 }}
                 />
               ))}
 
