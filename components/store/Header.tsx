@@ -68,9 +68,6 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               }`}>
                 {store.name}
               </span>
-              <span className={`text-[10px] tracking-widest font-sans ${isCyberTheme ? 'text-pink-300' : 'text-stone-600'}`}>
-                {store.catchphrase}
-              </span>
             </div>
           )}
         </Link>

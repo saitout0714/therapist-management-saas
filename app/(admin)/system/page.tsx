@@ -969,10 +969,6 @@ function StoreInfoTab() {
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const shopPlan = (selectedShop as any)?.plan || ''
-  const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
-  const isAgencyOnly = shopPlan === 'agency_only_plan' || ((selectedShop as any)?.has_agency && !(selectedShop as any)?.has_reserve && !(selectedShop as any)?.has_hp)
-
   const EMPTY_FORM = {
     name: '',
     short_name: '',
@@ -982,21 +978,6 @@ function StoreInfoTab() {
     address: '',
     access_info: '',
     google_map_url: '',
-    catchphrase: '',
-    description: '',
-    notice_banner: '',
-    line_url: '',
-    x_url: '',
-    litlink_url: '',
-    // 求人情報 (recruit_info)
-    recruit_title: 'セラピスト求人募集',
-    recruit_catchphrase: '🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾',
-    recruit_description: 'ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。',
-    recruit_job_type: 'アロマセラピスト・トリートメント施術',
-    recruit_qualification: '18歳以上（高校生不可）、未経験者大歓迎！',
-    recruit_salary: '日給 30,000円 ～ 80,000円可能（全額日払いOK）',
-    recruit_hours: '12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)',
-    recruit_notes: '',
   }
 
   const [form, setForm] = useState(EMPTY_FORM)
@@ -1011,7 +992,7 @@ function StoreInfoTab() {
 
       const { data, error: fetchErr } = await supabase
         .from('shops')
-        .select('name, short_name, phone, hp_url, business_hours, address, access_info, google_map_url, catchphrase, description, line_url, x_url, litlink_url, notice_banner, recruit_info')
+        .select('name, short_name, phone, hp_url, business_hours, address, access_info, google_map_url')
         .eq('id', selectedShop.id)
         .single()
 
@@ -1023,8 +1004,6 @@ function StoreInfoTab() {
         return
       }
 
-      const rInfo = (data as any)?.recruit_info || {}
-
       setForm({
         name: data?.name || '',
         short_name: data?.short_name || '',
@@ -1034,20 +1013,6 @@ function StoreInfoTab() {
         address: data?.address || '',
         access_info: data?.access_info || '',
         google_map_url: (data as any)?.google_map_url || '',
-        catchphrase: data?.catchphrase || '',
-        description: data?.description || '',
-        notice_banner: (data as any)?.notice_banner || '',
-        line_url: data?.line_url || '',
-        x_url: data?.x_url || '',
-        litlink_url: data?.litlink_url || '',
-        recruit_title: rInfo.title || 'セラピスト求人募集',
-        recruit_catchphrase: rInfo.catchphrase || '🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾',
-        recruit_description: rInfo.description || 'ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。',
-        recruit_job_type: rInfo.job_type || rInfo.jobType || 'アロマセラピスト・トリートメント施術',
-        recruit_qualification: rInfo.qualification || '18歳以上（高校生不可）、未経験者大歓迎！',
-        recruit_salary: rInfo.salary || '日給 30,000円 ～ 80,000円可能（全額日払いOK）',
-        recruit_hours: rInfo.hours || '12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)',
-        recruit_notes: rInfo.notes || '',
       })
       setLoading(false)
     }
@@ -1078,31 +1043,13 @@ function StoreInfoTab() {
           address: form.address.trim() || null,
           access_info: form.access_info.trim() || null,
           google_map_url: form.google_map_url.trim() || null,
-          recruit_info: {
-            title: form.recruit_title,
-            catchphrase: form.recruit_catchphrase,
-            description: form.recruit_description,
-            job_type: form.recruit_job_type,
-            qualification: form.recruit_qualification,
-            salary: form.recruit_salary,
-            hours: form.recruit_hours,
-            notes: form.recruit_notes,
-          },
-          ...(!isAgencyOnly && {
-            catchphrase: form.catchphrase.trim() || null,
-            description: form.description || null,
-            notice_banner: form.notice_banner.trim() || null,
-            line_url: form.line_url.trim() || null,
-            x_url: form.x_url.trim() || null,
-            litlink_url: form.litlink_url.trim() || null,
-          }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedShop.id)
 
       if (uErr) throw uErr
 
-      setSuccess('店舗基本情報・アクセスページ・求人情報を更新しました！')
+      setSuccess('店舗基本情報・アクセスページを更新しました！')
       if (refreshShops) await refreshShops()
     } catch (err: any) {
       console.error('Failed to save shop info:', err)
@@ -1131,23 +1078,11 @@ function StoreInfoTab() {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-800">🏬 店舗プロフィール・基本情報</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {isAgencyOnly
-              ? '代行業務で必要な電話番号、営業時間、アクセス案内等の基本情報を設定します'
-              : '店舗のお問合せ電話番号、営業時間、アクセス案内、Google Maps、求人募集等を変更できます'}
-          </p>
-        </div>
-        {shopHasHp && (
-          <Link
-            href="/admin/store-setting?mode=hp"
-            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
-          >
-            🌐 HPコンテンツ・バナー管理を開く
-          </Link>
-        )}
+      <div className="border-b pb-4">
+        <h2 className="text-base font-bold text-slate-800">🏬 店舗プロフィール・基本情報</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          店舗のお問合せ電話番号、営業時間、アクセス案内、Google Mapsを変更できます
+        </p>
       </div>
 
       {error && (
@@ -1270,175 +1205,6 @@ function StoreInfoTab() {
           </Link>
         </div>
 
-        {!isAgencyOnly && (
-          <>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">📢 HP最上部・お知らせ告知バナーテロップ (全ページ共通)</label>
-              <input
-                type="text"
-                value={form.notice_banner}
-                onChange={(e) => setForm({ ...form, notice_banner: e.target.value })}
-                placeholder="例: 🐾 おニャンこスパ グランドオープン！新規ご来店で¥2,000 OFFキャンペーン開催中 🐾"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピー</label>
-              <input
-                type="text"
-                value={form.catchphrase}
-                onChange={(e) => setForm({ ...form, catchphrase: e.target.value })}
-                placeholder="例: 上質で優雅な至福のアロマエステ空間"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">店舗コンセプト・紹介本文</label>
-              <textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="店舗のこだわりやコンセプトを自由に入力できます..."
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">公式LINE URL</label>
-                <input
-                  type="text"
-                  value={form.line_url}
-                  onChange={(e) => setForm({ ...form, line_url: e.target.value })}
-                  placeholder="https://line.me/R/ti/p/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">X (旧Twitter) URL</label>
-                <input
-                  type="text"
-                  value={form.x_url}
-                  onChange={(e) => setForm({ ...form, x_url: e.target.value })}
-                  placeholder="https://x.com/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">リットリンク URL</label>
-                <input
-                  type="text"
-                  value={form.litlink_url}
-                  onChange={(e) => setForm({ ...form, litlink_url: e.target.value })}
-                  placeholder="https://lit.link/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-            </div>
-
-            {/* 求人情報 (Recruit Page) 設定セクション */}
-            <div className="pt-6 border-t space-y-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-indigo-900">🎀 セラピスト求人ページ (`/recruit`) 掲載情報</h3>
-                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">HP連動</span>
-              </div>
-              <p className="text-xs text-slate-500">求人ページのタイトル、給与、勤務時間、応募要項を編集できます。</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">求人ページタイトル</label>
-                  <input
-                    type="text"
-                    value={form.recruit_title}
-                    onChange={(e) => setForm({ ...form, recruit_title: e.target.value })}
-                    placeholder="セラピスト求人募集"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピーバナー見出し</label>
-                  <input
-                    type="text"
-                    value={form.recruit_catchphrase}
-                    onChange={(e) => setForm({ ...form, recruit_catchphrase: e.target.value })}
-                    placeholder="例: 🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">求人アピール説明文</label>
-                <input
-                  type="text"
-                  value={form.recruit_description}
-                  onChange={(e) => setForm({ ...form, recruit_description: e.target.value })}
-                  placeholder="例: ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">職種</label>
-                  <input
-                    type="text"
-                    value={form.recruit_job_type}
-                    onChange={(e) => setForm({ ...form, recruit_job_type: e.target.value })}
-                    placeholder="例: アロマセラピスト・トリートメント施術"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">応募資格</label>
-                  <input
-                    type="text"
-                    value={form.recruit_qualification}
-                    onChange={(e) => setForm({ ...form, recruit_qualification: e.target.value })}
-                    placeholder="例: 18歳以上（高校生不可）、未経験者大歓迎！"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">給与</label>
-                  <input
-                    type="text"
-                    value={form.recruit_salary}
-                    onChange={(e) => setForm({ ...form, recruit_salary: e.target.value })}
-                    placeholder="例: 日給 30,000円 ～ 80,000円可能（全額日払いOK）"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">勤務時間・シフト</label>
-                  <input
-                    type="text"
-                    value={form.recruit_hours}
-                    onChange={(e) => setForm({ ...form, recruit_hours: e.target.value })}
-                    placeholder="例: 12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">応募時の注意事項・メッセージ</label>
-                <input
-                  type="text"
-                  value={form.recruit_notes}
-                  onChange={(e) => setForm({ ...form, recruit_notes: e.target.value })}
-                  placeholder="例: 未経験の方でも丁寧な講習があるため安心してご応募ください。"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                />
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       <div className="pt-4 border-t flex justify-end">
@@ -1447,7 +1213,7 @@ function StoreInfoTab() {
           disabled={saving}
           className="btn-primary"
         >
-          {saving ? '保存中...' : '店舗基本情報・求人設定を保存'}
+          {saving ? '保存中...' : '店舗基本情報を保存'}
         </button>
       </div>
     </form>

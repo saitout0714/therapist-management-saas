@@ -1,4 +1,7 @@
-'use client'
+const fs = require("fs");
+const path = require("path");
+
+const newContent = `'use client'
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -212,7 +215,7 @@ export default function OwnerStoreSettingPage() {
     setUploadingBanner(true)
     try {
       const ext = file.name.split('.').pop() || 'jpg'
-      const filePath = `shops/${shopId}/banners/${Date.now()}.${ext}`
+      const filePath = \`shops/\${shopId}/banners/\${Date.now()}.\${ext}\`
 
       const { error: uploadErr } = await supabase.storage
         .from('therapist-photos')
@@ -387,7 +390,7 @@ export default function OwnerStoreSettingPage() {
         </div>
         {shopHasHp && (
           <a
-            href={`/${shopSlug}`}
+            href={\`/\${shopSlug}\`}
             target="_blank"
             rel="noreferrer"
             className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
@@ -402,41 +405,41 @@ export default function OwnerStoreSettingPage() {
         <div className="flex border-b border-slate-200 gap-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={\`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap \${
               activeTab === 'profile'
                 ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            }\`}
           >
             🌐 店舗HP基本情報・コンセプト・SNS
           </button>
           <button
             onClick={() => setActiveTab('banners')}
-            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={\`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap \${
               activeTab === 'banners'
                 ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            }\`}
           >
-            🖼️ メインバナー (${campaigns.length}件)
+            🖼️ メインバナー (\${campaigns.length}件)
           </button>
           <button
             onClick={() => setActiveTab('news')}
-            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={\`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap \${
               activeTab === 'news'
                 ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            }\`}
           >
-            📰 新着トピックス (${newsList.length}件)
+            📰 新着トピックス (\${newsList.length}件)
           </button>
           <button
             onClick={() => setActiveTab('recruit')}
-            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={\`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap \${
               activeTab === 'recruit'
                 ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            }\`}
           >
             🎀 セラピスト求人情報設定
           </button>
@@ -918,3 +921,8 @@ export default function OwnerStoreSettingPage() {
     </div>
   )
 }
+`;
+
+const targetPath = path.join(__dirname, "../app/(admin)/admin/store-setting/page.tsx");
+fs.writeFileSync(targetPath, newContent, "utf8");
+console.log("Successfully updated store-setting/page.tsx!");
