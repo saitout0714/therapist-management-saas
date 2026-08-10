@@ -378,15 +378,13 @@ const TimeChart: React.FC<TimeChartProps> = ({
     return h * 60 + m;
   };
 
+  // 表示・グループ判定ともにルーム名だけを使う（マンション名＝表示名は出さない）
   const getRoomGroupName = (therapist: Therapist): string => {
     const isOff = therapist.id !== 'unassigned' && therapist.shiftStart && therapist.shiftEnd && schedules.some(
       s => s.therapistId === therapist.id && s.type === 'blocked' && s.startTime === therapist.shiftStart && s.endTime === therapist.shiftEnd
     );
     if (isOff) return '休み (OFF)';
     if (therapist.id === 'unassigned' || !therapist.room) return 'フリー（未割当） / ルーム未定';
-    if (therapist.roomDisplayName) {
-      return `${therapist.room} (${therapist.roomDisplayName})`;
-    }
     return therapist.room;
   };
 
@@ -506,7 +504,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 <React.Fragment key={therapist.id}>
                   {showGroupHeader && (
                     <div
-                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band, color: groupTone.text, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
+                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band, color: groupTone.text }}
                       className="relative font-bold text-[11px] px-2.5 sm:px-3 flex items-center gap-1.5 sticky left-0 z-20 whitespace-nowrap"
                       title={currentGroupName}
                       onMouseEnter={therapist.room ? (e) => {
@@ -941,7 +939,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
                 <React.Fragment key={`grid-${therapist.id}`}>
                   {showGroupHeader && (
                     <div
-                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
+                      style={{ height: `${groupHeaderHeight}px`, backgroundColor: groupTone.band }}
                       className="flex items-center px-3 sticky left-0"
                     />
                   )}

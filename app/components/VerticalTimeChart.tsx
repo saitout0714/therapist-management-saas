@@ -401,13 +401,14 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
       const isOff = t.id !== 'unassigned' && t.shiftStart && t.shiftEnd && schedules.some(
         s => s.therapistId === t.id && s.type === 'blocked' && s.startTime === t.shiftStart && s.endTime === t.shiftEnd
       );
+      // 表示・グループ判定ともにルーム名だけを使う（マンション名＝表示名は出さない）
       let gName = 'フリー / ルーム未定';
       let kind: 'room' | 'free' | 'off' = 'free';
       if (isOff) {
         gName = '休み (OFF)';
         kind = 'off';
       } else if (t.room) {
-        gName = t.roomDisplayName ? `${t.room} (${t.roomDisplayName})` : t.room;
+        gName = t.room;
         kind = 'room';
       }
 
@@ -415,7 +416,6 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
       if (mergeWithPrev) {
         groups[groups.length - 1].count++;
       } else {
-        // 色のキーはルーム名 (表示名を足した見出し文言ではなく) → 他ビューと必ず一致する
         groups.push({ name: gName, count: 1, start: i, kind, tone: toneFor(kind, t.room ?? gName, toneMap), room: t });
       }
     });
@@ -473,7 +473,6 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                     width: `${g.count * columnWidth}px`,
                     height: `${groupBarHeight}px`,
                     backgroundColor: g.kind === 'free' ? 'transparent' : g.tone.band,
-                    border: g.kind === 'free' ? undefined : `1px solid ${g.tone.border}`,
                   }}
                   className={`relative flex items-center justify-center gap-1.5 px-2 flex-shrink-0 overflow-hidden ${g.kind === 'room' ? 'cursor-default' : ''}`}
                   title={g.kind === 'free' ? undefined : `${g.name} / ${g.count}名`}

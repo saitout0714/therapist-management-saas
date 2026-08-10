@@ -573,7 +573,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                           {showGroupHeader && (
                             <div
                               className="relative font-bold text-[10px] sm:text-[11px] leading-none px-2 py-1 flex items-center gap-1.5 sticky top-[57px] z-10 whitespace-nowrap"
-                              style={{ backgroundColor: groupTone.band, color: groupTone.text, borderTop: `1px solid ${groupTone.border}`, borderBottom: `1px solid ${groupTone.border}` }}
+                              style={{ backgroundColor: groupTone.band, color: groupTone.text }}
                               title={currentGroupName}
                               onMouseEnter={roomName ? (e) => {
                                 if (roomMemoHideTimer.current) clearTimeout(roomMemoHideTimer.current)
