@@ -13,7 +13,6 @@ import { CustomerTemplateTab } from './components/CustomerTemplateTab'
 import { WebReserveEmailTemplateTab } from './components/WebReserveEmailTemplateTab'
 import { CustomTemplatesTab } from './components/CustomTemplatesTab'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { getPricingShopId } from '@/lib/shopUtils'
@@ -1185,24 +1184,6 @@ function StoreInfoTab() {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
             />
           </div>
-        </div>
-
-        {/* 複数ルーム案内導線 */}
-        <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-              <span>🏠</span> 複数ルーム・マンション拠点の登録・編集
-            </h3>
-            <p className="text-[11px] text-indigo-700/80 mt-0.5">
-              店舗に複数のルーム（歌舞伎町ルーム・渋谷ルームなど）がある場合は、「ルーム管理」画面から各部屋を追加するとHPのAccessページ（`/access`）にも自動一覧表示されます。
-            </p>
-          </div>
-          <Link
-            href="/rooms"
-            className="shrink-0 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1"
-          >
-            🏠 ルーム管理・新規追加を開く ↗
-          </Link>
         </div>
 
       </div>

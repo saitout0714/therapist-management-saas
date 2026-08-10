@@ -18,7 +18,7 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
           href={`/${storeSlug}/diary/${art.id}`}
           className={`group p-3.5 transition-all flex gap-3 ${
             isCyber
-              ? 'cyber-card rounded-xl border-[#ff007f]/30 hover:border-[#ff007f]'
+              ? 'cyber-card rounded-xl border-[#ff8fc9]/30 hover:border-[#ff8fc9]'
               : 'bg-white rounded-sm border border-[#d1b464]/30 hover:border-[#a39573] shadow-sm'
           }`}
         >
@@ -46,7 +46,7 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
                 <span className={`text-xs font-bold ${isCyber ? 'text-pink-100' : 'text-stone-800'}`}>{art.therapistName}</span>
                 <span className={`text-[10px] ml-auto ${isCyber ? 'text-pink-300' : 'text-stone-400'}`}>{art.publishedAt}</span>
               </div>
-              <h4 className={`text-xs font-bold group-hover:text-[#ff007f] transition-colors line-clamp-2 leading-snug ${
+              <h4 className={`text-xs font-bold group-hover:text-[#ff8fc9] transition-colors line-clamp-2 leading-snug ${
                 isCyber ? 'text-white' : 'text-stone-800'
               }`}>
                 {art.title}

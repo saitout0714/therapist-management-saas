@@ -486,7 +486,6 @@ export default function OwnerStoreSettingPage() {
                 type="text"
                 value={profileForm.notice_banner}
                 onChange={(e) => setProfileForm({ ...profileForm, notice_banner: e.target.value })}
-                placeholder="例: 🐾 おニャンこスパ グランドオープン！新規ご来店で¥2,000 OFFキャンペーン開催中 🐾"
                 className="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-indigo-600 shadow-xs"
               />
               <p className="text-[11px] text-pink-700">HP全ページの最上部ヘッダーに固定表示される目立つ告知テロップです。</p>
@@ -500,7 +499,6 @@ export default function OwnerStoreSettingPage() {
                   type="text"
                   value={profileForm.catchphrase}
                   onChange={(e) => setProfileForm({ ...profileForm, catchphrase: e.target.value })}
-                  placeholder="例: 〜サイバーネオンと極上密着空間〜 メンズエステ"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                 />
               </div>

@@ -39,7 +39,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
         <div className="text-center mb-8">
           <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Access</h1>
           <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-            isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+            isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
           }`}>
             アクセス・店舗案内
           </span>
@@ -47,7 +47,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
 
         <div className={`p-6 sm:p-8 space-y-6 ${
           isCyberTheme
-            ? 'cyber-card rounded-xl border-[#ff007f]/40'
+            ? 'cyber-card rounded-xl border-[#ff8fc9]/40'
             : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
         }`}>
 
@@ -55,7 +55,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
           {rooms.length > 0 ? (
             <div className="space-y-6">
               <h2 className={`font-bold text-sm border-b pb-2 tracking-wider flex items-center gap-2 ${
-                isCyberTheme ? 'neon-text-pink border-[#ff007f]/40' : 'text-[#a39573] border-[#d1b464]/40'
+                isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/40' : 'text-[#a39573] border-[#d1b464]/40'
               }`}>
                 <span>🏠</span> ルーム案内（全{rooms.length}拠点）
               </h2>
@@ -65,7 +65,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                     key={room.id}
                     className={`p-5 rounded-xl border space-y-3 ${
                       isCyberTheme
-                        ? 'bg-[#050014]/90 border-[#ff007f]/30'
+                        ? 'bg-[#050014]/90 border-[#ff8fc9]/30'
                         : 'bg-[#faf7f0] border-[#d1b464]/20'
                     }`}
                   >
@@ -75,7 +75,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                       </h3>
                       {room.displayName && (
                         <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
-                          isCyberTheme ? 'bg-[#ff007f]/20 text-pink-200 border-[#ff007f]/40' : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/30'
+                          isCyberTheme ? 'bg-[#ff8fc9]/20 text-pink-200 border-[#ff8fc9]/40' : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/30'
                         }`}>
                           {room.displayName}
                         </span>
@@ -103,7 +103,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                           rel="noopener noreferrer"
                           className={`inline-block px-4 py-2 font-bold text-xs shadow-sm tracking-widest transition-colors ${
                             isCyberTheme
-                              ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                              ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_10px_rgba(255,143,201,0.5)]'
                               : 'bg-stone-900 text-white rounded-sm hover:bg-[#a39573]'
                           }`}
                         >
@@ -119,7 +119,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
             /* 単一店舗案内 */
             <div className={`aspect-[16/9] w-full rounded-xl border p-6 flex flex-col items-center justify-center text-xs relative group ${
               isCyberTheme
-                ? 'bg-[#050014]/90 border-[#ff007f]/40 text-pink-100'
+                ? 'bg-[#050014]/90 border-[#ff8fc9]/40 text-pink-100'
                 : 'bg-[#faf7f0] border-[#d1b464]/30 text-stone-500'
             }`}>
               <div className="text-center space-y-3">
@@ -136,7 +136,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                     rel="noopener noreferrer"
                     className={`inline-block px-6 py-2.5 font-bold text-xs shadow-sm tracking-widest transition-colors ${
                       isCyberTheme
-                        ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_12px_rgba(255,0,127,0.5)]'
+                        ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_12px_rgba(255,143,201,0.5)]'
                         : 'bg-stone-900 text-white rounded-sm hover:bg-[#a39573]'
                     }`}
                   >
@@ -152,7 +152,7 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 text-xs">
             <div className="space-y-3">
               <h3 className={`font-bold text-sm border-b pb-1 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/30' : 'text-[#a39573] border-[#d1b464]/30'
               }`}>
                 店舗基本情報
               </h3>
@@ -164,13 +164,13 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
 
             <div className="space-y-3">
               <h3 className={`font-bold text-sm border-b pb-1 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/30' : 'text-[#a39573] border-[#d1b464]/30'
               }`}>
                 アクセス案内
               </h3>
               <p className={`leading-relaxed whitespace-pre-wrap ${isCyberTheme ? 'text-pink-100' : 'text-stone-700'}`}>{store.accessInfo}</p>
               <p className={`text-[11px] leading-relaxed pt-2 border-t ${
-                isCyberTheme ? 'border-[#ff007f]/20 text-pink-300/80' : 'border-stone-100 text-stone-500'
+                isCyberTheme ? 'border-[#ff8fc9]/20 text-pink-300/80' : 'border-stone-100 text-stone-500'
               }`}>
                 ※道順にお迷いの際や場所がご不明な場合は、お気軽に店舗お電話（<span className={`font-bold ${isCyberTheme ? 'text-white' : 'text-stone-700'}`}>{store.phoneNumber}</span>）までお問い合わせください。スタッフがご案内いたします。
               </p>

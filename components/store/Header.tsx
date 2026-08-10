@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   return (
     <header className={`sticky top-0 z-40 backdrop-blur-md shadow-sm border-b ${
       isCyberTheme
-        ? 'bg-[#050014]/90 border-[#ff007f]/40 text-stone-100 font-sans'
+        ? 'bg-[#050014]/90 border-[#ff8fc9]/40 text-stone-100 font-sans'
         : 'bg-white/95 border-stone-200 text-stone-800 font-serif'
     }`}>
       {store.noticeBanner && (
@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
           className={`text-xs py-1.5 px-4 text-center font-bold tracking-widest shadow-md ${
             isCyberTheme
-              ? 'bg-gradient-to-r from-[#ff007f] via-[#ff2a8d] to-[#1a0933] text-white shadow-[0_0_12px_rgba(255,0,127,0.5)]'
+              ? 'bg-gradient-to-r from-[#ff8fc9] via-[#ffb8e0] to-[#1a0933] text-white shadow-[0_0_12px_rgba(255,143,201,0.5)]'
               : 'text-white'
           }`}
         >
@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               href={link.href}
               className={`px-3 py-2 text-xs font-semibold tracking-widest transition-all ${
                 isCyberTheme
-                  ? 'text-pink-100 hover:text-[#ff007f] hover:drop-shadow-[0_0_8px_#ff007f]'
+                  ? 'text-pink-100 hover:text-[#ff8fc9] hover:drop-shadow-[0_0_8px_#ff8fc9]'
                   : 'text-stone-700 hover:opacity-80'
               }`}
             >
@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
             className={`ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
               isCyberTheme
-                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.7)] animate-neon-pulse'
+                ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.7)] animate-neon-pulse'
                 : 'rounded-sm shadow-md hover:brightness-110'
             }`}
           >
@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
             className={`px-3.5 py-1.5 text-white text-xs font-bold transition-all ${
               isCyberTheme
-                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_12px_rgba(255,0,127,0.7)]'
+                ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_12px_rgba(255,143,201,0.7)]'
                 : 'rounded-sm shadow-xs'
             }`}
           >
@@ -133,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
       {isOpen && (
         <div className={`lg:hidden border-b px-4 pt-2 pb-6 space-y-2 animate-fadeIn ${
           isCyberTheme
-            ? 'bg-[#1a0933] border-[#ff007f]/30 font-sans'
+            ? 'bg-[#1a0933] border-[#ff8fc9]/30 font-sans'
             : 'bg-white border-[#d1b464]/30 font-serif'
         }`}>
           {navLinks.map((link) => (
@@ -143,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               onClick={() => setIsOpen(false)}
               className={`block px-4 py-2.5 text-sm font-medium border-b ${
                 isCyberTheme
-                  ? 'text-pink-100 hover:bg-[#050014] hover:text-[#ff007f] border-[#ff007f]/20'
+                  ? 'text-pink-100 hover:bg-[#050014] hover:text-[#ff8fc9] border-[#ff8fc9]/20'
                   : 'text-stone-700 hover:bg-[#faf7f0] hover:text-[#a39573] border-stone-100'
               }`}
             >
@@ -156,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               onClick={() => setIsOpen(false)}
               className={`block w-full py-3 text-center text-white font-bold text-sm tracking-widest shadow-md ${
                 isCyberTheme
-                  ? 'bg-[#ff007f] hover:bg-[#ff2a8d] rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
+                  ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)]'
                   : 'bg-gradient-to-r from-[#d1b464] to-[#a39573]'
               }`}
             >

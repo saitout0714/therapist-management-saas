@@ -49,11 +49,11 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       case 'today_shifts':
       case 'therapists':
         return (
-          <section key="therapists" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014] border-[#ff007f]/30' : 'bg-white border-stone-200'}`}>
+          <section key="therapists" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014] border-[#ff8fc9]/30' : 'bg-white border-stone-200'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
               <div className="text-center">
                 <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Therapist</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
                   出勤セラピスト
                 </span>
               </div>
@@ -69,7 +69,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                   href={`/${shopSlug}/therapists`}
                   className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
                     isCyberTheme
-                      ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)] animate-neon-pulse'
+                      ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)] animate-neon-pulse'
                       : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
                   }`}
                 >
@@ -82,11 +82,11 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'diary':
         return (
-          <section key="diary" className={`py-12 border-b ${isCyberTheme ? 'bg-[#1a0933]/40 border-[#ff007f]/30' : 'bg-[#faf9f5] border-stone-200'}`}>
+          <section key="diary" className={`py-12 border-b ${isCyberTheme ? 'bg-[#1a0933]/40 border-[#ff8fc9]/30' : 'bg-[#faf9f5] border-stone-200'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
               <div className="text-center">
                 <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Diary</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
                   写メ日記
                 </span>
               </div>
@@ -95,7 +95,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                 {therapists.slice(0, 3).map((therapist) => (
                   <div key={therapist.id} className={`p-4 rounded-xl border space-y-3 ${isCyberTheme ? 'cyber-card' : 'bg-white border-[#d1b464]/30'}`}>
                     <div className="flex items-center gap-3">
-                      <img src={therapist.avatarUrl} alt={therapist.name} className="w-10 h-10 rounded-full object-cover border border-[#ff007f]" />
+                      <img src={therapist.avatarUrl} alt={therapist.name} className="w-10 h-10 rounded-full object-cover border border-[#ff8fc9]" />
                       <div>
                         <div className="font-bold text-xs text-white">{therapist.name}</div>
                         <div className="text-[10px] text-pink-300">2026.08.10</div>
@@ -113,7 +113,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                   href={`/${shopSlug}/diary`}
                   className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
                     isCyberTheme
-                      ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
+                      ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)]'
                       : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
                   }`}
                 >
@@ -126,13 +126,13 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'news':
         return (
-          <section key="news" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014]/80 border-[#ff007f]/30' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}>
+          <section key="news" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-4">
                   <div className="text-left mb-4">
                     <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Topics</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
                       新着情報
                     </span>
                   </div>
@@ -142,7 +142,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                 <div className="space-y-4">
                   <div className="text-left mb-4">
                     <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Twitter</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
                       公式X (Twitter)
                     </span>
                   </div>
@@ -156,7 +156,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                       rel="noopener noreferrer"
                       className={`inline-block px-6 py-2.5 font-bold text-xs transition-all tracking-widest ${
                         isCyberTheme
-                          ? 'bg-[#ff007f] text-white hover:bg-[#ff2a8d] rounded-full shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                          ? 'bg-[#ff8fc9] text-white hover:bg-[#ffb8e0] rounded-full shadow-[0_0_10px_rgba(255,143,201,0.5)]'
                           : 'bg-stone-900 text-white rounded-sm hover:bg-stone-800'
                       }`}
                     >
@@ -176,7 +176,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
           <section key="concept" className={`py-12 text-center ${isCyberTheme ? 'bg-[#050014]' : 'bg-white'}`}>
             <div className="max-w-4xl mx-auto px-4">
               <h2 className={`text-2xl font-bold tracking-widest mb-1 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Concept</h2>
-              <span className={`inline-block text-xs border-t px-4 pt-1 mb-6 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+              <span className={`inline-block text-xs border-t px-4 pt-1 mb-6 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
                 当店のこだわり
               </span>
 
@@ -210,7 +210,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                         ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
                         : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
                     </p>
-                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff007f]' : 'text-[#a39573]'}`}>
+                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff8fc9]' : 'text-[#a39573]'}`}>
                       {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
                     </p>
                   </>
@@ -234,7 +234,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col selection:bg-[#ff007f] selection:text-white ${isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
+      <div className={`min-h-screen flex flex-col selection:bg-[#ff8fc9] selection:text-white ${isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
       <Header store={store} />
 
       <main className="flex-1">

@@ -31,7 +31,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           onClick={onClose}
           className={`p-2.5 rounded-full border transition-colors ${
             isCyber
-              ? 'bg-[#1a0933] border-[#ff007f]/40 text-pink-100 hover:border-[#ff007f]'
+              ? 'bg-[#1a0933] border-[#ff8fc9]/40 text-pink-100 hover:border-[#ff8fc9]'
               : 'bg-stone-900/80 hover:bg-stone-800 text-stone-300 hover:text-white border-stone-700'
           }`}
           aria-label="閉じる"
@@ -48,7 +48,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           src={images[currentIndex]}
           alt="Lightbox Preview"
           className={`max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl border ${
-            isCyber ? 'border-[#ff007f]/50 shadow-[0_0_25px_rgba(255,0,127,0.4)]' : 'border-stone-800'
+            isCyber ? 'border-[#ff8fc9]/50 shadow-[0_0_25px_rgba(255,143,201,0.4)]' : 'border-stone-800'
           }`}
         />
 
@@ -58,7 +58,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               onClick={() => onSelectIndex(currentIndex === 0 ? images.length - 1 : currentIndex - 1)}
               className={`absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full border transition-all backdrop-blur-sm ${
                 isCyber
-                  ? 'bg-[#050014]/80 hover:bg-[#ff007f] text-white border-[#ff007f]/40'
+                  ? 'bg-[#050014]/80 hover:bg-[#ff8fc9] text-white border-[#ff8fc9]/40'
                   : 'bg-stone-900/80 hover:bg-[#d1b464] text-white hover:text-stone-950 border-stone-700'
               }`}
             >
@@ -68,7 +68,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               onClick={() => onSelectIndex((currentIndex + 1) % images.length)}
               className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full border transition-all backdrop-blur-sm ${
                 isCyber
-                  ? 'bg-[#050014]/80 hover:bg-[#ff007f] text-white border-[#ff007f]/40'
+                  ? 'bg-[#050014]/80 hover:bg-[#ff8fc9] text-white border-[#ff8fc9]/40'
                   : 'bg-stone-900/80 hover:bg-[#d1b464] text-white hover:text-stone-950 border-stone-700'
               }`}
             >
@@ -87,7 +87,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               onClick={() => onSelectIndex(idx)}
               className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
                 idx === currentIndex
-                  ? isCyber ? 'border-[#ff007f] scale-105 shadow-[0_0_10px_#ff007f]' : 'border-[#d1b464] scale-105'
+                  ? isCyber ? 'border-[#ff8fc9] scale-105 shadow-[0_0_10px_#ff8fc9]' : 'border-[#d1b464] scale-105'
                   : 'border-stone-800 opacity-50 hover:opacity-100'
               }`}
             >

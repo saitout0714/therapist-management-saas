@@ -15,10 +15,13 @@ type Course = {
     display_order: number
     includes_nomination_fee: boolean
     show_on_timechart: boolean
+    show_on_hp: boolean
 }
 
 export function CourseManagementTab() {
     const { selectedShop } = useShop()
+    const shopPlan = (selectedShop as any)?.plan || ''
+    const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
     const [courses, setCourses] = useState<Course[]>([])
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
@@ -35,6 +38,7 @@ export function CourseManagementTab() {
         display_order: 0,
         includes_nomination_fee: false,
         show_on_timechart: true,
+        show_on_hp: true,
     })
 
     async function fetchCourses() {
@@ -88,7 +92,7 @@ export function CourseManagementTab() {
     }
 
     const resetForm = () => {
-        setFormData({ name: '', category_name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false, show_on_timechart: true })
+        setFormData({ name: '', category_name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false, show_on_timechart: true, show_on_hp: true })
         setEditingCourse(null)
         setShowForm(false)
     }
@@ -150,6 +154,7 @@ export function CourseManagementTab() {
 
                     {/* Form Body */}
                     <div className="space-y-6 max-w-2xl">
+                        {shopHasHp && (
                         <div className="space-y-1">
                             <label className="block text-xs font-semibold text-slate-600">コース表示カテゴリ名（HPシステムページでの分類見出し）</label>
                             <input
@@ -160,6 +165,7 @@ export function CourseManagementTab() {
                             />
                             <p className="text-[11px] text-slate-400">同じカテゴリ名を入力したコースは、HP上でグループ化して表示されます。</p>
                         </div>
+                        )}
 
                         <div className="space-y-1">
                             <label className="block text-xs font-semibold text-slate-600">コース名 *</label>
@@ -169,6 +175,17 @@ export function CourseManagementTab() {
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 required
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-600">コース説明</label>
+                            <textarea
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                                placeholder="コース説明 (任意)"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                rows={3}
                             />
                         </div>
 
@@ -245,16 +262,20 @@ export function CourseManagementTab() {
                             <p className="text-xs text-slate-400 pl-6">OFFにするとスケジュール画面の空き時間候補からこのコースが除外されます(コース自体や料金表からは消えません)。</p>
                         </div>
 
+                        {shopHasHp && (
                         <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-slate-600">説明</label>
-                            <textarea
-                                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                                placeholder="説明 (任意)"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                rows={3}
-                            />
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={formData.show_on_hp}
+                                    onChange={(e) => setFormData({ ...formData, show_on_hp: e.target.checked })}
+                                />
+                                HPに掲載する
+                            </label>
+                            <p className="text-xs text-slate-400 pl-6">OFFにすると公開HPの「システム・料金」ページからこのコースが除外されます（社内限定コース等に使用）。</p>
                         </div>
+                        )}
                     </div>
 
                     {/* Footer Buttons */}
@@ -288,11 +309,12 @@ export function CourseManagementTab() {
 
                     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[700px]">
+                            <table className="w-full text-left border-collapse min-w-[1200px]">
                                 <thead className="bg-slate-50">
                                     <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
                                         <th className="p-4 w-10"></th>
-                                        <th className="p-4">カテゴリ / コース名</th>
+                                        {shopHasHp && <th className="p-4 w-40">カテゴリ</th>}
+                                        <th className="p-4 w-48 whitespace-nowrap">コース名</th>
                                         <th className="p-4 w-20">時間</th>
                                         <th className="p-4 w-28">料金</th>
                                         <th className="p-4 w-28 text-indigo-600">バック額</th>
@@ -314,12 +336,18 @@ export function CourseManagementTab() {
                                             <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
                                                 <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
                                             </td>
+                                            {shopHasHp && (
+                                                <td className="p-4 text-sm">
+                                                    {course.category_name ? (
+                                                        <span className="inline-flex text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 w-fit">
+                                                            {course.category_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-300">—</span>
+                                                    )}
+                                                </td>
+                                            )}
                                             <td className="p-4 text-sm">
-                                                {course.category_name && (
-                                                    <span className="block text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 w-fit mb-0.5">
-                                                        {course.category_name}
-                                                    </span>
-                                                )}
                                                 <span className="font-bold text-slate-800">{course.name}</span>
                                             </td>
                                             <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
@@ -353,6 +381,7 @@ export function CourseManagementTab() {
                                                             display_order: course.display_order,
                                                             includes_nomination_fee: course.includes_nomination_fee,
                                                             show_on_timechart: course.show_on_timechart,
+                                                            show_on_hp: course.show_on_hp,
                                                         })
                                                         setShowForm(true)
                                                     }}
@@ -362,7 +391,7 @@ export function CourseManagementTab() {
                                         </tr>
                                     ))}
                                     {courses.length === 0 && (
-                                        <tr><td className="p-8 text-center text-slate-500" colSpan={8}>コースがありません</td></tr>
+                                        <tr><td className="p-8 text-center text-slate-500" colSpan={shopHasHp ? 9 : 8}>コースがありません</td></tr>
                                     )}
                                 </tbody>
                             </table>

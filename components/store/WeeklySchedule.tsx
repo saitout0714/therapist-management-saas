@@ -84,10 +84,10 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                 className={`flex flex-col items-center justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
                   isSelected
                     ? isCyber
-                      ? 'bg-[#ff007f] text-white border-[#ff007f] shadow-[0_0_18px_rgba(255,0,127,0.7)] scale-105'
+                      ? 'bg-[#ff8fc9] text-white border-[#ff8fc9] shadow-[0_0_18px_rgba(255,143,201,0.7)] scale-105'
                       : 'bg-[#a39573] text-white border-[#a39573] shadow-md scale-105'
                     : isCyber
-                    ? 'bg-[#050014]/90 text-pink-200 border-[#ff007f]/30 hover:border-[#ff007f]/70 hover:bg-[#1a0933]'
+                    ? 'bg-[#050014]/90 text-pink-200 border-[#ff8fc9]/30 hover:border-[#ff8fc9]/70 hover:bg-[#1a0933]'
                     : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
                 }`}
               >
@@ -104,15 +104,15 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       </div>
 
       {/* 選択日付タイトル */}
-      <div className="flex items-center justify-between border-b pb-3 border-[#ff007f]/30 px-1">
+      <div className="flex items-center justify-between border-b pb-3 border-[#ff8fc9]/30 px-1">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#ff007f] animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-[#ff8fc9] animate-ping" />
           <h3 className={`text-base sm:text-lg font-bold tracking-wider ${isCyber ? 'neon-text-pink' : 'text-stone-800'}`}>
             {selectedDayObj.label} の出勤セラピスト
           </h3>
         </div>
         <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-          isCyber ? 'bg-[#ff007f]/20 text-pink-200 border border-[#ff007f]/40' : 'bg-stone-100 text-stone-600'
+          isCyber ? 'bg-[#ff8fc9]/20 text-pink-200 border border-[#ff8fc9]/40' : 'bg-stone-100 text-stone-600'
         }`}>
           計 {workingTherapistsWithShift.length} 名出勤
         </span>
@@ -131,7 +131,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 bg-[#050014]/60 rounded-2xl border border-[#ff007f]/20">
+        <div className="text-center py-16 bg-[#050014]/60 rounded-2xl border border-[#ff8fc9]/20">
           <p className="text-sm text-pink-300 font-semibold">
             指定のお日付の出勤スケジュールは準備中です 🐾
           </p>

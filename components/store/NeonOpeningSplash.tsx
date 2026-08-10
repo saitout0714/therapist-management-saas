@@ -23,7 +23,7 @@ export const NeonOpeningSplash: React.FC<NeonOpeningSplashProps> = ({ storeSlug,
   return (
     <div className="fixed inset-0 z-50 bg-[#050014] flex flex-col items-center justify-center pointer-events-none transition-opacity duration-700">
       <div className="text-center space-y-3 animate-glitch-intro px-4">
-        <div className="text-4xl sm:text-6xl font-extrabold tracking-widest text-[#ff007f] drop-shadow-[0_0_35px_#ff007f]">
+        <div className="text-4xl sm:text-6xl font-extrabold tracking-widest text-[#ff8fc9] drop-shadow-[0_0_35px_#ff8fc9]">
           🐾 {storeName} 🐾
         </div>
         <p className="text-xs sm:text-sm font-bold text-pink-200 tracking-widest animate-pulse">

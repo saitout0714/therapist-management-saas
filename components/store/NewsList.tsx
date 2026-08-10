@@ -12,7 +12,7 @@ export const NewsList: React.FC<NewsListProps> = ({ news, storeSlug }) => {
   return (
     <div className={`p-4 sm:p-6 divide-y ${
       isCyber
-        ? 'cyber-card rounded-xl border-[#ff007f]/40 divide-[#ff007f]/20 font-sans'
+        ? 'cyber-card rounded-xl border-[#ff8fc9]/40 divide-[#ff8fc9]/20 font-sans'
         : 'bg-white rounded-sm border border-[#d1b464]/30 divide-stone-100 font-serif shadow-sm'
     }`}>
       {news.map((item) => (
@@ -20,7 +20,7 @@ export const NewsList: React.FC<NewsListProps> = ({ news, storeSlug }) => {
           <div className="flex items-center gap-3 mb-1">
             <span className={`text-[10px] font-bold px-2 py-0.5 border ${
               isCyber
-                ? 'bg-[#ff007f]/20 text-pink-300 border-[#ff007f]/40 rounded-full'
+                ? 'bg-[#ff8fc9]/20 text-pink-300 border-[#ff8fc9]/40 rounded-full'
                 : 'bg-[#faf7f0] text-[#a39573] border-[#d1b464]/30 rounded-sm'
             }`}>
               {item.category || 'お知らせ'}

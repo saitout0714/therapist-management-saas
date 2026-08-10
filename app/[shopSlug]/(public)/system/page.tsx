@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Header } from '../../../../components/store/Header';
 import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchSystemCourses } from '../../../../lib/storeApi';
+import { fetchStoreConfig, fetchSystemCourses, fetchSystemExtras } from '../../../../lib/storeApi';
 import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
 import { MOCK_STORE, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_SYSTEM_MENU } from '../../../../mock/onyankospa';
@@ -23,8 +23,11 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
       setLoading(true);
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
-      const cList = await fetchSystemCourses(storeConfig.id);
-      setCategories(cList);
+      const [cList, extras] = await Promise.all([
+        fetchSystemCourses(storeConfig.id),
+        fetchSystemExtras(storeConfig.id),
+      ]);
+      setCategories([...cList, ...extras]);
       setLoading(false);
     }
     loadData();
@@ -43,7 +46,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         <div className="text-center mb-10">
           <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>System</h1>
           <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-            isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+            isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
           }`}>
             システム・料金案内
           </span>
@@ -52,7 +55,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         {loading ? (
           <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
             <div className={`w-8 h-8 rounded-full border-2 border-t-transparent animate-spin ${
-              isCyberTheme ? 'border-[#ff007f]' : 'border-[#d1b464]'
+              isCyberTheme ? 'border-[#ff8fc9]' : 'border-[#d1b464]'
             }`} />
             <span className={`text-xs tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>
               コース料金情報を読み込み中...
@@ -65,12 +68,12 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
               key={idx}
               className={`p-6 space-y-4 ${
                 isCyberTheme
-                  ? 'cyber-card rounded-xl border-[#ff007f]/40'
+                  ? 'cyber-card rounded-xl border-[#ff8fc9]/40'
                   : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
               }`}
             >
               <h2 className={`text-base font-bold border-b pb-2 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff007f]/30' : 'text-[#a39573] border-stone-200'
+                isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/30' : 'text-[#a39573] border-stone-200'
               }`}>
                 🐾 {cat.categoryName}
               </h2>
@@ -86,7 +89,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
                     key={course.id}
                     className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border gap-3 transition-colors ${
                       isCyberTheme
-                        ? 'bg-[#050014]/90 border-[#ff007f]/30 hover:border-[#ff007f] rounded-xl'
+                        ? 'bg-[#050014]/90 border-[#ff8fc9]/30 hover:border-[#ff8fc9] rounded-xl'
                         : 'bg-[#faf7f0] border-[#d1b464]/20 hover:border-[#d1b464] rounded-sm'
                     }`}
                   >
@@ -100,7 +103,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
                         {course.durationMinutes > 0 && (
                           <span className={`text-[11px] font-bold px-2 py-0.5 border ${
                             isCyberTheme
-                              ? 'bg-[#ff007f]/20 text-pink-300 border-[#ff007f]/50 rounded-full'
+                              ? 'bg-[#ff8fc9]/20 text-pink-300 border-[#ff8fc9]/50 rounded-full'
                               : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/40 rounded-sm'
                           }`}>
                             {course.durationMinutes}分
@@ -136,7 +139,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
             href={`/${shopSlug}/reserve`}
             className={`inline-block px-10 py-3.5 font-bold text-xs shadow-md transition-all tracking-widest ${
               isCyberTheme
-                ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_20px_rgba(255,0,127,0.7)] animate-neon-pulse'
+                ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_20px_rgba(255,143,201,0.7)] animate-neon-pulse'
                 : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white rounded-sm hover:brightness-105'
             }`}
           >

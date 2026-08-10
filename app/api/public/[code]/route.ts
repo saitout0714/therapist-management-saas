@@ -61,6 +61,7 @@ export async function GET(
       .select('id, name, duration, base_price')
       .eq('shop_id', shopId)
       .eq('is_active', true)
+      .eq('show_on_hp', true)
       .order('display_order', { ascending: true, nullsFirst: false }),
     supabase
       .from('shifts')

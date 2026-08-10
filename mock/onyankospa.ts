@@ -7,8 +7,8 @@ export const MOCK_ONYANKO_STORE: StoreConfig = {
   catchphrase: '〜サイバーネオンと極上密着空間〜 メンズエステ',
   logoUrl: '/images/onyanko_mainvisual.jpg',
   themeColor: {
-    primary: '#ff007f',  // サイバーネオンピンク
-    accent: '#ff2a8d',   // ビビッドピンク
+    primary: '#ff8fc9',  // サイバーネオンピンク
+    accent: '#ffb8e0',   // ビビッドピンク
     darkBg: '#050014',   // ディープナイトパープル
     lightBg: '#1a0933',  // ナイトパープル
   },

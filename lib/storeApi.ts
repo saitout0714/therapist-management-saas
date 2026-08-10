@@ -557,6 +557,7 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
       .from('courses')
       .select('*')
       .eq('is_active', true)
+      .eq('show_on_hp', true)
       .order('display_order', { ascending: true });
 
     if (shopId) query = query.eq('shop_id', shopId);
@@ -590,6 +591,67 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
     if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_SYSTEM_MENU;
     return MOCK_SYSTEM_MENU;
   }
+}
+
+/**
+ * 公開HPの「システム・料金」ページに追加表示する、オプション・指名料金のカテゴリ一覧。
+ * コース選択（予約フォーム等）には使わない表示専用データのため fetchSystemCourses とは分離している。
+ */
+export async function fetchSystemExtras(shopId?: string): Promise<SystemMenuCategory[]> {
+  if (!shopId) return [];
+  const categories: SystemMenuCategory[] = [];
+
+  try {
+    const { data: optionsData } = await supabase
+      .from('options')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('is_active', true)
+      .eq('show_on_hp', true)
+      .order('display_order', { ascending: true });
+
+    if (optionsData && optionsData.length > 0) {
+      categories.push({
+        categoryName: 'オプション',
+        courses: optionsData.map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          durationMinutes: o.duration_minutes_added || 0,
+          price: o.price ?? 0,
+          description: o.description || '',
+        })),
+      });
+    }
+  } catch {
+    // オプション取得に失敗しても他のセクションは表示を継続する
+  }
+
+  try {
+    const { data: designationData } = await supabase
+      .from('designation_types')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('is_active', true)
+      .eq('show_on_hp', true)
+      .order('display_order', { ascending: true });
+
+    if (designationData && designationData.length > 0) {
+      categories.push({
+        categoryName: '指名料金',
+        courses: designationData.map((d: any) => ({
+          id: d.id,
+          name: d.display_name,
+          durationMinutes: 0,
+          price: d.default_fee ?? 0,
+          description: '',
+        })),
+      });
+    }
+  } catch {
+    // 指名種別取得に失敗しても他のセクションは表示を継続する
+  }
+
+  return categories;
 }
 
 export interface RoomInfo {

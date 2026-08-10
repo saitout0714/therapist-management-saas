@@ -54,7 +54,7 @@ export default function SchedulePage({ params }: { params: Promise<{ shopSlug: s
           <div className="text-center mb-8">
             <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Schedule</h1>
             <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-              isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'
+              isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
             }`}>
               週間出勤スケジュール (リアルタイム反映)
             </span>

@@ -14,10 +14,13 @@ type Option = {
     option_type: 'extension' | 'item' | 'treatment'
     duration_minutes_added: number
     back_category: string
+    show_on_hp: boolean
 }
 
 export function OptionManagementTab() {
     const { selectedShop } = useShop()
+    const shopPlan = (selectedShop as any)?.plan || ''
+    const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
     const [options, setOptions] = useState<Option[]>([])
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
@@ -26,7 +29,7 @@ export function OptionManagementTab() {
     const [formData, setFormData] = useState({
         name: '', price: 0, back_amount: 0, description: '', is_active: true,
         display_order: 0, option_type: 'extension' as 'extension' | 'item' | 'treatment', duration_minutes_added: 0,
-        back_category: 'その他',
+        back_category: 'その他', show_on_hp: true,
     })
 
     async function fetchOptions() {
@@ -76,7 +79,7 @@ export function OptionManagementTab() {
     }
 
     const resetForm = () => {
-        setFormData({ name: '', price: 0, back_amount: 0, description: '', is_active: true, display_order: 0, option_type: 'extension', duration_minutes_added: 0, back_category: 'その他' })
+        setFormData({ name: '', price: 0, back_amount: 0, description: '', is_active: true, display_order: 0, option_type: 'extension', duration_minutes_added: 0, back_category: 'その他', show_on_hp: true })
         setEditingOption(null)
         setShowForm(false)
     }
@@ -234,6 +237,21 @@ export function OptionManagementTab() {
                             </label>
                         </div>
 
+                        {shopHasHp && (
+                        <div className="space-y-1">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={formData.show_on_hp}
+                                    onChange={(e) => setFormData({ ...formData, show_on_hp: e.target.checked })}
+                                />
+                                HPに掲載する
+                            </label>
+                            <p className="text-xs text-slate-400 pl-6">OFFにすると公開HPの「システム・料金」ページからこのオプションが除外されます（社内限定オプション等に使用）。</p>
+                        </div>
+                        )}
+
                         <div className="space-y-1">
                             <label className="block text-xs font-semibold text-slate-600">説明</label>
                             <textarea
@@ -333,7 +351,7 @@ export function OptionManagementTab() {
                                                     className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle"
                                                     onClick={() => {
                                                         setEditingOption(option)
-                                                        setFormData({ name: option.name, price: option.price, back_amount: option.back_amount ?? 0, description: option.description || '', is_active: option.is_active, display_order: option.display_order, option_type: option.option_type, duration_minutes_added: option.duration_minutes_added, back_category: option.back_category || 'その他' })
+                                                        setFormData({ name: option.name, price: option.price, back_amount: option.back_amount ?? 0, description: option.description || '', is_active: option.is_active, display_order: option.display_order, option_type: option.option_type, duration_minutes_added: option.duration_minutes_added, back_category: option.back_category || 'その他', show_on_hp: option.show_on_hp })
                                                         setShowForm(true)
                                                     }}
                                                 >編集</button>

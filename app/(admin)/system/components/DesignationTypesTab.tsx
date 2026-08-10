@@ -13,6 +13,7 @@ type DesignationType = {
   is_active: boolean
   default_fee: number
   default_back_amount: number
+  show_on_hp: boolean
 }
 
 const SYSTEM_SLUGS = ['free', 'first_nomination', 'confirmed']
@@ -25,6 +26,8 @@ const DEFAULT_DESIGNATION_TYPES = [
 
 export function DesignationTypesTab() {
   const { selectedShop } = useShop()
+  const shopPlan = (selectedShop as any)?.plan || ''
+  const shopHasHp = (selectedShop as any)?.has_hp ?? ['hp_web_reserve_plan', 'hp_web_agency_plan'].includes(shopPlan)
   const [items, setItems] = useState<DesignationType[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -38,6 +41,7 @@ export function DesignationTypesTab() {
     is_active: true,
     default_fee: 0,
     default_back_amount: 0,
+    show_on_hp: true,
   })
 
   // スラッグ生成ヘルパー（重複回避機能付き）
@@ -161,6 +165,7 @@ export function DesignationTypesTab() {
       is_active: true,
       default_fee: 0,
       default_back_amount: 0,
+      show_on_hp: true,
     })
     setShowForm(false)
   }
@@ -174,6 +179,7 @@ export function DesignationTypesTab() {
       is_active: item.is_active,
       default_fee: item.default_fee || 0,
       default_back_amount: item.default_back_amount || 0,
+      show_on_hp: item.show_on_hp,
     })
     setShowForm(true)
   }
@@ -298,6 +304,21 @@ export function DesignationTypesTab() {
                 </label>
               </div>
             </div>
+
+            {shopHasHp && (
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.show_on_hp}
+                  onChange={e => setForm({ ...form, show_on_hp: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                HPに掲載する
+              </label>
+              <p className="text-xs text-slate-400 pl-6">OFFにすると公開HPの「システム・料金」ページからこの指名種別が除外されます。</p>
+            </div>
+            )}
           </div>
 
           {/* Footer Buttons */}

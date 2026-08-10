@@ -23,7 +23,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
 
   return (
     <div className={`relative w-full overflow-hidden rounded-2xl border shadow-2xl group bg-stone-900 ${
-      isCyber ? 'border-[#ff007f]/40 font-sans shadow-[0_0_20px_rgba(255,0,127,0.3)]' : 'border-[#d1b464]/30 font-serif'
+      isCyber ? 'border-[#ff8fc9]/40 font-sans shadow-[0_0_20px_rgba(255,143,201,0.3)]' : 'border-[#d1b464]/30 font-serif'
     }`}>
       {/* メインアスペクト比 16:9 領域 */}
       <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] overflow-hidden">
@@ -71,7 +71,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
       {/* インジケータードット */}
       {campaigns.length > 1 && (
         <div className={`absolute bottom-3 right-4 z-20 flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full border ${
-          isCyber ? 'bg-[#050014]/80 border-[#ff007f]/40' : 'bg-stone-950/60 border-white/10'
+          isCyber ? 'bg-[#050014]/80 border-[#ff8fc9]/40' : 'bg-stone-950/60 border-white/10'
         }`}>
           {campaigns.map((_, idx) => (
             <button
@@ -79,7 +79,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
               onClick={() => setCurrentIndex(idx)}
               className={`h-2 rounded-full transition-all ${
                 idx === currentIndex
-                  ? isCyber ? 'w-6 bg-[#ff007f] shadow-[0_0_8px_#ff007f]' : 'w-6 bg-[#d1b464]'
+                  ? isCyber ? 'w-6 bg-[#ff8fc9] shadow-[0_0_8px_#ff8fc9]' : 'w-6 bg-[#d1b464]'
                   : 'w-2 bg-stone-500 hover:bg-stone-300'
               }`}
               aria-label={`Slide ${idx + 1}`}
@@ -94,7 +94,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
           <button
             onClick={() => setCurrentIndex((prev) => (prev === 0 ? campaigns.length - 1 : prev - 1))}
             className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm ${
-              isCyber ? 'bg-[#050014]/80 hover:bg-[#ff007f] hover:text-white border border-[#ff007f]/40' : 'bg-stone-950/60 hover:bg-[#d1b464] hover:text-stone-950'
+              isCyber ? 'bg-[#050014]/80 hover:bg-[#ff8fc9] hover:text-white border border-[#ff8fc9]/40' : 'bg-stone-950/60 hover:bg-[#d1b464] hover:text-stone-950'
             }`}
           >
             ❮
@@ -102,7 +102,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
           <button
             onClick={() => setCurrentIndex((prev) => (prev + 1) % campaigns.length)}
             className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm ${
-              isCyber ? 'bg-[#050014]/80 hover:bg-[#ff007f] hover:text-white border border-[#ff007f]/40' : 'bg-stone-950/60 hover:bg-[#d1b464] hover:text-stone-950'
+              isCyber ? 'bg-[#050014]/80 hover:bg-[#ff8fc9] hover:text-white border border-[#ff8fc9]/40' : 'bg-stone-950/60 hover:bg-[#d1b464] hover:text-stone-950'
             }`}
           >
             ❯

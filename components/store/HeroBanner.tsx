@@ -50,9 +50,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
     <div className={isCyberTheme ? 'font-sans cyber-bg text-white relative overflow-hidden' : 'font-serif bg-[#faf9f5]'}>
       {/* 0. おニャンこスパ用 公式メインビジュアル 1枚限定・フレームなし画面全幅表示 */}
       {isCyberTheme && (
-        <section className="relative w-full overflow-hidden bg-[#050014] border-b border-[#ff007f]/40 py-0">
+        <section className="relative w-full overflow-hidden bg-[#050014] border-b border-[#ff8fc9]/40 py-0">
           {/* 背景ネオンオーロラ・アトモスピアー */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[#ff007f]/15 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[#ff8fc9]/15 blur-[120px] rounded-full pointer-events-none" />
 
           {/* 画面幅いっぱいのメインビジュアルコンテナ (フレーム枠線・角丸なし) */}
           <div className="w-full">
@@ -74,7 +74,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
               {/* 枠内ネオンスパーク点灯演出 (0.8秒ループ) */}
               {!isRevealed && (
                 <div className="absolute inset-0 z-30 bg-[#050014] flex flex-col items-center justify-center p-4 animate-glitch-intro">
-                  <div className="text-4xl sm:text-6xl font-extrabold text-[#ff007f] drop-shadow-[0_0_30px_#ff007f] tracking-widest">
+                  <div className="text-4xl sm:text-6xl font-extrabold text-[#ff8fc9] drop-shadow-[0_0_30px_#ff8fc9] tracking-widest">
                     🐾 おニャンこスパ 🐾
                   </div>
                   <span className="text-xs sm:text-sm text-pink-300 font-bold tracking-widest mt-3 animate-pulse">
@@ -88,25 +88,25 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
               {/* ネオン光粒子パーティクル */}
               <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
-                <div className="absolute bottom-0 left-[15%] w-2.5 h-2.5 bg-[#ff007f] rounded-full blur-[1px] animate-particle-1" />
-                <div className="absolute bottom-0 left-[45%] w-3 h-3 bg-[#ff2a8d] rounded-full blur-[2px] animate-particle-2" />
+                <div className="absolute bottom-0 left-[15%] w-2.5 h-2.5 bg-[#ff8fc9] rounded-full blur-[1px] animate-particle-1" />
+                <div className="absolute bottom-0 left-[45%] w-3 h-3 bg-[#ffb8e0] rounded-full blur-[2px] animate-particle-2" />
                 <div className="absolute bottom-0 left-[75%] w-2 h-2 bg-pink-300 rounded-full blur-[1px] animate-particle-3" />
-                <div className="absolute bottom-0 left-[85%] w-3.5 h-3.5 bg-[#ff007f] rounded-full blur-[2px] animate-particle-1" />
+                <div className="absolute bottom-0 left-[85%] w-3.5 h-3.5 bg-[#ff8fc9] rounded-full blur-[2px] animate-particle-1" />
               </div>
 
               {/* シネマティックグラデーション */}
               <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#050014]/90 via-transparent to-[#050014]/30 pointer-events-none" />
 
               {/* 左上・ガラスモルフィズム ネオンタグ */}
-              <div className="absolute top-3 left-4 z-30 hidden sm:flex items-center gap-2 bg-[#050014]/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#ff007f]/50 shadow-[0_0_12px_rgba(255,0,127,0.4)]">
-                <span className="w-2 h-2 rounded-full bg-[#ff007f] animate-ping" />
+              <div className="absolute top-3 left-4 z-30 hidden sm:flex items-center gap-2 bg-[#050014]/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#ff8fc9]/50 shadow-[0_0_12px_rgba(255,143,201,0.4)]">
+                <span className="w-2 h-2 rounded-full bg-[#ff8fc9] animate-ping" />
                 <span className="text-[11px] font-extrabold text-white tracking-widest">
                   🐾 SHINJUKU & SHIBUYA CYBER SPA
                 </span>
               </div>
 
               {/* 右下・ガラスモルフィズム 公式マーク */}
-              <div className="absolute bottom-3 right-4 z-30 flex items-center gap-2 bg-[#050014]/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#ff007f]/60 shadow-[0_0_15px_rgba(255,0,127,0.5)]">
+              <div className="absolute bottom-3 right-4 z-30 flex items-center gap-2 bg-[#050014]/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#ff8fc9]/60 shadow-[0_0_15px_rgba(255,143,201,0.5)]">
                 <span className="text-[11px] font-extrabold neon-text-pink tracking-widest">
                   ★ OFFICIAL MAIN VISUAL
                 </span>
@@ -115,11 +115,11 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
             {/* Tokyo Panic風 3連クイックアクションナビゲーションバー (メインビジュアル直下) */}
             <div className="max-w-5xl mx-auto my-3 px-2 sm:px-4">
-              <div className="grid grid-cols-3 gap-1 sm:gap-2 bg-[#050014] p-1 rounded-xl sm:rounded-2xl border border-[#ff007f]/50 shadow-[0_0_25px_rgba(255,0,127,0.4)]">
+              <div className="grid grid-cols-3 gap-1 sm:gap-2 bg-[#050014] p-1 rounded-xl sm:rounded-2xl border border-[#ff8fc9]/50 shadow-[0_0_25px_rgba(255,143,201,0.4)]">
               {/* 1. セラピスト一覧 */}
               <a
                 href={`/${store.slug}/therapists`}
-                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ff007f] to-[#ff2a8d] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(255,0,127,0.5)] group"
+                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ff8fc9] to-[#ffb8e0] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(255,143,201,0.5)] group"
               >
                 <span className="text-xs sm:text-sm font-extrabold tracking-wider group-hover:scale-105 transition-transform">
                   セラピスト
@@ -132,7 +132,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
               {/* 2. 出勤スケジュール */}
               <a
                 href={`/${store.slug}/schedule`}
-                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ff2a8d] to-[#1a0933] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(255,0,127,0.4)] border border-[#ff007f]/40 group"
+                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ffb8e0] to-[#1a0933] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(255,143,201,0.4)] border border-[#ff8fc9]/40 group"
               >
                 <span className="text-xs sm:text-sm font-extrabold tracking-wider group-hover:scale-105 transition-transform">
                   スケジュール
@@ -145,7 +145,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
               {/* 3. お電話直通 */}
               <a
                 href={`tel:${store.phoneNumber}`}
-                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ff007f] via-[#ff2a8d] to-[#c7005c] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,0,127,0.7)] border border-pink-400/50 animate-neon-pulse group"
+                className="flex flex-col items-center justify-center py-2.5 sm:py-3.5 px-2 rounded-lg bg-gradient-to-br from-[#ff8fc9] via-[#ffb8e0] to-[#c7005c] text-white hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,143,201,0.7)] border border-pink-400/50 animate-neon-pulse group"
               >
                 <div className="flex items-center gap-1 group-hover:scale-105 transition-transform">
                   <svg className="w-4 h-4 sm:w-5 sm:h-5 fill-current text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]" viewBox="0 0 24 24">
@@ -167,7 +167,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
       {/* 1. smart-info (店舗概要・お電話案内) */}
       <section className={`py-6 px-4 border-b text-center shadow-xs ${
-        isCyberTheme ? 'bg-[#050014]/90 border-[#ff007f]/30' : 'bg-white/95 border-stone-200'
+        isCyberTheme ? 'bg-[#050014]/90 border-[#ff8fc9]/30' : 'bg-white/95 border-stone-200'
       }`}>
         <div className="max-w-2xl mx-auto space-y-2">
           <div className={`text-xs sm:text-sm font-semibold tracking-widest ${isCyberTheme ? 'text-pink-200' : 'text-stone-700'}`}>
@@ -181,16 +181,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
           <div className={`text-xs tracking-widest ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
             📍 {store.accessInfo}
           </div>
-          <div className="text-xs font-bold tracking-wider" style={{ color: isCyberTheme ? '#ff2a8d' : primaryColor }}>
+          <div className="text-xs font-bold tracking-wider" style={{ color: isCyberTheme ? '#ffb8e0' : primaryColor }}>
             ⏰ {store.businessHours}
           </div>
 
           <div className="pt-2">
             <a
               href={`tel:${store.phoneNumber}`}
-              style={{ backgroundColor: isCyberTheme ? '#ff007f' : primaryColor }}
+              style={{ backgroundColor: isCyberTheme ? '#ff8fc9' : primaryColor }}
               className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 text-xs sm:text-sm font-bold text-white shadow-md hover:brightness-110 transition-all tracking-widest group ${
-                isCyberTheme ? 'rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)] animate-neon-pulse' : 'rounded-sm'
+                isCyberTheme ? 'rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)] animate-neon-pulse' : 'rounded-sm'
               }`}
             >
               <span className="text-base group-hover:scale-110 transition-transform">📞</span> お店に電話する ({store.phoneNumber})
@@ -204,13 +204,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
       {/* 3. Information (イベント・キャンペーン極上スライダー) */}
       {campaigns && campaigns.length > 0 && (
         <section className={`py-8 border-b ${
-          isCyberTheme ? 'bg-[#050014] border-[#ff007f]/30' : 'bg-white border-stone-200'
+          isCyberTheme ? 'bg-[#050014] border-[#ff8fc9]/30' : 'bg-white border-stone-200'
         }`}>
           <div className="max-w-4xl mx-auto px-4 space-y-6">
             <div className="text-center">
               <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Information</h2>
               <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-                isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'border-stone-800'
+                isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'border-stone-800'
               }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
                 インフォメーション
               </span>

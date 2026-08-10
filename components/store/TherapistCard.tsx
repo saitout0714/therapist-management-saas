@@ -19,14 +19,14 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
 }) => {
   const detailUrl = `/${storeSlug}/therapists/${therapist.id}`;
   const reserveUrl = `/${storeSlug}/reserve?therapistId=${therapist.id}`;
-  const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff007f';
+  const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff8fc9';
 
   return (
     <div
       style={{ borderColor: isCyber ? undefined : `${primaryColor}60` }}
       className={`group relative overflow-hidden flex flex-col transition-all duration-500 rounded-2xl shadow-md ${
         isCyber
-          ? 'cyber-card font-sans border-[#ff007f]/40 hover:border-[#ff007f]'
+          ? 'cyber-card font-sans border-[#ff8fc9]/40 hover:border-[#ff8fc9]'
           : 'bg-white border font-serif hover:shadow-2xl transform hover:-translate-y-1.5'
       }`}
     >
@@ -60,7 +60,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {/* 右上ランク・グレード */}
           {(therapist.rankName || therapist.grade) && (
             <div
-              style={{ color: isCyber ? '#ff2a8d' : primaryColor, borderColor: isCyber ? '#ff007f' : `${primaryColor}80` }}
+              style={{ color: isCyber ? '#ffb8e0' : primaryColor, borderColor: isCyber ? '#ff8fc9' : `${primaryColor}80` }}
               className="absolute top-3 right-3 bg-stone-950/80 backdrop-blur-md border font-bold text-[10px] px-2.5 py-1 rounded-full tracking-wider shadow-md"
             >
               {therapist.rankName || therapist.grade}
@@ -75,7 +75,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
               }`}>
                 {therapist.name}
               </h3>
-              <span style={{ color: isCyber ? '#ff2a8d' : primaryColor }} className="text-xs font-semibold drop-shadow">({therapist.age}歳)</span>
+              <span style={{ color: isCyber ? '#ffb8e0' : primaryColor }} className="text-xs font-semibold drop-shadow">({therapist.age}歳)</span>
             </div>
 
             <p className="text-xs text-stone-200 font-sans tracking-wide drop-shadow">
@@ -86,12 +86,12 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             {confirmedShiftTime && (
               <div className="pt-1 flex items-center gap-1.5">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-white font-bold text-[10px] rounded-md shadow-sm ${
-                  isCyber ? 'bg-[#ff007f]' : 'bg-emerald-500/90'
+                  isCyber ? 'bg-[#ff8fc9]' : 'bg-emerald-500/90'
                 }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                   本日出勤
                 </span>
-                <span style={{ color: isCyber ? '#ff2a8d' : primaryColor }} className="text-xs font-mono font-bold drop-shadow">
+                <span style={{ color: isCyber ? '#ffb8e0' : primaryColor }} className="text-xs font-mono font-bold drop-shadow">
                   ⏰ {confirmedShiftTime}
                 </span>
               </div>
@@ -110,7 +110,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             {therapist.tags.map((tag) => (
               <span
                 key={tag}
-                style={{ color: isCyber ? '#ff2a8d' : primaryColor, borderColor: isCyber ? 'rgba(255,0,127,0.4)' : `${primaryColor}40` }}
+                style={{ color: isCyber ? '#ffb8e0' : primaryColor, borderColor: isCyber ? 'rgba(255,143,201,0.4)' : `${primaryColor}40` }}
                 className={`text-[10px] font-bold px-2 py-0.5 border rounded-md shadow-2xs ${
                   isCyber ? 'bg-[#050014]/80' : 'bg-white'
                 }`}
@@ -140,9 +140,9 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         <div className="pt-2">
           <Link
             href={reserveUrl}
-            style={{ backgroundColor: isCyber ? '#ff007f' : primaryColor }}
+            style={{ backgroundColor: isCyber ? '#ff8fc9' : primaryColor }}
             className={`block w-full py-2.5 sm:py-3 text-center text-xs sm:text-sm font-extrabold text-white transition-all shadow-md tracking-widest hover:brightness-110 active:scale-95 ${
-              isCyber ? 'rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)] animate-neon-pulse' : 'rounded-xl'
+              isCyber ? 'rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)] animate-neon-pulse' : 'rounded-xl'
             }`}
           >
             指名WEB予約 🐾
