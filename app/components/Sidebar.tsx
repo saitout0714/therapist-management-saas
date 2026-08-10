@@ -217,9 +217,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-hide py-3">
-          <nav className={collapsed ? "px-2 space-y-0.5" : "px-3 space-y-0.5"}>
+          <nav className={collapsed ? "px-2 space-y-1" : "px-3 space-y-1"}>
             {groups.map((group, index) => (
-              <div key={group.id} className={index === 0 ? "" : "pt-2.5"}>
+              <div key={group.id} className={index === 0 ? "" : "pt-4"}>
                 {collapsed ? (
                   index === 0 ? null : (
                     <div className="mx-2 mb-2 border-t border-slate-100/70" />
@@ -227,7 +227,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 ) : (
                   group.title && (
                     <div
-                      className={`px-4 mb-1 text-[10px] font-bold uppercase tracking-wider ${
+                      className={`px-4 mb-1.5 text-[10px] font-bold uppercase tracking-wider ${
                         group.tone === "admin"
                           ? "text-indigo-400"
                           : group.tone === "therapist"
@@ -240,7 +240,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   )
                 )}
 
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {group.items.map((item) => {
                     const isActive = activeHref === item.href;
                     const activeClass =
@@ -263,7 +263,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         title={item.label}
                         aria-current={isActive ? "page" : undefined}
                         className={`flex items-center rounded-xl transition-all duration-200 ${
-                          collapsed ? "justify-center px-0 py-2" : "gap-2.5 px-3 py-1.5"
+                          collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2.5"
                         } text-[13px] ${
                           isActive
                             ? `${activeClass} font-semibold shadow-sm`
