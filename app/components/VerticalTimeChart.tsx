@@ -102,7 +102,6 @@ interface VerticalTimeChartProps {
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string, date?: string) => void;
-  onReceptionCloseOpen?: (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => void;
   onReceptionCloseClear?: (reservationId: string) => void;
   onSettlementToggle?: (therapistId: string, date: string, currentlySettled: boolean) => void;
   onPaymentSettle?: (reservationId: string, methodLabel: string) => Promise<void>;
@@ -117,7 +116,6 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
-  onReceptionCloseOpen,
   onReceptionCloseClear,
   onSettlementToggle,
   onPaymentSettle,
@@ -375,14 +373,6 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
     showSeek = true;
     seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
-
-  // 受付終了アイコンの表示可否判定用（シフト終了時刻を過ぎていたら非表示にする）
-  const nowExtendedMins = (nowHour < 6 ? nowHour + 24 : nowHour) * 60 + nowMin;
-  const hhmToMins = (hhmm?: string | null) => {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  };
 
   // ルーム名の帯はどの並び順でも出す。ルーム順のときだけ連続する同じルームを1つにまとめる。
   const roomGroups = useMemo(() => {
@@ -706,29 +696,16 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
-                      {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
-                        therapist.shiftStart && therapist.shiftEnd &&
-                        (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
-                          }}
-                          title="受付終了にする"
-                          className="flex-shrink-0 w-5 h-5 rounded hover:text-amber-500 hover:bg-amber-50 flex items-center justify-center text-slate-300 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </button>
-                      )}
+                      {/* 操作ボタンは編集の1つだけ。受付終了もこのモーダルの中で設定する。 */}
+                      <div className="flex items-center flex-shrink-0">
                       {onShiftEditOpen && therapist.id !== 'unassigned' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onShiftEditOpen(therapist.id, date);
                           }}
-                          title="シフトを編集"
-                          className="flex-shrink-0 w-5 h-5 rounded hover:text-indigo-500 hover:bg-indigo-50 flex items-center justify-center text-slate-400 transition-colors"
+                          title="シフト・受付状態を編集"
+                          className="flex-shrink-0 w-6 h-6 rounded-lg border border-slate-200 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center text-slate-400 transition-colors"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
@@ -880,31 +857,18 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                    {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
-                      therapist.shiftStart && therapist.shiftEnd &&
-                      (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
-                        }}
-                        title="受付終了にする"
-                        className="w-4 h-4 rounded hover:text-amber-500 hover:bg-amber-50 flex items-center justify-center text-slate-300 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                    )}
+                    {/* 操作ボタンは編集の1つだけ。受付終了もこのモーダルの中で設定する。 */}
+                    <div className="flex items-center flex-shrink-0">
                     {onShiftEditOpen && therapist.id !== 'unassigned' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onShiftEditOpen(therapist.id, date);
                         }}
-                        title="シフトを編集"
-                        className="w-4 h-4 rounded hover:text-indigo-500 hover:bg-indigo-50 flex items-center justify-center text-slate-400 transition-colors"
+                        title="シフト・受付状態を編集"
+                        className="w-5 h-5 rounded-md border border-slate-200 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center text-slate-400 transition-colors"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
                     )}
                     </div>

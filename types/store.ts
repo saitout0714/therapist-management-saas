@@ -29,9 +29,25 @@ export interface StoreConfig {
   lineUrl?: string;
   hpUrl?: string;
   noticeBanner?: string;
+  description?: string;
   templateId?: 'luxury' | 'modern' | 'cute' | 'minimal';
   layoutSections?: StoreSectionType[]; // モジュールコンテンツの配置順＆表示ON/OFF設定
+  recruitInfo?: RecruitInfo;
 }
+
+export interface RecruitInfo {
+  title?: string;
+  catchphrase?: string;
+  description?: string;
+  jobType?: string;
+  qualification?: string;
+  salary?: string;
+  hours?: string;
+  notes?: string;
+  phone?: string;
+  lineUrl?: string;
+}
+
 
 export interface Therapist {
   id: string;

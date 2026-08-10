@@ -6,6 +6,7 @@ import { getPricingShopId } from '@/lib/shopUtils'
 type Course = {
     id: string
     name: string
+    category_name?: string | null
     duration: number
     base_price: number
     back_amount: number
@@ -25,6 +26,7 @@ export function CourseManagementTab() {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [formData, setFormData] = useState({
         name: '',
+        category_name: '',
         duration: 60,
         base_price: 6000,
         back_amount: 0,
@@ -86,7 +88,7 @@ export function CourseManagementTab() {
     }
 
     const resetForm = () => {
-        setFormData({ name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false, show_on_timechart: true })
+        setFormData({ name: '', category_name: '', duration: 60, base_price: 6000, back_amount: 0, description: '', is_active: true, display_order: 0, includes_nomination_fee: false, show_on_timechart: true })
         setEditingCourse(null)
         setShowForm(false)
     }
@@ -98,7 +100,11 @@ export function CourseManagementTab() {
         const result = editingCourse
             ? await supabase.from('courses').update(payload).eq('id', editingCourse.id)
             : await supabase.from('courses').insert([payload])
-        if (result.error) { alert('保存に失敗しました'); return }
+        if (result.error) {
+            console.error('Course save error:', result.error)
+            alert('保存に失敗しました: ' + result.error.message)
+            return
+        }
         resetForm()
         void fetchCourses()
     }
@@ -106,7 +112,7 @@ export function CourseManagementTab() {
     const handleDelete = async (id: string) => {
         if (!confirm('本当に削除しますか？')) return
         const { error } = await supabase.from('courses').delete().eq('id', id)
-        if (error) { alert('削除に失敗しました'); return }
+        if (error) { alert('削除に失敗しました: ' + error.message); return }
         void fetchCourses()
     }
 
@@ -145,7 +151,18 @@ export function CourseManagementTab() {
                     {/* Form Body */}
                     <div className="space-y-6 max-w-2xl">
                         <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-slate-600">コース名</label>
+                            <label className="block text-xs font-semibold text-slate-600">コース表示カテゴリ名（HPシステムページでの分類見出し）</label>
+                            <input
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none font-medium"
+                                placeholder="例: Standard Onyanko Aroma (スタンダードアロマ) / Special Premium Option (オプション)"
+                                value={formData.category_name}
+                                onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
+                            />
+                            <p className="text-[11px] text-slate-400">同じカテゴリ名を入力したコースは、HP上でグループ化して表示されます。</p>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-slate-600">コース名 *</label>
                             <input
                                 className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
                                 placeholder="コース名"
@@ -262,7 +279,7 @@ export function CourseManagementTab() {
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                         <div>
                             <h2 className="text-lg font-bold text-slate-800">コース管理</h2>
-                            <p className="text-sm text-slate-500 mt-1">施術コースの料金・バック額・時間・表示順を編集します。</p>
+                            <p className="text-sm text-slate-500 mt-1">施術コースの料金・バック額・時間・カテゴリ・表示順を編集します。</p>
                         </div>
                         <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors">
                             新規登録
@@ -275,7 +292,7 @@ export function CourseManagementTab() {
                                 <thead className="bg-slate-50">
                                     <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
                                         <th className="p-4 w-10"></th>
-                                        <th className="p-4">コース名</th>
+                                        <th className="p-4">カテゴリ / コース名</th>
                                         <th className="p-4 w-20">時間</th>
                                         <th className="p-4 w-28">料金</th>
                                         <th className="p-4 w-28 text-indigo-600">バック額</th>
@@ -297,7 +314,14 @@ export function CourseManagementTab() {
                                             <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
                                                 <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
                                             </td>
-                                            <td className="p-4 text-sm font-bold text-slate-800">{course.name}</td>
+                                            <td className="p-4 text-sm">
+                                                {course.category_name && (
+                                                    <span className="block text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 w-fit mb-0.5">
+                                                        {course.category_name}
+                                                    </span>
+                                                )}
+                                                <span className="font-bold text-slate-800">{course.name}</span>
+                                            </td>
                                             <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
                                             <td className="p-4 text-sm font-bold text-slate-800">¥{course.base_price.toLocaleString()}</td>
                                             <td className="p-4 text-sm font-bold text-indigo-700">
@@ -320,6 +344,7 @@ export function CourseManagementTab() {
                                                         setEditingCourse(course)
                                                         setFormData({
                                                             name: course.name,
+                                                            category_name: course.category_name || '',
                                                             duration: course.duration,
                                                             base_price: course.base_price,
                                                             back_amount: course.back_amount ?? 0,

@@ -1,4 +1,7 @@
-'use client';
+const fs = require("fs");
+const path = require("path");
+
+const fullCode = `'use client';
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
@@ -9,7 +12,7 @@ import { HeroBanner } from '../../../components/store/HeroBanner';
 import { TherapistCard } from '../../../components/store/TherapistCard';
 import { NewsList } from '../../../components/store/NewsList';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
+import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNews } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
 import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_NEWS } from '../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
@@ -32,7 +35,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       setCampaigns(campList);
       const thList = await fetchTherapists(storeConfig.id);
       setTherapists(thList);
-      const newsList = await fetchNewsList(storeConfig.id);
+      const newsList = await fetchNews(storeConfig.id);
       setNews(newsList);
     }
     loadData();
@@ -60,7 +63,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {therapists.map((therapist) => (
-                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} />
+                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} themeColor={store.themeColor} />
                 ))}
               </div>
 
@@ -186,35 +189,26 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
               }`}>
                 <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-900'}`}>
-                  {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション' : '赤羽・川口エリアで選ばれ続けるメンズエステへ')}
+                  {isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション『おニャンこスパ』' : '赤羽・川口エリアで選ばれ続けるメンズエステへ。'}
                 </p>
-
-                {store.description ? (
-                  <div className="whitespace-pre-wrap leading-relaxed space-y-2">
-                    {store.description}
-                  </div>
-                ) : (
-                  <>
-                    <p>
-                      {isCyberTheme
-                        ? 'メンズエステ「おニャンこスパ」は、都会の喧騒を忘れられる完全個室のネオン×サイバープライベート空間。可愛い猫耳スタイルを纏った魅力あふれるセラピストたちが、貴方の心と体を解きほぐします。'
-                        : '赤羽のメンズエステ「Special Grade」は赤羽駅徒歩2分、川口のメンズエステとしても川口駅徒歩3分の好立地。都会の喧騒を忘れられる「完全個室」のプライベート空間で、心身ともに癒しのひとときをお過ごしいただけます。'}
-                    </p>
-                    <p>
-                      {isCyberTheme
-                        ? '当店自慢のアロマオイルを使用した本格密着マッサージは、心地よい温もりとともに極上のリラクゼーションをもたらし、日々の疲れやストレスを優しく癒やします。'
-                        : '当店自慢の「ホットオイル」を使用した施術は、温もりとともに深いリラクゼーションをもたらし、疲れた身体と心を優しく包み込みます。さらに丁寧な「リンパ」ケアで日々の疲労やストレスをすっきりと流していきます。'}
-                    </p>
-                    <p>
-                      {isCyberTheme
-                        ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
-                        : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
-                    </p>
-                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff007f]' : 'text-[#a39573]'}`}>
-                      {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
-                    </p>
-                  </>
-                )}
+                <p>
+                  {isCyberTheme
+                    ? 'メンズエステ「おニャンこスパ」は、都会の喧騒を忘れられる完全個室のネオン×サイバープライベート空間。可愛い猫耳スタイルを纏った魅力あふれるセラピストたちが、貴方の心と体を解きほぐします。'
+                    : '赤羽のメンズエステ「Special Grade」は赤羽駅徒歩2分、川口のメンズエステとしても川口駅徒歩3分の好立地。都会の喧騒を忘れられる「完全個室」のプライベート空間で、心身ともに癒しのひとときをお過ごしいただけます。'}
+                </p>
+                <p>
+                  {isCyberTheme
+                    ? '当店自慢のアロマオイルを使用した本格密着マッサージは、心地よい温もりとともに極上のリラクゼーションをもたらし、日々の疲れやストレスを優しく癒やします。'
+                    : '当店自慢の「ホットオイル」を使用した施術は、温もりとともに深いリラクゼーションをもたらし、疲れた身体と心を優しく包み込みます。さらに丁寧な「リンパ」ケアで日々の疲労やストレスをすっきりと流していきます。'}
+                </p>
+                <p>
+                  {isCyberTheme
+                    ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
+                    : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
+                </p>
+                <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff007f]' : 'text-[#a39573]'}`}>
+                  {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
+                </p>
               </div>
             </div>
           </section>
@@ -247,3 +241,12 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
     </ThemeProvider>
   );
 }
+`;
+
+const targetPath = path.join(__dirname, "../app/[shopSlug]/(public)/page.tsx");
+fs.writeFileSync(targetPath, fullCode, "utf8");
+console.log("Successfully rewrote page.tsx cleanly!");
+`;
+
+fs.writeFileSync(path.join(__dirname, "fix_page_script.js"), fullCode, "utf8");
+require("./fix_page_script.js");

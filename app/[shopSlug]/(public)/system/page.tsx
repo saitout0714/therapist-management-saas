@@ -15,14 +15,17 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
-  const [categories, setCategories] = useState<SystemMenuCategory[]>(isOnyanko ? MOCK_ONYANKO_SYSTEM_MENU : MOCK_SYSTEM_MENU);
+  const [categories, setCategories] = useState<SystemMenuCategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
       const cList = await fetchSystemCourses(storeConfig.id);
       setCategories(cList);
+      setLoading(false);
     }
     loadData();
   }, [shopSlug]);
@@ -46,8 +49,18 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
           </span>
         </div>
 
-        <div className="space-y-8">
-          {categories.map((cat, idx) => (
+        {loading ? (
+          <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
+            <div className={`w-8 h-8 rounded-full border-2 border-t-transparent animate-spin ${
+              isCyberTheme ? 'border-[#ff007f]' : 'border-[#d1b464]'
+            }`} />
+            <span className={`text-xs tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>
+              コース料金情報を読み込み中...
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {categories.map((cat, idx) => (
             <div
               key={idx}
               className={`p-6 space-y-4 ${
@@ -116,6 +129,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
             </div>
           ))}
         </div>
+        )}
 
         <div className="mt-12 text-center">
           <Link

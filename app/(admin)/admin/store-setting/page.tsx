@@ -27,7 +27,7 @@ interface NewsItemData {
 export default function OwnerStoreSettingPage() {
   const { user } = useAuth()
   const { selectedShop } = useShop()
-  const [activeTab, setActiveTab] = useState<'banners' | 'news'>('banners')
+  const [activeTab, setActiveTab] = useState<'banners' | 'news' | 'recruit'>('banners')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -35,8 +35,6 @@ export default function OwnerStoreSettingPage() {
 
   const [shopId, setShopId] = useState<string>('')
   const [shopSlug, setShopSlug] = useState<string>('')
-
-  // 店舗名（見出し表示用）。基本情報の編集は「店舗 ＆ システム設定」に集約した
   const [shopName, setShopName] = useState('')
 
   // メインバナー一覧＆入力
@@ -58,6 +56,18 @@ export default function OwnerStoreSettingPage() {
     category: 'お知らせ',
   })
 
+  // 求人情報入力
+  const [recruitForm, setRecruitForm] = useState({
+    title: 'セラピスト求人募集',
+    catchphrase: '🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾',
+    description: 'ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。',
+    job_type: 'アロマセラピスト・トリートメント施術',
+    qualification: '18歳以上（高校生不可）、未経験者大歓迎！',
+    salary: '日給 30,000円 ～ 80,000円可能（全額日払いOK）',
+    hours: '12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)',
+    notes: '',
+  })
+
   useEffect(() => {
     async function loadOwnerShopData() {
       if (!selectedShop) return
@@ -68,7 +78,7 @@ export default function OwnerStoreSettingPage() {
         // 選択中店舗の最新プロファイルを取得
         const { data: shopData, error: fetchErr } = await supabase
           .from('shops')
-          .select('id, name, slug, short_name')
+          .select('id, name, slug, short_name, recruit_info')
           .eq('id', selectedShop.id)
           .single()
 
@@ -78,6 +88,20 @@ export default function OwnerStoreSettingPage() {
           setShopId(shopData.id)
           setShopSlug(shopData.slug || shopData.short_name || 'specialgrade')
           setShopName(shopData.name || '')
+
+          if ((shopData as any).recruit_info) {
+            const r = (shopData as any).recruit_info
+            setRecruitForm({
+              title: r.title || 'セラピスト求人募集',
+              catchphrase: r.catchphrase || '🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾',
+              description: r.description || 'ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。',
+              job_type: r.job_type || r.jobType || 'アロマセラピスト・トリートメント施術',
+              qualification: r.qualification || '18歳以上（高校生不可）、未経験者大歓迎！',
+              salary: r.salary || '日給 30,000円 ～ 80,000円可能（全額日払いOK）',
+              hours: r.hours || '12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)',
+              notes: r.notes || '',
+            })
+          }
 
           // 2. メインバナー一覧 (campaigns)
           const { data: campData } = await supabase
@@ -229,6 +253,22 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
+  // 求人情報保存
+  const handleSaveRecruit = async () => {
+    if (!shopId) return
+    try {
+      const { error: err } = await supabase
+        .from('shops')
+        .update({ recruit_info: recruitForm, updated_at: new Date().toISOString() })
+        .eq('id', shopId)
+
+      if (err) throw err
+      alert('求人情報を保存し、HP求人ページ（/recruit）へ反映しました！')
+    } catch (err: any) {
+      alert('求人情報の保存失敗: ' + err.message)
+    }
+  }
+
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const isHpModeRequested = searchParams?.get('mode') === 'hp'
   const shopPlan = (selectedShop as any)?.plan || ''
@@ -330,6 +370,16 @@ export default function OwnerStoreSettingPage() {
             }`}
           >
             新着トピックス・ニュース ({newsList.length}件)
+          </button>
+          <button
+            onClick={() => setActiveTab('recruit')}
+            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'recruit'
+                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            🎀 セラピスト求人情報設定
           </button>
         </div>
       )}
@@ -515,6 +565,119 @@ export default function OwnerStoreSettingPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* タブ4: 求人要項・リクルート管理 */}
+      {activeTab === 'recruit' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="border-b pb-3">
+            <h2 className="text-base font-bold text-slate-800">🎀 セラピスト求人情報 (`/recruit` ページ) の編集</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              ホームページの求人募集ページに表示するタイトル、キャッチコピー、給与、勤務時間、応募条件等を更新します。
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">求人ページタイトル</label>
+                <input
+                  type="text"
+                  value={recruitForm.title}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, title: e.target.value })}
+                  placeholder="セラピスト求人募集"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">キャッチコピーバナー見出し</label>
+                <input
+                  type="text"
+                  value={recruitForm.catchphrase}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, catchphrase: e.target.value })}
+                  placeholder="例: 🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">求人アピール説明文</label>
+              <textarea
+                rows={2}
+                value={recruitForm.description}
+                onChange={(e) => setRecruitForm({ ...recruitForm, description: e.target.value })}
+                placeholder="例: ノルマ・ペナルティ一切なし！アットホームで快適な完全個室マンションルーム完備。"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">職種</label>
+                <input
+                  type="text"
+                  value={recruitForm.job_type}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, job_type: e.target.value })}
+                  placeholder="例: アロマセラピスト・トリートメント施術"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">応募資格</label>
+                <input
+                  type="text"
+                  value={recruitForm.qualification}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, qualification: e.target.value })}
+                  placeholder="例: 18歳以上（高校生不可）、未経験者大歓迎！"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">給与</label>
+                <input
+                  type="text"
+                  value={recruitForm.salary}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, salary: e.target.value })}
+                  placeholder="例: 日給 30,000円 ～ 80,000円可能（全額日払いOK）"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">勤務時間・シフト</label>
+                <input
+                  type="text"
+                  value={recruitForm.hours}
+                  onChange={(e) => setRecruitForm({ ...recruitForm, hours: e.target.value })}
+                  placeholder="例: 12:00 ～ 翌5:00 (週1日・3時間～OKの自由シフト制)"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">備考・アピール文</label>
+              <input
+                type="text"
+                value={recruitForm.notes}
+                onChange={(e) => setRecruitForm({ ...recruitForm, notes: e.target.value })}
+                placeholder="例: 未経験の方でも丁寧な講習があるため安心してご応募ください。"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveRecruit}
+              className="btn-primary w-full py-3 mt-2"
+            >
+              ＋ 求人要項を更新してHPへ即時反映
+            </button>
           </div>
         </div>
       )}

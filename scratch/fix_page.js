@@ -1,4 +1,7 @@
-'use client';
+const fs = require("fs");
+const path = require("path");
+
+const fullCode = `'use client';
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
@@ -9,7 +12,7 @@ import { HeroBanner } from '../../../components/store/HeroBanner';
 import { TherapistCard } from '../../../components/store/TherapistCard';
 import { NewsList } from '../../../components/store/NewsList';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
+import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNews } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
 import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_NEWS } from '../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
@@ -32,7 +35,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       setCampaigns(campList);
       const thList = await fetchTherapists(storeConfig.id);
       setTherapists(thList);
-      const newsList = await fetchNewsList(storeConfig.id);
+      const newsList = await fetchNews(storeConfig.id);
       setNews(newsList);
     }
     loadData();
@@ -49,29 +52,29 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       case 'today_shifts':
       case 'therapists':
         return (
-          <section key="therapists" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014] border-[#ff007f]/30' : 'bg-white border-stone-200'}`}>
+          <section key="therapists" className={\`py-12 border-b \${isCyberTheme ? 'bg-[#050014] border-[#ff007f]/30' : 'bg-white border-stone-200'}\`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
               <div className="text-center">
-                <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Therapist</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                <h2 className={\`text-2xl font-bold tracking-widest \${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}\`}>Therapist</h2>
+                <span className={\`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest \${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}\`}>
                   出勤セラピスト
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {therapists.map((therapist) => (
-                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} />
+                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} themeColor={store.themeColor} />
                 ))}
               </div>
 
               <div className="text-center pt-4">
                 <Link
-                  href={`/${shopSlug}/therapists`}
-                  className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
+                  href={\`/\${shopSlug}/therapists\`}
+                  className={\`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest \${
                     isCyberTheme
                       ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)] animate-neon-pulse'
                       : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
-                  }`}
+                  }\`}
                 >
                   セラピスト一覧を見る 🐾
                 </Link>
@@ -82,18 +85,18 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'diary':
         return (
-          <section key="diary" className={`py-12 border-b ${isCyberTheme ? 'bg-[#1a0933]/40 border-[#ff007f]/30' : 'bg-[#faf9f5] border-stone-200'}`}>
+          <section key="diary" className={\`py-12 border-b \${isCyberTheme ? 'bg-[#1a0933]/40 border-[#ff007f]/30' : 'bg-[#faf9f5] border-stone-200'}\`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
               <div className="text-center">
-                <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Diary</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                <h2 className={\`text-2xl font-bold tracking-widest \${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}\`}>Diary</h2>
+                <span className={\`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest \${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}\`}>
                   写メ日記
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {therapists.slice(0, 3).map((therapist) => (
-                  <div key={therapist.id} className={`p-4 rounded-xl border space-y-3 ${isCyberTheme ? 'cyber-card' : 'bg-white border-[#d1b464]/30'}`}>
+                  <div key={therapist.id} className={\`p-4 rounded-xl border space-y-3 \${isCyberTheme ? 'cyber-card' : 'bg-white border-[#d1b464]/30'}\`}>
                     <div className="flex items-center gap-3">
                       <img src={therapist.avatarUrl} alt={therapist.name} className="w-10 h-10 rounded-full object-cover border border-[#ff007f]" />
                       <div>
@@ -110,12 +113,12 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
               <div className="text-center pt-2">
                 <Link
-                  href={`/${shopSlug}/diary`}
-                  className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
+                  href={\`/\${shopSlug}/diary\`}
+                  className={\`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest \${
                     isCyberTheme
                       ? 'bg-[#ff007f] hover:bg-[#ff2a8d] text-white rounded-full shadow-[0_0_15px_rgba(255,0,127,0.6)]'
                       : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
-                  }`}
+                  }\`}
                 >
                   写メ日記 一覧はこちら
                 </Link>
@@ -126,13 +129,13 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'news':
         return (
-          <section key="news" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014]/80 border-[#ff007f]/30' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}>
+          <section key="news" className={\`py-12 border-b \${isCyberTheme ? 'bg-[#050014]/80 border-[#ff007f]/30' : 'bg-[#faf7f0] border-[#d1b464]/20'}\`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-4">
                   <div className="text-left mb-4">
-                    <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Topics</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                    <h3 className={\`text-xl font-bold tracking-widest \${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}\`}>Topics</h3>
+                    <span className={\`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest \${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}\`}>
                       新着情報
                     </span>
                   </div>
@@ -141,24 +144,24 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
                 <div className="space-y-4">
                   <div className="text-left mb-4">
-                    <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Twitter</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+                    <h3 className={\`text-xl font-bold tracking-widest \${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}\`}>Twitter</h3>
+                    <span className={\`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest \${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}\`}>
                       公式X (Twitter)
                     </span>
                   </div>
-                  <div className={`p-6 rounded-md text-center space-y-3 shadow-sm ${isCyberTheme ? 'cyber-card' : 'bg-white border border-[#d1b464]/30'}`}>
-                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
+                  <div className={\`p-6 rounded-md text-center space-y-3 shadow-sm \${isCyberTheme ? 'cyber-card' : 'bg-white border border-[#d1b464]/30'}\`}>
+                    <p className={\`text-xs leading-relaxed \${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}\`}>
                       最新の出勤・空き枠情報をリアルタイムで配信中！
                     </p>
                     <a
                       href={store.xUrl || 'https://x.com'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`inline-block px-6 py-2.5 font-bold text-xs transition-all tracking-widest ${
+                      className={\`inline-block px-6 py-2.5 font-bold text-xs transition-all tracking-widest \${
                         isCyberTheme
                           ? 'bg-[#ff007f] text-white hover:bg-[#ff2a8d] rounded-full shadow-[0_0_10px_rgba(255,0,127,0.5)]'
                           : 'bg-stone-900 text-white rounded-sm hover:bg-stone-800'
-                      }`}
+                      }\`}
                     >
                       公式Xをチェック ↗
                     </a>
@@ -173,48 +176,39 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       case 'access':
       case 'system':
         return (
-          <section key="concept" className={`py-12 text-center ${isCyberTheme ? 'bg-[#050014]' : 'bg-white'}`}>
+          <section key="concept" className={\`py-12 text-center \${isCyberTheme ? 'bg-[#050014]' : 'bg-white'}\`}>
             <div className="max-w-4xl mx-auto px-4">
-              <h2 className={`text-2xl font-bold tracking-widest mb-1 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Concept</h2>
-              <span className={`inline-block text-xs border-t px-4 pt-1 mb-6 tracking-widest ${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}`}>
+              <h2 className={\`text-2xl font-bold tracking-widest mb-1 \${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}\`}>Concept</h2>
+              <span className={\`inline-block text-xs border-t px-4 pt-1 mb-6 tracking-widest \${isCyberTheme ? 'text-[#ff2a8d] border-[#ff007f]' : 'text-[#a39573] border-stone-800'}\`}>
                 当店のこだわり
               </span>
 
-              <div className={`p-6 sm:p-10 text-xs sm:text-sm leading-loose tracking-wider text-left space-y-4 ${
+              <div className={\`p-6 sm:p-10 text-xs sm:text-sm leading-loose tracking-wider text-left space-y-4 \${
                 isCyberTheme
                   ? 'cyber-card text-pink-50 rounded-xl'
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
-              }`}>
-                <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-900'}`}>
-                  {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション' : '赤羽・川口エリアで選ばれ続けるメンズエステへ')}
+              }\`}>
+                <p className={\`font-bold text-center text-base mb-2 \${isCyberTheme ? 'neon-text-pink' : 'text-stone-900'}\`}>
+                  {isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション『おニャンこスパ』' : '赤羽・川口エリアで選ばれ続けるメンズエステへ。'}
                 </p>
-
-                {store.description ? (
-                  <div className="whitespace-pre-wrap leading-relaxed space-y-2">
-                    {store.description}
-                  </div>
-                ) : (
-                  <>
-                    <p>
-                      {isCyberTheme
-                        ? 'メンズエステ「おニャンこスパ」は、都会の喧騒を忘れられる完全個室のネオン×サイバープライベート空間。可愛い猫耳スタイルを纏った魅力あふれるセラピストたちが、貴方の心と体を解きほぐします。'
-                        : '赤羽のメンズエステ「Special Grade」は赤羽駅徒歩2分、川口のメンズエステとしても川口駅徒歩3分の好立地。都会の喧騒を忘れられる「完全個室」のプライベート空間で、心身ともに癒しのひとときをお過ごしいただけます。'}
-                    </p>
-                    <p>
-                      {isCyberTheme
-                        ? '当店自慢のアロマオイルを使用した本格密着マッサージは、心地よい温もりとともに極上のリラクゼーションをもたらし、日々の疲れやストレスを優しく癒やします。'
-                        : '当店自慢の「ホットオイル」を使用した施術は、温もりとともに深いリラクゼーションをもたらし、疲れた身体と心を優しく包み込みます。さらに丁寧な「リンパ」ケアで日々の疲労やストレスをすっきりと流していきます。'}
-                    </p>
-                    <p>
-                      {isCyberTheme
-                        ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
-                        : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
-                    </p>
-                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff007f]' : 'text-[#a39573]'}`}>
-                      {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
-                    </p>
-                  </>
-                )}
+                <p>
+                  {isCyberTheme
+                    ? 'メンズエステ「おニャンこスパ」は、都会の喧騒を忘れられる完全個室のネオン×サイバープライベート空間。可愛い猫耳スタイルを纏った魅力あふれるセラピストたちが、貴方の心と体を解きほぐします。'
+                    : '赤羽のメンズエステ「Special Grade」は赤羽駅徒歩2分、川口のメンズエステとしても川口駅徒歩3分の好立地。都会の喧騒を忘れられる「完全個室」のプライベート空間で、心身ともに癒しのひとときをお過ごしいただけます。'}
+                </p>
+                <p>
+                  {isCyberTheme
+                    ? '当店自慢のアロマオイルを使用した本格密着マッサージは、心地よい温もりとともに極上のリラクゼーションをもたらし、日々の疲れやストレスを優しく癒やします。'
+                    : '当店自慢の「ホットオイル」を使用した施術は、温もりとともに深いリラクゼーションをもたらし、疲れた身体と心を優しく包み込みます。さらに丁寧な「リンパ」ケアで日々の疲労やストレスをすっきりと流していきます。'}
+                </p>
+                <p>
+                  {isCyberTheme
+                    ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
+                    : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
+                </p>
+                <p className={\`text-center font-semibold pt-2 \${isCyberTheme ? 'text-[#ff007f]' : 'text-[#a39573]'}\`}>
+                  {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
+                </p>
               </div>
             </div>
           </section>
@@ -234,7 +228,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col selection:bg-[#ff007f] selection:text-white ${isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
+      <div className={\`min-h-screen flex flex-col selection:bg-[#ff007f] selection:text-white \${isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'}\`}>
       <Header store={store} />
 
       <main className="flex-1">
@@ -247,3 +241,8 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
     </ThemeProvider>
   );
 }
+`;
+
+const targetPath = path.join(__dirname, "../app/[shopSlug]/(public)/page.tsx");
+fs.writeFileSync(targetPath, fullCode, "utf8");
+console.log("Successfully fixed page.tsx!");

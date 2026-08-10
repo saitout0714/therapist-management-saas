@@ -22,6 +22,7 @@ import {
   BlogArticle,
   NewsItem,
   SystemMenuCategory,
+  CourseOption,
 } from '../types/store';
 
 // 実写真が未登録のセラピストに使うプレースホルダー（他店舗のモック人物写真を誤って出さないため）
@@ -110,6 +111,20 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
 
     const templateId = data.template_id || 'luxury';
 
+    const rInfo = data.recruit_info;
+    const recruitInfo = rInfo && typeof rInfo === 'object' ? {
+      title: rInfo.title,
+      catchphrase: rInfo.catchphrase,
+      description: rInfo.description,
+      jobType: rInfo.job_type || rInfo.jobType,
+      qualification: rInfo.qualification,
+      salary: rInfo.salary,
+      hours: rInfo.hours,
+      notes: rInfo.notes,
+      phone: rInfo.phone,
+      lineUrl: rInfo.line_url || rInfo.lineUrl,
+    } : undefined;
+
     return {
       id: data.id,
       slug: data.slug || slug,
@@ -127,6 +142,8 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       litlinkUrl: data.litlink_url || MOCK_STORE.litlinkUrl,
       lineUrl: data.line_url || MOCK_STORE.lineUrl,
       noticeBanner: data.notice_banner || MOCK_STORE.noticeBanner,
+      description: data.description || undefined,
+      recruitInfo,
     };
   } catch {
     return MOCK_STORE;
@@ -550,23 +567,64 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
       return MOCK_SYSTEM_MENU;
     }
 
-    const courses = data.map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      durationMinutes: c.duration ?? c.duration_minutes ?? c.durationMinutes ?? 60,
-      price: c.base_price ?? c.price ?? 10000,
-      description: c.description || '',
-    }));
+    const categoryMap: { [catName: string]: CourseOption[] } = {};
+    for (const c of data) {
+      const catName = c.category_name || (isOnyanko ? 'Standard Onyanko Aroma (スタンダードアロマ)' : '基本アロマリフレッシュコース');
+      if (!categoryMap[catName]) {
+        categoryMap[catName] = [];
+      }
+      categoryMap[catName].push({
+        id: c.id,
+        name: c.name,
+        durationMinutes: c.duration ?? c.duration_minutes ?? c.durationMinutes ?? 60,
+        price: c.base_price ?? c.price ?? 10000,
+        description: c.description || '',
+      });
+    }
 
-    return [
-      {
-        categoryName: '基本アロマリフレッシュコース',
-        description: '厳選された最高級オイルを使用し、全身の血行を促進して深い疲労を効果的に解きほぐします。',
-        courses,
-      },
-    ];
+    return Object.entries(categoryMap).map(([categoryName, courses]) => ({
+      categoryName,
+      courses,
+    }));
   } catch {
     if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_SYSTEM_MENU;
     return MOCK_SYSTEM_MENU;
+  }
+}
+
+export interface RoomInfo {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  address?: string | null;
+  googleMapUrl?: string | null;
+  memo?: string | null;
+}
+
+export async function fetchStoreRooms(shopId: string): Promise<RoomInfo[]> {
+  try {
+    let targetShopId = shopId;
+    if (shopId === 'onyankospa' || shopId === 'onyanko-001') {
+      const { data: s } = await supabase.from('shops').select('id').eq('slug', 'onyankospa').maybeSingle();
+      if (s) targetShopId = s.id;
+    }
+
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('id, name, display_name, address, google_map_url, memo')
+      .eq('shop_id', targetShopId)
+      .order('order', { ascending: true, nullsFirst: false });
+
+    if (error || !data) return [];
+    return data.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      displayName: r.display_name,
+      address: r.address,
+      googleMapUrl: r.google_map_url,
+      memo: r.memo,
+    }));
+  } catch {
+    return [];
   }
 }

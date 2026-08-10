@@ -199,28 +199,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
         </div>
       </section>
 
-      {/* 2. トップコンセプト */}
-      <section className={`py-8 px-4 border-b text-center ${
-        isCyberTheme ? 'bg-[#1a0933]/50 border-[#ff007f]/20' : 'bg-[#faf7f0] border-stone-200'
-      }`}>
-        <div className="max-w-3xl mx-auto space-y-2">
-          <h2 className={`text-lg sm:text-xl font-bold tracking-widest ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>
-            {isCyberTheme ? '新宿・渋谷 メンズエステ' : '赤羽・川口のメンズエステ'}<br />
-            <span className={`block text-xs sm:text-sm font-normal mt-1 tracking-widest ${
-              isCyberTheme ? 'neon-text-pink font-bold' : ''
-            }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
-              {store.name} ～{store.catchphrase}～
-            </span>
-          </h2>
-          <p className={`text-xs leading-relaxed tracking-wider pt-2 max-w-2xl mx-auto ${
-            isCyberTheme ? 'text-pink-100' : 'text-stone-600'
-          }`}>
-            {isCyberTheme
-              ? 'ネオン輝く完全プライベート個室空間で、キュートな猫耳セラピストが身も心もとろける極上アロマを提供します。'
-              : '最高級をお求めのお客様のために「技術」「ルックス」「性格」の三点を厳選して日本人女性を採用。上質で優雅な至福の空間をどうぞご堪能ください。'}
-          </p>
-        </div>
-      </section>
+
 
       {/* 3. Information (イベント・キャンペーン極上スライダー) */}
       {campaigns && campaigns.length > 0 && (

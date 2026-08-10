@@ -89,7 +89,6 @@ interface TimeChartProps {
   scrollToTime?: string | null;
   onBlockedClick?: (id: string, startTime: string, endTime: string) => void;
   onShiftEditOpen?: (therapistId: string) => void;
-  onReceptionCloseOpen?: (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => void;
   onReceptionCloseClear?: (reservationId: string) => void;
   onSettlementToggle?: (therapistId: string, date: string, currentlySettled: boolean) => void;
   onPaymentSettle?: (reservationId: string, methodLabel: string) => void;
@@ -108,7 +107,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
   scrollToTime,
   onBlockedClick,
   onShiftEditOpen,
-  onReceptionCloseOpen,
   onReceptionCloseClear,
   onSettlementToggle,
   onPaymentSettle,
@@ -370,13 +368,6 @@ const TimeChart: React.FC<TimeChartProps> = ({
     showSeek = true;
     seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
   }
-
-  const nowExtendedMins = (nowHour < 6 ? nowHour + 24 : nowHour) * 60 + nowMin;
-  const hhmToMins = (hhmm?: string | null) => {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  };
 
   // 表示・グループ判定ともにルーム名だけを使う（マンション名＝表示名は出さない）
   const getRoomGroupName = (therapist: Therapist): string => {
@@ -818,32 +809,18 @@ const TimeChart: React.FC<TimeChartProps> = ({
                     )}
                   </div>
 
-                  {/* 操作アイコン — スマホでは名前欄の幅を奪わないよう縦積み＋小型化する */}
-                  <div className="flex-shrink-0 self-center flex flex-col sm:flex-row items-center gap-0.5 sm:gap-0 mr-0.5 sm:mr-0">
-                    {onReceptionCloseOpen && therapist.id !== 'unassigned' && !isOff && !therapist.receptionClosedFrom &&
-                      therapist.shiftStart && therapist.shiftEnd &&
-                      (hhmToMins(therapist.shiftEnd) ?? 0) > nowExtendedMins && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onReceptionCloseOpen(therapist.id, therapist.name, date || '', therapist.shiftStart!, therapist.shiftEnd!);
-                        }}
-                        title="受付終了にする"
-                        className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 sm:mr-1 rounded-md text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-all"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </button>
-                    )}
+                  {/* 操作ボタンは編集の1つだけ。受付終了もこのモーダルの中で設定する。 */}
+                  <div className="flex-shrink-0 self-center flex items-center mr-0.5 sm:mr-1">
                     {onShiftEditOpen && therapist.id !== 'unassigned' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onShiftEditOpen(therapist.id);
                         }}
-                        title="シフトを編集"
-                        className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 sm:mr-1 rounded-md text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                        title="シフト・受付状態を編集"
+                        className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-all"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
                     )}
                   </div>

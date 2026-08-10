@@ -382,17 +382,6 @@ function ShiftsContent() {
     memo: string;
   } | null>(null);
 
-  // 受付終了モーダル
-  const [receptionCloseModal, setReceptionCloseModal] = useState<{
-    therapistId: string;
-    therapistName: string;
-    date: string;
-    shiftStart: string;
-    shiftEnd: string;
-    cutoffTime: string;
-    saving: boolean;
-  } | null>(null);
-
   // メモ追加フォーム
   const [memoForm, setMemoForm] = useState<{ content: string; amount: string } | null>(null);
 
@@ -473,6 +462,8 @@ function ShiftsContent() {
     endTime: string;
     roomId: string;
     isOff: boolean;
+    // 受付終了の締切時刻。null なら受付終了していない。保存時に blocked 予約として書き込む。
+    receptionCutoff: string | null;
     memo: string;
     saving: boolean;
     error: string;
@@ -515,6 +506,7 @@ function ShiftsContent() {
 
     let isOff = false;
     let offMemo = '';
+    let receptionCutoff: string | null = null;
     const blockedSlots: { startTime: string; endTime: string; memo: string }[] = [];
 
     for (const bl of allBlocked) {
@@ -523,6 +515,9 @@ function ShiftsContent() {
       if (shiftStartStr && shiftEndStr && blStart === shiftStartStr && blEnd === shiftEndStr) {
         isOff = true;
         offMemo = bl.notes ?? '';
+      } else if (bl.notes === '受付終了' && shiftEndStr && blEnd === shiftEndStr) {
+        // 受付終了は「予約不可時間帯」とは別枠で扱う（モーダル上で状態として見せる）
+        receptionCutoff = blStart;
       } else {
         blockedSlots.push({ startTime: blStart, endTime: blEnd, memo: bl.notes ?? '' });
       }
@@ -545,6 +540,7 @@ function ShiftsContent() {
       endTime: defaultEnd,
       roomId: shift?.room_id ?? '',
       isOff,
+      receptionCutoff,
       memo: isOff ? offMemo : (shift?.notes ?? ''),
       saving: false,
       error: '',
@@ -572,7 +568,17 @@ function ShiftsContent() {
 
   const handleSaveShiftEdit = async () => {
     if (!shiftEditModal || !selectedShop) return;
-    const { therapistId, date, shiftId, startTime, endTime, roomId, isOff, memo, blockedSlots } = shiftEditModal;
+    const { therapistId, date, shiftId, startTime, endTime, roomId, isOff, memo, blockedSlots, receptionCutoff } = shiftEditModal;
+
+    // 受付終了にしようとしている時刻以降に確定予約が残っていないか確認する
+    if (!isOff && receptionCutoff) {
+      const conflicts = findConfirmedConflicts(therapistId, receptionCutoff);
+      if (conflicts.length > 0) {
+        const list = conflicts.map(r => `${toDisplayTime(r.start_time)} ${r.customers?.name || 'ゲスト'}`).join('\n');
+        if (!confirm(`【警告】${receptionCutoff}以降に既存の予約があります:\n\n${list}\n\nこのまま受付終了にしますか？`)) return;
+      }
+    }
+
     setShiftEditModal(m => m ? { ...m, saving: true, error: '' } : null);
 
     const toDbTime = (t: string) => {
@@ -631,29 +637,41 @@ function ShiftsContent() {
         setShiftEditModal(m => m ? { ...m, saving: false, error: '受付不可の設定に失敗しました' } : null);
         return;
       }
-    } else if (blockedSlots.length > 0) {
-      const { error } = await supabase.from('reservations').insert(
-        blockedSlots.map(slot => ({
-          therapist_id: therapistId,
-          shop_id: selectedShop.id,
-          date,
-          start_time: toDbTime(slot.startTime),
-          end_time: toDbTime(slot.endTime),
-          status: 'blocked',
-          course_id: null,
-          customer_id: null,
-          base_price: 0,
-          options_price: 0,
-          nomination_fee: 0,
-          total_price: 0,
-          discount_amount: 0,
-          designation_type: 'free',
-          notes: slot.memo?.trim() || null,
-        }))
-      );
-      if (error) {
-        setShiftEditModal(m => m ? { ...m, saving: false, error: '予約不可の設定に失敗しました' } : null);
-        return;
+    } else {
+      // 予約不可時間帯 + 受付終了（締切時刻〜退勤時間）をまとめて入れ直す
+      const rows = blockedSlots.map(slot => ({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        notes: slot.memo?.trim() || null,
+      }));
+      if (receptionCutoff) {
+        rows.push({ startTime: receptionCutoff, endTime, notes: '受付終了' });
+      }
+
+      if (rows.length > 0) {
+        const { error } = await supabase.from('reservations').insert(
+          rows.map(row => ({
+            therapist_id: therapistId,
+            shop_id: selectedShop.id,
+            date,
+            start_time: toDbTime(row.startTime),
+            end_time: toDbTime(row.endTime),
+            status: 'blocked',
+            course_id: null,
+            customer_id: null,
+            base_price: 0,
+            options_price: 0,
+            nomination_fee: 0,
+            total_price: 0,
+            discount_amount: 0,
+            designation_type: 'free',
+            notes: row.notes,
+          }))
+        );
+        if (error) {
+          setShiftEditModal(m => m ? { ...m, saving: false, error: '予約不可の設定に失敗しました' } : null);
+          return;
+        }
       }
     }
 
@@ -690,58 +708,14 @@ function ShiftsContent() {
     return toDisplayTime(hhmm);
   };
 
-  const handleOpenReceptionClose = (therapistId: string, therapistName: string, date: string, shiftStart: string, shiftEnd: string) => {
-    const shiftStartMins = hhmToMinutes(shiftStart);
-    const shiftEndMins = hhmToMinutes(shiftEnd);
-    let cutoffMins = hhmToMinutes(getNowExtendedTime());
-    if (cutoffMins < shiftStartMins) cutoffMins = shiftStartMins;
-    if (cutoffMins > shiftEndMins) cutoffMins = shiftEndMins;
-    setReceptionCloseModal({
-      therapistId,
-      therapistName,
-      date,
-      shiftStart,
-      shiftEnd,
-      cutoffTime: minutesToHHMM(cutoffMins),
-      saving: false,
-    });
-  };
-
-  const handleConfirmReceptionClose = async () => {
-    if (!receptionCloseModal || !selectedShop) return;
-    const { therapistId, date, cutoffTime, shiftEnd } = receptionCloseModal;
-
-    const conflicts = findConfirmedConflicts(therapistId, cutoffTime);
-    if (conflicts.length > 0) {
-      const list = conflicts.map(r => `${toDisplayTime(r.start_time)} ${r.customers?.name || 'ゲスト'}`).join('\n');
-      if (!confirm(`【警告】${cutoffTime}以降に既存の予約があります:\n\n${list}\n\nこのまま受付終了にしますか？`)) return;
-    }
-
-    setReceptionCloseModal(m => m ? { ...m, saving: true } : null);
-    const { error } = await supabase.from('reservations').insert([{
-      therapist_id: therapistId,
-      shop_id: selectedShop.id,
-      date,
-      start_time: cutoffTime,
-      end_time: shiftEnd,
-      status: 'blocked',
-      course_id: null,
-      customer_id: null,
-      base_price: 0,
-      options_price: 0,
-      nomination_fee: 0,
-      total_price: 0,
-      discount_amount: 0,
-      designation_type: 'free',
-      notes: '受付終了',
-    }]);
-    if (error) {
-      alert('受付終了の設定に失敗しました: ' + error.message);
-      setReceptionCloseModal(m => m ? { ...m, saving: false } : null);
-      return;
-    }
-    setReceptionCloseModal(null);
-    setRefreshCounter(c => c + 1);
+  // 受付終了の締切時刻をシフトの範囲内に収める
+  const clampToShift = (time: string, shiftStart: string, shiftEnd: string) => {
+    const startMins = hhmToMinutes(shiftStart);
+    const endMins = hhmToMinutes(shiftEnd);
+    let mins = hhmToMinutes(time);
+    if (mins < startMins) mins = startMins;
+    if (mins > endMins) mins = endMins;
+    return minutesToHHMM(mins);
   };
 
   const handleClearReceptionClosed = async (reservationId: string) => {
@@ -2427,7 +2401,6 @@ function ShiftsContent() {
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
-                    onReceptionCloseOpen={handleOpenReceptionClose}
                     onReceptionCloseClear={handleClearReceptionClosed}
                     onSettlementToggle={handleToggleSettlement}
                     onPaymentSettle={handlePaymentSettle}
@@ -2464,7 +2437,6 @@ function ShiftsContent() {
                       setBlockedModal({ id, startTime, endTime, memo: reservations.find(r => r.id === id)?.notes ?? '' })
                     }
                     onShiftEditOpen={handleOpenShiftEdit}
-                    onReceptionCloseOpen={handleOpenReceptionClose}
                     onReceptionCloseClear={handleClearReceptionClosed}
                     onSettlementToggle={handleToggleSettlement}
                     onPaymentSettle={handlePaymentSettle}
@@ -2515,68 +2487,119 @@ function ShiftsContent() {
               </div>
             </div>
 
-            <div className="px-6 py-4 space-y-4">
-              {/* 出退勤時間 */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">出勤時間</label>
-                  <TimeSelectHM
-                    value={shiftEditModal.startTime}
-                    onChange={v => setShiftEditModal(m => m ? { ...m, startTime: v } : null)}
-                    disabled={shiftEditModal.isOff}
-                    selectClassName="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
-                  />
+            <div className="px-6 py-4 space-y-5">
+              {/* 1. 勤務時間・ルーム */}
+              <section>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">勤務</h4>
+                <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">出勤</span>
+                    <TimeSelectHM
+                      value={shiftEditModal.startTime}
+                      onChange={v => setShiftEditModal(m => m ? { ...m, startTime: v } : null)}
+                      disabled={shiftEditModal.isOff}
+                      selectClassName="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">退勤</span>
+                    <TimeSelectHM
+                      value={shiftEditModal.endTime}
+                      onChange={v => setShiftEditModal(m => m ? { ...m, endTime: v } : null)}
+                      disabled={shiftEditModal.isOff}
+                      selectClassName="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">ルーム</span>
+                    <select
+                      value={shiftEditModal.roomId}
+                      onChange={e => setShiftEditModal(m => m ? { ...m, roomId: e.target.value } : null)}
+                      disabled={shiftEditModal.isOff}
+                      className="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                    >
+                      <option value="">未設定</option>
+                      {rooms.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">退勤時間</label>
-                  <TimeSelectHM
-                    value={shiftEditModal.endTime}
-                    onChange={v => setShiftEditModal(m => m ? { ...m, endTime: v } : null)}
-                    disabled={shiftEditModal.isOff}
-                    selectClassName="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
-                  />
+              </section>
+
+              {/* 2. 受付ステータス — 通常 / 受付終了 / 休み の3択 */}
+              <section>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">受付ステータス</h4>
+                <div className="space-y-2">
+                  {([
+                    { key: 'open', label: '受付中', desc: '通常どおり予約を受け付けます', tone: 'emerald' },
+                    { key: 'closed', label: '受付終了', desc: '指定した時刻から退勤まで新規予約を止めます', tone: 'amber' },
+                    { key: 'off', label: '休み', desc: 'シフト全時間帯を受付不可にします', tone: 'rose' },
+                  ] as const).map(opt => {
+                    const current = shiftEditModal.isOff ? 'off' : shiftEditModal.receptionCutoff ? 'closed' : 'open';
+                    const selected = current === opt.key;
+                    const ring =
+                      opt.tone === 'emerald' ? 'border-emerald-400 bg-emerald-50'
+                        : opt.tone === 'amber' ? 'border-amber-400 bg-amber-50'
+                          : 'border-rose-400 bg-rose-50';
+                    const dot =
+                      opt.tone === 'emerald' ? 'bg-emerald-500'
+                        : opt.tone === 'amber' ? 'bg-amber-500'
+                          : 'bg-rose-500';
+                    return (
+                      <label
+                        key={opt.key}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors select-none ${selected ? ring : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="reception-status"
+                          checked={selected}
+                          onChange={() => setShiftEditModal(m => {
+                            if (!m) return m;
+                            if (opt.key === 'off') return { ...m, isOff: true, receptionCutoff: null };
+                            if (opt.key === 'open') return { ...m, isOff: false, receptionCutoff: null };
+                            return {
+                              ...m,
+                              isOff: false,
+                              receptionCutoff: m.receptionCutoff ?? clampToShift(getNowExtendedTime(), m.startTime, m.endTime),
+                            };
+                          })}
+                          className="mt-0.5 w-4 h-4 flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</p>
+
+                          {/* 受付終了を選んだときだけ締切時刻を出す。
+                              label の中なので、時刻セレクトのクリックがラジオに伝わらないよう止める。 */}
+                          {opt.key === 'closed' && selected && (
+                            <div className="mt-2.5 pt-2.5 border-t border-amber-200" onClick={e => e.stopPropagation()}>
+                              <p className="text-[10px] font-semibold text-slate-600 mb-1.5">締切時刻（この時刻から {shiftEditModal.endTime} まで停止）</p>
+                              <TimeSelectHM
+                                value={shiftEditModal.receptionCutoff ?? shiftEditModal.startTime}
+                                onChange={v => setShiftEditModal(m => m ? { ...m, receptionCutoff: v } : null)}
+                                selectClassName="flex-1 px-2.5 py-2 bg-white border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
 
-              {/* ルーム */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">ルーム</label>
-                <select
-                  value={shiftEditModal.roomId}
-                  onChange={e => setShiftEditModal(m => m ? { ...m, roomId: e.target.value } : null)}
-                  disabled={shiftEditModal.isOff}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
-                >
-                  <option value="">未設定</option>
-                  {rooms.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 休みチェックボックス */}
-              <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors select-none"
-                style={shiftEditModal.isOff ? { borderColor: '#9b1c1c', background: '#fff1f2' } : { borderColor: '#e2e8f0', background: '#f8fafc' }}>
-                <input
-                  type="checkbox"
-                  checked={shiftEditModal.isOff}
-                  onChange={e => setShiftEditModal(m => m ? { ...m, isOff: e.target.checked } : null)}
-                  className="w-4 h-4 rounded accent-red-800"
-                />
-                <div>
-                  <p className={`text-sm font-bold ${shiftEditModal.isOff ? 'text-red-800' : 'text-slate-700'}`}>休み（全日受付不可）</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">チェックするとシフト全時間帯が受付不可になります</p>
-                </div>
-              </label>
-
-              {/* 予約不可時間帯 */}
+              {/* 3. 予約不可時間帯 */}
               {!shiftEditModal.isOff && (
-                <div>
+                <section>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-red-800 inline-block"></span>
-                      予約不可時間帯
-                    </label>
+                    <h4 className="text-[11px] font-bold text-slate-400 tracking-wider">
+                      予約不可時間帯（休憩・私用など）
+                    </h4>
                     <button
                       onClick={() => setShiftEditModal(m => m ? { ...m, addingBlocked: !m.addingBlocked } : null)}
                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -2657,13 +2680,14 @@ function ShiftsContent() {
                   )}
 
                   {shiftEditModal.blockedSlots.length === 0 && !shiftEditModal.addingBlocked && (
-                    <p className="text-xs text-slate-400 text-center py-1.5">予約不可の時間帯はありません</p>
+                    <p className="text-xs text-slate-400 text-center py-2 border border-dashed border-slate-200 rounded-xl">予約不可の時間帯はありません</p>
                   )}
-                </div>
+                </section>
               )}
 
-              {/* 精算済み */}
-              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${shiftEditModal.isSettled ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
+              {/* 4. 精算 */}
+              <h4 className="text-[11px] font-bold text-slate-400 tracking-wider !mb-2">精算</h4>
+              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors !mt-0 ${shiftEditModal.isSettled ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
                 <div>
                   <p className={`text-sm font-bold ${shiftEditModal.isSettled ? 'text-red-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">セラピストへ本日分の精算を送ったかどうかの状態です</p>
@@ -2680,9 +2704,9 @@ function ShiftsContent() {
                 </button>
               </div>
 
-              {/* メモ */}
+              {/* 5. メモ */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">メモ</label>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">メモ</h4>
                 <textarea
                   value={shiftEditModal.memo}
                   onChange={e => setShiftEditModal(m => m ? { ...m, memo: e.target.value } : null)}
@@ -2899,42 +2923,6 @@ function ShiftsContent() {
               </button>
               <button
                 onClick={() => setBlockedModal(null)}
-                className="px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-              >
-                閉じる
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 受付終了モーダル */}
-      {receptionCloseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setReceptionCloseModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">受付終了にする</h3>
-            <p className="text-xs text-slate-500 mb-6">{receptionCloseModal.therapistName} / この時刻から {receptionCloseModal.shiftEnd} まで新規予約の受付を止めます</p>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">締切時刻</label>
-                <TimeSelectHM
-                  value={receptionCloseModal.cutoffTime}
-                  onChange={v => setReceptionCloseModal(m => m ? { ...m, cutoffTime: v } : null)}
-                  selectClassName="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/50 outline-none"
-                  minHour={9}
-                />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleConfirmReceptionClose}
-                disabled={receptionCloseModal.saving}
-                className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50"
-              >
-                受付終了にする
-              </button>
-              <button
-                onClick={() => setReceptionCloseModal(null)}
                 className="px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
               >
                 閉じる

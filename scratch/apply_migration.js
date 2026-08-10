@@ -1,36 +1,53 @@
-const { Client } = require('pg');
-require('dotenv').config({ path: '.env.local' });
+require("dotenv").config({ path: ".env.local" });
+const { Client } = require("pg");
+const fs = require("fs");
+const path = require("path");
 
-async function runMigration(dbUrl, name) {
-  if (!dbUrl) {
-    console.log(`[${name}] No URL configured, skipping.`);
-    return;
+async function applyMigration() {
+  const connectionString = process.env.PRODUCTION_DATABASE_URL;
+  if (!connectionString) {
+    console.error("PRODUCTION_DATABASE_URL is not set in .env.local");
+    process.exit(1);
   }
-  console.log(`[${name}] Connecting to:`, dbUrl);
-  const client = new Client({ connectionString: dbUrl });
+
+  console.log("Connecting to PostgreSQL database...");
+  const client = new Client({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
     await client.connect();
-    console.log(`[${name}] Connected successfully.`);
-    console.log(`[${name}] Dropping existing constraint...`);
-    await client.query(`
-      ALTER TABLE reservations DROP CONSTRAINT IF EXISTS reservations_reception_source_check;
+    console.log("Connected successfully.");
+
+    const sqlPath = path.join(__dirname, "../supabase/add-recruit-and-course-category.sql");
+    const sql = fs.readFileSync(sqlPath, "utf8");
+
+    console.log("Executing SQL migration script...");
+    await client.query(sql);
+    console.log("Migration executed successfully!");
+
+    // Verify columns on courses table
+    const resCourses = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'courses' AND column_name = 'category_name';
     `);
-    console.log(`[${name}] Adding updated constraint including "owner"...`);
-    await client.query(`
-      ALTER TABLE reservations ADD CONSTRAINT reservations_reception_source_check 
-      CHECK (reception_source IN ('staff', 'client', 'therapist', 'owner'));
+    console.log("courses.category_name column check:", resCourses.rows);
+
+    // Verify columns on shops table
+    const resShops = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'shops' AND column_name = 'recruit_info';
     `);
-    console.log(`[${name}] Migration completed successfully!`);
+    console.log("shops.recruit_info column check:", resShops.rows);
+
   } catch (err) {
-    console.error(`[${name}] Error:`, err);
+    console.error("Error executing migration:", err);
   } finally {
     await client.end();
   }
 }
 
-async function main() {
-  await runMigration(process.env.PRODUCTION_DATABASE_URL, 'PRODUCTION');
-  await runMigration(process.env.DEVELOPMENT_DATABASE_URL, 'DEVELOPMENT');
-}
-
-main();
+applyMigration();
