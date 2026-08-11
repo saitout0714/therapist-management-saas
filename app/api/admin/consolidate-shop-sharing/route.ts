@@ -60,15 +60,32 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { targetShopId, ownerId: ownerIdOverride, dryRun } = (await req.json()) as {
+    const {
+      targetShopId,
+      ownerId: ownerIdOverride,
+      dryRun,
+      scope = 'both',
+      mode = 'shared',
+    } = (await req.json()) as {
       targetShopId?: string
       ownerId?: string | null
       dryRun?: boolean
+      /** 料金だけ・バックだけ・両方のどれを操作するか */
+      scope?: 'pricing' | 'back' | 'both'
+      /** shared = 基準店に寄せる / independent = 各店が自前のデータを使う */
+      mode?: 'shared' | 'independent'
     }
 
     if (!targetShopId) {
       return NextResponse.json({ error: 'targetShopId が必要です' }, { status: 400 })
     }
+
+    const touchPricing = scope === 'pricing' || scope === 'both'
+    const touchBack = scope === 'back' || scope === 'both'
+    const scopedTables = [
+      ...(touchPricing ? PRICING_TABLES : []),
+      ...(touchBack ? BACK_TABLES : []),
+    ]
 
     const { data: target, error: targetError } = await db
       .from('shops')
@@ -106,8 +123,62 @@ export async function POST(req: Request) {
       return count ?? 0
     }
 
+    // --- 独立へ戻す場合 ----------------------------------------------------
+    // データは動かさない。共有をやめると基準店以外は自前のデータを見に行くので、
+    // 持っていない店舗は設定が空になる。何が空になるかを必ず先に知らせる。
+    if (mode === 'independent') {
+      for (const { table, label } of scopedTables) {
+        const empties: string[] = []
+        for (const s of groupShops) {
+          const c = await countRows(table, s.id)
+          if (c === null) {
+            warnings.push(`⚠️ ${label}: テーブルを読めなかったため確認できていません`)
+            break
+          }
+          if (c === 0) empties.push(s.name)
+        }
+        if (empties.length > 0) {
+          warnings.push(`⚠️ ${label}: ${empties.join(' / ')} は自前のデータが0件のため空になります`)
+        } else {
+          skipped.push(`・${label}: 全店舗が自前のデータを持っています`)
+        }
+      }
+
+      if (!dryRun) {
+        const ownerPatch: Record<string, unknown> = {}
+        if (touchPricing) { ownerPatch.pricing_mode = 'independent'; ownerPatch.pricing_base_shop_id = null }
+        if (touchBack) { ownerPatch.back_mode = 'independent'; ownerPatch.back_base_shop_id = null }
+        if (ownerId) {
+          const { error } = await db.from('owners').update(ownerPatch).eq('id', ownerId)
+          if (error) return NextResponse.json({ error: `オーナー設定の更新に失敗: ${error.message}` }, { status: 500 })
+        }
+
+        // 旧方式の列も揃えておく（参照が残っている間の食い違いを防ぐ）
+        const shopPatch: Record<string, unknown> = {}
+        if (touchPricing) shopPatch.pricing_source_shop_id = null
+        if (touchBack) shopPatch.back_source_shop_id = null
+        const { error: shopError } = await db
+          .from('shops')
+          .update(shopPatch)
+          .in('id', groupShops.map((s) => s.id))
+        if (shopError) return NextResponse.json({ error: `店舗設定の更新に失敗: ${shopError.message}` }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        dryRun: !!dryRun,
+        mode,
+        scope,
+        targetShopName: target.name,
+        groupShopNames: groupShops.map((s) => nameById.get(s.id) || s.id),
+        moved,
+        skipped,
+        warnings,
+      })
+    }
+
     // --- テーブルごとにデータを新共有元へ寄せる ------------------------------
-    for (const { table, label } of [...PRICING_TABLES, ...BACK_TABLES]) {
+    for (const { table, label } of scopedTables) {
       const targetCount = await countRows(table, target.id)
 
       if (targetCount === null) {
@@ -158,19 +229,38 @@ export async function POST(req: Request) {
 
     // --- 参照先の切り替え --------------------------------------------------
     if (!dryRun) {
-      // 統一先自身は null（自店が正）にしておく
+      // 共有するかどうかはオーナー設定が正。まずこちらを更新する。
+      const ownerPatch: Record<string, unknown> = {}
+      if (touchPricing) { ownerPatch.pricing_mode = 'shared'; ownerPatch.pricing_base_shop_id = target.id }
+      if (touchBack) { ownerPatch.back_mode = 'shared'; ownerPatch.back_base_shop_id = target.id }
+      if (ownerId) {
+        const { error } = await db.from('owners').update(ownerPatch).eq('id', ownerId)
+        if (error) {
+          return NextResponse.json({ error: `オーナー設定の更新に失敗: ${error.message}` }, { status: 500 })
+        }
+      } else {
+        warnings.push('⚠️ この店舗にオーナーが設定されていないため、グループ設定は保存していません')
+      }
+
+      // 旧方式の列も揃えておく（参照が残っている間の食い違いを防ぐ）
+      const selfPatch: Record<string, unknown> = {}
+      if (touchPricing) selfPatch.pricing_source_shop_id = null
+      if (touchBack) selfPatch.back_source_shop_id = null
       const { error: selfError } = await db
         .from('shops')
-        .update({ pricing_source_shop_id: null, back_source_shop_id: null })
+        .update(selfPatch)
         .eq('id', target.id)
       if (selfError) {
         return NextResponse.json({ error: `共有元の更新に失敗: ${selfError.message}` }, { status: 500 })
       }
 
       if (others.length > 0) {
+        const othersPatch: Record<string, unknown> = {}
+        if (touchPricing) othersPatch.pricing_source_shop_id = target.id
+        if (touchBack) othersPatch.back_source_shop_id = target.id
         const { error: othersError } = await db
           .from('shops')
-          .update({ pricing_source_shop_id: target.id, back_source_shop_id: target.id })
+          .update(othersPatch)
           .in('id', others.map((s) => s.id))
         if (othersError) {
           return NextResponse.json({ error: `共有元の更新に失敗: ${othersError.message}` }, { status: 500 })
@@ -181,6 +271,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       dryRun: !!dryRun,
+      mode,
+      scope,
       targetShopName: target.name,
       groupShopNames: groupShops.map((s) => nameById.get(s.id) || s.id),
       moved,

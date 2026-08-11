@@ -4,6 +4,9 @@
  * 再実装ではなく lib/shopUtils.ts の本物の関数を通すので、
  * アプリが実際に使う経路と同じ結果を検証できる。
  * 期待値は shops.*_source_shop_id（旧方式・残してある）から計算する。
+ *
+ * 鍵はブラウザと同じ anon を使う。サービスロールで検証すると owners のRLSを
+ * すり抜けてしまい、画面では読めていないのに「一致」と出てしまうため。
  */
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
@@ -18,7 +21,7 @@ dotenv.config({ path: '.env.local' });
 
 const svc = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 async function main() {
@@ -30,6 +33,14 @@ async function main() {
 
   const shops = data as any[];
   const nameOf = new Map(shops.map(s => [s.id, s.name]));
+
+  // owners が読めていないと旧方式へ黙って落ちるので、まずそこを確認する
+  const ownersReadable = shops.filter(s => s.owners).length;
+  console.log(`■ 前提確認\n\n   オーナー設定を読めた店舗: ${ownersReadable} / ${shops.length}`);
+  if (ownersReadable === 0) {
+    console.log('   ★owners が1件も読めていない。画面では旧方式にフォールバックしている。\n');
+  }
+  console.log('');
 
   let ok = 0;
   const diffs: string[] = [];

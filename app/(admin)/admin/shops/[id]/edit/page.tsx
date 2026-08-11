@@ -18,22 +18,27 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
 
   // オーナーアカウント選択肢
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
-  const [allShops, setAllShops] = useState<{ id: string; name: string }[]>([])
 
-  // 一括統一の実行状態と結果レポート
-  const [consolidating, setConsolidating] = useState(false)
+  // 共有設定を変更したときの結果レポート
   const [consolidateReport, setConsolidateReport] = useState<string[]>([])
-
   /**
-   * グループの料金・バック共有元をこの店舗に統一する。
-   * 参照先を切り替えるだけだと旧共有元のデータが取り残されて
-   * 「設定が消えた」状態になるため、サーバー側でデータ移送も行う。
-   * まず dryRun で移動内容を提示し、承諾を得てから本実行する。
+   * グループの共有設定（料金 or バック）を切り替える。
+   * 参照先を変えるだけだとデータが取り残されて「設定が消えた」ように見えるため、
+   * 必ず先に dryRun で「何が動くか・何が空になるか」を提示してから実行する。
    */
-  const runConsolidate = async () => {
+  const applySharing = async (
+    scope: 'pricing' | 'back',
+    mode: 'shared' | 'independent',
+    baseShopId: string
+  ) => {
     setError('')
     setSuccess('')
-    setConsolidateReport([])
+    const kindLabel = scope === 'pricing' ? '料金設定' : 'バック設定'
+
+    if (mode === 'shared' && !baseShopId) {
+      setError(`${kindLabel}を共有する基準店舗を選んでください`)
+      return
+    }
 
     const { data: { session } } = await supabase.auth.getSession()
     const accessToken = session?.access_token
@@ -42,61 +47,60 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
       return
     }
 
-    const ownerId = selectedOwnerId || (allShops.find(s => s.id === id) as any)?.owner_id || null
-
     const call = async (dryRun: boolean) => {
       const res = await fetch('/api/admin/consolidate-shop-sharing', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ targetShopId: id, ownerId, dryRun }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          // 独立に戻す場合も店舗の特定にこの店舗を使う
+          targetShopId: mode === 'shared' ? baseShopId : id,
+          ownerId: selectedOwnerId || null,
+          scope,
+          mode,
+          dryRun,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || '不明なエラー')
-      return json as {
-        targetShopName: string
-        groupShopNames: string[]
-        moved: string[]
-        skipped: string[]
-        warnings: string[]
-      }
+      return json as { targetShopName: string; groupShopNames: string[]; moved: string[]; skipped: string[]; warnings: string[] }
     }
 
-    setConsolidating(true)
+    setSharingSaving(scope)
     try {
-      // 1. まず何が起きるかを確認する（データは変更しない）
       const plan = await call(true)
+      const baseName = groupShops.find((s) => s.id === baseShopId)?.name || plan.targetShopName
 
       const lines = [
-        `「${plan.targetShopName}」のデータをグループ共通にします。`,
+        mode === 'shared'
+          ? `${kindLabel}を「${baseName}」のものにグループ全体で統一します。`
+          : `${kindLabel}を店舗ごとに独立させます。各店舗は自前のデータを使うようになります。`,
         `対象店舗: ${plan.groupShopNames.join(' / ')}`,
-        '',
-        plan.moved.length > 0
-          ? `【移動するデータ】\n${plan.moved.join('\n')}`
-          : '【移動するデータ】\n・なし',
       ]
+      if (plan.moved.length > 0) lines.push('', `【移動するデータ】\n${plan.moved.join('\n')}`)
       if (plan.skipped.length > 0) lines.push('', `【そのままにするデータ】\n${plan.skipped.join('\n')}`)
       if (plan.warnings.length > 0) lines.push('', `【注意】\n${plan.warnings.join('\n')}`)
       lines.push('', '実行しますか？')
 
-      if (!confirm(lines.join('\n'))) {
-        setConsolidating(false)
-        return
-      }
+      if (!confirm(lines.join('\n'))) return
 
-      // 2. 本実行
       const result = await call(false)
-
-      setPricingSourceShopId('')
-      setBackSourceShopId('')
+      setOwnerSharing((prev) =>
+        prev
+          ? scope === 'pricing'
+            ? { ...prev, pricingMode: mode, pricingBaseShopId: mode === 'shared' ? baseShopId : '' }
+            : { ...prev, backMode: mode, backBaseShopId: mode === 'shared' ? baseShopId : '' }
+          : prev
+      )
       setConsolidateReport([...result.moved, ...result.skipped, ...result.warnings])
-      setSuccess(`✨ グループ全店舗の料金・バック共有元を「${result.targetShopName}」に統一しました`)
+      setSuccess(
+        mode === 'shared'
+          ? `✨ ${kindLabel}を「${baseName}」に統一しました`
+          : `✨ ${kindLabel}を店舗ごとに独立させました`
+      )
     } catch (err: any) {
-      setError('一括共有設定に失敗しました: ' + err.message)
+      setError(`${kindLabel}の変更に失敗しました: ` + err.message)
     } finally {
-      setConsolidating(false)
+      setSharingSaving(null)
     }
   }
 
@@ -110,9 +114,20 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
     is_dispatch_enabled: false,
   })
 
-  // 代行・マルチ店舗共有
-  const [pricingSourceShopId, setPricingSourceShopId] = useState<string>('')
-  const [backSourceShopId, setBackSourceShopId] = useState<string>('')
+  /**
+   * 料金・バックを共有するかはオーナー（グループ）単位の設定が正。
+   * 店舗ごとの共有元指定は旧方式で、店舗が増えるたびに指し直す必要があった。
+   */
+  type OwnerSharing = {
+    ownerName: string
+    pricingMode: 'shared' | 'independent'
+    pricingBaseShopId: string
+    backMode: 'shared' | 'independent'
+    backBaseShopId: string
+  }
+  const [ownerSharing, setOwnerSharing] = useState<OwnerSharing | null>(null)
+  const [groupShops, setGroupShops] = useState<{ id: string; name: string }[]>([])
+  const [sharingSaving, setSharingSaving] = useState<'pricing' | 'back' | null>(null)
 
   // 予約連携コード
   const [reservationCode, setReservationCode] = useState('')
@@ -135,9 +150,30 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
       setError('')
 
       try {
-        // 全店舗一覧（共有元選択用）
-        const { data: shopsData } = await supabase.from('shops').select('id, name').neq('id', id)
-        if (shopsData) setAllShops(shopsData)
+        // グループ（オーナー）の共有設定と、基準店の候補になる同一オーナーの店舗
+        const { data: selfShop } = await supabase.from('shops').select('owner_id, name').eq('id', id).maybeSingle()
+        if (selfShop?.owner_id) {
+          const [{ data: ownerRow }, { data: siblings }] = await Promise.all([
+            supabase
+              .from('owners')
+              .select('id, name, pricing_mode, pricing_base_shop_id, back_mode, back_base_shop_id')
+              .eq('id', selfShop.owner_id)
+              .maybeSingle(),
+            supabase.from('shops').select('id, name').eq('owner_id', selfShop.owner_id).order('name'),
+          ])
+          if (ownerRow) {
+            setOwnerSharing({
+              ownerName: ownerRow.name || '',
+              pricingMode: (ownerRow.pricing_mode as 'shared' | 'independent') || 'independent',
+              pricingBaseShopId: ownerRow.pricing_base_shop_id || '',
+              backMode: (ownerRow.back_mode as 'shared' | 'independent') || 'independent',
+              backBaseShopId: ownerRow.back_base_shop_id || '',
+            })
+          }
+          setGroupShops(siblings || [])
+        } else {
+          setGroupShops(selfShop ? [{ id: id as string, name: selfShop.name }] : [])
+        }
 
         // 1. 対象店舗データ
         const { data: shopRes, error: shopErr } = await supabase
@@ -153,8 +189,6 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         }
 
         setSelectedOwnerId(shopRes.owner_id || '')
-        setPricingSourceShopId(shopRes.pricing_source_shop_id || '')
-        setBackSourceShopId(shopRes.back_source_shop_id || '')
 
         setForm({
           name: shopRes.name || '',
@@ -277,8 +311,9 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
         hp_url: form.hp_url.trim() || null,
         is_active: form.is_active,
         is_dispatch_enabled: form.is_dispatch_enabled,
-        pricing_source_shop_id: pricingSourceShopId || null,
-        back_source_shop_id: backSourceShopId || null,
+        // 共有元(*_source_shop_id)はここでは触らない。
+        // 共有設定は /api/admin/consolidate-shop-sharing がデータ移送とセットで更新するため、
+        // 画面ロード時の古い値でここから上書きすると設定が巻き戻ってしまう。
         updated_at: new Date().toISOString(),
       }
 
@@ -612,74 +647,93 @@ export default function EditShopPage({ params }: { params: Promise<{ id: string 
               同一営業の複数店舗（バカラグループ等）で「料金設定」「バック設定」を1つの共通データとして共有する場合に設定します。
             </p>
 
-            <div className="p-3.5 bg-indigo-50/80 border border-indigo-100 rounded-xl space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-indigo-900">⚡ ワンタップ・一括共有設定</h3>
-                  <p className="text-[11px] text-indigo-700 mt-0.5">どの店舗から料金やランク・バック率を変更しても、グループ全店で即時共通化されます。</p>
-                  <p className="text-[11px] text-indigo-700 mt-1">
-                    旧共有元にデータが残っている場合は、この店舗へ移送してから切り替えます（実行前に内容を確認できます）。
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={consolidating}
-                  onClick={runConsolidate}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
-                >
-                  {consolidating ? '処理中...' : '⚡ この店舗データに全グループ一括統一'}
-                </button>
+            {consolidateReport.length > 0 && (
+              <ul className="space-y-0.5 text-[11px] text-indigo-900 bg-indigo-50/80 border border-indigo-100 rounded-xl p-2.5">
+                {consolidateReport.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            )}
+
+            {!ownerSharing ? (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                この店舗にオーナーが設定されていないため、グループの共有設定を編集できません。
+                先に「店舗情報」タブでオーナーを設定してください。
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-[11px] text-slate-500">
+                  ここでの変更は <span className="font-bold text-slate-700">{ownerSharing.ownerName}</span> の
+                  全{groupShops.length}店舗（{groupShops.map((s) => s.name).join(' / ')}）に適用されます。
+                </div>
 
-              {consolidateReport.length > 0 && (
-                <ul className="mt-1 space-y-0.5 text-[11px] text-indigo-900 bg-white/70 border border-indigo-100 rounded-lg p-2.5">
-                  {consolidateReport.map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                {([
+                  { scope: 'pricing' as const, title: '料金設定', detail: 'コース・オプション・割引・指名種別', mode: ownerSharing.pricingMode, base: ownerSharing.pricingBaseShopId },
+                  { scope: 'back' as const, title: 'バック設定', detail: 'セラピストランク・ランク別バック・控除ルール', mode: ownerSharing.backMode, base: ownerSharing.backBaseShopId },
+                ]).map(({ scope, title, detail, mode, base }) => (
+                  <div key={scope} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-800">{title}</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{detail}</p>
+                    </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">料金設定 (コース・オプション・割引・指名種別) の共有元店舗</label>
-              <select
-                value={pricingSourceShopId}
-                onChange={(e) => setPricingSourceShopId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-              >
-                <option value="">共有しない（自店舗のデータを使用）</option>
-                {allShops.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} の料金データを共有する {s.id === id ? ' (※この店舗自身が共有マスター)' : ''}
-                  </option>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={sharingSaving !== null}
+                        onClick={() => applySharing(scope, 'independent', '')}
+                        className={`px-3.5 py-2 text-xs font-bold rounded-lg border transition-all disabled:opacity-50 ${
+                          mode === 'independent'
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                            : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        店舗ごとに独立
+                      </button>
+                      <button
+                        type="button"
+                        disabled={sharingSaving !== null}
+                        onClick={() => applySharing(scope, 'shared', base || (id as string))}
+                        className={`px-3.5 py-2 text-xs font-bold rounded-lg border transition-all disabled:opacity-50 ${
+                          mode === 'shared'
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                            : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        グループで共有
+                      </button>
+                      {sharingSaving === scope && <span className="text-xs text-slate-500 self-center">処理中...</span>}
+                    </div>
+
+                    {mode === 'shared' && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">基準にする店舗</label>
+                        <select
+                          value={base}
+                          disabled={sharingSaving !== null}
+                          onChange={(e) => applySharing(scope, 'shared', e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 disabled:opacity-50"
+                        >
+                          <option value="">選択してください</option>
+                          {groupShops.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} の{title}を全店舗で使う
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-slate-500">
+                      {mode === 'shared'
+                        ? `現在: ${groupShops.find((s) => s.id === base)?.name || '未設定'} の${title}を全店舗で使用中`
+                        : `現在: 各店舗が自分の${title}を使用中`}
+                    </p>
+                  </div>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">バック計算設定 (セラピストバック・ルール) の共有元店舗</label>
-              <select
-                value={backSourceShopId}
-                onChange={(e) => setBackSourceShopId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-              >
-                <option value="">共有しない（自店舗のデータを使用）</option>
-                {allShops.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} のバック計算ルールを共有する {s.id === id ? ' (※この店舗自身が共有マスター)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+              </div>
+            )}
           </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary w-full"
-          >
-            {saving ? '保存中...' : '共有設定を保存'}
-          </button>
         </form>
       )}
 
