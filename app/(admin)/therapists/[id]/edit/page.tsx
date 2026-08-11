@@ -251,7 +251,10 @@ export default function EditTherapistPage() {
           supabase.from("designation_types").select("slug, display_name").eq("shop_id", pricingShopId).eq("is_active", true).order("display_order"),
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
           linkedShopIds.length > 0
-            ? supabase.from("therapists").select("id, name, shop_id, shops(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
+            // shops は !shop_id でリレーションを明示する。
+            // therapist_shops（店舗別源氏名）が増えて therapists→shops の経路が2本になったため、
+            // 単なる shops(name) だと PostgREST が曖昧エラーを返しクエリごと失敗する。
+            ? supabase.from("therapists").select("id, name, shop_id, shops!shop_id(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
             : Promise.resolve({ data: [] }),
           supabase.from("courses").select("id, name, duration").eq("shop_id", pricingShopId).eq("is_active", true).order("display_order")
         ]);

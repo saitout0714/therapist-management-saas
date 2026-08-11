@@ -37,7 +37,9 @@ export default function TherapistLoginPage() {
       // 1. therapists テーブルから login_id または name で一致するセラピストを検索
       let { data: therapistMatch } = await supabase
         .from('therapists')
-        .select('*, shops(id, name)')
+        // shops!shop_id でリレーションを明示。therapist_shops（店舗別源氏名）が増えて
+        // therapists→shops の経路が2本になり、shops(...) だけだと曖昧エラーで必ず0件になる。
+        .select('*, shops!shop_id(id, name)')
         .or(`login_id.eq.${queryTerm},name.eq.${queryTerm}`)
         .maybeSingle();
 
@@ -45,7 +47,8 @@ export default function TherapistLoginPage() {
       if (!therapistMatch) {
         const { data: fallbackList } = await supabase
           .from('therapists')
-          .select('*, shops(id, name)')
+          // 同上。shops!shop_id でリレーションを明示する
+          .select('*, shops!shop_id(id, name)')
           .ilike('name', `%${queryTerm}%`)
           .limit(1);
 

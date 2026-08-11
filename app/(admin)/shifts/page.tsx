@@ -1128,7 +1128,8 @@ function ShiftsContent() {
         groupIds.length > 0
           ? supabase
               .from("therapists")
-              .select("linked_therapist_group_id, shops(name)")
+              // shops!shop_id でリレーションを明示（therapist_shops 追加で経路が2本になったため）
+              .select("linked_therapist_group_id, shops!shop_id(name)")
               .in("linked_therapist_group_id", groupIds)
               .neq("shop_id", selectedShop.id)
           : Promise.resolve({ data: null as any[] | null }),
