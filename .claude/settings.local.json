@@ -143,7 +143,29 @@
       "Bash(node -e \"const r=require\\('C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/05edd09a-0b34-48af-a932-6677e4a22410/scratchpad/lint5.json'\\); r.forEach\\(f=>{const e=f.messages.filter\\(m=>m.severity===2\\);const u=f.messages.filter\\(m=>m.ruleId==='@typescript-eslint/no-unused-vars'\\); console.log\\(f.filePath.split\\(/[\\\\\\\\\\\\\\\\\\\\/]/\\).pop\\(\\)+': errors='+e.length+' | unused: '+u.map\\(m=>m.line+' '+m.message.split\\(' is'\\)[0]\\).join\\(', '\\)\\)}\\)\")",
       "Bash(sed -i '/onReceptionCloseOpen={handleOpenReceptionClose}/d' \"app/\\(admin\\)/shifts/page.tsx\")",
       "Bash(node -e \"const r=require\\('C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/05edd09a-0b34-48af-a932-6677e4a22410/scratchpad/lint6.json'\\); r.forEach\\(f=>{const u=f.messages.filter\\(m=>m.ruleId==='@typescript-eslint/no-unused-vars'\\); const e=f.messages.filter\\(m=>m.severity===2\\); console.log\\(f.filePath.split\\(/[\\\\\\\\\\\\\\\\\\\\/]/\\).pop\\(\\)+': errors='+e.length+' unused='+u.map\\(m=>m.line+' '+m.message.split\\(' is'\\)[0]\\).join\\(', '\\)\\)}\\)\")",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyebrpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/inspect_shop_links.js\")",
+      "Bash(node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/inspect_shop_links.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/inspect_shop_links.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/check_rls.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/repro_client_queries.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/find_fix.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/verify_fix.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/check_therapist_login.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/check_baccara.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/check_baccara_ranks.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/compare_mechanisms.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/inspect_schema.js\")",
+      "Bash(NODE_PATH=\"C:/Users/saitou-cyberpunk/Desktop/yoyakukanri/therapist-management-saas/node_modules\" node \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/dup_analysis.js\")",
+      "Bash(NODE_PATH=__TRACKED_VAR__/node_modules node -e ' *)",
+      "Bash(NODE_PATH=__TRACKED_VAR__/node_modules node C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/payroll_scope.js)",
+      "Bash(NODE_PATH=__TRACKED_VAR__/node_modules node C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/dryrun_phase1.js)",
+      "Bash(node -e \"console.log\\('pg version:', require\\('pg/package.json'\\).version\\)\")",
+      "Bash(grep -v \"^.*//\")",
+      "Bash(git checkout *)",
+      "Bash(NODE_PATH=__TRACKED_VAR__/node_modules npx tsx -e ' *)",
+      "Bash(cp \"C:/Users/SAITOU~1/AppData/Local/Temp/claude/C--Users-saitou-cyberpunk-Desktop-yoyakukanri-therapist-management-saas/13331086-6215-4f02-9905-aa966e1fbdb5/scratchpad/check_policies.ts\" scripts/_tmp_check_policies.ts)",
+      "Bash(rm -f scripts/_tmp_check_policies.ts)"
     ]
   }
 }
