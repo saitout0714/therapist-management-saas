@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
+import { resolvePricingSourceShopId, resolveBackSourceShopId } from '@/lib/shopUtils'
 
 /** 電話代行を含むプラン。has_agency が未設定の店舗はこの一覧で判定する */
 const AGENCY_PLANS = ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan', 'agency_plan']
@@ -103,7 +104,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           *,
           owners (
             id,
-            name
+            name,
+            pricing_mode,
+            pricing_base_shop_id,
+            back_mode,
+            back_base_shop_id
           )
         `)
         .eq('is_active', true)
@@ -130,8 +135,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           closing_date: shop.closing_date,
           is_web_reserve_plan: !isAgency,
           is_dispatch_enabled: !!shop.is_dispatch_enabled,
-          pricing_source_shop_id: shop.pricing_source_shop_id || null,
-          back_source_shop_id: shop.back_source_shop_id || null,
+          // 共有するかどうかはオーナー設定が正。ここで「その店舗にとっての参照先」に
+          // 翻訳して従来のフィールドに詰めるので、getPricingShopId 以降は変更不要。
+          pricing_source_shop_id: resolvePricingSourceShopId(shop.owners, shop.pricing_source_shop_id),
+          back_source_shop_id: resolveBackSourceShopId(shop.owners, shop.back_source_shop_id),
           plan: shop.plan ?? null,
           has_hp: shop.has_hp ?? null,
           has_reserve: shop.has_reserve ?? null,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { resolveCustomerPrice, calculateBack } from '@/lib/calculateBack'
-import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
+import { getPricingShopId, getBackShopId, resolvePricingSourceShopId, resolveBackSourceShopId } from '@/lib/shopUtils'
 import nodemailer from 'nodemailer'
 import { sendAdminReservationNotification } from '@/lib/notifications'
 
@@ -468,14 +468,22 @@ export async function POST(
 
   const shopId = codeRow.shop_id
 
-  // マルチショップで料金・バック設定を他店舗と共有している場合の解決先店舗ID
+  // マルチショップで料金・バック設定を他店舗と共有している場合の解決先店舗ID。
+  // 共有可否はオーナー設定が正。旧方式の *_source_shop_id はオーナー設定が無い場合の保険。
   const { data: shopConfigRow } = await supabase
     .from('shops')
-    .select('id, pricing_source_shop_id, back_source_shop_id')
+    .select('id, pricing_source_shop_id, back_source_shop_id, owners(pricing_mode, pricing_base_shop_id, back_mode, back_base_shop_id)')
     .eq('id', shopId)
     .maybeSingle()
-  const pricingShopId = shopConfigRow ? getPricingShopId(shopConfigRow) : shopId
-  const backShopId = shopConfigRow ? getBackShopId(shopConfigRow) : shopId
+  const shopConfig = shopConfigRow
+    ? {
+        id: shopConfigRow.id,
+        pricing_source_shop_id: resolvePricingSourceShopId(shopConfigRow.owners as any, shopConfigRow.pricing_source_shop_id),
+        back_source_shop_id: resolveBackSourceShopId(shopConfigRow.owners as any, shopConfigRow.back_source_shop_id),
+      }
+    : null
+  const pricingShopId = shopConfig ? getPricingShopId(shopConfig) : shopId
+  const backShopId = shopConfig ? getBackShopId(shopConfig) : shopId
 
   // 新規予約受付設定を取得
   const { data: systemSettings } = await supabase
