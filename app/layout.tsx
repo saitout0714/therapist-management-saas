@@ -18,6 +18,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // ライト固定。OS/ブラウザのダークモードで文字色だけ反転して見えなくなるのを防ぐ。
+  colorScheme: 'only light',
 };
 
 export const metadata: Metadata = {

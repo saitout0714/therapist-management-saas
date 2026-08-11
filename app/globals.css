@@ -55,13 +55,12 @@
 :root {
   --background: #f4f7f9; /* Very soft cool gray instead of plain white/gray */
   --foreground: #0f172a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #09090b; /* Zinc 950 */
-    --foreground: #f8fafc;
-  }
+  /*
+   * 管理画面はライト固定のデザイン（背景は bg-white / bg-slate-50 を直書き）。
+   * OSやブラウザがダークモードでも配色を切り替えないよう明示する。
+   * これが無いと文字色だけ白くなり、白背景の上で文字が消える。
+   */
+  color-scheme: only light;
 }
 
 body {

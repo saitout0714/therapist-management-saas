@@ -1330,7 +1330,7 @@ export default function NewReservationPage() {
                             }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                           >
-                            <span className="font-medium">{customer.name}</span>{' '}
+                            <span className="font-medium text-slate-900">{customer.name}</span>{' '}
                             <span className="text-gray-600 text-[10px]">{customer.phone ? `(${customer.phone})` : ''}</span>
                           </button>
                         ))
