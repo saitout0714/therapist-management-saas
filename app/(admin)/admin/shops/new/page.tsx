@@ -56,14 +56,28 @@ export default function NewShopPage() {
       targetOwnerId = selectedOwnerId
     } else if (ownerMode === 'new') {
       const groupName = newOwnerGroupName.trim() || form.owner_name.trim() || `${form.name}グループ`
-      const { data: newOwner, error: ownerInsertError } = await supabase
-        .from('owners')
-        .insert([{ name: groupName }])
-        .select('id')
-        .single()
-      
-      if (!ownerInsertError && newOwner) {
-        targetOwnerId = newOwner.id
+
+      // owners への書き込みはブラウザから行えないためサーバー経由で作る。
+      // ここで失敗したまま店舗だけ登録すると、オーナー未設定の店舗ができて
+      // 料金・バックの共有設定が一切使えなくなるので、必ず中断する。
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
+        if (!accessToken) throw new Error('セッションが取得できませんでした。再ログインしてください')
+
+        const res = await fetch('/api/admin/owners', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ name: groupName }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || '不明なエラー')
+        targetOwnerId = json.owner.id
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        setSaving(false)
+        setError(`グループ「${groupName}」の作成に失敗したため、店舗を登録していません: ${message}`)
+        return
       }
     } else {
       // 単独店舗（none）の場合はグループIDなし
