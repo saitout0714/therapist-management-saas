@@ -17,154 +17,255 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
     setImageError(false);
   }, [store.logoUrl]);
 
+  // モバイル・ドロワーが閉じられたらスクロールロックを解除
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   const navLinks = [
-    { label: 'TOP', href: basePath },
-    { label: 'システム・料金', href: `${basePath}/system` },
-    { label: 'セラピスト一覧', href: `${basePath}/therapists` },
-    { label: '出勤スケジュール', href: `${basePath}/schedule` },
-    { label: 'セラピスト日記', href: `${basePath}/diary` },
-    { label: 'アクセス', href: `${basePath}/access` },
-    { label: '求人情報', href: `${basePath}/recruit` },
+    { label: 'TOP', subLabel: 'トップページ', href: basePath, code: '01' },
+    { label: 'システム・料金', subLabel: 'コース・指名料金のご案内', href: `${basePath}/system`, code: '02' },
+    { label: 'セラピスト一覧', subLabel: '在籍セラピストのご紹介', href: `${basePath}/therapists`, code: '03' },
+    { label: '出勤スケジュール', subLabel: '本日・今週の出勤情報', href: `${basePath}/schedule`, code: '04' },
+    { label: 'セラピスト日記', subLabel: '写メ日記・キャストブログ', href: `${basePath}/diary`, code: '05' },
+    { label: 'アクセス', subLabel: '店舗情報・ルームアクセス', href: `${basePath}/access`, code: '06' },
+    { label: '求人情報', subLabel: 'セラピスト募集・採用', href: `${basePath}/recruit`, code: '07' },
   ];
 
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
 
   return (
-    <header className={`sticky top-0 z-40 backdrop-blur-md shadow-sm border-b ${
-      isCyberTheme
-        ? 'bg-[#050014]/90 border-[#ff8fc9]/40 text-stone-100 font-sans'
-        : 'bg-white/95 border-stone-200 text-stone-800 font-serif'
-    }`}>
-      {store.noticeBanner && (
-        <div
-          style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-          className={`text-xs py-1.5 px-4 text-center font-bold tracking-widest shadow-md ${
-            isCyberTheme
-              ? 'bg-gradient-to-r from-[#ff8fc9] via-[#ffb8e0] to-[#1a0933] text-white shadow-[0_0_12px_rgba(255,143,201,0.5)]'
-              : 'text-white'
-          }`}
-        >
-          {store.noticeBanner}
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* ロゴ / 店舗名 */}
-        <Link href={basePath} className="flex items-center gap-3 group">
-          {store.logoUrl && !imageError ? (
-            <div className="h-12 max-w-[200px] flex items-center">
-              <img
-                src={store.logoUrl}
-                alt={store.name}
-                className="max-h-full w-auto object-contain transition-transform group-hover:scale-102 rounded-md shadow-sm"
-                onError={() => setImageError(true)}
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              <span className={`text-xl sm:text-2xl font-bold tracking-widest group-hover:text-opacity-80 transition-colors ${
-                isCyberTheme ? 'neon-text-pink' : 'text-stone-900'
-              }`}>
-                {store.name}
-              </span>
-            </div>
-          )}
-        </Link>
-
-        {/* デスクトップナビゲーション */}
-        <nav className="hidden lg:flex items-center gap-1 xl:gap-3">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`px-3 py-2 text-xs font-semibold tracking-widest transition-all ${
-                isCyberTheme
-                  ? 'text-pink-100 hover:text-[#ff8fc9] hover:drop-shadow-[0_0_8px_#ff8fc9]'
-                  : 'text-stone-700 hover:opacity-80'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Link
-            href={`${basePath}/reserve`}
+    <>
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b ${
+        isCyberTheme
+          ? 'bg-[#150e20]/85 border-[#ff6fb5]/35 text-[#f4eefa] shadow-[0_6px_28px_rgba(255,111,181,0.22)]'
+          : 'bg-white/95 border-stone-200 text-stone-800 font-serif shadow-sm'
+      }`}>
+        {store.noticeBanner && (
+          <div
             style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-            className={`ml-3 px-5 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
+            className={`text-xs py-1.5 px-4 text-center font-bold tracking-widest shadow-md ${
               isCyberTheme
-                ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.7)] animate-neon-pulse'
-                : 'rounded-sm shadow-md hover:brightness-110'
+                ? 'bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] neon-on-pink shadow-[0_0_18px_rgba(255,111,181,0.5)]'
+                : 'text-white'
             }`}
           >
-            WEB予約 🐾
-          </Link>
-        </nav>
+            {store.noticeBanner}
+          </div>
+        )}
 
-        {/* モバイルメニューボタン */}
-        <div className="flex lg:hidden items-center gap-2">
-          <Link
-            href={`${basePath}/reserve`}
-            style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-            className={`px-3.5 py-1.5 text-white text-xs font-bold transition-all ${
-              isCyberTheme
-                ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_12px_rgba(255,143,201,0.7)]'
-                : 'rounded-sm shadow-xs'
-            }`}
-          >
-            予約
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          {/* ロゴ / 店舗名 */}
+          <Link href={basePath} className="flex items-center gap-3 group">
+            {store.logoUrl && !imageError ? (
+              <div className="h-12 max-w-[200px] flex items-center">
+                <img
+                  src={store.logoUrl}
+                  alt={store.name}
+                  className="max-h-full w-auto object-contain transition-transform group-hover:scale-102 rounded-md shadow-sm"
+                  onError={() => setImageError(true)}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                {isCyberTheme && (
+                  <span className="neon-script text-lg leading-none opacity-90" aria-hidden="true">
+                    Onyanko Spa
+                  </span>
+                )}
+                <span className={`text-xl sm:text-2xl font-bold tracking-widest transition-all ${
+                  isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-stone-900 group-hover:text-opacity-80'
+                }`}>
+                  {store.name}
+                </span>
+              </div>
+            )}
           </Link>
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className={`p-2 focus:outline-none ${isCyberTheme ? 'text-pink-200 hover:text-white' : 'text-stone-700 hover:text-stone-900'}`}
-            aria-label="メニュー開閉"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-        </div>
-      </div>
 
-      {/* モバイルドロワーナビゲーション */}
-      {isOpen && (
-        <div className={`lg:hidden border-b px-4 pt-2 pb-6 space-y-2 animate-fadeIn ${
-          isCyberTheme
-            ? 'bg-[#1a0933] border-[#ff8fc9]/30 font-sans'
-            : 'bg-white border-[#d1b464]/30 font-serif'
-        }`}>
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setIsOpen(false)}
-              className={`block px-4 py-2.5 text-sm font-medium border-b ${
-                isCyberTheme
-                  ? 'text-pink-100 hover:bg-[#050014] hover:text-[#ff8fc9] border-[#ff8fc9]/20'
-                  : 'text-stone-700 hover:bg-[#faf7f0] hover:text-[#a39573] border-stone-100'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div className="pt-2">
+          {/* デスクトップナビゲーション */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-3">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative px-3 py-2 text-xs font-semibold tracking-widest transition-all duration-300 ${
+                  isCyberTheme
+                    ? 'text-[#ded1ee] hover:text-[#ffa8d8] after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-[#ff6fb5] after:to-[#cf82d8] after:shadow-[0_0_10px_rgba(255,111,181,0.7)] after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100'
+                    : 'text-stone-700 hover:opacity-80'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
             <Link
               href={`${basePath}/reserve`}
-              onClick={() => setIsOpen(false)}
-              className={`block w-full py-3 text-center text-white font-bold text-sm tracking-widest shadow-md ${
+              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+              className={`ml-3 px-6 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
                 isCyberTheme
-                  ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)]'
-                  : 'bg-gradient-to-r from-[#d1b464] to-[#a39573]'
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                  : 'rounded-sm shadow-md hover:brightness-110'
               }`}
             >
-              WEB予約はこちら
+              WEB予約 🐾
             </Link>
+          </nav>
+
+          {/* モバイルメニューボタン */}
+          <div className="flex lg:hidden items-center gap-2">
+            <Link
+              href={`${basePath}/reserve`}
+              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+              className={`px-4 py-1.5 text-white text-xs font-bold transition-all ${
+                isCyberTheme
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                  : 'rounded-sm shadow-xs'
+              }`}
+            >
+              予約
+            </Link>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={`p-2.5 rounded-xl transition-all duration-300 focus:outline-none ${
+                isCyberTheme
+                  ? isOpen
+                    ? 'bg-[#ff6fb5]/20 text-[#ff6fb5] border border-[#ff6fb5]/60 shadow-[0_0_18px_rgba(255,111,181,0.5)]'
+                    : 'bg-stone-900/60 text-[#c4b2dc] hover:text-[#ffa8d8] border border-[#ff6fb5]/30'
+                  : 'text-stone-700 hover:text-stone-900'
+              }`}
+              aria-label="メニュー開閉"
+            >
+              <div className={`cyber-hamburger-icon flex flex-col justify-between w-[22px] h-[16px] ${isOpen ? 'is-open' : ''}`}>
+                <span />
+                <span />
+                <span />
+              </div>
+            </button>
           </div>
         </div>
-      )}
-    </header>
+      </header>
+
+      {/* バックドロップオーバーレイ (常に描画し、opacity と pointer-events でなめらかにフェードイン/アウト) */}
+      <div
+        className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-[99] lg:hidden transition-opacity duration-300 ease-in-out ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* 近未来サイバーパンク・ホログラムガラスドロワーメニュー (高透明度ガラス＋ネオン光彩) */}
+      <div
+        className={`fixed inset-y-0 right-0 z-[100] w-full max-w-xs sm:max-w-sm flex flex-col justify-between p-6 overflow-y-auto lg:hidden transition-transform duration-300 ease-out transform ${
+          isOpen
+            ? 'translate-x-0 shadow-[-20px_0_60px_rgba(255,111,181,0.5)]'
+            : 'translate-x-full shadow-none'
+        } ${
+          isCyberTheme
+            ? 'bg-[#0d061e]/45 backdrop-blur-2xl border-l-2 border-[#ff6fb5]/70 text-[#f4eefa]'
+            : 'bg-white/95 backdrop-blur-xl border-l border-[#d1b464]/30 text-stone-800 font-serif'
+        }`}
+      >
+        {/* ドロワーヘッダー */}
+        <div>
+          <div className="flex items-center justify-between pb-4 border-b border-[#ff6fb5]/40 mb-5">
+            {isCyberTheme ? (
+              <>
+                <div className="flex items-center gap-2 text-[11px] font-mono text-[#ffa8d8] tracking-widest uppercase drop-shadow-[0_0_6px_#ff6fb5]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
+                  SYSTEM NAV : ONLINE
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 text-[#ff6fb5] hover:text-white text-lg font-extrabold focus:outline-none transition-transform hover:scale-110 drop-shadow-[0_0_10px_#ff6fb5]"
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-xs font-bold tracking-widest text-stone-500">MENU</span>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 text-stone-600 hover:text-stone-900 text-lg font-bold"
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* ナビゲーションリンク一覧 */}
+          <div className="space-y-2.5">
+            {navLinks.map((link, idx) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
+                onClick={() => setIsOpen(false)}
+                className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-300 ${
+                  isCyberTheme
+                    ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
+                    : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
+                } ${isOpen ? 'cyber-link-anim' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  {isCyberTheme && (
+                    <span className="text-xs font-mono font-bold text-[#ff6fb5] tracking-widest opacity-80 group-hover:opacity-100">
+                      {link.code}
+                    </span>
+                  )}
+                  <div>
+                    <div className="text-sm font-bold tracking-widest group-hover:translate-x-1 transition-transform">
+                      {link.label}
+                    </div>
+                    {isCyberTheme && (
+                      <div className="text-[10px] text-[#ded1ee]/60 font-sans tracking-wide">
+                        {link.subLabel}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {isCyberTheme && (
+                  <span className="text-xs text-[#ff6fb5]/50 group-hover:text-[#ff6fb5] group-hover:translate-x-1 transition-all">
+                    ➔
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* ドロワーフッターアクション */}
+        <div className="pt-5 border-t border-[#ff6fb5]/30 mt-6 space-y-3">
+          <Link
+            href={`${basePath}/reserve`}
+            onClick={() => setIsOpen(false)}
+            className={`block w-full py-3 text-center text-white font-extrabold text-sm tracking-widest active:scale-95 transition-all duration-300 ${
+              isCyberTheme
+                ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] shadow-[0_0_20px_rgba(255,111,181,0.6)]'
+                : 'rounded-xl shadow-md bg-gradient-to-r from-[#d1b464] to-[#a39573]'
+            }`}
+          >
+            🐾 24H WEB予約はこちら 🐾
+          </Link>
+
+          {isCyberTheme && (
+            <p className="text-[10px] text-center font-mono text-[#ded1ee]/50 tracking-wider">
+              © ONYANKO SPA CYBER SYSTEM
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 };

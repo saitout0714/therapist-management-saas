@@ -63,11 +63,11 @@ export default function TherapistDetailPage({
     return (
       <ThemeProvider store={store}>
         <div className={`min-h-screen flex flex-col ${
-          isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+          isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
         }`}>
           <Header store={store} />
           <main className="flex-1 max-w-5xl mx-auto px-4 py-24 w-full text-center">
-            <p className={`text-xs tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>読み込み中...</p>
+            <p className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>読み込み中...</p>
           </main>
           <Footer store={store} />
         </div>
@@ -85,14 +85,14 @@ export default function TherapistDetailPage({
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col ${
-        isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
       <Header store={store} />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full">
         <div className={`p-6 sm:p-8 ${
           isCyberTheme
-            ? 'cyber-card rounded-2xl border-[#ff8fc9]/40'
+            ? 'cyber-card reveal rounded-2xl border-[#ff6fb5]/40'
             : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
         }`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
@@ -101,7 +101,7 @@ export default function TherapistDetailPage({
               <div
                 onClick={() => setIsLightboxOpen(true)}
                 className={`aspect-[3/4] w-full rounded-2xl overflow-hidden bg-stone-900 border relative cursor-pointer group shadow-lg ${
-                  isCyberTheme ? 'border-[#ff8fc9]/40 hover:border-[#ff8fc9]' : 'border-stone-800'
+                  isCyberTheme ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5]' : 'border-stone-800'
                 }`}
               >
                 <img
@@ -123,7 +123,7 @@ export default function TherapistDetailPage({
                 )}
                 {(currentTherapist.rankName || currentTherapist.grade) && (
                   <span className={`absolute top-3 right-3 bg-stone-900/80 border font-semibold text-[10px] px-2.5 py-1 rounded-full tracking-wider ${
-                    isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#d1b464] border-[#d1b464]/40'
+                    isCyberTheme ? 'text-[#ffa8d8] border-[#ff6fb5]' : 'text-[#d1b464] border-[#d1b464]/40'
                   }`}>
                     {currentTherapist.rankName || currentTherapist.grade}
                   </span>
@@ -145,7 +145,7 @@ export default function TherapistDetailPage({
                         onClick={() => setSelectedPhotoIndex(idx)}
                         className={`aspect-square rounded-lg overflow-hidden border cursor-pointer transition-all ${
                           selectedPhotoIndex === idx
-                            ? isCyberTheme ? 'border-[#ff8fc9] ring-2 ring-[#ff8fc9]/50 opacity-100 scale-105' : 'border-[#d1b464] ring-2 ring-[#d1b464]/50 opacity-100 scale-105'
+                            ? isCyberTheme ? 'border-[#ff6fb5] ring-2 ring-[#ff6fb5]/50 opacity-100 scale-105' : 'border-[#d1b464] ring-2 ring-[#d1b464]/50 opacity-100 scale-105'
                             : 'border-stone-200 opacity-70 hover:opacity-100'
                         }`}
                       >
@@ -167,30 +167,30 @@ export default function TherapistDetailPage({
                 <div className="flex items-baseline gap-3 mb-1">
                   <h1 className={`text-2xl font-bold tracking-wider ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>{currentTherapist.name}</h1>
                   {currentTherapist.nameKana && (
-                    <span className={`text-xs ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>({currentTherapist.nameKana})</span>
+                    <span className={`text-xs ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>({currentTherapist.nameKana})</span>
                   )}
-                  <span className={`text-sm font-semibold ${isCyberTheme ? 'text-[#ffb8e0]' : 'text-[#a39573]'}`}>({currentTherapist.age}歳)</span>
+                  <span className={`text-sm font-semibold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}>({currentTherapist.age}歳)</span>
                 </div>
 
                 {/* サイズ情報（T / B / W / H） */}
                 <div className={`text-xs font-semibold tracking-wide mt-2 space-y-1 p-3 rounded-xl border ${
                   isCyberTheme
-                    ? 'bg-[#050014]/90 text-pink-100 border-[#ff8fc9]/30'
+                    ? 'bg-white/10 text-[#ded1ee] border-[#ff6fb5]/30'
                     : 'bg-[#faf7f0] text-stone-600 border-[#d1b464]/20'
                 }`}>
                   <p>
-                    <span className={isCyberTheme ? 'text-[#ffb8e0] font-bold' : 'text-[#a39573] font-bold'}>身長:</span> T{currentTherapist.height}cm &nbsp;|&nbsp;{' '}
-                    <span className={isCyberTheme ? 'text-[#ffb8e0] font-bold' : 'text-[#a39573] font-bold'}>バスト:</span> {currentTherapist.bustCup}カップ
+                    <span className={isCyberTheme ? 'text-[#ffa8d8] font-bold' : 'text-[#a39573] font-bold'}>身長:</span> T{currentTherapist.height}cm &nbsp;|&nbsp;{' '}
+                    <span className={isCyberTheme ? 'text-[#ffa8d8] font-bold' : 'text-[#a39573] font-bold'}>バスト:</span> {currentTherapist.bustCup}カップ
                     {currentTherapist.bust && ` (${currentTherapist.bust}cm)`}
                   </p>
                   {(currentTherapist.waist || currentTherapist.hip) && (
                     <p>
-                      {currentTherapist.waist && <><span className={isCyberTheme ? 'text-[#ffb8e0] font-bold' : 'text-[#a39573] font-bold'}>ウエスト:</span> W{currentTherapist.waist}cm &nbsp;|&nbsp; </>}
-                      {currentTherapist.hip && <><span className={isCyberTheme ? 'text-[#ffb8e0] font-bold' : 'text-[#a39573] font-bold'}>ヒップ:</span> H{currentTherapist.hip}cm</>}
+                      {currentTherapist.waist && <><span className={isCyberTheme ? 'text-[#ffa8d8] font-bold' : 'text-[#a39573] font-bold'}>ウエスト:</span> W{currentTherapist.waist}cm &nbsp;|&nbsp; </>}
+                      {currentTherapist.hip && <><span className={isCyberTheme ? 'text-[#ffa8d8] font-bold' : 'text-[#a39573] font-bold'}>ヒップ:</span> H{currentTherapist.hip}cm</>}
                     </p>
                   )}
                   {currentTherapist.threeSize && (
-                    <p className={`text-[11px] ${isCyberTheme ? 'text-pink-300/80' : 'text-stone-500'}`}>{currentTherapist.threeSize}</p>
+                    <p className={`text-[11px] ${isCyberTheme ? 'text-[#ffa8d8]/80' : 'text-stone-500'}`}>{currentTherapist.threeSize}</p>
                   )}
                 </div>
               </div>
@@ -202,7 +202,7 @@ export default function TherapistDetailPage({
                     key={tag}
                     className={`text-xs font-medium px-3 py-1 border ${
                       isCyberTheme
-                        ? 'bg-[#050014]/80 text-pink-200 border-[#ff8fc9]/40 rounded-full'
+                        ? 'bg-white/8 text-[#c4b2dc] border-[#ff6fb5]/40 rounded-full'
                         : 'bg-[#faf7f0] text-[#a39573] border-[#d1b464]/30 rounded-sm'
                     }`}
                   >
@@ -214,7 +214,7 @@ export default function TherapistDetailPage({
               {/* 自己PRメッセージ (comment) */}
               <div className={`p-4 border space-y-2 ${
                 isCyberTheme
-                  ? 'bg-[#050014]/90 border-[#ff8fc9]/30 rounded-xl'
+                  ? 'bg-white/10 border-[#ff6fb5]/30 rounded-xl'
                   : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
               }`}>
                 <h3 className={`text-xs font-bold tracking-widest uppercase ${
@@ -223,7 +223,7 @@ export default function TherapistDetailPage({
                   自己PR / MESSAGE
                 </h3>
                 <p className={`text-xs sm:text-sm leading-relaxed italic tracking-wider whitespace-pre-wrap ${
-                  isCyberTheme ? 'text-pink-100' : 'text-stone-700'
+                  isCyberTheme ? 'text-[#ded1ee]' : 'text-stone-700'
                 }`}>
                   {currentTherapist.comment ? `"${currentTherapist.comment}"` : '心からの癒やしをご提供いたします。'}
                 </p>
@@ -232,7 +232,7 @@ export default function TherapistDetailPage({
               {/* 本日の出勤状況 */}
               <div className={`p-4 border space-y-2 ${
                 isCyberTheme
-                  ? 'bg-[#050014]/90 border-[#ff8fc9]/30 rounded-xl'
+                  ? 'bg-white/10 border-[#ff6fb5]/30 rounded-xl'
                   : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
               }`}>
                 <h3 className={`text-xs font-bold tracking-widest uppercase ${
@@ -243,22 +243,22 @@ export default function TherapistDetailPage({
                 <div className="flex items-center justify-between">
                   {todayShift ? (
                     <>
-                      <span className={`text-xs font-bold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>
+                      <span className={`text-xs font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>
                         {todayShift.startTime} ～ {todayShift.endTime}
                         {todayShift.roomName && ` (${todayShift.roomName})`}
                       </span>
                       <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium tracking-wider text-white ${
-                        isCyberTheme ? 'bg-[#ff8fc9] shadow-[0_0_10px_rgba(255,143,201,0.5)]' : 'bg-[#d1b464]'
+                        isCyberTheme ? 'bg-[#ff6fb5] shadow-[0_0_10px_rgba(255,111,181,0.5)]' : 'bg-[#d1b464]'
                       }`}>
                         出勤中 / 確定
                       </span>
                     </>
                   ) : (
                     <>
-                      <span className={`text-xs ${isCyberTheme ? 'text-pink-300/70' : 'text-stone-500'}`}>本日はお休み、または調整中です</span>
+                      <span className={`text-xs ${isCyberTheme ? 'text-[#ffa8d8]/70' : 'text-stone-500'}`}>本日はお休み、または調整中です</span>
                       <Link
                         href={`/${shopSlug}/schedule`}
-                        className={`text-xs font-bold underline ${isCyberTheme ? 'text-[#ffb8e0]' : 'text-[#a39573]'}`}
+                        className={`text-xs font-bold underline ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}
                       >
                         他日程を見る
                       </Link>
@@ -273,7 +273,7 @@ export default function TherapistDetailPage({
                   href={`/${shopSlug}/reserve?therapistId=${currentTherapist.id}`}
                   className={`block w-full py-4 text-center text-white font-bold text-sm tracking-widest transition-all ${
                     isCyberTheme
-                      ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_20px_rgba(255,143,201,0.7)] animate-neon-pulse'
+                      ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                       : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105 shadow-md'
                   }`}
                 >
@@ -296,7 +296,7 @@ export default function TherapistDetailPage({
                     href={`/${shopSlug}/diary/${b.id}`}
                     className={`p-3.5 border transition-all flex gap-3 ${
                       isCyberTheme
-                        ? 'cyber-card rounded-xl border-[#ff8fc9]/30 hover:border-[#ff8fc9]'
+                        ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/30 hover:border-[#ff6fb5]'
                         : 'bg-[#faf7f0] rounded-sm border-[#d1b464]/20 hover:border-[#a39573]'
                     }`}
                   >
@@ -308,9 +308,9 @@ export default function TherapistDetailPage({
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[10px] ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>{b.publishedAt}</p>
-                      <h4 className={`text-xs font-bold line-clamp-1 ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{b.title}</h4>
-                      <p className={`text-[11px] line-clamp-2 mt-0.5 ${isCyberTheme ? 'text-pink-100/80' : 'text-stone-600'}`}>{b.content}</p>
+                      <p className={`text-[10px] ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>{b.publishedAt}</p>
+                      <h4 className={`text-xs font-bold line-clamp-1 ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{b.title}</h4>
+                      <p className={`text-[11px] line-clamp-2 mt-0.5 ${isCyberTheme ? 'text-[#ded1ee]/80' : 'text-stone-600'}`}>{b.content}</p>
                     </div>
                   </Link>
                 ))}

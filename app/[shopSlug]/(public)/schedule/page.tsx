@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { Header } from '../../../../components/store/Header';
+import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { WeeklySchedule } from '../../../../components/store/WeeklySchedule';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
@@ -46,19 +47,17 @@ export default function SchedulePage({ params }: { params: Promise<{ shopSlug: s
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col ${
-        isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         <Header store={store} />
 
         <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
-          <div className="text-center mb-8">
-            <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Schedule</h1>
-            <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-              isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
-            }`}>
-              週間出勤スケジュール (リアルタイム反映)
-            </span>
-          </div>
+          <PageHeading
+            title="Schedule"
+            subtitle="週間出勤スケジュール (リアルタイム反映)"
+            isCyber={isCyberTheme}
+            className="mb-8"
+          />
 
           <WeeklySchedule
             therapists={therapists}

@@ -7,14 +7,14 @@ export const MOCK_ONYANKO_STORE: StoreConfig = {
   catchphrase: '〜サイバーネオンと極上密着空間〜 メンズエステ',
   logoUrl: '/images/onyanko_mainvisual.jpg',
   themeColor: {
-    primary: '#ff8fc9',  // サイバーネオンピンク
-    accent: '#ffb8e0',   // ビビッドピンク
-    darkBg: '#050014',   // ディープナイトパープル
-    lightBg: '#1a0933',  // ナイトパープル
+    primary: '#ff6fb5',  // サイバーネオンピンク
+    accent: '#ffa8d8',   // ビビッドピンク
+    darkBg: '#0b0813',   // ディープナイトパープル
+    lightBg: '#120e24',  // ナイトパープル
   },
-  address: '東京都新宿区歌舞伎町 / 渋谷区道玄坂',
-  accessInfo: '新宿駅東口徒歩3分・渋谷駅ハチ公口徒歩4分',
-  businessHours: 'OPEN/11:00～5:00 (受付/10:30〜3:30)',
+  address: '東京都豊島区南大塚2丁目33-6 ライトハウス',
+  accessInfo: '東京都豊島区南大塚2丁目33-6 ライトハウス',
+  businessHours: '11:00〜28:00 (受付 10:00〜26:00)',
   phoneNumber: '090-0000-0000',
   xUrl: 'https://x.com',
   litlinkUrl: 'https://lit.link',
@@ -154,17 +154,19 @@ export const MOCK_ONYANKO_SYSTEM_MENU: SystemMenuCategory[] = [
     categoryName: 'Standard Onyanko Aroma (スタンダードアロマ)',
     description: '最高級の天然無添加オイルと密着マッサージで、全身の疲れを優しくケア。',
     courses: [
-      { id: 'c1', name: '70分 お試しニャンこコース', price: 13000, durationMinutes: 70, description: '初めてのお客様やサクッと癒やされたい方に' },
-      { id: 'c2', name: '90分 定番おニャンこ贅沢コース', price: 16000, durationMinutes: 90, description: '一番人気の定番！全身をじっくりほぐします' },
-      { id: 'c3', name: '120分 極上とろけるロングコース', price: 21000, durationMinutes: 120, description: '存分に密着と癒やしを満を満喫したい貴方に' },
+      { id: 'c1', name: '80分コース', price: 16000, durationMinutes: 80, description: '80分 16,000円' },
+      { id: 'c2', name: '100分コース', price: 20000, durationMinutes: 100, description: '100分 20,000円' },
+      { id: 'c3', name: '120分コース', price: 24000, durationMinutes: 120, description: '120分 24,000円' },
     ],
   },
   {
-    categoryName: 'Special Premium Option (オプション)',
-    description: 'お好みのおもてなしを追加できます。',
+    categoryName: 'Special Premium Option & Nomination (オプション・指名料)',
+    description: '延長・オプション・指名料金のご案内。',
     courses: [
-      { id: 'o1', name: '密着ディープエステ', price: 3000, durationMinutes: 0 },
-      { id: 'o2', name: '温感スパオイル変更', price: 2000, durationMinutes: 0 },
+      { id: 'o1', name: '延長 (30分)', price: 7000, durationMinutes: 30 },
+      { id: 'o2', name: '各種オプション', price: 1000, durationMinutes: 0, description: 'オプション1,000円〜' },
+      { id: 'd1', name: '写真指名', price: 1000, durationMinutes: 0 },
+      { id: 'd2', name: '姫予約・本指名', price: 2000, durationMinutes: 0, description: '2,000円〜' },
     ],
   },
 ];

@@ -8,6 +8,7 @@ import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
 import { HeroBanner } from '../../../components/store/HeroBanner';
 import { TherapistCard } from '../../../components/store/TherapistCard';
 import { NewsList } from '../../../components/store/NewsList';
+import { SectionHeading } from '../../../components/store/SectionHeading';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
@@ -41,6 +42,11 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
   const isCyberTheme = shopSlug === 'onyankospa';
   const sectionOrder = store.layoutSections || ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'];
 
+  // ネオンテーマの共通ボタン（ピンク→マゼンタ→パープルのグラデーション＋発光）
+  const neonBtn =
+    'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]';
+  const classicBtn = 'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-sm shadow-md transition-all bg-stone-900 hover:bg-[#a39573]';
+
   const renderSection = (sectionName: string) => {
     switch (sectionName) {
       case 'hero':
@@ -49,30 +55,27 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       case 'today_shifts':
       case 'therapists':
         return (
-          <section key="therapists" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014] border-[#ff8fc9]/30' : 'bg-white border-stone-200'}`}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-              <div className="text-center">
-                <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Therapist</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
-                  出勤セラピスト
-                </span>
-              </div>
+          <section
+            key="therapists"
+            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-white border-stone-200'}`}
+          >
+            {isCyberTheme && (
+              <>
+                <div className="neon-orb neon-orb-pink animate-orb-slow w-[28rem] h-[28rem] -top-40 -left-32" />
+                <div className="neon-orb neon-orb-purple animate-orb-slower w-[24rem] h-[24rem] top-1/3 -right-32" />
+              </>
+            )}
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+              <SectionHeading title="Therapist" subtitle="出勤セラピスト" isCyber={isCyberTheme} />
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {therapists.map((therapist) => (
-                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} />
+                {therapists.map((therapist, idx) => (
+                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} index={idx} />
                 ))}
               </div>
 
               <div className="text-center pt-4">
-                <Link
-                  href={`/${shopSlug}/therapists`}
-                  className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
-                    isCyberTheme
-                      ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)] animate-neon-pulse'
-                      : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
-                  }`}
-                >
+                <Link href={`/${shopSlug}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
                   セラピスト一覧を見る 🐾
                 </Link>
               </div>
@@ -82,26 +85,34 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'diary':
         return (
-          <section key="diary" className={`py-12 border-b ${isCyberTheme ? 'bg-[#1a0933]/40 border-[#ff8fc9]/30' : 'bg-[#faf9f5] border-stone-200'}`}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-              <div className="text-center">
-                <h2 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Diary</h2>
-                <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
-                  写メ日記
-                </span>
-              </div>
+          <section
+            key="diary"
+            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-[#faf9f5] border-stone-200'}`}
+          >
+            {isCyberTheme && (
+              <div className="neon-orb neon-orb-magenta animate-orb-slower w-[30rem] h-[30rem] -bottom-48 left-1/4" />
+            )}
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+              <SectionHeading title="Diary" subtitle="写メ日記" isCyber={isCyberTheme} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {therapists.slice(0, 3).map((therapist) => (
-                  <div key={therapist.id} className={`p-4 rounded-xl border space-y-3 ${isCyberTheme ? 'cyber-card' : 'bg-white border-[#d1b464]/30'}`}>
+                  <div
+                    key={therapist.id}
+                    className={`p-5 space-y-3 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-[#d1b464]/30'}`}
+                  >
                     <div className="flex items-center gap-3">
-                      <img src={therapist.avatarUrl} alt={therapist.name} className="w-10 h-10 rounded-full object-cover border border-[#ff8fc9]" />
+                      <img
+                        src={therapist.avatarUrl}
+                        alt={therapist.name}
+                        className="w-11 h-11 rounded-full object-cover border border-[#ff6fb5] shadow-[0_0_12px_rgba(255,111,181,0.5)]"
+                      />
                       <div>
-                        <div className="font-bold text-xs text-white">{therapist.name}</div>
-                        <div className="text-[10px] text-pink-300">2026.08.10</div>
+                        <div className="font-bold text-xs text-white tracking-wider">{therapist.name}</div>
+                        <div className="text-[10px] text-[#ffa8d8] tracking-widest">2026.08.10</div>
                       </div>
                     </div>
-                    <p className="text-xs text-pink-100 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-[#ded1ee]/90 line-clamp-2 leading-relaxed">
                       {therapist.comment || '本日もたくさんのご来店お待ちしております♪'}
                     </p>
                   </div>
@@ -109,14 +120,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
               </div>
 
               <div className="text-center pt-2">
-                <Link
-                  href={`/${shopSlug}/diary`}
-                  className={`inline-block px-8 py-3 font-bold text-xs shadow-md transition-all tracking-widest ${
-                    isCyberTheme
-                      ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] text-white rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)]'
-                      : 'bg-stone-900 hover:bg-[#a39573] text-white rounded-sm'
-                  }`}
-                >
+                <Link href={`/${shopSlug}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
                   写メ日記 一覧はこちら
                 </Link>
               </div>
@@ -126,39 +130,35 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
       case 'news':
         return (
-          <section key="news" className={`py-12 border-b ${isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <section
+            key="news"
+            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}
+          >
+            {isCyberTheme && (
+              <div className="neon-orb neon-orb-purple animate-orb-slow w-[26rem] h-[26rem] top-0 -right-40" />
+            )}
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="text-left mb-4">
-                    <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Topics</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
-                      新着情報
-                    </span>
-                  </div>
+                <div className="lg:col-span-2 space-y-5">
+                  <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} align="left" size="sm" />
                   <NewsList news={news} storeSlug={shopSlug} />
                 </div>
 
-                <div className="space-y-4">
-                  <div className="text-left mb-4">
-                    <h3 className={`text-xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Twitter</h3>
-                    <span className={`inline-block text-xs border-t pr-4 pt-0.5 mt-0.5 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
-                      公式X (Twitter)
-                    </span>
-                  </div>
-                  <div className={`p-6 rounded-md text-center space-y-3 shadow-sm ${isCyberTheme ? 'cyber-card' : 'bg-white border border-[#d1b464]/30'}`}>
-                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
+                <div className="space-y-5">
+                  <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} align="left" size="sm" />
+                  <div className={`p-6 text-center space-y-4 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'}`}>
+                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : 'text-stone-600'}`}>
                       最新の出勤・空き枠情報をリアルタイムで配信中！
                     </p>
                     <a
                       href={store.xUrl || 'https://x.com'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`inline-block px-6 py-2.5 font-bold text-xs transition-all tracking-widest ${
+                      className={
                         isCyberTheme
-                          ? 'bg-[#ff8fc9] text-white hover:bg-[#ffb8e0] rounded-full shadow-[0_0_10px_rgba(255,143,201,0.5)]'
-                          : 'bg-stone-900 text-white rounded-sm hover:bg-stone-800'
-                      }`}
+                          ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                          : 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest bg-stone-900 text-white rounded-sm hover:bg-stone-800 transition-all'
+                      }
                     >
                       公式Xをチェック ↗
                     </a>
@@ -173,19 +173,22 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
       case 'access':
       case 'system':
         return (
-          <section key="concept" className={`py-12 text-center ${isCyberTheme ? 'bg-[#050014]' : 'bg-white'}`}>
-            <div className="max-w-4xl mx-auto px-4">
-              <h2 className={`text-2xl font-bold tracking-widest mb-1 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Concept</h2>
-              <span className={`inline-block text-xs border-t px-4 pt-1 mb-6 tracking-widest ${isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'}`}>
-                当店のこだわり
-              </span>
+          <section key="concept" className={`relative overflow-hidden py-16 text-center ${isCyberTheme ? '' : 'bg-white'}`}>
+            {isCyberTheme && (
+              <>
+                <div className="neon-orb neon-orb-pink animate-orb-slower w-[24rem] h-[24rem] top-10 -left-32" />
+                <div className="neon-orb neon-orb-purple animate-orb-slow w-[22rem] h-[22rem] -bottom-32 right-0" />
+              </>
+            )}
+            <div className="relative z-10 max-w-4xl mx-auto px-4">
+              <SectionHeading title="Concept" subtitle="当店のこだわり" isCyber={isCyberTheme} className="mb-8" />
 
               <div className={`p-6 sm:p-10 text-xs sm:text-sm leading-loose tracking-wider text-left space-y-4 ${
                 isCyberTheme
-                  ? 'cyber-card text-pink-50 rounded-xl'
+                  ? 'cyber-card reveal text-[#f4eefa]'
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
               }`}>
-                <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink' : 'text-stone-900'}`}>
+                <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-stone-900'}`}>
                   {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション' : '赤羽・川口エリアで選ばれ続けるメンズエステへ')}
                 </p>
 
@@ -210,7 +213,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                         ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
                         : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
                     </p>
-                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ff8fc9]' : 'text-[#a39573]'}`}>
+                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}>
                       {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
                     </p>
                   </>
@@ -234,7 +237,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col selection:bg-[#ff8fc9] selection:text-white ${isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
+      <div className={`min-h-screen flex flex-col selection:bg-[#ff6fb5] selection:text-white ${isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
       <Header store={store} />
 
       <main className="flex-1">

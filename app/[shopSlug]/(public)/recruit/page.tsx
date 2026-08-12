@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { Header } from '../../../../components/store/Header';
+import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { fetchStoreConfig } from '../../../../lib/storeApi';
 import { StoreConfig } from '../../../../types/store';
@@ -36,30 +37,26 @@ export default function RecruitPage({ params }: { params: Promise<{ shopSlug: st
 
   return (
     <div className={`min-h-screen flex flex-col ${
-      isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+      isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
     }`}>
       <Header store={store} />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
-        <div className="text-center mb-8">
-          <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>
-            {title}
-          </h1>
-          <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-            isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
-          }`}>
+        <div className="mb-8 space-y-3">
+          <PageHeading title="Recruit" subtitle={title} isCyber={isCyberTheme} />
+          <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}>
             高収入・最高環境で一緒に働きませんか？未経験歓迎！
-          </span>
+          </p>
         </div>
 
         <div className={`p-6 sm:p-8 space-y-6 ${
           isCyberTheme
-            ? 'cyber-card rounded-xl border-[#ff8fc9]/40'
+            ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40'
             : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
         }`}>
           <div className={`p-6 rounded-xl border text-center space-y-2 ${
             isCyberTheme
-              ? 'bg-[#050014]/90 border-[#ff8fc9]/40'
+              ? 'bg-white/10 border-[#ff6fb5]/40'
               : 'bg-[#faf7f0] border-[#d1b464]/30'
           }`}>
             <h2 className={`text-base font-bold tracking-wider ${
@@ -67,42 +64,42 @@ export default function RecruitPage({ params }: { params: Promise<{ shopSlug: st
             }`}>
               {catchphrase}
             </h2>
-            <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-pink-100' : 'text-stone-600'}`}>
+            <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]' : 'text-stone-600'}`}>
               {description}
             </p>
           </div>
 
           <div className="space-y-4 text-xs">
             <div className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 border ${
-              isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
+              isCyberTheme ? 'bg-white/8 border-[#ff6fb5]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
             }`}>
-              <span className={`font-bold ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>職種</span>
-              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{jobType}</span>
+              <span className={`font-bold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>職種</span>
+              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{jobType}</span>
             </div>
             <div className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 border ${
-              isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
+              isCyberTheme ? 'bg-white/8 border-[#ff6fb5]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
             }`}>
-              <span className={`font-bold ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>資格</span>
-              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{qualification}</span>
+              <span className={`font-bold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>資格</span>
+              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{qualification}</span>
             </div>
             <div className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 border ${
-              isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
+              isCyberTheme ? 'bg-white/8 border-[#ff6fb5]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
             }`}>
-              <span className={`font-bold ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>給与</span>
-              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{salary}</span>
+              <span className={`font-bold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>給与</span>
+              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{salary}</span>
             </div>
             <div className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 border ${
-              isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
+              isCyberTheme ? 'bg-white/8 border-[#ff6fb5]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
             }`}>
-              <span className={`font-bold ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>勤務時間</span>
-              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{hours}</span>
+              <span className={`font-bold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>勤務時間</span>
+              <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{hours}</span>
             </div>
             {notes && (
               <div className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 border ${
-                isCyberTheme ? 'bg-[#050014]/80 border-[#ff8fc9]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
+                isCyberTheme ? 'bg-white/8 border-[#ff6fb5]/30 rounded-xl' : 'bg-[#faf7f0] border-[#d1b464]/20 rounded-sm'
               }`}>
-                <span className={`font-bold ${isCyberTheme ? 'text-pink-300' : 'text-stone-500'}`}>備考・アピール</span>
-                <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-white' : 'text-stone-800'}`}>{notes}</span>
+                <span className={`font-bold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>備考・アピール</span>
+                <span className={`sm:col-span-2 font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-800'}`}>{notes}</span>
               </div>
             )}
           </div>
@@ -112,7 +109,7 @@ export default function RecruitPage({ params }: { params: Promise<{ shopSlug: st
               href={`tel:${rInfo?.phone || store.phoneNumber}`}
               className={`inline-block px-8 py-3.5 text-white font-bold text-xs shadow-md tracking-widest transition-all ${
                 isCyberTheme
-                  ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)] animate-neon-pulse'
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                   : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
               }`}
             >
