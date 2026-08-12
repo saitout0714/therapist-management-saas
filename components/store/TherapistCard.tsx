@@ -29,7 +29,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         animationDelay: `${index * 120}ms`,
         borderColor: isCyber ? undefined : `${primaryColor}60`
       }}
-      className={`group relative overflow-hidden flex flex-col rounded-2xl therapist-card-reveal therapist-card-scroll-reveal therapist-card-hover ${
+      className={`group relative overflow-hidden flex flex-col rounded-2xl therapist-card-reveal therapist-card-hover ${
         isCyber
           ? 'cyber-card'
           : 'classic-card bg-white border font-serif shadow-md'

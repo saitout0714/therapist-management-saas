@@ -204,17 +204,17 @@ input[type="time"]::-webkit-datetime-edit {
   --neon-rose: #e07ab8;
   --neon-purple: #cf82d8;
 
-  /* 空間のベース（ほぼ黒に近い深い藤色） */
-  --dusk-deep: #0d0914;
-  --dusk-base: #150e20;
-  --dusk-lift: #1e1530;
+  /* 空間のベース（引き締まった深遠な漆黒・オブシディアンブラック） */
+  --dusk-deep: #040208;
+  --dusk-base: #080411;
+  --dusk-lift: #0e071a;
 
   /* 文字色（暗い部屋で読める白〜ラベンダーホワイト） */
   --ink: #f4eefa;
   --ink-soft: #ded1ee;
 
-  /* 白レンガのテクスチャ。暗がりでも壁の凹凸が見えるよう、目地は下地より明るい藤色にする */
-  --brick-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3E%3Cg fill='none' stroke='%235a4779' stroke-width='1.5' opacity='0.5'%3E%3Cpath d='M0 0.75H120M0 30.75H120M0 59.25H120'/%3E%3Cpath d='M0.75 0V30M60.75 0V30M119.25 0V30'/%3E%3Cpath d='M30.75 30V60M90.75 30V60'/%3E%3C/g%3E%3C/svg%3E");
+  /* サイバー空間の白レンガテクスチャ（黒地にくっきりと美しく浮かび上がる目地） */
+  --brick-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3E%3Cg fill='none' stroke='%237859a0' stroke-width='1.5' opacity='0.45'%3E%3Cpath d='M0 0.75H120M0 30.75H120M0 59.25H120'/%3E%3Cpath d='M0.75 0V30M60.75 0V30M119.25 0V30'/%3E%3Cpath d='M30.75 30V60M90.75 30V60'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 @keyframes neon-pulse {
@@ -246,108 +246,90 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 /*
- * 背景。白レンガの壁 → 薄暗い藤色の空気 → ピンク／パープルの間接照明、の3層構成。
- * 一番上にレンガの目地、その下にぼかした光、一番下にベースのグラデーション。
+ * 背景。引き締まった漆黒に、ほんのり品のあるネオンハイライトを添える。
  */
 .cyber-bg {
   background-color: var(--dusk-base) !important;
   background-image:
     var(--brick-texture),
-    radial-gradient(circle at 6% 0%, rgba(255, 111, 181, 0.20) 0%, rgba(255, 111, 181, 0) 28%),
-    radial-gradient(circle at 94% 6%, rgba(207, 130, 216, 0.18) 0%, rgba(207, 130, 216, 0) 28%),
-    radial-gradient(circle at 50% 50%, rgba(255, 159, 221, 0.05) 0%, rgba(255, 159, 221, 0) 45%),
-    radial-gradient(circle at 2% 94%, rgba(207, 130, 216, 0.16) 0%, rgba(207, 130, 216, 0) 26%),
-    radial-gradient(circle at 98% 98%, rgba(255, 111, 181, 0.15) 0%, rgba(255, 111, 181, 0) 26%),
+    radial-gradient(circle at 6% 0%, rgba(255, 111, 181, 0.08) 0%, rgba(255, 111, 181, 0) 24%),
+    radial-gradient(circle at 94% 6%, rgba(207, 130, 216, 0.07) 0%, rgba(207, 130, 216, 0) 24%),
     linear-gradient(180deg, var(--dusk-lift) 0%, var(--dusk-base) 45%, var(--dusk-deep) 100%) !important;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 120px 60px, cover, cover, cover, cover, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 120px 60px, cover, cover, cover;
   background-attachment: fixed;
   color: var(--ink);
 }
 
-/* セクションの上に重ねる、ぼかした円形ネオン光（部屋の間接照明） */
+/* セクションの上に重ねるぼかしたネオン光（スマホで白まないよう控えめ・品のある発光に調整） */
 .neon-orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(100px);
-  opacity: 0.28;
+  filter: blur(80px);
+  opacity: 0.10;
   pointer-events: none;
   z-index: 0;
 }
-.neon-orb-pink { background: radial-gradient(circle, rgba(255, 111, 181, 0.75) 0%, transparent 70%); }
-.neon-orb-purple { background: radial-gradient(circle, rgba(207, 130, 216, 0.75) 0%, transparent 70%); }
-.neon-orb-magenta { background: radial-gradient(circle, rgba(255, 159, 221, 0.6) 0%, transparent 70%); }
+
+@media (max-width: 768px) {
+  .neon-orb {
+    opacity: 0.04;
+    filter: blur(40px);
+  }
+}
+
+.neon-orb-pink { background: radial-gradient(circle, rgba(255, 111, 181, 0.4) 0%, transparent 70%); }
+.neon-orb-purple { background: radial-gradient(circle, rgba(207, 130, 216, 0.4) 0%, transparent 70%); }
+.neon-orb-magenta { background: radial-gradient(circle, rgba(255, 159, 221, 0.35) 0%, transparent 70%); }
 
 /*
- * ネオン見出し。薄暗い部屋で光る本物のネオン管に寄せて、
- * 芯を白く飛ばしてピンクのハローを重ねる。
+ * ネオン見出し。芯を白く、外側のピンク発光は輪郭をシャープに引き締める。
  */
 .neon-text-pink {
   color: #ffffff !important;
   text-shadow:
-    0 0 5px #fff,
-    0 0 12px var(--neon-pink),
-    0 0 24px var(--neon-pink),
-    0 0 44px rgba(255, 111, 181, 0.75);
+    0 0 4px #fff,
+    0 0 10px var(--neon-pink),
+    0 0 20px rgba(255, 111, 181, 0.65);
 }
 
 /* 写真やネオン画像の上に重ねる見出し用（白抜き＋ピンク発光） */
 .neon-text-white {
   color: #ffffff !important;
   text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.9),
-    0 0 14px rgba(255, 111, 181, 0.9),
-    0 0 30px rgba(255, 111, 181, 0.6);
+    0 0 5px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba(255, 111, 181, 0.85);
 }
 
 /*
  * 筆記体アクセント（セクション見出しの上に添える英字）。
- * こちらは装飾なので、ピンク〜パープルのグラデーションを活かして発光させる。
  */
 .neon-script {
   font-family: var(--font-script), "Great Vibes", cursive;
   letter-spacing: 0.02em;
   background: linear-gradient(135deg, #ffc2e4 0%, var(--neon-pink) 45%, #dfa0e8 100%);
-  background-clip: text;
-  color: transparent;
-  filter:
-    drop-shadow(0 0 10px rgba(255, 111, 181, 0.7))
-    drop-shadow(0 0 26px rgba(255, 111, 181, 0.4));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(255, 111, 181, 0.45));
 }
 
-/* 写真の上に置く筆記体（白抜き） */
-.neon-script-white {
-  font-family: var(--font-script), "Great Vibes", cursive;
-  letter-spacing: 0.02em;
-  color: #ffffff;
-  text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.9),
-    0 0 16px rgba(255, 111, 181, 0.85),
-    0 0 34px rgba(255, 111, 181, 0.55);
-}
-
-.neon-border-pink {
+.border-neon-pink {
   border-color: var(--neon-pink) !important;
-  box-shadow: 0 0 18px rgba(255, 111, 181, 0.3), inset 0 0 12px rgba(255, 111, 181, 0.08);
 }
 
 /*
- * 白のすりガラスパネル。暗い部屋なので白は薄く乗せて、
  * 枠のピンクと外側の発光でパネルの輪郭を見せる。
  * 枠はピンクの実線、ホバーでピンク→パープルのグラデーション線に切り替わる。
  */
 .cyber-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.1);
-  /* ベンダー接頭辞はビルドツールが付与する。手書きで -webkit- を併記すると
-     標準プロパティ側が出力から落ち、Chrome でぼかしが効かなくなる。 */
-  backdrop-filter: blur(12px);
-  border: 2px solid rgba(255, 111, 181, 0.3);
+  background: rgba(12, 6, 23, 0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 111, 181, 0.35);
   border-radius: 20px;
   box-shadow:
-    0 0 22px rgba(255, 111, 181, 0.28),
-    0 12px 36px rgba(20, 10, 35, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 8px 30px rgba(0, 0, 0, 0.65),
+    0 0 14px rgba(255, 111, 181, 0.2);
   color: var(--ink);
   transition: all 0.3s ease;
 }
@@ -357,7 +339,7 @@ input[type="time"]::-webkit-datetime-edit {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 2px;
+  padding: 1.5px;
   background: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-magenta) 45%, var(--neon-purple) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -369,11 +351,10 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 .cyber-card:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(18, 9, 32, 0.95);
   box-shadow:
-    0 0 38px rgba(255, 111, 181, 0.5),
-    0 16px 44px rgba(20, 10, 35, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 12px 40px rgba(0, 0, 0, 0.85),
+    0 0 22px rgba(255, 111, 181, 0.45);
   transform: translateY(-3px);
 }
 
@@ -514,17 +495,15 @@ input[type="time"]::-webkit-datetime-edit {
  *    点灯のチカチカをスクロール量に紐づけると不自然になるため。
  * ========================================================================== */
 
-/* 1. ぼけ→くっきり＋わずかに上昇しながらフェード */
+/* 1. 上昇しながらフェードイン（GPU負荷ゼロの高速レンダリング） */
 @keyframes reveal-rise {
   from {
     opacity: 0;
-    transform: translateY(20px);
-    filter: blur(8px);
+    transform: translateY(24px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
+    transform: translateY(0) translateZ(0);
   }
 }
 
@@ -535,10 +514,10 @@ input[type="time"]::-webkit-datetime-edit {
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .reveal {
-      animation: reveal-rise 1s linear both;
+      animation: reveal-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
       animation-timeline: view();
-      /* 要素が入り始めてすぐ動き出し、画面の3割ほど進んだ時点で完全にくっきりさせる */
-      animation-range: entry 5% cover 30%;
+      /* 要素が入り始めてすぐ動き出し、画面の25%進んだ時点で完了 */
+      animation-range: entry 5% cover 25%;
     }
   }
 }
@@ -584,41 +563,31 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 /* ==========================================================================
- * セラピストカード専用 最高級ラグジュアリーアニメーション
+ * セラピストカード専用 最高級ラグジュアリーアニメーション（60FPS最適化）
  * ========================================================================== */
 
 /* 1. スタッガー（順次）浮き上がりフェードアニメーション */
 @keyframes therapist-card-stagger-in {
   from {
     opacity: 0;
-    transform: translateY(30px) scale(0.96);
-    filter: blur(8px);
+    transform: translateY(28px) scale(0.97) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
+    transform: translateY(0) scale(1) translateZ(0);
   }
 }
 
 .therapist-card-reveal {
-  animation: therapist-card-stagger-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .therapist-card-scroll-reveal {
-      animation: therapist-card-stagger-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
-      animation-timeline: view();
-      animation-range: entry 5% cover 30%;
-    }
-  }
+  animation: therapist-card-stagger-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
 }
 
 /* 2. ホバー時のネオン＆ゴールド立体オーラ・浮遊エフェクト */
 .therapist-card-hover {
-  transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, box-shadow;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .therapist-card-hover:hover {
