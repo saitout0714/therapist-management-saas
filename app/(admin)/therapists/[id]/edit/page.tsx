@@ -211,10 +211,23 @@ export default function EditTherapistPage() {
         setTherapistShopId(therapist.shop_id);
         setOriginalGroupId(therapist.linked_therapist_group_id || null);
 
-        // 同一オーナーグループの店舗および店舗別源氏名の取得
+        // 同一オーナーグループの店舗および店舗別源氏名の取得。
+        //
+        // 源氏名の欄は「店舗ごとに違う名前で出す」グループでしか意味がない。
+        // 全店共通のグループ（バカラ）や1店舗だけのオーナーで出していたため、
+        // 入力する側が「埋めるもの」と受け取って表記ゆれが混入していた
+        // （括弧の全角半角、カタカナと漢字、ローマ字の打ち間違いなど14件）。
+        // 条件を満たさない場合は shopAliases を空にする。保存ループも回らなくなるので、
+        // 無意味な therapist_shops の行が量産されることも防げる。
         if (selectedShop?.owner_id) {
-          const { data: shopsData } = await supabase.from('shops').select('id, name').eq('owner_id', selectedShop.owner_id);
-          if (shopsData) {
+          const [{ data: shopsData }, { data: ownerRow }] = await Promise.all([
+            supabase.from('shops').select('id, name').eq('owner_id', selectedShop.owner_id).order('name'),
+            supabase.from('owners').select('therapist_scope').eq('id', selectedShop.owner_id).maybeSingle(),
+          ]);
+          const scope = (ownerRow as { therapist_scope?: string } | null)?.therapist_scope ?? 'per_shop';
+          const needsPerShopName = scope === 'per_shop' && (shopsData?.length ?? 0) > 1;
+
+          if (shopsData && needsPerShopName) {
             const { data: tsData } = await supabase.from('therapist_shops').select('shop_id, alias_name').eq('therapist_id', therapistId);
             const tsMap = new Map((tsData || []).map(ts => [ts.shop_id, ts.alias_name || '']));
             setShopAliases(shopsData.map(s => ({
@@ -222,6 +235,8 @@ export default function EditTherapistPage() {
               shop_name: s.name,
               alias_name: tsMap.get(s.id) || ''
             })));
+          } else {
+            setShopAliases([]);
           }
         }
 
