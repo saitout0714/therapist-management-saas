@@ -9,6 +9,8 @@ import { StoreConfig } from '../../../../types/store';
 import { MOCK_STORE } from '../../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
+import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+
 export default function RecruitPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
@@ -36,12 +38,13 @@ export default function RecruitPage({ params }: { params: Promise<{ shopSlug: st
   const notes = rInfo?.notes;
 
   return (
-    <div className={`min-h-screen flex flex-col ${
+    <div className={`min-h-screen flex flex-col relative ${
       isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
     }`}>
+      {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="recruit" />}
       <Header store={store} />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
+      <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
         <div className="mb-8 space-y-3">
           <PageHeading title="Recruit" subtitle={title} isCyber={isCyberTheme} />
           <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}>

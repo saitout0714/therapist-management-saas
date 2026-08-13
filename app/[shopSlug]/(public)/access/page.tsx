@@ -10,6 +10,8 @@ import { StoreConfig } from '../../../../types/store';
 import { MOCK_STORE } from '../../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
+import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+
 export default function AccessPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
@@ -31,12 +33,13 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col ${
+      <div className={`min-h-screen flex flex-col relative ${
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
-      <Header store={store} />
+        {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="access" />}
+        <Header store={store} />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full">
+        <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
         <PageHeading title="Access" subtitle="アクセス・店舗案内" isCyber={isCyberTheme} className="mb-8" />
 
         <div className={`p-6 sm:p-8 space-y-6 ${

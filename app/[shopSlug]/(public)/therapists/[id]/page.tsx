@@ -16,6 +16,8 @@ import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../../..
 import { MOCK_STORE } from '../../../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
 
+import { CyberParallaxBackground } from '../../../../../components/store/CyberParallaxBackground';
+
 export default function TherapistDetailPage({
   params,
 }: {
@@ -62,11 +64,12 @@ export default function TherapistDetailPage({
   if (!therapist) {
     return (
       <ThemeProvider store={store}>
-        <div className={`min-h-screen flex flex-col ${
+        <div className={`min-h-screen flex flex-col relative ${
           isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
         }`}>
+          {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
           <Header store={store} />
-          <main className="flex-1 max-w-5xl mx-auto px-4 py-24 w-full text-center">
+          <main className="flex-1 max-w-5xl mx-auto px-4 py-24 w-full text-center relative z-10">
             <p className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>読み込み中...</p>
           </main>
           <Footer store={store} />
@@ -84,12 +87,13 @@ export default function TherapistDetailPage({
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col ${
+      <div className={`min-h-screen flex flex-col relative ${
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
-      <Header store={store} />
+        {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
+        <Header store={store} />
 
-      <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full">
+      <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full relative z-10">
         <div className={`p-6 sm:p-8 ${
           isCyberTheme
             ? 'cyber-card reveal rounded-2xl border-[#ff6fb5]/40'

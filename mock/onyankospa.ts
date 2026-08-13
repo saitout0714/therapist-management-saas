@@ -5,7 +5,7 @@ export const MOCK_ONYANKO_STORE: StoreConfig = {
   slug: 'onyankospa',
   name: 'おニャンこスパ',
   catchphrase: '〜サイバーネオンと極上密着空間〜 メンズエステ',
-  logoUrl: '/images/onyanko_mainvisual.jpg',
+  logoUrl: undefined,
   themeColor: {
     primary: '#ff6fb5',  // サイバーネオンピンク
     accent: '#ffa8d8',   // ビビッドピンク

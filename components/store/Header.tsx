@@ -65,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* ロゴ / 店舗名 */}
           <Link href={basePath} className="flex items-center gap-3 group">
-            {store.logoUrl && !imageError ? (
+            {store.logoUrl && !imageError && !store.logoUrl.includes('mainvisual') ? (
               <div className="h-12 max-w-[200px] flex items-center">
                 <img
                   src={store.logoUrl}

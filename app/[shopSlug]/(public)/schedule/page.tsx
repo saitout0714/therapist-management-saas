@@ -11,6 +11,8 @@ import { StoreConfig, Therapist, ConfirmedShift } from '../../../../types/store'
 import { MOCK_STORE } from '../../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
+import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+
 export default function SchedulePage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
@@ -46,12 +48,13 @@ export default function SchedulePage({ params }: { params: Promise<{ shopSlug: s
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col ${
+      <div className={`min-h-screen flex flex-col relative ${
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
+        {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="schedule" />}
         <Header store={store} />
 
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
+        <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full relative z-10">
           <PageHeading
             title="Schedule"
             subtitle="週間出勤スケジュール (リアルタイム反映)"

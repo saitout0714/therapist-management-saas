@@ -4,6 +4,62 @@ import React from 'react';
 import { Campaign, StoreConfig } from '../../types/store';
 import { HeroBannerSlider } from './HeroBannerSlider';
 import { SectionHeading } from './SectionHeading';
+import { useInViewOnce } from './useInViewOnce';
+
+interface SmartInfoCardProps {
+  store: StoreConfig;
+  isCyberTheme: boolean;
+  primaryColor: string;
+}
+
+const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, primaryColor }) => {
+  const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
+
+  return (
+    <div
+      ref={ref}
+      className={`relative z-10 max-w-2xl mx-auto ${isCyberTheme ? 'cyber-card reveal px-6 py-7 space-y-3' : 'space-y-2'}`}
+    >
+      <div className={`text-xs sm:text-sm font-semibold tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-700'}`}>
+        {isCyberTheme ? '🐾 新宿・渋谷エリア メンズエステ' : '赤羽・川口 メンズエステ'}<br />
+        <span
+          className={`inline-block text-xl sm:text-2xl font-bold tracking-widest leading-relaxed ${
+            isCyberTheme
+              ? `neon-text-pink font-cyber-display ${mounted ? (inView ? 'neon-flicker-in' : 'neon-flicker-pending') : ''}`
+              : 'text-stone-900'
+          }`}
+        >
+          {store.name}
+        </span>
+      </div>
+      {isCyberTheme && (
+        <div
+          className={`neon-rule neon-rule-draw w-32 mx-auto ${inView ? 'is-in' : ''}`}
+        />
+      )}
+      <div className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]' : 'text-stone-600'}`}>
+        📍 {store.accessInfo}
+      </div>
+      <div className="text-xs font-bold tracking-wider" style={{ color: isCyberTheme ? '#ffa8d8' : primaryColor }}>
+        ⏰ {store.businessHours}
+      </div>
+
+      <div className="pt-2">
+        <a
+          href={`tel:${store.phoneNumber}`}
+          style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+          className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 text-xs sm:text-sm font-bold text-white tracking-widest group ${
+            isCyberTheme
+              ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+              : 'rounded-sm shadow-md hover:brightness-110 transition-all'
+          }`}
+        >
+          <span className="text-base group-hover:scale-110 transition-transform">📞</span> お店に電話する ({store.phoneNumber})
+        </a>
+      </div>
+    </div>
+  );
+};
 
 interface HeroBannerProps {
   campaigns: Campaign[];
@@ -198,37 +254,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
         {isCyberTheme && (
           <div className="neon-orb neon-orb-magenta animate-orb-slow w-[22rem] h-[22rem] -top-32 left-1/2 -translate-x-1/2" />
         )}
-        <div className={`relative z-10 max-w-2xl mx-auto ${isCyberTheme ? 'cyber-card reveal px-6 py-7 space-y-3' : 'space-y-2'}`}>
-          <div className={`text-xs sm:text-sm font-semibold tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-700'}`}>
-            {isCyberTheme ? '🐾 新宿・渋谷エリア メンズエステ' : '赤羽・川口 メンズエステ'}<br />
-            <span className={`text-xl sm:text-2xl font-bold tracking-widest leading-relaxed ${
-              isCyberTheme ? 'neon-text-pink font-cyber-display animate-neon-pulse' : 'text-stone-900'
-            }`}>
-              {store.name}
-            </span>
-          </div>
-          {isCyberTheme && <div className="neon-rule w-32 mx-auto" />}
-          <div className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]' : 'text-stone-600'}`}>
-            📍 {store.accessInfo}
-          </div>
-          <div className="text-xs font-bold tracking-wider" style={{ color: isCyberTheme ? '#ffa8d8' : primaryColor }}>
-            ⏰ {store.businessHours}
-          </div>
-
-          <div className="pt-2">
-            <a
-              href={`tel:${store.phoneNumber}`}
-              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-              className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 text-xs sm:text-sm font-bold text-white tracking-widest group ${
-                isCyberTheme
-                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-                  : 'rounded-sm shadow-md hover:brightness-110 transition-all'
-              }`}
-            >
-              <span className="text-base group-hover:scale-110 transition-transform">📞</span> お店に電話する ({store.phoneNumber})
-            </a>
-          </div>
-        </div>
+        <SmartInfoCard store={store} isCyberTheme={isCyberTheme} primaryColor={primaryColor} />
       </section>
 
 

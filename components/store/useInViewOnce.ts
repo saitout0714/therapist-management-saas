@@ -13,10 +13,13 @@ import { useEffect, useRef, useState } from 'react';
  * 呼び出し側は mounted が true になるまで要素を隠さないことで、
  * JavaScript が無効な環境でもコンテンツが消えないようにしている。
  */
-export function useInViewOnce<T extends HTMLElement>() {
+export function useInViewOnce<T extends HTMLElement>(options?: { threshold?: number; rootMargin?: string }) {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const threshold = options?.threshold ?? 0.15;
+  const rootMargin = options?.rootMargin ?? '0px 0px -120px 0px';
 
   useEffect(() => {
     setMounted(true);
@@ -40,12 +43,12 @@ export function useInViewOnce<T extends HTMLElement>() {
           observer.disconnect();
         }
       },
-      { threshold: 0.25 }
+      { threshold, rootMargin }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [threshold, rootMargin]);
 
   return { ref, inView, mounted };
 }
