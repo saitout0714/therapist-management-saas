@@ -70,13 +70,6 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                       <h3 className={`font-bold text-sm ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>
                         🏠 {room.name}
                       </h3>
-                      {room.displayName && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
-                          isCyberTheme ? 'bg-[#ff6fb5]/20 text-[#c4b2dc] border-[#ff6fb5]/40' : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/30'
-                        }`}>
-                          {room.displayName}
-                        </span>
-                      )}
                     </div>
 
                     {room.address && (
@@ -86,10 +79,18 @@ export default function AccessPage({ params }: { params: Promise<{ shopSlug: str
                       </p>
                     )}
 
-                    {room.memo && (
-                      <p className={`text-xs leading-relaxed whitespace-pre-wrap ${isCyberTheme ? 'text-[#ded1ee]/90' : 'text-stone-600'}`}>
-                        {room.memo}
-                      </p>
+                    {room.address && (
+                      <div className={`aspect-[4/3] w-full rounded-lg overflow-hidden border ${
+                        isCyberTheme ? 'border-[#ff6fb5]/30' : 'border-[#d1b464]/20'
+                      }`}>
+                        <iframe
+                          title={`${room.name}の地図`}
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(room.address)}&z=15&output=embed`}
+                          className="w-full h-full border-0"
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
+                      </div>
                     )}
 
                     {room.googleMapUrl && (
