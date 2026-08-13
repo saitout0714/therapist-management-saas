@@ -186,7 +186,9 @@
       "Bash(perl -0pi -e \"s{'cyber-card rounded-xl border-\\\\[#ff6fb5\\\\]/40 divide-\\\\[#ff6fb5\\\\]/20 font-sans'}{'cyber-card reveal rounded-xl border-[#ff6fb5]/40 divide-[#ff6fb5]/20 font-sans'}\" components/store/NewsList.tsx)",
       "Bash(perl -0pi -e \"s{'cyber-card px-6 py-7 space-y-3'}{'cyber-card reveal px-6 py-7 space-y-3'}\" components/store/HeroBanner.tsx)",
       "Bash(perl -0pi -e \"s{isCyberTheme \\\\? 'cyber-card' : 'rounded-xl border bg-white border-}{isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-}; s{isCyberTheme \\\\? 'cyber-card' : 'rounded-md shadow-s}{isCyberTheme ? 'cyber-card reveal' : 'rounded-md shadow-s}; s{\\\\? 'cyber-card text-\\\\[#f4eefa\\\\]'}{? 'cyber-card reveal text-[#f4eefa]'}\" \"app/[shopSlug]/\\(public\\)/page.tsx\")",
-      "Bash(perl -0pi -e \"s{'cyber-card rounded-xl border-\\\\[#ff6fb5\\\\]/40'}{'cyber-card reveal rounded-xl border-[#ff6fb5]/40'}g\" \"app/[shopSlug]/\\(public\\)/access/page.tsx\" \"app/[shopSlug]/\\(public\\)/recruit/page.tsx\" \"app/[shopSlug]/\\(public\\)/system/page.tsx\")"
+      "Bash(perl -0pi -e \"s{'cyber-card rounded-xl border-\\\\[#ff6fb5\\\\]/40'}{'cyber-card reveal rounded-xl border-[#ff6fb5]/40'}g\" \"app/[shopSlug]/\\(public\\)/access/page.tsx\" \"app/[shopSlug]/\\(public\\)/recruit/page.tsx\" \"app/[shopSlug]/\\(public\\)/system/page.tsx\")",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Get-Process -Id $_ | Select-Object Id, ProcessName })"
     ]
   }
 }

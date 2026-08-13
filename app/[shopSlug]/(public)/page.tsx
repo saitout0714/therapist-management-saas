@@ -15,6 +15,8 @@ import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store
 import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_NEWS } from '../../../mock/specialgrade';
 import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
 
+import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
+
 export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
@@ -237,16 +239,17 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col selection:bg-[#ff6fb5] selection:text-white ${isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
-      <Header store={store} />
+      <div className={`min-h-screen flex flex-col selection:bg-[#ff6fb5] selection:text-white ${isCyberTheme ? 'cyber-bg text-[#f4eefa] relative' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
+        {isCyberTheme && <CyberParallaxBackground />}
+        <Header store={store} />
 
-      <main className="flex-1">
-        {uniqueSections.map((sec) => renderSection(sec))}
-      </main>
+        <main className="flex-1 relative z-10">
+          {uniqueSections.map((sec) => renderSection(sec))}
+        </main>
 
-      <Footer store={store} />
-      <MobileFloatingBar store={store} />
-    </div>
+        <Footer store={store} />
+        <MobileFloatingBar store={store} />
+      </div>
     </ThemeProvider>
   );
 }

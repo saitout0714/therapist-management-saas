@@ -48,10 +48,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
   }, [isCyberTheme]);
 
   return (
-    <div className={isCyberTheme ? 'cyber-bg text-[#f4eefa] relative overflow-hidden' : 'font-serif bg-[#faf9f5]'}>
+    <div className={isCyberTheme ? 'text-[#f4eefa] relative overflow-hidden' : 'font-serif bg-[#faf9f5]'}>
       {/* 0. おニャンこスパ用 公式メインビジュアル 1枚限定・フレームなし画面全幅表示 */}
       {isCyberTheme && (
-        <section className="relative w-full overflow-hidden cyber-bg border-b border-[#ff6fb5]/25 py-0">
+        <section className="relative w-full overflow-hidden border-b border-[#ff6fb5]/25 py-0">
           {/* 背景ネオンオーロラ・アトモスピアー（間接照明） */}
           <div className="neon-orb neon-orb-pink animate-orb-slow w-[36rem] h-[36rem] -top-40 -left-40" />
           <div className="neon-orb neon-orb-purple animate-orb-slower w-[32rem] h-[32rem] -bottom-40 -right-32" />
