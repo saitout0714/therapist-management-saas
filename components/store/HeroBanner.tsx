@@ -160,14 +160,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
               <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#130a1c]/80 via-transparent to-transparent pointer-events-none" />
               <div className="absolute inset-x-0 bottom-0 h-1/3 z-20 bg-gradient-to-t from-[#ff6fb5]/30 via-[#cf82d8]/12 to-transparent pointer-events-none" />
 
-              {/* 左上・ガラスモルフィズム ネオンタグ */}
-              <div className="absolute top-4 left-4 z-30 hidden sm:flex items-center gap-2 bg-[#0d0914]/70 backdrop-blur-md px-4 py-1.5 rounded-full border-2 border-[#ff6fb5]/35 shadow-[0_0_20px_rgba(255,111,181,0.3)]">
-                <span className="w-2 h-2 rounded-full bg-[#ff6fb5] animate-ping" />
-                <span className="text-[11px] font-extrabold text-[#ffa8d8] tracking-[0.2em]">
-                  🐾 SHINJUKU & SHIBUYA CYBER SPA
-                </span>
-              </div>
-
               {/* 左下・メインロックアップ（筆記体アクセント＋店名＋アクセス）
                   オープニング演出中は隠して、メインビジュアル表示と同時にフェードインさせる */}
               <div
@@ -185,13 +177,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
                 <p className="text-[10px] sm:text-xs text-white/90 tracking-[0.18em] font-medium drop-shadow-[0_1px_6px_rgba(62,20,70,0.9)]">
                   {store.accessInfo}
                 </p>
-              </div>
-
-              {/* 右下・ガラスモルフィズム 公式マーク */}
-              <div className="absolute bottom-4 right-4 z-30 hidden sm:flex items-center gap-2 bg-[#0d0914]/70 backdrop-blur-md px-4 py-1.5 rounded-full border-2 border-[#ff6fb5]/35 shadow-[0_0_20px_rgba(255,111,181,0.3)]">
-                <span className="text-[11px] font-extrabold text-[#ffa8d8] tracking-[0.2em]">
-                  ★ OFFICIAL MAIN VISUAL
-                </span>
               </div>
             </div>
 

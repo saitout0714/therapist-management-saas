@@ -72,30 +72,49 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 日付切り替えタブバー (横スクロール対応) */}
-      <div className="overflow-x-auto pb-2 scrollbar-none">
-        <div className="flex gap-2 min-w-max px-1">
+      {/* 日付切り替えタブバー (1画面7列収容) */}
+      <div className="w-full">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 w-full">
           {days.map((day) => {
             const isSelected = selectedDate === day.fullDate;
+            const isSun = day.dayOfWeek === '日';
+            const isSat = day.dayOfWeek === '土';
+
             return (
               <button
                 key={day.fullDate}
                 onClick={() => setSelectedDate(day.fullDate)}
-                className={`flex flex-col items-center justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                className={`flex flex-col items-center justify-center py-2 px-0.5 sm:px-2 rounded-lg sm:rounded-xl text-center transition-all border w-full min-w-0 ${
                   isSelected
                     ? isCyber
-                      ? 'bg-[#ff6fb5] neon-on-pink border-[#ff6fb5] shadow-[0_0_18px_rgba(255,111,181,0.7)] scale-105'
-                      : 'bg-[#a39573] text-white border-[#a39573] shadow-md scale-105'
+                      ? 'bg-gradient-to-b from-[#ff6fb5] to-[#e04899] text-white border-[#ff6fb5] shadow-[0_0_14px_rgba(255,111,181,0.7)] scale-[1.02] z-10'
+                      : 'bg-[#a39573] text-white border-[#a39573] shadow-md scale-[1.02] z-10'
                     : isCyber
-                    ? 'bg-white/10 text-[#c4b2dc] border-[#ff6fb5]/30 hover:border-[#ff6fb5]/70 hover:bg-[#1e1530]'
-                    : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                    ? 'bg-white/90 backdrop-blur-md text-slate-900 border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-white shadow-sm'
+                    : 'bg-white/90 backdrop-blur-md text-stone-800 border-stone-200 hover:bg-white'
                 }`}
               >
-                <span className="text-[10px] opacity-80">
-                  {day.isToday ? '★ 本日' : `${day.month}月`}
+                <span
+                  className={`text-[9px] sm:text-[11px] font-extrabold leading-tight ${
+                    isSelected
+                      ? 'text-white'
+                      : day.isToday
+                      ? 'text-[#ff4fa3]'
+                      : isSun
+                      ? 'text-red-500'
+                      : isSat
+                      ? 'text-blue-500'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  {day.isToday ? '本日' : `(${day.dayOfWeek})`}
                 </span>
-                <span className="text-sm font-extrabold tracking-wider">
-                  {day.dateNum}日({day.dayOfWeek})
+                <span
+                  className={`text-xs sm:text-base font-extrabold tracking-tight leading-tight mt-0.5 whitespace-nowrap ${
+                    isSelected ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  {day.dateNum}日
                 </span>
               </button>
             );
