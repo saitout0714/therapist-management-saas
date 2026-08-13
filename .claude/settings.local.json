@@ -188,7 +188,11 @@
       "Bash(perl -0pi -e \"s{isCyberTheme \\\\? 'cyber-card' : 'rounded-xl border bg-white border-}{isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-}; s{isCyberTheme \\\\? 'cyber-card' : 'rounded-md shadow-s}{isCyberTheme ? 'cyber-card reveal' : 'rounded-md shadow-s}; s{\\\\? 'cyber-card text-\\\\[#f4eefa\\\\]'}{? 'cyber-card reveal text-[#f4eefa]'}\" \"app/[shopSlug]/\\(public\\)/page.tsx\")",
       "Bash(perl -0pi -e \"s{'cyber-card rounded-xl border-\\\\[#ff6fb5\\\\]/40'}{'cyber-card reveal rounded-xl border-[#ff6fb5]/40'}g\" \"app/[shopSlug]/\\(public\\)/access/page.tsx\" \"app/[shopSlug]/\\(public\\)/recruit/page.tsx\" \"app/[shopSlug]/\\(public\\)/system/page.tsx\")",
       "Bash(echo \"=== EXIT $? ===\")",
-      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Get-Process -Id $_ | Select-Object Id, ProcessName })"
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Get-Process -Id $_ | Select-Object Id, ProcessName })",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 10 https://my.caskan.jp/login)",
+      "Bash(awk '/<tbody/,/<\\\\/tbody>/' scratch/caskan_html/customer.html)",
+      "Bash(awk '/tbl-reserve-list/,0' scratch/caskan_html/reserve_range.html)",
+      "Bash(awk '/tbl-room/,0' scratch/caskan_html/room.html)"
     ]
   }
 }
