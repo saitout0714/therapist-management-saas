@@ -24,6 +24,23 @@ export const MOCK_ONYANKO_STORE: StoreConfig = {
   layoutSections: ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'],
 };
 
+// DB取得が完了するまでの初期表示用。文言・連絡先などの「編集され得る内容」は空にし、
+// 誤って古いサンプル文言が一瞬表示されるのを防ぐ（テーマカラー・レイアウトのみ引き継ぐ）。
+export const BLANK_ONYANKO_STORE: StoreConfig = {
+  id: MOCK_ONYANKO_STORE.id,
+  slug: MOCK_ONYANKO_STORE.slug,
+  name: MOCK_ONYANKO_STORE.name,
+  catchphrase: '',
+  logoUrl: MOCK_ONYANKO_STORE.logoUrl,
+  themeColor: MOCK_ONYANKO_STORE.themeColor,
+  address: '',
+  accessInfo: '',
+  businessHours: '',
+  phoneNumber: '',
+  templateId: MOCK_ONYANKO_STORE.templateId,
+  layoutSections: MOCK_ONYANKO_STORE.layoutSections,
+};
+
 export const MOCK_ONYANKO_CAMPAIGNS: Campaign[] = [
   {
     id: 'onyanko-camp-1',

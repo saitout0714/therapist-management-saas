@@ -12,8 +12,8 @@ import { SectionHeading } from '../../../components/store/SectionHeading';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
 import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
-import { MOCK_STORE, MOCK_CAMPAIGNS, MOCK_THERAPISTS, MOCK_NEWS } from '../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_CAMPAIGNS, MOCK_ONYANKO_THERAPISTS, MOCK_ONYANKO_NEWS } from '../../../mock/onyankospa';
+import { BLANK_STORE } from '../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../mock/onyankospa';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 
@@ -22,10 +22,10 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
 
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(isOnyanko ? MOCK_ONYANKO_CAMPAIGNS : MOCK_CAMPAIGNS);
-  const [therapists, setTherapists] = useState<Therapist[]>(isOnyanko ? MOCK_ONYANKO_THERAPISTS : MOCK_THERAPISTS);
-  const [news, setNews] = useState<NewsItem[]>(isOnyanko ? MOCK_ONYANKO_NEWS : MOCK_NEWS);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
 
   useEffect(() => {
     async function loadData() {

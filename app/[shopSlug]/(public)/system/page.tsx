@@ -8,8 +8,8 @@ import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchSystemCourses, fetchSystemExtras } from '../../../../lib/storeApi';
 import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
-import { MOCK_STORE, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE, MOCK_ONYANKO_SYSTEM_MENU } from '../../../../mock/onyankospa';
+import { BLANK_STORE } from '../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -17,7 +17,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [categories, setCategories] = useState<SystemMenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
 

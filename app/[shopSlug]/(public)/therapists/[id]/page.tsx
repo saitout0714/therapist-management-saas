@@ -13,8 +13,8 @@ import {
   fetchConfirmedShifts,
 } from '../../../../../lib/storeApi';
 import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../../../../types/store';
-import { MOCK_STORE } from '../../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
+import { BLANK_STORE } from '../../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
 
 import { CyberParallaxBackground } from '../../../../../components/store/CyberParallaxBackground';
 
@@ -28,7 +28,7 @@ export default function TherapistDetailPage({
   const therapistId = resolvedParams.id;
   const isOnyanko = shopSlug === 'onyankospa';
 
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [therapist, setTherapist] = useState<Therapist | null>(null);
   const [blogs, setBlogs] = useState<BlogArticle[]>([]);
   const [todayShift, setTodayShift] = useState<ConfirmedShift | null>(null);

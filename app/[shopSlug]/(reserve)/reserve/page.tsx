@@ -7,7 +7,8 @@ import { Footer } from '../../../../components/store/Footer';
 import { supabase } from '../../../../lib/supabase';
 import { fetchStoreConfig, fetchTherapists, fetchSystemCourses } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist, SystemMenuCategory } from '../../../../types/store';
-import { MOCK_STORE, MOCK_THERAPISTS, MOCK_SYSTEM_MENU } from '../../../../mock/specialgrade';
+import { BLANK_STORE } from '../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 
 export default function ReservePage({
@@ -20,14 +21,15 @@ export default function ReservePage({
   const resolvedParams = use(params);
   const resolvedSearchParams = searchParams ? use(searchParams) : {};
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
+  const isOnyanko = shopSlug === 'onyankospa';
   const initialTherapistId = resolvedSearchParams.therapistId || '';
 
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
-  const [therapists, setTherapists] = useState<Therapist[]>(MOCK_THERAPISTS);
-  const [categories, setCategories] = useState<SystemMenuCategory[]>(MOCK_SYSTEM_MENU);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [categories, setCategories] = useState<SystemMenuCategory[]>([]);
 
   const [selectedTherapistId, setSelectedTherapistId] = useState<string>(initialTherapistId);
-  const [selectedCourseId, setSelectedCourseId] = useState<string>(MOCK_SYSTEM_MENU[0].courses[1]?.id || 'c-90');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [reserveDate, setReserveDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [reserveTime, setReserveTime] = useState<string>('15:00');
   const [customerName, setCustomerName] = useState<string>('');
@@ -44,6 +46,7 @@ export default function ReservePage({
       ]);
       setTherapists(tList);
       setCategories(cList);
+      setSelectedCourseId((prev) => prev || cList[0]?.courses[1]?.id || cList[0]?.courses[0]?.id || '');
     }
     loadData();
   }, [shopSlug]);
@@ -122,7 +125,7 @@ export default function ReservePage({
   };
 
 
-  const currentCourses = categories[0]?.courses || MOCK_SYSTEM_MENU[0].courses;
+  const currentCourses = categories[0]?.courses || [];
   const isCyberTheme = shopSlug === 'onyankospa';
 
   return (

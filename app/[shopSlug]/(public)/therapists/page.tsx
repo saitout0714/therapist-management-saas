@@ -9,8 +9,8 @@ import { TherapistFilter } from '../../../../components/store/TherapistFilter';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist } from '../../../../types/store';
-import { MOCK_STORE } from '../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { BLANK_STORE } from '../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -18,7 +18,7 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
