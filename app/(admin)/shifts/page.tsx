@@ -2359,7 +2359,7 @@ function ShiftsContent() {
             {(viewMode === 'day' || viewMode === 'vertical') && (
               <button
                 onClick={handleBulkMarkNotified}
-                className="px-3 py-1.5 bg-amber-500 text-white rounded-md hover:bg-amber-600 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
+                className="px-2 py-1 sm:px-3 sm:py-1.5 bg-amber-500 text-white rounded-md hover:bg-amber-600 shadow-sm transition-colors font-bold text-[10px] sm:text-xs whitespace-nowrap"
                 title="この日の未送信の予約を、お客様連絡・セラピスト連絡ともに送信済にします"
               >
                 全員 送信済
@@ -2370,7 +2370,7 @@ function ShiftsContent() {
             {(viewMode === 'day' || viewMode === 'vertical') && filterDate === getBusinessDateStr() && (
               <button
                 onClick={handleBulkReceptionClose}
-                className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 shadow-sm transition-colors font-bold text-xs whitespace-nowrap"
+                className="px-2 py-1 sm:px-3 sm:py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 shadow-sm transition-colors font-bold text-[10px] sm:text-xs whitespace-nowrap"
                 title="現在時刻を締切として、対象セラピスト全員の受付を終了します"
               >
                 全員 受付終了
