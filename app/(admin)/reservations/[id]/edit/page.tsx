@@ -648,12 +648,14 @@ export default function EditReservationPage() {
 
     try {
       setDesignationSearchLoading(true)
+      // 顧客・セラピストとも店舗をまたいで同一人物としてまとまっているため、
+      // 「本指名」の判定も店舗を限定せず、この顧客とこのセラピストの組み合わせで
+      // どこかの店舗で過去に予約があったかを見る
       const { data, error } = await supabase
         .from('reservations')
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
-        .eq('shop_id', selectedShop.id)
         .neq('id', reservationId)
         .neq('status', 'cancelled')
         .limit(1)

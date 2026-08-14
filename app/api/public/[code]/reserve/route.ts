@@ -472,9 +472,10 @@ export async function POST(
   // 共有可否はオーナー設定が正。旧方式の *_source_shop_id はオーナー設定が無い場合の保険。
   const { data: shopConfigRow } = await supabase
     .from('shops')
-    .select('id, pricing_source_shop_id, back_source_shop_id, owners(pricing_mode, pricing_base_shop_id, back_mode, back_base_shop_id)')
+    .select('id, owner_id, pricing_source_shop_id, back_source_shop_id, owners(pricing_mode, pricing_base_shop_id, back_mode, back_base_shop_id)')
     .eq('id', shopId)
     .maybeSingle()
+  const ownerId = shopConfigRow?.owner_id ?? null
   const shopConfig = shopConfigRow
     ? {
         id: shopConfigRow.id,
@@ -576,14 +577,14 @@ export async function POST(
   }
   const phoneVariants = [...new Set([customer.phone, phoneNorm, phoneHyphen])]
 
+  // 顧客は人単位でグループ共通（同じ人が別店舗にも来店しうる）。電話番号の一致は
+  // オーナー配下の全店舗を対象に探す（無ければ自店舗のみ）。これをしないと、他店で
+  // 既に登録済みのお客様がWeb予約経由で別人として重複登録されてしまう。
   let existingCustomer: { id: string; status: string | null } | null = null
   for (const phone of phoneVariants) {
-    const { data } = await supabase
-      .from('customers')
-      .select('id, status')
-      .eq('shop_id', shopId)
-      .eq('phone', phone)
-      .maybeSingle()
+    let query = supabase.from('customers').select('id, status').eq('phone', phone)
+    query = ownerId ? query.eq('owner_id', ownerId) : query.eq('shop_id', shopId)
+    const { data } = await query.maybeSingle()
     if (data) { existingCustomer = data as { id: string; status: string | null }; break }
   }
 
@@ -603,6 +604,19 @@ export async function POST(
       .update({ furigana: customer.furigana, email: customer.email })
       .eq('id', customerId)
       .is('furigana', null)
+
+    // グループ内の他店では既存客でも、この店舗では初めてということがある
+    // （会員番号もこの店舗ではまだ持っていない）。「新規/会員」の扱いは店舗ごとに見る。
+    const { data: rosterRow } = await supabase
+      .from('customer_shops')
+      .select('customer_id')
+      .eq('customer_id', customerId)
+      .eq('shop_id', shopId)
+      .maybeSingle()
+    if (!rosterRow) {
+      isNewCustomer = true
+      await supabase.from('customer_shops').insert({ customer_id: customerId, shop_id: shopId })
+    }
   } else {
     // 新規予約制限のチェック
     if (!allowNewCustomers) {
@@ -647,6 +661,7 @@ export async function POST(
       .from('customers')
       .insert({
         shop_id: shopId,
+        owner_id: ownerId,
         name: customer.name,
         furigana: customer.furigana,
         phone: phoneNorm,
@@ -661,10 +676,12 @@ export async function POST(
     }
     customerId = newCustomer.id
     isNewCustomer = true
+    await supabase.from('customer_shops').insert({ customer_id: customerId, shop_id: shopId })
   }
 
-  // NGセラピストチェック
-  if (!isNewCustomer && therapist_id) {
+  // NGセラピストチェック（グループ内のどこかで既に知られている顧客かどうかで判定。
+  // この店舗では新規でも、他店で登録済みならNG履歴を持ちうるため isNewCustomer では判定しない）
+  if (existingCustomer && therapist_id) {
     const { data: ngData, error: ngError } = await supabase
       .from('customer_therapist_ng')
       .select('id')
@@ -684,18 +701,19 @@ export async function POST(
 
   // 指名区分の自動判定
   // therapist_id なし（フリー選択）→ free
-  // therapist_id あり + 既存顧客 + 同セラピスト履歴あり → confirmed（本指名）
+  // therapist_id あり + 同セラピストでの過去予約あり → confirmed（本指名）
   // therapist_id あり + それ以外 → first_nomination（初回指名）
+  //
+  // isNewCustomer（この店舗では初めて）では判定を打ち切らない。顧客・セラピストとも
+  // 店舗をまたいで同一人物としてまとまっているため、他店で同じセラピストに
+  // 入ったことがあれば、この店舗が初めてでも本指名として扱うべきため。
   let designationType: string
   if (!therapist_id) {
     designationType = 'free'
-  } else if (isNewCustomer) {
-    designationType = 'first_nomination'
   } else {
     const { data: priorReservations } = await supabase
       .from('reservations')
       .select('id')
-      .eq('shop_id', shopId)
       .eq('customer_id', customerId)
       .eq('therapist_id', therapist_id)
       .limit(1)
