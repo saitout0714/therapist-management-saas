@@ -201,6 +201,18 @@ export default function EditReservationPage() {
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', member_number: '' })
   const [shopNumberPrompt, setShopNumberPrompt] = useState('')
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 顧客をオーナー内で共有するか、店舗ごとに独立させるか（owners.customer_scope）
+  const [customerScope, setCustomerScope] = useState<'shared' | 'per_shop'>('shared')
+
+  useEffect(() => {
+    if (!selectedShop?.owner_id) { setCustomerScope('shared'); return }
+    supabase
+      .from('owners')
+      .select('customer_scope')
+      .eq('id', selectedShop.owner_id)
+      .maybeSingle()
+      .then(({ data }) => setCustomerScope((data?.customer_scope as 'shared' | 'per_shop' | undefined) ?? 'shared'))
+  }, [selectedShop?.owner_id])
   // 来店履歴（どの店舗のどのセラピストに入ったか）。同じセラピストを別店舗で
   // 案内してしまわないよう確認するためのもの
   const [visitHistory, setVisitHistory] = useState<{ shopName: string; therapistName: string; count: number }[]>([])
@@ -274,7 +286,9 @@ export default function EditReservationPage() {
         .select('id, name, email, phone, status, ng_reason, memo, customer_shops(shop_id, member_number, shops(name))')
         .order('name')
         .limit(50)
-      query = selectedShop.owner_id ? query.eq('owner_id', selectedShop.owner_id) : query.eq('shop_id', selectedShop.id)
+      query = selectedShop.owner_id && customerScope === 'shared'
+        ? query.eq('owner_id', selectedShop.owner_id)
+        : query.eq('shop_id', selectedShop.id)
 
       const orParts = [`name.ilike.%${q}%`, `phone.ilike.%${normalized}%`, `email.ilike.%${q}%`, `member_number.ilike.%${q}%`]
       if (numberMatchIds.length > 0) orParts.push(`id.in.(${numberMatchIds.join(',')})`)
@@ -285,7 +299,7 @@ export default function EditReservationPage() {
       setCustomerSearchLoading(false)
     }, 300)
     return () => { if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current) }
-  }, [customerSearch, selectedShop])
+  }, [customerSearch, selectedShop, customerScope])
 
   useEffect(() => {
     void calculatePrice()
@@ -319,9 +333,16 @@ export default function EditReservationPage() {
         if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
       }
 
+      // 顧客をオーナー内で共有するか店舗ごとに独立させるか
+      let customerShared = !!selectedShop.owner_id
+      if (selectedShop.owner_id) {
+        const { data: ownerRow } = await supabase.from('owners').select('customer_scope').eq('id', selectedShop.owner_id).maybeSingle()
+        customerShared = (ownerRow?.customer_scope ?? 'shared') === 'shared'
+      }
+
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         // 顧客は人単位でグループ共通。オーナー配下の全店舗を対象にする（無ければ自店舗のみ）
-        (selectedShop.owner_id
+        (customerShared
           ? supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('owner_id', selectedShop.owner_id)
           : supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id)
         ).order('name'),

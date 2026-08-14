@@ -476,6 +476,15 @@ export async function POST(
     .eq('id', shopId)
     .maybeSingle()
   const ownerId = shopConfigRow?.owner_id ?? null
+
+  // 顧客をオーナー内で共有するか店舗ごとに独立させるか（owners.customer_scope）
+  let customerShared = !!ownerId
+  if (ownerId) {
+    const { data: ownerScopeRow } = await supabase.from('owners').select('customer_scope').eq('id', ownerId).maybeSingle()
+    customerShared = (ownerScopeRow?.customer_scope ?? 'shared') === 'shared'
+  }
+  const customerMatchOwnerId = customerShared ? ownerId : null
+
   const shopConfig = shopConfigRow
     ? {
         id: shopConfigRow.id,
@@ -580,12 +589,32 @@ export async function POST(
   // 顧客は人単位でグループ共通（同じ人が別店舗にも来店しうる）。電話番号の一致は
   // オーナー配下の全店舗を対象に探す（無ければ自店舗のみ）。これをしないと、他店で
   // 既に登録済みのお客様がWeb予約経由で別人として重複登録されてしまう。
+  //
+  // 顧客統合がまだ済んでいないオーナーグループでは、同じ電話番号の顧客行が複数
+  // 見つかることがある（例: アーバンスパ・秘密妻は594件が未統合）。maybeSingle だと
+  // 複数件で例外になり予約自体が失敗するため、複数件ヒットを前提にした取得に変更。
+  // 複数見つかった場合は「この店舗に既に在籍している方」を優先し、無ければ最初に
+  // 登録された方を使う（正式な統合は別途行う）。
   let existingCustomer: { id: string; status: string | null } | null = null
   for (const phone of phoneVariants) {
-    let query = supabase.from('customers').select('id, status').eq('phone', phone)
-    query = ownerId ? query.eq('owner_id', ownerId) : query.eq('shop_id', shopId)
-    const { data } = await query.maybeSingle()
-    if (data) { existingCustomer = data as { id: string; status: string | null }; break }
+    let query = supabase.from('customers').select('id, status, created_at').eq('phone', phone)
+    query = customerMatchOwnerId ? query.eq('owner_id', customerMatchOwnerId) : query.eq('shop_id', shopId)
+    const { data: matches } = await query.order('created_at', { ascending: true })
+    if (matches && matches.length > 0) {
+      if (matches.length === 1) {
+        existingCustomer = matches[0]
+      } else {
+        const matchIds = matches.map(m => m.id)
+        const { data: rosterRows } = await supabase
+          .from('customer_shops')
+          .select('customer_id')
+          .eq('shop_id', shopId)
+          .in('customer_id', matchIds)
+        const alreadyHere = rosterRows?.[0]?.customer_id
+        existingCustomer = matches.find(m => m.id === alreadyHere) || matches[0]
+      }
+      break
+    }
   }
 
   if (existingCustomer) {
