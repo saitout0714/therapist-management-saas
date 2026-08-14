@@ -2103,8 +2103,8 @@ export default function EditReservationPage() {
             </div>
           </section>
 
-          {/* 5: 受付・備考 */}
-          <section className="bg-transparent sm:bg-white rounded-none sm:rounded-xl sm:shadow-sm sm:border border-slate-100 overflow-hidden py-1 sm:py-3 mb-2 sm:mb-0 border-t border-slate-100/70 sm:border-t-0">
+          {/* 5: 受付・備考（PCではサイドバーに表示するためモバイルのみ） */}
+          <section className="sm:hidden bg-transparent rounded-none overflow-hidden py-1 mb-2 border-t border-slate-100/70">
             <div className="flex items-center justify-between pl-2 pr-1 sm:px-4 py-1.5 sm:py-3 border-l-4 border-slate-400 bg-slate-50/30 sm:bg-slate-50/60 mb-1 sm:mb-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">受付・備考</h2>
             </div>
@@ -2216,6 +2216,12 @@ export default function EditReservationPage() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="flex items-center text-[10px] text-slate-400 border-t border-slate-100 mt-3 pt-2.5">
+              <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              操作者: <span className="font-bold ml-1 text-slate-600 truncate max-w-40">{creatorName || '不明'}</span>
             </div>
           </div>
           {/* 1. PC用サマリー（常に全表示、サイドバー固定） */}
