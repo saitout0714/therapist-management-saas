@@ -23,7 +23,6 @@ type TherapistItem = {
   comment: string | null;
   rank_id: string | null;
   therapist_ranks: { name: string } | null;
-  linked_therapist_group_id: string | null;
   is_rookie?: boolean;
 };
 
@@ -81,31 +80,56 @@ export default function TherapistsPage() {
   const fetchTherapists = async () => {
     if (!selectedShop) return;
 
-    let shopIds = [selectedShop.id];
+    // グループの扱い方（全店共通 or 店舗ごと）をオーナー設定から取得
+    let scope: 'all_shops' | 'per_shop' = 'per_shop';
     if (selectedShop.owner_id) {
-      const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id);
-      if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id);
+      const { data: ownerRow } = await supabase
+        .from('owners')
+        .select('therapist_scope')
+        .eq('id', selectedShop.owner_id)
+        .maybeSingle();
+      scope = (ownerRow?.therapist_scope as 'all_shops' | 'per_shop' | undefined) ?? 'per_shop';
     }
 
-    // 出勤可能店舗(therapist_shops)に該当店舗が含まれるセラピストIDを取得
-    const { data: tsData } = await supabase
-      .from('therapist_shops')
-      .select('therapist_id')
-      .in('shop_id', shopIds);
-    const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
+    let shopIds = [selectedShop.id];
+    let rosterRows: any[] = [];
+
+    if (scope === 'all_shops') {
+      // 全店共通：オーナー配下の全店舗の shop_id で直接絞り込む（在籍テーブルは見ない）
+      if (selectedShop.owner_id) {
+        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id);
+        if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id);
+      }
+    } else {
+      // 店舗ごと：この店舗の在籍行だけを見る（shop_id 直接一致にはもう頼らない）
+      const { data } = await supabase
+        .from('therapist_shops')
+        .select('therapist_id, alias_name, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, x_url')
+        .eq('shop_id', selectedShop.id);
+      rosterRows = data || [];
+    }
+
+    const rosterMap = new Map(rosterRows.map(r => [r.therapist_id, r]));
+    const targetIds = scope === 'per_shop' ? rosterRows.map(r => r.therapist_id) : null;
+
+    if (scope === 'per_shop' && targetIds!.length === 0) {
+      setTherapists([]);
+      setPhotosMap(new Map());
+      setLinkedShopsMap(new Map());
+      setUnresolvedMemoCounts(new Map());
+      setError(null);
+      return;
+    }
 
     let query = supabase
       .from("therapists")
-      .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, therapist_ranks(name), linked_therapist_group_id, is_rookie");
+      .select("id, name, order, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id, is_rookie");
 
-    if (tsTherapistIds.length > 0) {
-      query = query.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
-    } else {
-      query = query.in("shop_id", shopIds);
-    }
+    query = scope === 'all_shops' ? query.in('shop_id', shopIds) : query.in('id', targetIds!);
 
-    const [therapistsRes, memosRes] = await Promise.all([
+    const [therapistsRes, ranksRes, memosRes] = await Promise.all([
       query.order("order", { ascending: true, nullsFirst: false }).order("name", { ascending: true }),
+      supabase.from("therapist_ranks").select("id, name"),
       supabase
         .from("therapist_memos")
         .select("therapist_id")
@@ -118,21 +142,30 @@ export default function TherapistsPage() {
       setError(therapistsRes.error.message);
     } else {
       let list = (therapistsRes.data as unknown as TherapistItem[]) || [];
+      const rankNameOf = new Map((ranksRes.data || []).map((r: any) => [r.id, r.name]));
 
-      // 選択店舗での店舗別源氏名(alias_name)の適用
-      if (selectedShop?.id && list.length > 0) {
-        const { data: aliasData } = await supabase
-          .from('therapist_shops')
-          .select('therapist_id, alias_name')
-          .eq('shop_id', selectedShop.id);
-        if (aliasData) {
-          const aliasMap = new Map(aliasData.map(a => [a.therapist_id, a.alias_name]));
-          list = list.map(t => {
-            const alias = aliasMap.get(t.id);
-            return alias ? { ...t, name: alias } : t;
-          });
-        }
+      if (scope === 'per_shop') {
+        // 店舗別の見せ方（源氏名・年齢等・ランク・在籍状況）を適用
+        list = list.map(t => {
+          const r = rosterMap.get(t.id);
+          if (!r) return t;
+          return {
+            ...t,
+            name: r.alias_name || t.name,
+            is_active: r.is_active,
+            age: r.age ?? t.age,
+            height: r.height ?? t.height,
+            bust: r.bust ?? t.bust,
+            bust_cup: r.bust_cup ?? t.bust_cup,
+            waist: r.waist ?? t.waist,
+            hip: r.hip ?? t.hip,
+            comment: r.comment ?? t.comment,
+            rank_id: r.rank_id ?? t.rank_id,
+          };
+        });
       }
+
+      list = list.map(t => ({ ...t, therapist_ranks: t.rank_id ? { name: rankNameOf.get(t.rank_id) || '' } : null }));
 
       list = list.sort((a, b) => {
         const orderA = a.order ?? 999999;
@@ -144,26 +177,21 @@ export default function TherapistsPage() {
 
       setError(null);
 
-      // 他店舗連携先店舗名のフェッチ
-      const groupIds = list.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
-      if (groupIds.length > 0) {
-        const { data: linkedData } = await supabase
-          .from("therapists")
-          // shops!shop_id でリレーションを明示（therapist_shops 追加で経路が2本になったため）
-          .select("linked_therapist_group_id, shops!shop_id(name)")
-          .in("linked_therapist_group_id", groupIds)
-          .neq("shop_id", selectedShop.id);
-        
+      // 他にも在籍している店舗（店舗ごとグループのみ。全店共通は全員が全店なので表示不要）
+      if (scope === 'per_shop' && list.length > 0) {
+        const { data: otherRosterData } = await supabase
+          .from('therapist_shops')
+          .select('therapist_id, is_active, shops!shop_id(name)')
+          .in('therapist_id', list.map(t => t.id))
+          .neq('shop_id', selectedShop.id)
+          .eq('is_active', true);
         const linkedMap = new Map<string, string[]>();
-        (linkedData || []).forEach((row: any) => {
-          const groupId = row.linked_therapist_group_id;
+        (otherRosterData || []).forEach((row: any) => {
           const shopName = row.shops?.name;
-          if (groupId && shopName) {
-            const arr = linkedMap.get(groupId) || [];
-            if (!arr.includes(shopName)) {
-              arr.push(shopName);
-            }
-            linkedMap.set(groupId, arr);
+          if (shopName) {
+            const arr = linkedMap.get(row.therapist_id) || [];
+            if (!arr.includes(shopName)) arr.push(shopName);
+            linkedMap.set(row.therapist_id, arr);
           }
         });
         setLinkedShopsMap(linkedMap);
@@ -171,13 +199,15 @@ export default function TherapistsPage() {
         setLinkedShopsMap(new Map());
       }
 
-      // 各セラピストの先頭写真を取得
+      // 各セラピストの先頭写真を取得（店舗ごとグループは自店の写真のみ。全店共通はプロフィール共通なので店舗を問わない）
       if (list.length > 0) {
-        const { data: photosData } = await supabase
+        let photosQuery = supabase
           .from("therapist_photos")
           .select("therapist_id, photo_url, display_order")
           .in("therapist_id", list.map((t) => t.id))
           .order("display_order", { ascending: true });
+        if (scope === 'per_shop') photosQuery = photosQuery.eq('shop_id', selectedShop.id);
+        const { data: photosData } = await photosQuery;
         const map = new Map<string, string>();
         for (const p of (photosData || []) as { therapist_id: string; photo_url: string }[]) {
           if (!map.has(p.therapist_id)) map.set(p.therapist_id, p.photo_url);
@@ -362,12 +392,12 @@ export default function TherapistsPage() {
                 {rankName}
               </span>
             )}
-            {therapist.linked_therapist_group_id && (() => {
-              const shopNames = linkedShopsMap.get(therapist.linked_therapist_group_id);
-              const label = shopNames && shopNames.length > 0 ? shopNames.join('・') : 'リンク中';
+            {(() => {
+              const shopNames = linkedShopsMap.get(therapist.id);
+              if (!shopNames || shopNames.length === 0) return null;
               return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗とスケジュール・精算が相互同期されています">
-                  🔗 {label}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-100 whitespace-nowrap" title="他店舗にも在籍しています。スケジュール・精算は同じ人としてまとまります">
+                  🔗 {shopNames.join('・')}
                 </span>
               );
             })()}

@@ -715,6 +715,7 @@ export async function POST(
   // 1. セラピスト設定の取得
   let therapist = null
   let therapistName = 'フリー（指名なし）'
+  let resolvedRankId: string | null = null
   if (therapist_id) {
     const { data: ther } = await supabase
       .from('therapists')
@@ -724,6 +725,18 @@ export async function POST(
     therapist = ther
     if (ther?.name) {
       therapistName = ther.name
+    }
+    // 店舗ごとの源氏名・ランク上書きがあればそちらを優先する
+    // （店舗をまたいで在籍する人ほど、表示名・バック金額が店舗ごとに変わりうる）
+    const { data: rosterRow } = await supabase
+      .from('therapist_shops')
+      .select('rank_id, alias_name')
+      .eq('therapist_id', therapist_id)
+      .eq('shop_id', shopId)
+      .maybeSingle()
+    resolvedRankId = rosterRow?.rank_id ?? ther?.rank_id ?? null
+    if (rosterRow?.alias_name) {
+      therapistName = rosterRow.alias_name
     }
   }
 
@@ -747,7 +760,7 @@ export async function POST(
   const resolvedPrice = await resolveCustomerPrice(
     backShopId,
     course_id,
-    therapist?.rank_id || null,
+    resolvedRankId,
     designationType,
     course?.base_price || 0,
     supabase,
@@ -816,7 +829,7 @@ export async function POST(
         backShopId,
         pricingShopId,
         therapistId: therapist_id,
-        therapistRankId: therapist?.rank_id || null,
+        therapistRankId: resolvedRankId,
         therapistBackCalcType: therapist?.back_calc_type || null,
         courseId: course_id,
         coursePrice: course?.base_price || 0,

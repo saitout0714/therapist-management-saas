@@ -350,9 +350,9 @@ function mapCustomerTypeOverride(tag: string): string | null {
   return null
 }
 
-// キャスカンのステータス値: 1=新規予約 5=調整中 10=予約確定 20=完了 99=キャンセル
+// キャスカンのステータス値: 1=新規予約 5=調整中 10=予約確定 20=完了 99=キャンセル 100=下書き
 function mapReservationStatus(statusId: string): 'pending' | 'confirmed' | 'cancelled' {
-  if (statusId === '20' || statusId === '10') return 'confirmed'
+  if (statusId === '1' || statusId === '10' || statusId === '20') return 'confirmed'
   if (statusId === '99') return 'cancelled'
   return 'pending'
 }
@@ -625,6 +625,7 @@ async function main() {
   const castCaskanIdToSupabaseId = new Map<string, string>()
   const castsToCreate: CaskanCastRow[] = []
   const unmatchedDeletedCasts: CaskanCastRow[] = []
+  const blankNameCasts: CaskanCastRow[] = []
   let castNameMatch = 0
 
   for (const c of caskanCasts) {
@@ -634,16 +635,26 @@ async function main() {
       castNameMatch++
       continue
     }
-    if (c.tab === 3) {
+    // キャスカン側で名前が空欄のキャストは、name=''のゴミレコードを作らないよう新規作成対象から除外する
+    // （紐づく予約は therapist_id=null の未マッチ扱いになる）
+    if (!c.cleanName && !c.rawName) {
+      blankNameCasts.push(c)
+    } else if (c.tab === 3) {
       unmatchedDeletedCasts.push(c)
     } else {
       castsToCreate.push(c)
     }
   }
 
-  log(`[キャスト] 既存セラピストと名前一致: ${castNameMatch}件 / 新規作成対象(在籍+退店済み): ${castsToCreate.length}件 / 削除済みで未マッチ(作成せず): ${unmatchedDeletedCasts.length}件\n`)
+  log(`[キャスト] 既存セラピストと名前一致: ${castNameMatch}件 / 新規作成対象(在籍+退店済み): ${castsToCreate.length}件 / 削除済みで未マッチ(作成せず): ${unmatchedDeletedCasts.length}件 / 名前空欄で作成せず: ${blankNameCasts.length}件\n`)
+  if (castsToCreate.length > 0) {
+    log(`  新規作成対象一覧: ${castsToCreate.map((c) => `${c.cleanName || '(空)'}[raw:${c.rawName || '(空)'}](${c.status}, tab${c.tab}, caskanId:${c.caskanId})`).join(', ')}\n`)
+  }
   if (unmatchedDeletedCasts.length > 0) {
     log(`  削除済み未マッチ一覧: ${unmatchedDeletedCasts.map((c) => c.cleanName).slice(0, 20).join(', ')}${unmatchedDeletedCasts.length > 20 ? ' ...' : ''}\n`)
+  }
+  if (blankNameCasts.length > 0) {
+    log(`  名前空欄一覧(caskanId): ${blankNameCasts.map((c) => c.caskanId).join(', ')}\n`)
   }
   log('\n')
 
@@ -783,6 +794,38 @@ async function main() {
   }
   log(`[予約] 既存の caskan_reservation_id: ${existingCaskanReservationIds.size}件\n\n`)
 
+  // ── 7b. 未連携（caskan_reservation_id が null）の既存予約を取得 ─────────────
+  // キャスカン同期前にyoyakl側で手動入力された予約は caskan_reservation_id を持たないため、
+  // 上のSetだけでは重複を検知できない（同じ予約が新規作成されてしまう）。
+  // 顧客・日付・開始時刻が完全一致する未連携予約があれば「同一予約」とみなし、
+  // 新規作成の代わりにその既存予約へ caskan_reservation_id を紐付ける（UPDATE）。
+  const unlinkedByKey = new Map<string, { id: string; room_id: string | null; course_id: string | null }>()
+  {
+    let offset = 0
+    const PAGE = 1000
+    while (true) {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('id, customer_id, date, start_time, room_id, course_id')
+        .eq('shop_id', shop.supabaseId)
+        .is('caskan_reservation_id', null)
+        .not('customer_id', 'is', null)
+        .range(offset, offset + PAGE - 1)
+      if (error) {
+        log(`[ERROR] 未連携予約の取得に失敗: ${error.message}\n`)
+        break
+      }
+      if (!data || data.length === 0) break
+      data.forEach((r) => {
+        const key = `${r.customer_id}_${r.date}_${String(r.start_time).slice(0, 5)}`
+        unlinkedByKey.set(key, { id: r.id, room_id: r.room_id, course_id: r.course_id })
+      })
+      if (data.length < PAGE) break
+      offset += PAGE
+    }
+  }
+  log(`[予約] 未連携(caskan_reservation_id無し)の既存予約: ${unlinkedByKey.size}件\n\n`)
+
   // ── 8. 予約のスクレイピング（年ごとに範囲を区切って取得） ────────────────
   log('--- 対象年の判定 ---\n')
   const years = await findYearsWithData(session)
@@ -817,6 +860,8 @@ async function main() {
   const statusBreakdown: Record<string, number> = {}
 
   const toInsert: Record<string, unknown>[] = []
+  const toLink: { id: string; caskan_reservation_id: string; room_id?: string; course_id?: string }[] = []
+  let linkedToExisting = 0
 
   for (const row of allReservations) {
     if (existingCaskanReservationIds.has(row.caskanReservationId)) {
@@ -881,6 +926,23 @@ async function main() {
 
     statusBreakdown[row.statusText || row.statusId] = (statusBreakdown[row.statusText || row.statusId] || 0) + 1
 
+    // 同期前にyoyakl側で手動入力済みの予約（顧客・日付・開始時刻が完全一致）があれば、
+    // 新規作成せずそちらへ caskan_reservation_id を紐付けるだけにする（重複防止）。
+    const linkKey = `${customerId}_${parsedDate.date}_${parsedDate.startTime}`
+    const existingUnlinked = unlinkedByKey.get(linkKey)
+    if (existingUnlinked) {
+      linkedToExisting++
+      unlinkedByKey.delete(linkKey) // 同じ枠に複数のキャスカン行が来ても二重リンクしない
+      const linkUpdate: { id: string; caskan_reservation_id: string; room_id?: string; course_id?: string } = {
+        id: existingUnlinked.id,
+        caskan_reservation_id: row.caskanReservationId,
+      }
+      if (!existingUnlinked.room_id && roomId) linkUpdate.room_id = roomId
+      if (!existingUnlinked.course_id && courseId) linkUpdate.course_id = courseId
+      toLink.push(linkUpdate)
+      continue
+    }
+
     toInsert.push({
       shop_id: shop.supabaseId,
       customer_id: customerId,
@@ -919,6 +981,7 @@ async function main() {
     log(`  顧客が新規作成予定のため今回未集計(--commit実行後は投入されます): ${pendingNewCustomerCount}件\n`)
   }
   log(`  新規投入対象(dryRunでは既存顧客に紐づくもののみ): ${toInsert.length}件\n`)
+  log(`  同期前の手動入力予約に紐付け(重複作成を回避): ${linkedToExisting}件\n`)
   log(`  セラピスト未マッチ(therapist_id=null): ${unmatchedTherapistCount}件 (${[...unmatchedTherapistNames].slice(0, 20).join(', ')}${unmatchedTherapistNames.size > 20 ? ' ...' : ''})\n`)
   log(`  ルーム未マッチ(room_id=null): ${unmatchedRoomCount}件 (${[...unmatchedRoomNames].join(', ')})\n`)
   log(`  コース未マッチ(course_id=null): ${unmatchedCourseCount}件 (${[...unmatchedCourseTexts].join(', ')})\n`)
@@ -943,7 +1006,22 @@ async function main() {
     log(`  予約作成: ${Math.min(i + BATCH, toInsert.length)}/${toInsert.length}\n`)
   }
 
-  log(`\n完了: 予約 ${inserted}件を投入しました。\n`)
+  let linked = 0
+  if (toLink.length > 0) {
+    log(`既存の手動入力予約に caskan_reservation_id を紐付け中 (${toLink.length}件)...\n`)
+    for (const item of toLink) {
+      const { id, ...patch } = item
+      const { error } = await supabase.from('reservations').update(patch).eq('id', id)
+      if (error) {
+        log(`[ERROR] 予約リンク失敗 (id=${id}): ${error.message}\n`)
+        continue
+      }
+      linked++
+    }
+    log(`  リンク完了: ${linked}/${toLink.length}\n`)
+  }
+
+  log(`\n完了: 予約 ${inserted}件を新規投入、${linked}件を既存の手動入力予約に紐付けしました。\n`)
 
   const [{ count: afterCustomers }, { count: afterTherapists }, { count: afterReservations }] = await Promise.all([
     supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shop.supabaseId),

@@ -192,7 +192,10 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 10 https://my.caskan.jp/login)",
       "Bash(awk '/<tbody/,/<\\\\/tbody>/' scratch/caskan_html/customer.html)",
       "Bash(awk '/tbl-reserve-list/,0' scratch/caskan_html/reserve_range.html)",
-      "Bash(awk '/tbl-room/,0' scratch/caskan_html/room.html)"
+      "Bash(awk '/tbl-room/,0' scratch/caskan_html/room.html)",
+      "Bash(git pull *)",
+      "Read(//c/Users/saitou-cyberpunk/.claude/**)",
+      "Read(//c//**)"
     ]
   }
 }

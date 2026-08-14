@@ -68,7 +68,7 @@ interface Reservation {
   booking_method?: string | null
   is_handled?: boolean | null
   extension_count?: number
-  customers: { name: string; created_at: string } | null
+  customers: { name: string; created_at: string; member_number: string | null; customer_shops?: { shop_id: string; member_number: string | null }[] } | null
   courses: { name: string; duration: number } | null
   business_date?: string | null
   customer_id?: string | null
@@ -133,6 +133,14 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [designationMap, setDesignationMap] = useState<Record<string, string>>({})
+
+  // 会員番号は店舗ごと（customer_shops）。この画面は常に selectedShop 単一店舗の
+  // 予約だけを扱うので、その店舗の番号を優先し、無ければ旧・単一列にフォールバックする
+  const customerDisplayName = (customer: Reservation['customers']): string => {
+    if (!customer?.name) return ''
+    const memberNumber = customer.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number || customer.member_number
+    return memberNumber ? `${memberNumber} ${customer.name}` : customer.name
+  }
 
   const [memoPopup, setMemoPopup] = useState<{ therapistId: string; x: number; y: number } | null>(null)
   const [roomMemoPopup, setRoomMemoPopup] = useState<{ roomName: string; displayName: string | null; address: string | null; memo: string; mapUrl: string | null; x: number; y: number } | null>(null)
@@ -218,7 +226,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
         .lte('date', endDate),
       supabase
         .from('reservations')
-        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, reception_source, booking_method, is_handled, extension_count, customer_type_override, customers(name, created_at), courses(name, duration)')
+        .select('id, therapist_id, customer_id, date, business_date, start_time, end_time, status, designation_type, is_hime, total_price, discount_amount, notes, payment_method, customer_notified, therapist_notified, source, reception_source, booking_method, is_handled, extension_count, customer_type_override, customers(name, created_at, member_number, customer_shops(shop_id, member_number)), courses(name, duration)')
         .eq('shop_id', selectedShop.id)
         .or(`and(business_date.gte.${startDate},business_date.lte.${endDate}),and(business_date.is.null,date.gte.${startDate},date.lte.${endDate})`)
         .in('status', ['confirmed', 'blocked']),
@@ -804,7 +812,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                             <div className="text-[10px] font-bold text-rose-700 leading-none flex items-center justify-between gap-1">
                                               <span>{toDisplayTime(res.start_time)}-{toDisplayTime(res.end_time)}</span>
                                               <span className="bg-rose-100 text-rose-700 text-[8px] font-extrabold px-1 rounded-sm">
-                                                {res.customers?.name || '受付不可'}
+                                                {customerDisplayName(res.customers) || '受付不可'}
                                               </span>
                                             </div>
                                             {res.notes && (
@@ -882,7 +890,7 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                           {/* Row 2: 顧客名 + 新規/会員バッジ */}
                                           <div className="flex items-center justify-start gap-1 min-w-0">
                                             <span className="font-bold text-[13px] text-white leading-none truncate drop-shadow-sm">
-                                              {res.customers?.name || '—'}
+                                              {customerDisplayName(res.customers) || '—'}
                                             </span>
                                             <span className={`flex-shrink-0 text-[9px] px-1 rounded-sm font-bold ${isNewCustomer ? 'bg-rose-400/90' : 'bg-emerald-400/90'} text-white shadow-sm`}>
                                               {isNewCustomer ? '新規' : '会員'}

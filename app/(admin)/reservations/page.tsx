@@ -18,7 +18,7 @@ type Reservation = {
   status: string
   designation_type: string
   created_at: string
-  customer: { id: string; name: string } | null
+  customer: { id: string; name: string; member_number: string | null; customer_shops?: { shop_id: string; member_number: string | null }[] } | null
   therapist: { name: string } | null
   course: { name: string } | null
   created_by: { name: string } | null
@@ -73,6 +73,14 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
+
+  // 会員番号は店舗ごと（customer_shops）。この画面は selectedShop 単一店舗の
+  // 予約だけを扱うので、その店舗の番号を優先し、無ければ旧・単一列にフォールバックする
+  const customerDisplayName = (customer: Reservation['customer']): string => {
+    if (!customer?.name) return ''
+    const memberNumber = customer.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number || customer.member_number
+    return memberNumber ? `${memberNumber} ${customer.name}` : customer.name
+  }
   const [loading, setLoading] = useState(true)
   const [designationTypes, setDesignationTypes] = useState<Record<string, string>>({})
   const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
@@ -229,7 +237,7 @@ export default function ReservationsPage() {
     const baseList = supabase
       .from('reservations')
       .select(
-        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,reception_source,customer:customers(id,name),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)'
+        'id,date,business_date,start_time,end_time,total_price,status,designation_type,created_at,is_handled,source,booking_method,customer_notified,therapist_notified,reception_source,customer:customers(id,name,member_number,customer_shops(shop_id,member_number)),therapist:therapists!reservations_therapist_id_fkey(name),course:courses(name),created_by:users(name)'
       )
       .eq('shop_id', selectedShop.id)
       .neq('status', 'blocked')
@@ -611,7 +619,7 @@ export default function ReservationsPage() {
                           {r.customer ? (
                             <div className="flex flex-col">
                               <Link href={`/customers/${r.customer.id}`} style={isCancelled ? undefined : { color: '#2196f3' }} className={`font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${isCancelled ? 'text-red-600' : ''}`}>
-                                {r.customer.name}
+                                {customerDisplayName(r.customer)}
                                 {ngCustomerIds.has(r.customer.id) && (
                                   <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
                                 )}

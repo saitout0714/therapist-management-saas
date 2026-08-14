@@ -86,6 +86,20 @@ export async function GET(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    // 店舗ごとグループなら、在籍テーブルの店舗別の見せ方（源氏名・コメント）を適用する
+    let rosterMap = new Map<string, { alias_name: string | null; comment: string | null }>()
+    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).maybeSingle()
+    if (shopRow?.owner_id) {
+      const { data: ownerRow } = await supabase.from('owners').select('therapist_scope').eq('id', shopRow.owner_id).maybeSingle()
+      if ((ownerRow?.therapist_scope ?? 'per_shop') === 'per_shop') {
+        const { data: rosterData } = await supabase
+          .from('therapist_shops')
+          .select('therapist_id, alias_name, comment')
+          .eq('shop_id', shop_id)
+        rosterMap = new Map((rosterData || []).map(r => [r.therapist_id, r]))
+      }
+    }
+
     const [shiftsRes, coursesRes, reservationsRes, settingsRes] = await Promise.all([
       supabase
         .from('shifts')
@@ -134,7 +148,11 @@ export async function GET(req: NextRequest) {
     const minAllowedTime = now.getTime() + 20 * 60 * 1000
 
     const formatted = (shiftsRes.data || []).map((s: any) => {
-      const therapist = s.therapists || {}
+      const rawTherapist = s.therapists || {}
+      const roster = rosterMap.get(rawTherapist.id)
+      const therapist = roster
+        ? { ...rawTherapist, name: roster.alias_name || rawTherapist.name, comment: roster.comment ?? rawTherapist.comment }
+        : rawTherapist
       const room = s.rooms || {}
 
       const formatTimeStr = (t: string) => t ? t.slice(0, 5) : ''

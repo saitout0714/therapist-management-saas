@@ -10,6 +10,8 @@ import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelec
 import { parseDispatchFromNotes, updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
 import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
 
+type CustomerShopRoster = { shop_id: string; member_number: string | null; shops: { name: string } | null }
+
 type Customer = {
   id: string
   name: string
@@ -19,6 +21,7 @@ type Customer = {
   ng_reason?: string | null
   memo?: string | null
   created_at?: string
+  customer_shops?: CustomerShopRoster[]
 }
 
 type Course = {
@@ -195,8 +198,39 @@ export default function EditReservationPage() {
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false)
   const [selectedCustomerObj, setSelectedCustomerObj] = useState<Customer | null>(null)
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' })
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', member_number: '' })
+  const [shopNumberPrompt, setShopNumberPrompt] = useState('')
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 来店履歴（どの店舗のどのセラピストに入ったか）。同じセラピストを別店舗で
+  // 案内してしまわないよう確認するためのもの
+  const [visitHistory, setVisitHistory] = useState<{ shopName: string; therapistName: string; count: number }[]>([])
+
+  useEffect(() => {
+    const customerId = selectedCustomerObj?.id
+    if (!customerId) { setVisitHistory([]); return }
+    let cancelled = false
+    supabase
+      .from('reservations')
+      .select('shop_id, therapist_id, shops(name), therapists(name)')
+      .eq('customer_id', customerId)
+      .neq('status', 'cancelled')
+      .neq('id', reservationId)
+      .then(({ data }) => {
+        if (cancelled) return
+        const counts = new Map<string, { shopName: string; therapistName: string; count: number }>()
+        for (const r of (data || []) as any[]) {
+          if (!r.therapist_id) continue
+          const shopName = r.shops?.name || '?'
+          const therapistName = r.therapists?.name || '?'
+          const key = `${r.shop_id}::${r.therapist_id}`
+          const cur = counts.get(key)
+          if (cur) cur.count++
+          else counts.set(key, { shopName, therapistName, count: 1 })
+        }
+        setVisitHistory([...counts.values()].sort((a, b) => b.count - a.count))
+      })
+    return () => { cancelled = true }
+  }, [selectedCustomerObj?.id])
 
   const [rooms, setRooms] = useState<any[]>([])
   const [dispatchType, setDispatchType] = useState<'store' | 'hotel' | 'home'>('store')
@@ -226,19 +260,28 @@ export default function EditReservationPage() {
     customerSearchTimer.current = setTimeout(async () => {
       setCustomerSearchLoading(true)
       const normalized = q.replace(/-/g, '')
-      let shopIds = [selectedShop.id]
-      if (selectedShop.owner_id) {
-        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
-        if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
-      }
-      const { data } = await supabase
+      // 顧客は人単位でグループ共通。会員番号だけ customer_shops に店舗ごとに分かれて入っている。
+      // 会員番号でも検索できるよう、customer_shops側もあわせて調べる。
+      const numberMatches = await supabase
+        .from('customer_shops')
+        .select('customer_id')
+        .ilike('member_number', `%${q}%`)
+        .limit(50)
+      const numberMatchIds = (numberMatches.data || []).map(r => r.customer_id)
+
+      let query = supabase
         .from('customers')
-        .select('id, name, email, phone, status, ng_reason, memo')
-        .in('shop_id', shopIds)
-        .or(`name.ilike.%${q}%,phone.ilike.%${normalized}%,email.ilike.%${q}%`)
+        .select('id, name, email, phone, status, ng_reason, memo, customer_shops(shop_id, member_number, shops(name))')
         .order('name')
         .limit(50)
-      setCustomerSearchResults(data || [])
+      query = selectedShop.owner_id ? query.eq('owner_id', selectedShop.owner_id) : query.eq('shop_id', selectedShop.id)
+
+      const orParts = [`name.ilike.%${q}%`, `phone.ilike.%${normalized}%`, `email.ilike.%${q}%`, `member_number.ilike.%${q}%`]
+      if (numberMatchIds.length > 0) orParts.push(`id.in.(${numberMatchIds.join(',')})`)
+      query = query.or(orParts.join(','))
+
+      const { data } = await query
+      setCustomerSearchResults((data || []) as unknown as Customer[])
       setCustomerSearchLoading(false)
     }, 300)
     return () => { if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current) }
@@ -277,7 +320,11 @@ export default function EditReservationPage() {
       }
 
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
-        supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').in('shop_id', shopIds).order('name'),
+        // 顧客は人単位でグループ共通。オーナー配下の全店舗を対象にする（無ければ自店舗のみ）
+        (selectedShop.owner_id
+          ? supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('owner_id', selectedShop.owner_id)
+          : supabase.from('customers').select('id, name, email, phone, status, ng_reason, memo, created_at').eq('shop_id', selectedShop.id)
+        ).order('name'),
         supabase.from('courses').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', shopIds).order('name'),
@@ -844,18 +891,27 @@ export default function EditReservationPage() {
     try {
       // 新規顧客の場合は先に登録
       if (!formData.customer_id && newCustomer.name) {
+        const memberNumber = newCustomer.member_number.trim() || null
         const { data: createdCustomer, error: customerError } = await supabase
           .from('customers')
           .insert([{
             name: newCustomer.name,
             phone: customerSearch || null,
+            member_number: memberNumber,
             shop_id: selectedShop.id,
+            owner_id: selectedShop.owner_id || null,
           }])
           .select()
           .single()
         if (customerError) throw new Error('顧客登録に失敗しました: ' + customerError.message)
+        await supabase.from('customer_shops').insert([{ customer_id: createdCustomer.id, shop_id: selectedShop.id, member_number: memberNumber }])
         setFormData(prev => ({ ...prev, customer_id: createdCustomer.id }))
         formData.customer_id = createdCustomer.id
+      } else if (formData.customer_id && shopNumberPrompt.trim() && !selectedCustomerObj?.customer_shops?.some(cs => cs.shop_id === selectedShop.id)) {
+        // 既存顧客（別店舗で登録済み）が、この店舗で初めて会員番号を持つ場合
+        await supabase
+          .from('customer_shops')
+          .upsert({ customer_id: formData.customer_id, shop_id: selectedShop.id, member_number: shopNumberPrompt.trim() }, { onConflict: 'customer_id,shop_id' })
       }
 
 
@@ -1135,6 +1191,7 @@ export default function EditReservationPage() {
                             onClick={async () => {
                               setSelectedCustomerObj(customer)
                               setCustomerSearch(customer.phone || '')
+                              setShopNumberPrompt('')
                               // まず新規としてセット（非同期判定中のデフォルト）
                               setFormData({ ...formData, customer_id: customer.id, customer_type_override: 'new' })
                               // reservationsテーブルで予約履歴を確認して新規/会員を自動判定
@@ -1157,8 +1214,19 @@ export default function EditReservationPage() {
                             }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                           >
-                            <span className="font-medium">{customer.name}</span>{' '}
-                            <span className="text-gray-500 text-[10px]">{customer.phone ? `(${customer.phone})` : ''}</span>
+                            <div>
+                              <span className="font-medium">{customer.name}</span>{' '}
+                              <span className="text-gray-500 text-[10px]">{customer.phone ? `(${customer.phone})` : ''}</span>
+                            </div>
+                            {(customer.customer_shops?.length ?? 0) > 0 && (
+                              <div className="mt-0.5 flex flex-wrap gap-1">
+                                {customer.customer_shops!.map(cs => (
+                                  <span key={cs.shop_id} className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-bold ${cs.shop_id === selectedShop?.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    {cs.shops?.name ?? '?'}: {cs.member_number || '番号なし'}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </button>
                         ))
                       )}
@@ -1175,6 +1243,7 @@ export default function EditReservationPage() {
                     )}
                   </label>
                   {selectedCustomerObj ? (
+                    <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       <div className={`flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 overflow-hidden ${selectedCustomerObj.status === '出禁' ? 'bg-red-50 border-red-300 text-red-900' : selectedCustomerObj.status === '要注意' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
                         <svg className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1193,20 +1262,41 @@ export default function EditReservationPage() {
                           setSelectedCustomerObj(null)
                           setFormData({ ...formData, customer_id: '' })
                           setCustomerSearch('')
+                          setNewCustomer(prev => ({ ...prev, name: '', member_number: '' }))
+                          setShopNumberPrompt('')
                         }}
                         className="px-2 py-1.5 text-[10px] text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
                       >
                         変更
                       </button>
                     </div>
+                    {selectedShop && !selectedCustomerObj.customer_shops?.some(cs => cs.shop_id === selectedShop.id) && (
+                      <input
+                        type="text"
+                        value={shopNumberPrompt}
+                        onChange={(e) => setShopNumberPrompt(e.target.value)}
+                        placeholder={`${selectedShop.name}の会員番号（任意）`}
+                        className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
+                      />
+                    )}
+                    </div>
                   ) : customerSearch.trim() && filteredCustomers.length === 0 && !customerSearchLoading && !formData.customer_id ? (
-                    <input
-                      type="text"
-                      value={newCustomer.name}
-                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                      placeholder="新規お客様名を入力"
-                      className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
-                    />
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        value={newCustomer.name}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                        placeholder="新規お客様名を入力"
+                        className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={newCustomer.member_number}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, member_number: e.target.value })}
+                        placeholder="会員番号（この店舗用・任意）"
+                        className="w-full px-2.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400/50 outline-none transition-all placeholder:text-[10px] placeholder:text-amber-400 text-xs"
+                      />
+                    </div>
                   ) : (
                     <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-400">
                       検索から選択してください
@@ -1236,6 +1326,23 @@ export default function EditReservationPage() {
                   </div>
                   <div className="font-medium whitespace-pre-wrap leading-relaxed">
                     {selectedCustomerObj.memo}
+                  </div>
+                </div>
+              )}
+              {visitHistory.length > 0 && (
+                <div className="px-3 py-2 rounded-lg text-[10px] flex flex-col gap-1 bg-sky-50 border border-sky-200 text-sky-900 shadow-sm">
+                  <div className="flex items-center gap-1 font-bold">
+                    <svg className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    来店履歴（他店舗含む）
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {visitHistory.map((v, i) => (
+                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-sky-200 font-medium">
+                        {v.shopName} - {v.therapistName}（{v.count}回）
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}

@@ -12,6 +12,7 @@ type Customer = {
   email: string | null
   phone: string | null
   phone2: string | null
+  member_number: string | null
   created_at: string
   status: string
   ng_reason: string | null
@@ -290,6 +291,10 @@ export default function CustomerDetailPage() {
             <div>
               <p className="text-sm text-slate-500 font-medium mb-1">来店回数</p>
               <p className="text-lg font-bold text-indigo-600">{reservations.length} 回</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-1">会員番号（この店舗）</p>
+              <p className="text-slate-800 font-medium">{customer.member_number || <span className="text-slate-400 font-normal italic">未登録</span>}</p>
             </div>
             <div>
               <p className="text-sm text-slate-500 font-medium mb-1">電話番号①</p>
