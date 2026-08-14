@@ -657,12 +657,13 @@ export async function fetchSystemExtras(shopId?: string): Promise<SystemMenuCate
 export interface RoomInfo {
   id: string;
   name: string;
-  displayName?: string | null;
   address?: string | null;
   googleMapUrl?: string | null;
-  memo?: string | null;
 }
 
+// 公開HPのアクセスページ用。実際の部屋番号・詳細住所・内部メモは絶対に出さず、
+// 管理画面で「HP掲載用」として明示的に入力された、あいまいな表記（public_name / address_nearby / google_map_url_nearby）のみを返す。
+// public_name が未入力のルームは、防犯上デフォルトで非公開（一覧に含めない）。
 export async function fetchStoreRooms(shopId: string): Promise<RoomInfo[]> {
   try {
     let targetShopId = shopId;
@@ -673,18 +674,17 @@ export async function fetchStoreRooms(shopId: string): Promise<RoomInfo[]> {
 
     const { data, error } = await supabase
       .from('rooms')
-      .select('id, name, display_name, address, google_map_url, memo')
+      .select('id, public_name, address_nearby, google_map_url_nearby')
       .eq('shop_id', targetShopId)
+      .not('public_name', 'is', null)
       .order('order', { ascending: true, nullsFirst: false });
 
     if (error || !data) return [];
     return data.map((r: any) => ({
       id: r.id,
-      name: r.name,
-      displayName: r.display_name,
-      address: r.address,
-      googleMapUrl: r.google_map_url,
-      memo: r.memo,
+      name: r.public_name,
+      address: r.address_nearby,
+      googleMapUrl: r.google_map_url_nearby,
     }));
   } catch {
     return [];

@@ -2,20 +2,23 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { Header } from '../../../../components/store/Header';
+import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { TherapistCard } from '../../../../components/store/TherapistCard';
 import { TherapistFilter } from '../../../../components/store/TherapistFilter';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists } from '../../../../lib/storeApi';
 import { StoreConfig, Therapist } from '../../../../types/store';
-import { MOCK_STORE } from '../../../../mock/specialgrade';
-import { MOCK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { BLANK_STORE } from '../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+
+import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
 export default function TherapistsPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? MOCK_ONYANKO_STORE : MOCK_STORE);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
@@ -39,19 +42,15 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col ${
-        isCyberTheme ? 'cyber-bg text-stone-100 font-sans' : 'bg-[#faf9f5] text-stone-800 font-serif'
+      <div className={`min-h-screen flex flex-col relative ${
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
-      <Header store={store} />
+        {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
+        <Header store={store} />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
+        <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full relative z-10">
         <div className="text-center mb-8">
-          <h1 className={`text-2xl font-bold tracking-widest ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>Therapists</h1>
-          <span className={`inline-block text-xs border-t px-4 pt-1 mt-1 tracking-widest ${
-            isCyberTheme ? 'text-[#ffb8e0] border-[#ff8fc9]' : 'text-[#a39573] border-stone-800'
-          }`}>
-            セラピスト一覧
-          </span>
+          <PageHeading title="Therapist" subtitle="セラピスト一覧" isCyber={isCyberTheme} />
 
           <TherapistFilter
             tags={allTags}
@@ -62,12 +61,13 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          {filteredTherapists.map((therapist) => (
+          {filteredTherapists.map((therapist, idx) => (
             <TherapistCard
               key={therapist.id}
               therapist={therapist}
               storeSlug={shopSlug}
               primaryColor={store.themeColor?.primary}
+              index={idx}
             />
           ))}
         </div>

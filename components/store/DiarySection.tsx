@@ -18,7 +18,7 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
           href={`/${storeSlug}/diary/${art.id}`}
           className={`group p-3.5 transition-all flex gap-3 ${
             isCyber
-              ? 'cyber-card rounded-xl border-[#ff8fc9]/30 hover:border-[#ff8fc9]'
+              ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/30 hover:border-[#ff6fb5]'
               : 'bg-white rounded-sm border border-[#d1b464]/30 hover:border-[#a39573] shadow-sm'
           }`}
         >
@@ -43,16 +43,16 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
                   alt={art.therapistName}
                   className="w-4 h-4 rounded-full object-cover"
                 />
-                <span className={`text-xs font-bold ${isCyber ? 'text-pink-100' : 'text-stone-800'}`}>{art.therapistName}</span>
-                <span className={`text-[10px] ml-auto ${isCyber ? 'text-pink-300' : 'text-stone-400'}`}>{art.publishedAt}</span>
+                <span className={`text-xs font-bold ${isCyber ? 'text-[#ded1ee]' : 'text-stone-800'}`}>{art.therapistName}</span>
+                <span className={`text-[10px] ml-auto ${isCyber ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>{art.publishedAt}</span>
               </div>
-              <h4 className={`text-xs font-bold group-hover:text-[#ff8fc9] transition-colors line-clamp-2 leading-snug ${
-                isCyber ? 'text-white' : 'text-stone-800'
+              <h4 className={`text-xs font-bold group-hover:text-[#ffa8d8] transition-colors line-clamp-2 leading-snug ${
+                isCyber ? 'text-[#f4eefa]' : 'text-stone-800'
               }`}>
                 {art.title}
               </h4>
             </div>
-            <p className={`text-[11px] line-clamp-1 mt-1 ${isCyber ? 'text-pink-200/80' : 'text-stone-500'}`}>{art.content}</p>
+            <p className={`text-[11px] line-clamp-1 mt-1 ${isCyber ? 'text-[#c4b2dc]/80' : 'text-stone-500'}`}>{art.content}</p>
           </div>
         </Link>
       ))}

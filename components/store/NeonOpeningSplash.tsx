@@ -21,13 +21,17 @@ export const NeonOpeningSplash: React.FC<NeonOpeningSplashProps> = ({ storeSlug,
   if (!isVisible || storeSlug !== 'onyankospa') return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#050014] flex flex-col items-center justify-center pointer-events-none transition-opacity duration-700">
+    <div className="fixed inset-0 z-50 cyber-bg flex flex-col items-center justify-center pointer-events-none transition-opacity duration-700">
       <div className="text-center space-y-3 animate-glitch-intro px-4">
-        <div className="text-4xl sm:text-6xl font-extrabold tracking-widest text-[#ff8fc9] drop-shadow-[0_0_35px_#ff8fc9]">
+        <span className="neon-script block text-3xl sm:text-5xl leading-tight pb-1" aria-hidden="true">
+          Onyanko Spa
+        </span>
+        <div className="font-cyber-display text-4xl sm:text-6xl font-extrabold tracking-widest neon-text-pink">
           🐾 {storeName} 🐾
         </div>
-        <p className="text-xs sm:text-sm font-bold text-pink-200 tracking-widest animate-pulse">
-          〜 GRAND OPENING CYBER SPA 〜
+        <div className="neon-rule w-56 mx-auto" />
+        <p className="text-xs sm:text-sm font-bold text-[#ffa8d8] tracking-[0.3em] animate-pulse">
+          〜 GRAND OPENING NEON SPA 〜
         </p>
       </div>
     </div>

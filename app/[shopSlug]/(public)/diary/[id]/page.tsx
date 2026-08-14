@@ -6,7 +6,8 @@ import { Header } from '../../../../../components/store/Header';
 import { Footer } from '../../../../../components/store/Footer';
 import { fetchStoreConfig, fetchBlogArticleDetail } from '../../../../../lib/storeApi';
 import { StoreConfig, BlogArticle } from '../../../../../types/store';
-import { MOCK_STORE, MOCK_BLOG_ARTICLES } from '../../../../../mock/specialgrade';
+import { BLANK_STORE } from '../../../../../mock/specialgrade';
+import { BLANK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
 
 export default function DiaryDetailPage({
   params,
@@ -15,9 +16,10 @@ export default function DiaryDetailPage({
 }) {
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
+  const isOnyanko = shopSlug === 'onyankospa';
   const blogId = resolvedParams.id;
 
-  const [store, setStore] = useState<StoreConfig>(MOCK_STORE);
+  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [article, setArticle] = useState<BlogArticle | null>(null);
 
   useEffect(() => {
@@ -30,7 +32,19 @@ export default function DiaryDetailPage({
     loadData();
   }, [shopSlug, blogId]);
 
-  const currentArticle = article || MOCK_BLOG_ARTICLES[0];
+  if (!article) {
+    return (
+      <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">
+        <Header store={store} />
+        <main className="flex-1 max-w-3xl mx-auto px-4 py-24 w-full text-center">
+          <p className="text-xs text-stone-400 tracking-widest">読み込み中...</p>
+        </main>
+        <Footer store={store} />
+      </div>
+    );
+  }
+
+  const currentArticle = article;
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-stone-800 flex flex-col font-serif">

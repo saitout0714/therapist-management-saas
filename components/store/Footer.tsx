@@ -13,9 +13,9 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
   const isCyberTheme = store.slug === 'onyankospa';
 
   return (
-    <footer className={`border-t pt-12 pb-8 ${
+    <footer className={`border-t pt-12 pb-8 backdrop-blur-xl ${
       isCyberTheme
-        ? 'bg-[#050014] text-pink-100 border-[#ff8fc9]/40 font-sans'
+        ? 'bg-[#0d0914]/85 text-[#ded1ee] border-[#ff6fb5]/35 shadow-[0_-6px_28px_rgba(255,111,181,0.2)]'
         : 'bg-[#1f1d1a] text-stone-300 border-[#d1b464]/30 font-serif'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -25,19 +25,19 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
             <h3 className={`text-xl font-bold mb-3 tracking-wider ${isCyberTheme ? 'neon-text-pink' : ''}`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               {store.name}
             </h3>
-            <p className={`text-xs mb-4 tracking-widest ${isCyberTheme ? 'text-pink-300' : 'text-stone-400'}`}>{store.catchphrase}</p>
+            <p className={`text-xs mb-4 tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-400'}`}>{store.catchphrase}</p>
             <div className="space-y-2 text-xs">
-              <p><span style={{ color: isCyberTheme ? '#ffb8e0' : accentColor }}>住所：</span>{store.address}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffb8e0' : accentColor }}>アクセス：</span>{store.accessInfo}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffb8e0' : accentColor }}>営業時間：</span>{store.businessHours}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffb8e0' : accentColor }}>電話番号：</span>{store.phoneNumber}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : accentColor }}>住所：</span>{store.address}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : accentColor }}>アクセス：</span>{store.accessInfo}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : accentColor }}>営業時間：</span>{store.businessHours}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : accentColor }}>電話番号：</span>{store.phoneNumber}</p>
             </div>
           </div>
 
           {/* クイックリンク */}
           <div className="space-y-2 text-xs">
             <h4 className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
-              isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/40' : 'border-[#d1b464]/30'
+              isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : 'border-[#d1b464]/30'
             }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               CONTENTS
             </h4>
@@ -56,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
           {/* SNS & お問い合わせ & Google Maps */}
           <div>
             <h4 className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
-              isCyberTheme ? 'neon-text-pink border-[#ff8fc9]/40' : 'border-[#d1b464]/30'
+              isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : 'border-[#d1b464]/30'
             }`} style={{ color: isCyberTheme ? undefined : primaryColor }}>
               CONTACT & ACCESS
             </h4>
@@ -68,7 +68,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   rel="noopener noreferrer"
                   className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
                     isCyberTheme
-                      ? 'bg-[#1a0933] border-[#ff8fc9]/40 text-pink-100 hover:border-[#ff8fc9]'
+                      ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -82,7 +82,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   rel="noopener noreferrer"
                   className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
                     isCyberTheme
-                      ? 'bg-[#1a0933] border-[#ff8fc9]/40 text-pink-100 hover:border-[#ff8fc9]'
+                      ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -96,7 +96,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   rel="noopener noreferrer"
                   className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
                     isCyberTheme
-                      ? 'bg-[#1a0933] border-[#ff8fc9]/40 text-pink-100 hover:border-[#ff8fc9]'
+                      ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -106,10 +106,9 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
             </div>
             <Link
               href={`${basePath}/reserve`}
-              style={{ backgroundColor: isCyberTheme ? '#ff8fc9' : undefined }}
               className={`inline-block w-full py-3 text-center text-white font-bold text-xs tracking-widest shadow-md transition-all ${
                 isCyberTheme
-                  ? 'bg-[#ff8fc9] hover:bg-[#ffb8e0] rounded-full shadow-[0_0_15px_rgba(255,143,201,0.6)]'
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                   : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
               }`}
             >
@@ -119,7 +118,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
         </div>
 
         <div className={`border-t pt-6 text-center text-[11px] tracking-widest ${
-          isCyberTheme ? 'border-[#ff8fc9]/20 text-pink-300' : 'border-stone-800 text-stone-500'
+          isCyberTheme ? 'border-[#ff6fb5]/20 text-[#ffa8d8]' : 'border-stone-800 text-stone-500'
         }`}>
           © {new Date().getFullYear()} {store.name}. All Rights Reserved.
         </div>

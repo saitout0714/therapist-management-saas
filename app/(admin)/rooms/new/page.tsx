@@ -35,6 +35,9 @@ export default function NewRoomPage() {
     address: '',
     google_map_url: '',
     memo: '',
+    show_on_hp: false,
+    address_nearby: '',
+    google_map_url_nearby: '',
     template_member: '',
     template_new_customer: '',
     template_web_member: '',
@@ -75,6 +78,9 @@ export default function NewRoomPage() {
         address: formData.address || null,
         google_map_url: formData.google_map_url || null,
         memo: formData.memo || null,
+        public_name: formData.show_on_hp ? (formData.name.trim() || null) : null,
+        address_nearby: formData.address_nearby || null,
+        google_map_url_nearby: formData.google_map_url_nearby || null,
         template_member: formData.template_member || null,
         template_new_customer: formData.template_new_customer || null,
         template_web_member: formData.template_web_member || null,
@@ -139,6 +145,7 @@ export default function NewRoomPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
                     {formData.type === 'hotel' ? 'ホテル名' : 'ルーム名'} <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600">必須</span>
+                    <span className="ml-2 text-xs text-slate-400 font-normal">社内管理用・HPには表示されません</span>
                   </label>
                   <input
                     type="text"
@@ -153,7 +160,7 @@ export default function NewRoomPage() {
                 {formData.type === 'room' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      表示用マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">タイムチャート等に表示</span>
+                      マンション名 <span className="ml-1 text-xs text-slate-400 font-normal">（HPには表示されません）</span>
                     </label>
                     <input
                       type="text"
@@ -170,7 +177,7 @@ export default function NewRoomPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    住所
+                    住所 <span className="text-xs text-slate-400 font-normal">正確な住所・社内管理用（HPには表示されません）</span>
                   </label>
                   <input
                     type="text"
@@ -178,12 +185,12 @@ export default function NewRoomPage() {
                     value={formData.address}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="例: 東京都新宿区新宿X-X-X"
+                    placeholder="例: 東京都新宿区新宿X-X-X 〇〇マンション101号室"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    GoogleマップURL <span className="text-xs text-slate-400 font-normal">スタッフがワンクリックで開けます</span>
+                    GoogleマップURL <span className="text-xs text-slate-400 font-normal">スタッフがワンクリックで開けます（HPには表示されません）</span>
                   </label>
                   <input
                     type="url"
@@ -196,9 +203,61 @@ export default function NewRoomPage() {
                 </div>
               </div>
 
+              {formData.type === 'room' && (
+                <div className="space-y-4 p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl">
+                  <div>
+                    <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-1.5">
+                      <span>🌐</span> HP掲載情報
+                    </h3>
+                    <p className="text-xs text-indigo-700/80 mt-0.5">
+                      ホームページのアクセスページには「ルーム名」（上記）と、以下のおおまかな住所が公開されます。防犯上、実際の部屋番号を含む詳細住所は表示されないのでご安心ください。
+                    </p>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.show_on_hp}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, show_on_hp: e.target.checked }))}
+                        className="w-4 h-4 text-indigo-600 rounded"
+                      />
+                      このルームをHPに掲載する（ルーム名「{formData.name || '未入力'}」がそのまま公開されます）
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        公開用おおまかな住所
+                      </label>
+                      <input
+                        type="text"
+                        name="address_nearby"
+                        value={formData.address_nearby}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                        placeholder="例: 東京都新宿区新宿駅周辺"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        公開用GoogleマップURL
+                      </label>
+                      <input
+                        type="url"
+                        name="google_map_url_nearby"
+                        value={formData.google_map_url_nearby}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                        placeholder="https://maps.app.goo.gl/...（駅など目印の位置）"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700">
-                  メモ <span className="text-xs text-slate-400 font-normal">スケジュール画面でルーム名にマウスオーバーすると表示されます</span>
+                  メモ <span className="text-xs text-slate-400 font-normal">スケジュール画面でルーム名にマウスオーバーすると表示されます（HPには表示されません）</span>
                 </label>
                 <textarea
                   name="memo"

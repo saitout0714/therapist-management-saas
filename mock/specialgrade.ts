@@ -22,6 +22,22 @@ export const MOCK_STORE: StoreConfig = {
   layoutSections: ['hero', 'today_shifts', 'therapists', 'diary', 'news', 'system', 'access'],
 };
 
+// DB取得が完了するまでの初期表示用。文言・連絡先などの「編集され得る内容」は空にし、
+// 他店舗（Special Gradeの店名・電話番号など）のサンプル文言が一瞬表示されるのを防ぐ。
+export const BLANK_STORE: StoreConfig = {
+  id: '',
+  slug: '',
+  name: '',
+  catchphrase: '',
+  logoUrl: undefined,
+  themeColor: MOCK_STORE.themeColor,
+  address: '',
+  accessInfo: '',
+  businessHours: '',
+  phoneNumber: '',
+  layoutSections: MOCK_STORE.layoutSections,
+};
+
 // 本物のSpecial Gradeオリジナルイベントバナー画像セット
 export const MOCK_CAMPAIGNS: Campaign[] = [
   {

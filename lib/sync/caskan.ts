@@ -1,9 +1,9 @@
 import * as cheerio from 'cheerio'
 import { supabaseAdmin } from '../supabaseAdmin'
 
-const CASKAN_SHOP_CODE = process.env.CASKAN_SHOP_CODE || 'sparich'
-const CASKAN_LOGIN_ID = process.env.CASKAN_LOGIN_ID || 'mts'
-const CASKAN_PASSWORD = process.env.CASKAN_PASSWORD || 'MTS'
+export const CASKAN_SHOP_CODE = process.env.CASKAN_SHOP_CODE || 'sparich'
+export const CASKAN_LOGIN_ID = process.env.CASKAN_LOGIN_ID || 'mts'
+export const CASKAN_PASSWORD = process.env.CASKAN_PASSWORD || 'MTS'
 
 export interface ShopConfig {
   name: string
@@ -22,7 +22,7 @@ export const SHOPS: ShopConfig[] = [
   { name: 'kujira_spa', caskanId: 2031, supabaseId: '471f85f5-c9dd-4ed4-812a-9c5001f6903b' },
 ]
 
-const CASKAN_ROOM_MAP: Record<string, string> = {
+export const CASKAN_ROOM_MAP: Record<string, string> = {
   '729': '6b7ba35d-4236-4418-973d-798124c87481',
   '309': '25419824-4503-4987-99bd-e54c592383d5',
   '208': '20314ce7-397b-4310-bc5f-70857f954a51',
@@ -55,14 +55,13 @@ const CASKAN_ROOM_MAP: Record<string, string> = {
   '4813': '60ea8984-197f-437b-b3f5-9e3a94e0037a',
   '4814': '6154fad0-0b11-4de6-95c8-5190663ccc22',
   '3168': '657606f0-2f84-4ce6-9899-5e6e8445c428',
-  '2560': '958d4d64-f535-4818-8873-5b197e7eae17',
   '8184': 'ff2eebf3-11ba-4207-920c-0bd68ce50e98',
   '8158': '9849e7b5-d56b-4728-9cf1-d98ed2ff85e4',
   '8025': '968b414f-b11c-45ff-814d-05daa9240ee3',
   '8089': '053f2c09-e720-4147-9e01-e9d685710f81',
 }
 
-class FetchSession {
+export class FetchSession {
   private cookies: Record<string, string> = {}
 
   async request(url: string, options: RequestInit = {}): Promise<Response> {
@@ -118,7 +117,7 @@ class FetchSession {
   }
 }
 
-function normalizeCastName(raw: string): string {
+export function normalizeCastName(raw: string): string {
   if (!raw) return ''
   let s = raw
   s = s.replace(/\s*\d{1,2}\/\d{1,2}.*$/, '')
@@ -127,7 +126,7 @@ function normalizeCastName(raw: string): string {
   return s.trim()
 }
 
-function matchTherapist(caskanName: string, therapistMap: Record<string, string>): string | null {
+export function matchTherapist(caskanName: string, therapistMap: Record<string, string>): string | null {
   if (therapistMap[caskanName]) {
     return therapistMap[caskanName]
   }
@@ -157,7 +156,7 @@ function matchTherapist(caskanName: string, therapistMap: Record<string, string>
   return null
 }
 
-async function caskanLogin(session: FetchSession): Promise<boolean> {
+export async function caskanLogin(session: FetchSession): Promise<boolean> {
   // Initialize the CAKEPHP session cookie with a GET request first
   await session.get('https://my.caskan.jp/login')
 
@@ -176,7 +175,7 @@ async function caskanLogin(session: FetchSession): Promise<boolean> {
   return !r2.url.includes('login')
 }
 
-async function caskanSwitchShop(session: FetchSession, shopId: number): Promise<boolean> {
+export async function caskanSwitchShop(session: FetchSession, shopId: number): Promise<boolean> {
   const r = await session.get(`https://my.caskan.jp/assist_agent/login?shop_id=${shopId}`)
   return r.status === 200
 }
@@ -355,7 +354,7 @@ interface ExistingShift {
   room_id: string | null
 }
 
-async function getTherapistMap(shopUuid: string): Promise<Record<string, string>> {
+export async function getTherapistMap(shopUuid: string): Promise<Record<string, string>> {
   const mapping: Record<string, string> = {}
 
   const { data: mainTherapists } = await supabaseAdmin
