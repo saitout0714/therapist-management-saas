@@ -195,7 +195,10 @@
       "Bash(awk '/tbl-room/,0' scratch/caskan_html/room.html)",
       "Bash(git pull *)",
       "Read(//c/Users/saitou-cyberpunk/.claude/**)",
-      "Read(//c//**)"
+      "Read(//c//**)",
+      "Bash(find \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\" -maxdepth 4 -newer \"C:\\\\Users\\\\SAITOU~1\\\\AppData\\\\Local\\\\Temp\\\\claude\" -mmin -30 2>/dev/null | head -50)",
+      "Bash(xargs -I{} sh -c 'echo \"{} $\\(stat -c %Y \"{}\" 2>/dev/null\\)\"')",
+      "Bash(sort -k2 -n -r)"
     ]
   }
 }
