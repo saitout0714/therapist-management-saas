@@ -38,6 +38,14 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
 
   const isCyberTheme = shopSlug === 'onyankospa';
 
+  /*
+   * オプションは複数を組み合わせられるため、単体金額は「〜」の目安表示にする。
+   * 指名料金のうち「本指名」はセラピストごとに個別設定できる（therapist_pricing.nomination_fee）ため
+   * 同様に「〜」表示にし、フリー・写真指名など固定額の項目はそのまま表示する。
+   */
+  const isStartingPrice = (cat: SystemMenuCategory, course: SystemMenuCategory['courses'][number]) =>
+    cat.categoryName === 'オプション' || course.name === '本指名';
+
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col relative ${
@@ -119,9 +127,8 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
                       <span className={`text-lg sm:text-xl font-extrabold tracking-wider ${
                         isCyberTheme ? 'neon-text-pink' : 'text-stone-900'
                       }`}>
-                        ¥{course.price.toLocaleString()}
+                        ¥{course.price.toLocaleString()}{isStartingPrice(cat, course) ? '〜' : ''}
                       </span>
-                      <span className={`text-xs ml-1 ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>(税込)</span>
                     </div>
                   </div>
                 ))}
