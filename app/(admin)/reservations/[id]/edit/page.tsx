@@ -2109,7 +2109,7 @@ export default function EditReservationPage() {
               <h2 className="text-xs sm:text-sm font-black text-slate-500 sm:text-slate-700 uppercase tracking-wider">受付・備考</h2>
             </div>
             <div className="px-1 sm:px-4 pb-2.5 sm:pb-4 pt-1 sm:pt-3 space-y-2.5">
-              <div>
+              <div className="sm:hidden">
                 <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1.5">受付区分</label>
                 <div className="flex flex-wrap gap-1.5">
                   {(selectedShop?.owner_id === '016a4306-25d3-470b-8be4-11c4b01ef7b3' // バカラグループ(周南下松/宇部/山口湯田/岩国)専用の受付区分
@@ -2152,7 +2152,7 @@ export default function EditReservationPage() {
                 </div>
               </div>
               {!isBlocked && (
-                <div>
+                <div className="sm:hidden">
                   <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">備考・メモ</label>
                   <textarea
                     value={formData.notes}
@@ -2169,8 +2169,57 @@ export default function EditReservationPage() {
 
         {/* 右側：料金計算サマリー */}
         <div className="col-span-1 order-1 sm:order-2">
+          {/* PC用: 受付備考 + サマリーをまとめてサイドバーに固定 */}
+          <div className="hidden sm:block sticky top-20 space-y-3">
+          <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-100">
+            {!isBlocked && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">受付備考</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="特別なリクエストや店内共有事項など"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all resize-y text-xs placeholder:text-[10px]"
+                  rows={2}
+                />
+              </div>
+            )}
+            <div className={isBlocked ? '' : 'mt-3 pt-3 border-t border-slate-100'}>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">受付区分</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedShop?.owner_id === '016a4306-25d3-470b-8be4-11c4b01ef7b3' // バカラグループ(周南下松/宇部/山口湯田/岩国)専用の受付区分
+                  ? [
+                      { value: 'staff', label: 'mts' },
+                      { value: 'owner', label: 'オーナー' },
+                      { value: 'owner_takahashi', label: '高橋' },
+                      { value: 'owner_sugai', label: '菅井' },
+                      { value: 'owner_hada', label: '波田' },
+                      { value: 'therapist', label: '姫予約' }
+                    ]
+                  : [
+                      { value: 'staff', label: 'mts' },
+                      { value: 'owner', label: 'オーナー' },
+                      { value: 'therapist', label: '姫予約' }
+                    ]
+                ).map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, reception_source: opt.value as any })}
+                    className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-all cursor-pointer ${
+                      formData.reception_source === opt.value
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           {/* 1. PC用サマリー（常に全表示、サイドバー固定） */}
-          <div className="hidden sm:block bg-gradient-to-br from-white to-slate-50 p-4 rounded-2xl shadow-lg border border-slate-100 sticky top-20">
+          <div className="bg-gradient-to-br from-white to-slate-50 p-4 rounded-2xl shadow-lg border border-slate-100">
             <h2 className="text-sm font-bold text-slate-800 mb-3">予約サマリー</h2>
 
             <div className="space-y-1.5 text-xs mb-3 pb-3 border-b border-slate-200">
@@ -2262,6 +2311,7 @@ export default function EditReservationPage() {
                 キャンセル
               </button>
             </div>
+          </div>
           </div>
 
           {/* 2. スマホ用ボトムバー（常に最下部に固定、アコーディオンなしでコンパクトに全部表示） */}
