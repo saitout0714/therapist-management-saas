@@ -12,6 +12,7 @@ type Customer = {
   email: string | null
   phone: string | null
   phone2: string | null
+  member_number: string | null
   created_at: string
   status: string
   ng_reason: string | null
@@ -79,11 +80,6 @@ export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [ngCustomerIds, setNgCustomerIds] = useState<Set<string>>(new Set())
 
-  // グループ店舗IDは店舗を切り替えない限り変わらないのにクエリが毎回走っていた。
-  // 一覧・検索・ページ送りのすべてが、本体のクエリを投げる前にこれを await するので、
-  // 検索の1文字ごとに往復が1回増えていた。店舗ごとにキャッシュする。
-  const groupShopIdsCache = useRef<{ shopId: string; ids: string[] } | null>(null)
-
   // 取得の世代番号。店舗切り替えや検索語の変更で増える。
   // 応答が返った時点で世代が進んでいれば古い取得なので state に書かない。
   // 検索は打鍵のたびに走るため、遅い応答が新しい結果を上書きしやすい。
@@ -93,18 +89,13 @@ export default function CustomersPage() {
     return () => generation !== fetchGenerationRef.current
   }
 
+  // 顧客はまだ店舗をまたいで統合されていない（同じ人でも店舗ごとに別レコード・別会員番号）。
+  // 以前はオーナー配下の全店舗を対象にしていたが、それだと他店の顧客レコードが混ざって
+  // 見え、予約登録時に誤って使い回されてしまっていた（会員番号が店舗ごとに分けられない
+  // 原因になっていた）。選択中の店舗だけに絞る。
   const getGroupShopIds = useCallback(async (): Promise<string[]> => {
     if (!selectedShop) return []
-    const cached = groupShopIdsCache.current
-    if (cached && cached.shopId === selectedShop.id) return cached.ids
-
-    let ids = [selectedShop.id]
-    if (selectedShop.owner_id) {
-      const { data } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
-      if (data && data.length > 0) ids = data.map(s => s.id)
-    }
-    groupShopIdsCache.current = { shopId: selectedShop.id, ids }
-    return ids
+    return [selectedShop.id]
   }, [selectedShop])
 
   // shopIds は呼び出し元が解決済みのものを渡す。ここで getGroupShopIds を
@@ -148,7 +139,7 @@ export default function CustomersPage() {
 
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+        .select('id, name, email, phone, phone2, member_number, created_at, status, ng_reason, memo')
         .in('shop_id', shopIds)
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -193,7 +184,7 @@ export default function CustomersPage() {
       const to = page * 100 - 1
 
       // 一覧と同じく、該当件数は投げるだけで待たない
-      const filter = `name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%`
+      const filter = `name.ilike.%${query}%,phone.ilike.%${normalized}%,email.ilike.%${query}%,member_number.ilike.%${query}%`
       const countPromise = supabase
         .from('customers')
         .select('id', { count: 'exact', head: true })
@@ -206,7 +197,7 @@ export default function CustomersPage() {
 
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone, phone2, created_at, status, ng_reason, memo')
+        .select('id, name, email, phone, phone2, member_number, created_at, status, ng_reason, memo')
         .in('shop_id', shopIds)
         .or(filter)
         .order('name')
@@ -660,6 +651,9 @@ export default function CustomersPage() {
                             <Link href={`/customers/${customer.id}`} className="flex items-start gap-3 group/link">
                               <div className="flex flex-col">
                                 <span className="font-bold text-slate-800 group-hover/link:text-indigo-600 transition-colors flex items-center gap-1.5 flex-wrap">
+                                  {customer.member_number && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">{customer.member_number}</span>
+                                  )}
                                   {customer.name}
                                   {ngCustomerIds.has(customer.id) && (
                                     <span style={{ color: 'red', fontSize: '20px' }} title="NGセラピストあり" className="leading-none">⚠</span>
@@ -807,6 +801,11 @@ export default function CustomersPage() {
                             </Link>
                           )}
                           
+                          {/* 会員番号 */}
+                          {customer.member_number && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 whitespace-nowrap">{customer.member_number}</span>
+                          )}
+
                           {/* 氏名 */}
                           <span className="font-bold text-slate-900 truncate whitespace-nowrap">{customer.name}</span>
 

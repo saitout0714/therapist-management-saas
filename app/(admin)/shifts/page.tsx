@@ -1357,7 +1357,7 @@ function ShiftsContent() {
           options_payment_method,
           extension_payment_method,
           payment_settled_at,
-          customers(name, created_at),
+          customers(name, created_at, member_number, customer_shops(shop_id, member_number)),
           courses(name, duration),
           therapist:therapists!reservations_therapist_id_fkey(name),
           room:rooms!reservations_room_id_fkey(name, linked_room_group_id),
@@ -1590,6 +1590,16 @@ function ShiftsContent() {
       .join('\n');
   };
 
+  // 会員番号は店舗ごと（customer_shops）。この予約の店舗の番号を優先し、
+  // 無ければ旧・単一列（customers.member_number）にフォールバックする
+  const customerDisplayName = (reservation: any): string | undefined => {
+    const customer = reservation.customers;
+    if (!customer?.name) return undefined;
+    const roster = (customer.customer_shops || []) as { shop_id: string; member_number: string | null }[];
+    const memberNumber = roster.find(r => r.shop_id === reservation.shop_id)?.member_number || customer.member_number;
+    return memberNumber ? `${memberNumber} ${customer.name}` : customer.name;
+  };
+
   const schedules: Schedule[] = [
     ...reservations
       .filter((r: any) => r.status !== 'blocked')
@@ -1597,11 +1607,11 @@ function ShiftsContent() {
         therapistId: reservation.therapist_id || 'unassigned',
         startTime: toDisplayTime(reservation.start_time),
         endTime: toDisplayTime(reservation.end_time),
-        title: `${reservation.customers?.name || 'unknown'}`,
+        title: customerDisplayName(reservation) || 'unknown',
         type: 'reservation' as const,
         reservationId: reservation.id,
         customerId: reservation.customer_id,
-        customerName: reservation.customers?.name,
+        customerName: customerDisplayName(reservation),
         notes: reservation.notes || undefined,
         courseDuration: reservation.courses?.duration,
         designationLabel: designationLabel(reservation.designation_type),
@@ -1628,8 +1638,8 @@ function ShiftsContent() {
         therapistId: reservation.therapist_id || 'unassigned',
         startTime: toDisplayTime(reservation.start_time),
         endTime: toDisplayTime(reservation.end_time),
-        title: reservation.customers?.name || '予約不可',
-        customerName: reservation.customers?.name || undefined,
+        title: customerDisplayName(reservation) || '予約不可',
+        customerName: customerDisplayName(reservation),
         type: 'blocked' as const,
         reservationId: reservation.id,
         notes: reservation.notes || undefined,

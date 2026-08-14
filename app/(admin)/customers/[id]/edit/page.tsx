@@ -21,6 +21,7 @@ export default function EditCustomerPage() {
     email: '',
     phone: '',
     phone2: '',
+    member_number: '',
     status: '予約可',
     ng_reason: '',
     memo: '',
@@ -45,6 +46,7 @@ export default function EditCustomerPage() {
           email: customer.email || '',
           phone: customer.phone || '',
           phone2: customer.phone2 || '',
+          member_number: customer.member_number || '',
           status: customer.status || '予約可',
           ng_reason: customer.ng_reason || '',
           memo: customer.memo || '',
@@ -84,6 +86,7 @@ export default function EditCustomerPage() {
           email: form.email || null,
           phone: form.phone || null,
           phone2: form.phone2 || null,
+          member_number: form.member_number.trim() || null,
           status: form.status,
           ng_reason: form.ng_reason || null,
           memo: form.memo || null,
@@ -168,7 +171,21 @@ export default function EditCustomerPage() {
                     required
                   />
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    会員番号（この店舗用） <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="member_number"
+                    value={form.member_number}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 81679"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">

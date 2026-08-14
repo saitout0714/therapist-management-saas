@@ -16,6 +16,7 @@ export default function NewCustomerPage() {
     name: '',
     email: '',
     phone: '',
+    member_number: '',
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,6 +48,7 @@ export default function NewCustomerPage() {
           name: form.name,
           email: form.email || null,
           phone: form.phone || null,
+          member_number: form.member_number.trim() || null,
           shop_id: selectedShop.id,
         }])
 
@@ -140,6 +142,21 @@ export default function NewCustomerPage() {
                       placeholder="customer@example.com"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                    会員番号（この店舗用） <span className="ml-2 text-xs text-slate-400 font-normal">任意</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="member_number"
+                    value={form.member_number}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="例: 81679"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">この店舗での会員番号です。他店にも来店される場合は、その店舗側で別の番号として登録してください。</p>
                 </div>
               </div>
 
