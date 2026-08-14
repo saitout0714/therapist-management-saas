@@ -386,11 +386,11 @@ export default function EditReservationPage() {
       if (reservation.customer_id) {
         const { data: customerData } = await supabase
           .from('customers')
-          .select('id, name, email, phone, status, ng_reason, memo')
+          .select('id, name, email, phone, status, ng_reason, memo, customer_shops(shop_id, member_number, shops(name))')
           .eq('id', reservation.customer_id)
           .single()
         if (customerData) {
-          setSelectedCustomerObj(customerData)
+          setSelectedCustomerObj(customerData as unknown as Customer)
           if (customerData.phone) setCustomerSearch(customerData.phone)
         }
       }
