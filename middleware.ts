@@ -10,6 +10,8 @@ export function middleware(request: NextRequest) {
     'specialgrade.jp': 'specialgrade',
     'www.specialgrade.jp': 'specialgrade',
     'specialgrade.local': 'specialgrade',
+    'onyankospa.com': 'onyankospa',
+    'www.onyankospa.com': 'onyankospa',
   };
 
   const matchedSlug = domainMap[hostname];
