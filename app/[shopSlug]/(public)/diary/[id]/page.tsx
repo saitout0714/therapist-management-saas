@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '../../../../../components/store/Header';
 import { Footer } from '../../../../../components/store/Footer';
 import { fetchStoreConfig, fetchBlogArticleDetail } from '../../../../../lib/storeApi';
 import { StoreConfig, BlogArticle } from '../../../../../types/store';
 import { BLANK_STORE } from '../../../../../mock/specialgrade';
 import { BLANK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
+import { DIARY_FEATURE_ENABLED } from '../../../../../lib/featureFlags';
 
 export default function DiaryDetailPage({
   params,
@@ -18,11 +20,20 @@ export default function DiaryDetailPage({
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
   const blogId = resolvedParams.id;
+  const router = useRouter();
 
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [article, setArticle] = useState<BlogArticle | null>(null);
 
+  // セラピスト日記は作成中のため、URLを直接開かれてもTOPへ戻す
   useEffect(() => {
+    if (!DIARY_FEATURE_ENABLED) {
+      router.replace(`/${shopSlug}`);
+    }
+  }, [router, shopSlug]);
+
+  useEffect(() => {
+    if (!DIARY_FEATURE_ENABLED) return;
     async function loadData() {
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
@@ -31,6 +42,8 @@ export default function DiaryDetailPage({
     }
     loadData();
   }, [shopSlug, blogId]);
+
+  if (!DIARY_FEATURE_ENABLED) return null;
 
   if (!article) {
     return (

@@ -14,6 +14,7 @@ import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from
 import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
 import { BLANK_STORE } from '../../../mock/specialgrade';
 import { BLANK_ONYANKO_STORE } from '../../../mock/onyankospa';
+import { DIARY_FEATURE_ENABLED } from '../../../lib/featureFlags';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 
@@ -86,6 +87,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
         );
 
       case 'diary':
+        if (!DIARY_FEATURE_ENABLED) return null;
         return (
           <section
             key="diary"

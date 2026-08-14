@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StoreConfig } from '../../types/store';
+import { DIARY_FEATURE_ENABLED } from '../../lib/featureFlags';
 
 interface HeaderProps {
   store: StoreConfig;
@@ -34,7 +35,9 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
     { label: 'システム・料金', subLabel: 'コース・指名料金のご案内', href: `${basePath}/system`, code: '02' },
     { label: 'セラピスト一覧', subLabel: '在籍セラピストのご紹介', href: `${basePath}/therapists`, code: '03' },
     { label: '出勤スケジュール', subLabel: '本日・今週の出勤情報', href: `${basePath}/schedule`, code: '04' },
-    { label: 'セラピスト日記', subLabel: '写メ日記・キャストブログ', href: `${basePath}/diary`, code: '05' },
+    ...(DIARY_FEATURE_ENABLED
+      ? [{ label: 'セラピスト日記', subLabel: '写メ日記・キャストブログ', href: `${basePath}/diary`, code: '05' }]
+      : []),
     { label: 'アクセス', subLabel: '店舗情報・ルームアクセス', href: `${basePath}/access`, code: '06' },
     { label: '求人情報', subLabel: 'セラピスト募集・採用', href: `${basePath}/recruit`, code: '07' },
   ];

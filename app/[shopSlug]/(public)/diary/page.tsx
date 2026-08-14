@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
@@ -9,6 +10,7 @@ import { fetchStoreConfig, fetchBlogArticles } from '../../../../lib/storeApi';
 import { StoreConfig, BlogArticle } from '../../../../types/store';
 import { BLANK_STORE } from '../../../../mock/specialgrade';
 import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { DIARY_FEATURE_ENABLED } from '../../../../lib/featureFlags';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -16,10 +18,19 @@ export default function DiaryPage({ params }: { params: Promise<{ shopSlug: stri
   const resolvedParams = use(params);
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const isOnyanko = shopSlug === 'onyankospa';
+  const router = useRouter();
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [articles, setArticles] = useState<BlogArticle[]>([]);
 
+  // セラピスト日記は作成中のため、URLを直接開かれてもTOPへ戻す
   useEffect(() => {
+    if (!DIARY_FEATURE_ENABLED) {
+      router.replace(`/${shopSlug}`);
+    }
+  }, [router, shopSlug]);
+
+  useEffect(() => {
+    if (!DIARY_FEATURE_ENABLED) return;
     async function loadData() {
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
@@ -28,6 +39,8 @@ export default function DiaryPage({ params }: { params: Promise<{ shopSlug: stri
     }
     loadData();
   }, [shopSlug]);
+
+  if (!DIARY_FEATURE_ENABLED) return null;
 
   const isCyberTheme = shopSlug === 'onyankospa';
 

@@ -15,6 +15,7 @@ import {
 import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../../../../types/store';
 import { BLANK_STORE } from '../../../../../mock/specialgrade';
 import { BLANK_ONYANKO_STORE } from '../../../../../mock/onyankospa';
+import { DIARY_FEATURE_ENABLED } from '../../../../../lib/featureFlags';
 
 import { CyberParallaxBackground } from '../../../../../components/store/CyberParallaxBackground';
 
@@ -42,7 +43,7 @@ export default function TherapistDetailPage({
 
       const [detail, bList] = await Promise.all([
         fetchTherapistDetail(therapistId),
-        fetchBlogArticles(storeConfig.id, therapistId),
+        DIARY_FEATURE_ENABLED ? fetchBlogArticles(storeConfig.id, therapistId) : Promise.resolve([]),
       ]);
 
       setTherapist(detail);

@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { StoreConfig } from '../../types/store';
+import { DIARY_FEATURE_ENABLED } from '../../lib/featureFlags';
 
 interface FooterProps {
   store: StoreConfig;
@@ -46,7 +47,9 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
               <Link href={`${basePath}/system`} className="hover:opacity-80 transition-colors">システム・料金</Link>
               <Link href={`${basePath}/therapists`} className="hover:opacity-80 transition-colors">セラピスト一覧</Link>
               <Link href={`${basePath}/schedule`} className="hover:opacity-80 transition-colors">出勤スケジュール</Link>
-              <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors">セラピスト日記</Link>
+              {DIARY_FEATURE_ENABLED && (
+                <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors">セラピスト日記</Link>
+              )}
               <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors">アクセス</Link>
               <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors">求人情報</Link>
               <Link href={`${basePath}/reserve`} className="hover:opacity-80 transition-colors">WEB予約</Link>
