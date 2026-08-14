@@ -70,7 +70,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
 
-  const [isRevealed, setIsRevealed] = React.useState(false);
+  // ループの始まりはHERO画像（isRevealed=true）。しばらく表示した後、
+  // 一瞬だけネオンサインのロゴ点灯演出を挟んでから、また画像に戻る。
+  const [isRevealed, setIsRevealed] = React.useState(true);
 
   React.useEffect(() => {
     if (!isCyberTheme) return;
@@ -80,19 +82,19 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
     const runLoop = () => {
       if (!isMounted) return;
-      // 1. ネオンサイン点灯表示 (0.8秒)
-      setIsRevealed(false);
+      // 1. メインビジュアル画像表示 (5.5秒)
+      setIsRevealed(true);
 
       timeoutId = setTimeout(() => {
         if (!isMounted) return;
-        // 2. メインビジュアル画像表示 (5.5秒)
-        setIsRevealed(true);
+        // 2. ネオンサイン点灯表示 (0.8秒)
+        setIsRevealed(false);
 
         timeoutId = setTimeout(() => {
-          // 再びループ
+          // 再びループ（画像へ）
           runLoop();
-        }, 5500);
-      }, 800);
+        }, 800);
+      }, 5500);
     };
 
     runLoop();
@@ -129,7 +131,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
                 />
               </div>
 
-              {/* 枠内ネオンスパーク点灯演出 (0.8秒ループ) */}
+              {/* 枠内ネオンスパーク点灯演出 (画像表示の合間に一瞬だけ挟む) */}
               {!isRevealed && (
                 <div className="absolute inset-0 z-30 cyber-bg flex flex-col items-center justify-center p-4 animate-glitch-intro">
                   <span className="neon-script text-3xl sm:text-5xl leading-tight pb-1 mb-1" aria-hidden="true">
