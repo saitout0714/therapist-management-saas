@@ -1249,6 +1249,10 @@ export default function EditReservationPage() {
                         <svg className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'text-red-500' : selectedCustomerObj.status === '要注意' ? 'text-yellow-500' : 'text-indigo-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
+                        {(() => {
+                          const num = selectedCustomerObj.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number
+                          return num ? <span className="flex-shrink-0 opacity-70">{num}</span> : null
+                        })()}
                         <span className="truncate flex-1">{selectedCustomerObj.name}</span>
                         {selectedCustomerObj.status && selectedCustomerObj.status !== '予約可' && (
                           <span className={`px-1 rounded font-bold text-[9px] flex-shrink-0 ${selectedCustomerObj.status === '出禁' ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>
