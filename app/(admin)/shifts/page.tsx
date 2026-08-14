@@ -99,7 +99,7 @@ interface TherapistRow {
   hip?: number | null;
   comment?: string | null;
   staff_memo?: string | null;
-  linked_therapist_group_id?: string | null;
+  rank_id?: string | null;
   therapist_ranks?: { name: string } | { name: string }[] | null;
   is_rookie?: boolean;
 }
@@ -1040,11 +1040,22 @@ function ShiftsContent() {
   const fetchTherapists = async (shiftsPromise: Promise<DayShiftRow[]>, isStale: () => boolean) => {
     if (!selectedShop) return;
     try {
+      // グループの扱い方（全店共通 or 店舗ごと）をオーナー設定から取得
+      let scope: 'all_shops' | 'per_shop' = 'per_shop';
+      if (selectedShop.owner_id) {
+        const { data: ownerRow } = await supabase
+          .from('owners')
+          .select('therapist_scope')
+          .eq('id', selectedShop.owner_id)
+          .maybeSingle();
+        scope = (ownerRow?.therapist_scope as 'all_shops' | 'per_shop' | undefined) ?? 'per_shop';
+      }
+
       // 互いに依存しない問い合わせは一度にまとめて投げる。
       // 直列に await すると Supabase までの往復回数だけ待たされ、
       // それがシフト画面の読み込みの遅さの主因になっていた。
       const [groupShopsRes, tsRes, settingsRes, shiftsData, memosRes] = await Promise.all([
-        selectedShop.owner_id
+        scope === 'all_shops' && selectedShop.owner_id
           ? supabase
               .from('shops')
               .select('id')
@@ -1052,7 +1063,7 @@ function ShiftsContent() {
           : Promise.resolve({ data: null as { id: string }[] | null }),
         supabase
           .from('therapist_shops')
-          .select('therapist_id, alias_name')
+          .select('therapist_id, alias_name, is_active, age, height, bust, bust_cup, waist, hip, comment, rank_id')
           .eq('shop_id', selectedShop.id),
         supabase
           .from('system_settings')
@@ -1068,25 +1079,23 @@ function ShiftsContent() {
           .order('date', { ascending: false }),
       ]);
 
-      const groupShops = groupShopsRes.data;
       let shopIds = [selectedShop.id];
-      if (groupShops && groupShops.length > 0) {
-        shopIds = groupShops.map(s => s.id);
+      if (scope === 'all_shops') {
+        const groupShops = groupShopsRes.data;
+        if (groupShops && groupShops.length > 0) shopIds = groupShops.map(s => s.id);
       }
 
-      const tsData = tsRes.data;
-      const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
-      const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]));
+      const tsData = tsRes.data || [];
+      const rosterMap = new Map(tsData.map(ts => [ts.therapist_id, ts]));
+      const tsActiveTherapistIds = tsData.filter(ts => ts.is_active).map(ts => ts.therapist_id);
 
       let queryWithInterval = supabase
         .from('therapists')
-        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, staff_memo, linked_therapist_group_id, therapist_ranks(name), is_rookie');
+        .select('id, name, reservation_interval_minutes, age, height, bust, bust_cup, waist, hip, comment, staff_memo, rank_id, therapist_ranks(name), is_rookie');
 
-      if (tsTherapistIds.length > 0) {
-        queryWithInterval = queryWithInterval.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
-      } else {
-        queryWithInterval = queryWithInterval.in('shop_id', shopIds);
-      }
+      queryWithInterval = scope === 'all_shops'
+        ? queryWithInterval.in('shop_id', shopIds)
+        : queryWithInterval.in('id', tsActiveTherapistIds.length > 0 ? tsActiveTherapistIds : ['00000000-0000-0000-0000-000000000000']);
 
       let allTherapists: TherapistRow[] = [];
       const { data: therapistsWithInterval, error: therapistsError } = await queryWithInterval.order('name', { ascending: true });
@@ -1094,13 +1103,11 @@ function ShiftsContent() {
       if (therapistsError) {
         let basicQuery = supabase
           .from('therapists')
-          .select('id, name, linked_therapist_group_id, therapist_ranks(name), is_rookie');
+          .select('id, name, rank_id, therapist_ranks(name), is_rookie');
 
-        if (tsTherapistIds.length > 0) {
-          basicQuery = basicQuery.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
-        } else {
-          basicQuery = basicQuery.in('shop_id', shopIds);
-        }
+        basicQuery = scope === 'all_shops'
+          ? basicQuery.in('shop_id', shopIds)
+          : basicQuery.in('id', tsActiveTherapistIds.length > 0 ? tsActiveTherapistIds : ['00000000-0000-0000-0000-000000000000']);
 
         const { data: basicData } = await basicQuery.order('name', { ascending: true });
         allTherapists = (basicData || []).map(t => ({ ...t, reservation_interval_minutes: null }));
@@ -1108,11 +1115,26 @@ function ShiftsContent() {
         allTherapists = therapistsWithInterval || [];
       }
 
-      // 店舗別源氏名 (alias_name) の優先適用
-      allTherapists = allTherapists.map(t => ({
-        ...t,
-        name: aliasMap.get(t.id) || t.name,
-      })).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
+      // 店舗ごとグループ：店舗別の源氏名・プロフィール・ランクを適用
+      if (scope === 'per_shop') {
+        allTherapists = allTherapists.map(t => {
+          const r = rosterMap.get(t.id);
+          if (!r) return t;
+          return {
+            ...t,
+            name: r.alias_name || t.name,
+            age: r.age ?? t.age,
+            height: r.height ?? t.height,
+            bust: r.bust ?? t.bust,
+            bust_cup: r.bust_cup ?? t.bust_cup,
+            waist: r.waist ?? t.waist,
+            hip: r.hip ?? t.hip,
+            comment: r.comment ?? t.comment,
+            rank_id: r.rank_id ?? (t as any).rank_id,
+          };
+        });
+      }
+      allTherapists = allTherapists.sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }));
 
       if (isStale()) return;
 
@@ -1121,37 +1143,37 @@ function ShiftsContent() {
       setShopIntervalMinutes(shopInterval);
       setExtensionUnitMinutes(settingsData?.[0]?.extension_unit_minutes ?? 30);
 
-      // 連携先店舗名と写真は、どちらもセラピスト一覧が確定すれば投げられるので並列で取得する
-      const groupIds = allTherapists.map(t => t.linked_therapist_group_id).filter(Boolean) as string[];
+      // 他にも在籍している店舗名と写真は、どちらもセラピスト一覧が確定すれば投げられるので並列で取得する
       const therapistIds = allTherapists.map(t => t.id);
-      const [linkedRes, photosRes] = await Promise.all([
-        groupIds.length > 0
+      const [otherRosterRes, photosRes] = await Promise.all([
+        scope === 'per_shop' && therapistIds.length > 0
           ? supabase
-              .from("therapists")
-              // shops!shop_id でリレーションを明示（therapist_shops 追加で経路が2本になったため）
-              .select("linked_therapist_group_id, shops!shop_id(name)")
-              .in("linked_therapist_group_id", groupIds)
-              .neq("shop_id", selectedShop.id)
+              .from('therapist_shops')
+              .select('therapist_id, shops!shop_id(name)')
+              .in('therapist_id', therapistIds)
+              .neq('shop_id', selectedShop.id)
+              .eq('is_active', true)
           : Promise.resolve({ data: null as any[] | null }),
         therapistIds.length > 0
-          ? supabase
-              .from('therapist_photos')
-              .select('therapist_id, photo_url, display_order')
-              .in('therapist_id', therapistIds)
-              .order('display_order', { ascending: true })
+          ? (() => {
+              let q = supabase
+                .from('therapist_photos')
+                .select('therapist_id, photo_url, display_order')
+                .in('therapist_id', therapistIds)
+                .order('display_order', { ascending: true });
+              if (scope === 'per_shop') q = q.eq('shop_id', selectedShop.id);
+              return q;
+            })()
           : Promise.resolve({ data: null as any[] | null }),
       ]);
 
       const linkedMap = new Map<string, string[]>();
-      (linkedRes.data || []).forEach((row: any) => {
-        const groupId = row.linked_therapist_group_id;
+      (otherRosterRes.data || []).forEach((row: any) => {
         const shopName = row.shops?.name;
-        if (groupId && shopName) {
-          const arr = linkedMap.get(groupId) || [];
-          if (!arr.includes(shopName)) {
-            arr.push(shopName);
-          }
-          linkedMap.set(groupId, arr);
+        if (shopName) {
+          const arr = linkedMap.get(row.therapist_id) || [];
+          if (!arr.includes(shopName)) arr.push(shopName);
+          linkedMap.set(row.therapist_id, arr);
         }
       });
 
@@ -1186,8 +1208,8 @@ function ShiftsContent() {
           staffMemo: therapist.staff_memo ?? null,
           intervalMinutes: therapist.reservation_interval_minutes ?? shopInterval,
           notes: shift?.notes ?? null,
-          linked_therapist_group_id: therapist.linked_therapist_group_id ?? null,
-          linked_shop_names: therapist.linked_therapist_group_id ? (linkedMap.get(therapist.linked_therapist_group_id) || []) : [],
+          linked_therapist_group_id: (linkedMap.get(therapist.id)?.length ?? 0) > 0 ? therapist.id : null,
+          linked_shop_names: linkedMap.get(therapist.id) || [],
           rankName: Array.isArray(therapist.therapist_ranks)
             ? (therapist.therapist_ranks[0] as any)?.name || null
             : (therapist.therapist_ranks as any)?.name || null,
@@ -1265,13 +1287,8 @@ function ShiftsContent() {
   const fetchReservations = async (shiftsPromise: Promise<DayShiftRow[]>, isStale: () => boolean) => {
     if (!selectedShop) return;
     try {
-      // レースコンディションを避けるため、自店舗のセラピスト・部屋の紐付けグループ情報および店舗連携情報を直接取得
-      const [ownTherapistsRes, ownRoomsRes, linksRes, ownShiftsData] = await Promise.all([
-        supabase
-          .from('therapists')
-          .select('id, linked_therapist_group_id')
-          .eq('shop_id', selectedShop.id)
-          .eq('is_active', true),
+      // レースコンディションを避けるため、自店舗の部屋の紐付けグループ情報および店舗連携情報を直接取得
+      const [ownRoomsRes, linksRes, ownShiftsData] = await Promise.all([
         supabase
           .from('rooms')
           .select('id, linked_room_group_id')
@@ -1281,11 +1298,10 @@ function ShiftsContent() {
           .select('shop_id_1, shop_id_2')
           .eq('is_active', true)
           .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`),
-        // 自店舗に本日出勤しているセラピストID一覧（バカラ等、店舗を複製せず
-        // 同一セラピスト行がそのまま複数店舗のシフトに登録される運用の判定用）
+        // 自店舗に本日出勤しているセラピストID一覧（在籍テーブルにより、同一人物は店舗をまたいでも
+        // 同じセラピストIDを共有するため、これだけで多店舗在籍者の判定ができる）
         shiftsPromise
       ]);
-      const ownTherapists = ownTherapistsRes.data || [];
       const ownRooms = ownRoomsRes.data || [];
       const linkedShopIds = (linksRes.data || []).map((l: any) => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
       const ownShiftTherapistIds = new Set((ownShiftsData || []).map((s) => s.therapist_id).filter(Boolean));
@@ -1343,7 +1359,7 @@ function ShiftsContent() {
           payment_settled_at,
           customers(name, created_at),
           courses(name, duration),
-          therapist:therapists!reservations_therapist_id_fkey(name, linked_therapist_group_id),
+          therapist:therapists!reservations_therapist_id_fkey(name),
           room:rooms!reservations_room_id_fkey(name, linked_room_group_id),
           shop:shops!reservations_shop_id_fkey(name, short_name)
         `)
@@ -1389,15 +1405,6 @@ function ShiftsContent() {
           let isLinked = false;
           let mappedTherapistId = res.therapist_id;
           let mappedRoomId = res.room_id;
-
-          // セラピストの紐付け（店舗ごとに複製された別行を linked_therapist_group_id で対応付ける運用）
-          if (res.therapist?.linked_therapist_group_id) {
-            const targetTherapist = ownTherapists.find((t: any) => t.linked_therapist_group_id === res.therapist.linked_therapist_group_id);
-            if (targetTherapist) {
-              mappedTherapistId = targetTherapist.id;
-              isLinked = true;
-            }
-          }
 
           // セラピスト行を複製せず、同一IDのまま複数店舗のシフトに入る運用
           // （バカラ等）：自店舗に本日出勤中の同じセラピストIDなら、IDの

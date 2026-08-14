@@ -101,8 +101,6 @@ export default function EditTherapistPage() {
   const [editMemoForm, setEditMemoForm] = useState({ content: '', amount: '' });
 
   // 店舗別源氏名状態
-  const [shopAliases, setShopAliases] = useState<Array<{ shop_id: string; shop_name: string; alias_name: string }>>([]);
-
   const fetchMemos = async () => {
     const { data } = await supabase
       .from('therapist_memos')
@@ -184,10 +182,18 @@ export default function EditTherapistPage() {
     await fetchMemos();
   };
 
-  // 多店舗リンク用
-  const [allOtherTherapists, setAllOtherTherapists] = useState<any[]>([]);
-  const [selectedLinkIds, setSelectedLinkIds] = useState<string[]>([]);
-  const [originalGroupId, setOriginalGroupId] = useState<string | null>(null);
+  // 在籍店舗設定用（店舗ごとにタブを切り替えてプロフィール・写真・在籍中/退店を編集する）
+  type RosterRow = {
+    shop_id: string; shop_name: string; is_active: boolean; alias_name: string; existed: boolean;
+    age: string; height: string; bust: string; bust_cup: string; waist: string; hip: string; comment: string; rank_id: string;
+  };
+  const [therapistScope, setTherapistScope] = useState<'all_shops' | 'per_shop'>('per_shop');
+  const [roster, setRoster] = useState<RosterRow[]>([]);
+  const [activeRosterShopId, setActiveRosterShopId] = useState<string>('');
+  const [rosterRanks, setRosterRanks] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [rosterPhotos, setRosterPhotos] = useState<Record<string, { id: string; photo_url: string; display_order: number }[]>>({});
+  const [rosterPhotoUploading, setRosterPhotoUploading] = useState(false);
+  const rosterPhotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (therapistId) void fetchMemos();
@@ -209,44 +215,94 @@ export default function EditTherapistPage() {
         if (therapistError) throw therapistError;
 
         setTherapistShopId(therapist.shop_id);
-        setOriginalGroupId(therapist.linked_therapist_group_id || null);
 
-        // 同一オーナーグループの店舗および店舗別源氏名の取得。
+        // 在籍店舗欄（店舗ごとの在籍中／退店・源氏名）の取得。
         //
-        // 源氏名の欄は「店舗ごとに違う名前で出す」グループでしか意味がない。
-        // 全店共通のグループ（バカラ）や1店舗だけのオーナーで出していたため、
-        // 入力する側が「埋めるもの」と受け取って表記ゆれが混入していた
+        // 「店舗ごと」グループ（per_shop）でオーナーが2店舗以上を持つ場合のみ意味がある。
+        // 全店共通のグループ（バカラ）や1店舗だけのオーナーでは、この欄自体を出さない。
+        // 欄を出すと「埋めるもの」と受け取られて表記ゆれが混入した過去の経緯があるため
         // （括弧の全角半角、カタカナと漢字、ローマ字の打ち間違いなど14件）。
-        // 条件を満たさない場合は shopAliases を空にする。保存ループも回らなくなるので、
-        // 無意味な therapist_shops の行が量産されることも防げる。
+        let scope: 'all_shops' | 'per_shop' = 'per_shop';
         if (selectedShop?.owner_id) {
-          const [{ data: shopsData }, { data: ownerRow }] = await Promise.all([
-            supabase.from('shops').select('id, name').eq('owner_id', selectedShop.owner_id).order('name'),
+          const [{ data: shopsData }, { data: ownerRow }, { data: tsData }] = await Promise.all([
+            supabase.from('shops').select('id, name, pricing_source_shop_id, back_source_shop_id').eq('owner_id', selectedShop.owner_id).order('name'),
             supabase.from('owners').select('therapist_scope').eq('id', selectedShop.owner_id).maybeSingle(),
+            supabase.from('therapist_shops').select('shop_id, is_active, alias_name, age, height, bust, bust_cup, waist, hip, comment, rank_id').eq('therapist_id', therapistId),
           ]);
-          const scope = (ownerRow as { therapist_scope?: string } | null)?.therapist_scope ?? 'per_shop';
-          const needsPerShopName = scope === 'per_shop' && (shopsData?.length ?? 0) > 1;
+          scope = ((ownerRow as { therapist_scope?: string } | null)?.therapist_scope as 'all_shops' | 'per_shop' | undefined) ?? 'per_shop';
+          setTherapistScope(scope);
+          const needsRoster = scope === 'per_shop' && (shopsData?.length ?? 0) > 1;
 
-          if (shopsData && needsPerShopName) {
-            const { data: tsData } = await supabase.from('therapist_shops').select('shop_id, alias_name').eq('therapist_id', therapistId);
-            const tsMap = new Map((tsData || []).map(ts => [ts.shop_id, ts.alias_name || '']));
-            setShopAliases(shopsData.map(s => ({
-              shop_id: s.id,
-              shop_name: s.name,
-              alias_name: tsMap.get(s.id) || ''
-            })));
+          if (shopsData && needsRoster) {
+            const tsMap = new Map((tsData || []).map(ts => [ts.shop_id, ts]));
+            const num = (v: number | null | undefined) => (v || v === 0) ? String(v) : '';
+            const newRoster: RosterRow[] = shopsData.map(s => {
+              const existing = tsMap.get(s.id) as {
+                is_active?: boolean; alias_name?: string | null; age?: number | null; height?: number | null;
+                bust?: number | null; bust_cup?: string | null; waist?: number | null; hip?: number | null;
+                comment?: string | null; rank_id?: string | null;
+              } | undefined;
+              const isHomeShop = s.id === therapist.shop_id;
+              // 既存の在籍行が無い自店（＝統合前からの主所属店舗）は、共通プロフィールを初期値として引き継ぐ
+              const fallback = !existing && isHomeShop ? therapist : null;
+              return {
+                shop_id: s.id,
+                shop_name: s.name,
+                is_active: existing ? existing.is_active !== false : isHomeShop,
+                alias_name: existing?.alias_name || '',
+                age: num(existing?.age ?? fallback?.age),
+                height: num(existing?.height ?? fallback?.height),
+                bust: num(existing?.bust ?? fallback?.bust),
+                bust_cup: existing?.bust_cup || fallback?.bust_cup || '',
+                waist: num(existing?.waist ?? fallback?.waist),
+                hip: num(existing?.hip ?? fallback?.hip),
+                comment: existing?.comment || fallback?.comment || '',
+                rank_id: existing?.rank_id || fallback?.rank_id || '',
+                existed: !!existing,
+              };
+            });
+            setRoster(newRoster);
+            setActiveRosterShopId(prev => prev || newRoster.find(r => r.shop_id === therapist.shop_id)?.shop_id || newRoster[0]?.shop_id || '');
+
+            // 店舗ごとのランク選択肢（バック設定共有先が同じ店舗どうしは同じ選択肢になる）
+            const backShopIdOf = new Map(shopsData.map(s => [s.id, getBackShopId(s)]));
+            const uniqueBackShopIds = [...new Set(backShopIdOf.values())];
+            const { data: allRanksData } = await supabase
+              .from('therapist_ranks')
+              .select('id, name, shop_id')
+              .in('shop_id', uniqueBackShopIds)
+              .order('display_order');
+            const ranksByBackShop = new Map<string, { id: string; name: string }[]>();
+            (allRanksData || []).forEach((r: any) => {
+              const arr = ranksByBackShop.get(r.shop_id) || [];
+              arr.push({ id: r.id, name: r.name });
+              ranksByBackShop.set(r.shop_id, arr);
+            });
+            const rosterRanksMap: Record<string, { id: string; name: string }[]> = {};
+            shopsData.forEach(s => {
+              rosterRanksMap[s.id] = ranksByBackShop.get(backShopIdOf.get(s.id)!) || [];
+            });
+            setRosterRanks(rosterRanksMap);
+
+            // 店舗ごとの写真
+            const siblingShopIds = shopsData.map(s => s.id);
+            const { data: rosterPhotoData } = await supabase
+              .from('therapist_photos')
+              .select('id, shop_id, photo_url, display_order')
+              .eq('therapist_id', therapistId)
+              .in('shop_id', siblingShopIds)
+              .order('display_order', { ascending: true });
+            const photosByShop: Record<string, { id: string; photo_url: string; display_order: number }[]> = {};
+            (rosterPhotoData || []).forEach((p: any) => {
+              const arr = photosByShop[p.shop_id] || [];
+              arr.push({ id: p.id, photo_url: p.photo_url, display_order: p.display_order });
+              photosByShop[p.shop_id] = arr;
+            });
+            setRosterPhotos(photosByShop);
           } else {
-            setShopAliases([]);
+            setRoster([]);
           }
         }
-
-        // 相互リンクが許可されている店舗IDリストを取得
-        const { data: linksData } = await supabase
-          .from('shop_links')
-          .select('shop_id_1, shop_id_2')
-          .eq('is_active', true)
-          .or(`shop_id_1.eq.${therapist.shop_id},shop_id_2.eq.${therapist.shop_id}`);
-        const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === therapist.shop_id ? l.shop_id_2 : l.shop_id_1);
 
         // 所属店舗の料金・バック設定共有先を解決
         const { data: ownShopData } = await supabase
@@ -258,35 +314,19 @@ export default function EditTherapistPage() {
         const backShopId = ownShopData ? getBackShopId(ownShopData) : therapist.shop_id;
 
         // Fetch ranks, fees, option data, courses in parallel
-        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, otherTherapistsRes, coursesRes] = await Promise.all([
+        const [ranksRes, feesRes, overridesRes, optCatRes, dtRes, optBacksRes, coursesRes] = await Promise.all([
           supabase.from("therapist_ranks").select("id, name").eq("shop_id", backShopId).order("display_order"),
           supabase.from("nomination_fees").select("id, name").eq("shop_id", therapist.shop_id),
           supabase.from("therapist_fee_overrides").select("fee_type_id, override_price").eq("therapist_id", therapistId),
           supabase.from("options").select("back_category").eq("shop_id", pricingShopId).eq("is_active", true),
           supabase.from("designation_types").select("slug, display_name").eq("shop_id", pricingShopId).eq("is_active", true).order("display_order"),
           supabase.from("therapist_option_backs").select("option_category, designation_type, back_rate").eq("therapist_id", therapistId),
-          linkedShopIds.length > 0
-            // shops は !shop_id でリレーションを明示する。
-            // therapist_shops（店舗別源氏名）が増えて therapists→shops の経路が2本になったため、
-            // 単なる shops(name) だと PostgREST が曖昧エラーを返しクエリごと失敗する。
-            ? supabase.from("therapists").select("id, name, shop_id, shops!shop_id(name), linked_therapist_group_id").in("shop_id", linkedShopIds).eq("is_active", true).order("name", { ascending: true })
-            : Promise.resolve({ data: [] }),
           supabase.from("courses").select("id, name, duration").eq("shop_id", pricingShopId).eq("is_active", true).order("display_order")
         ]);
 
         setRanks(ranksRes.data || []);
         setNominationFees(feesRes.data || []);
         setCourses(coursesRes.data || []);
-
-        const otherTherapists = (otherTherapistsRes.data || []) as any[];
-        setAllOtherTherapists(otherTherapists);
-
-        if (therapist.linked_therapist_group_id) {
-          const initialSelectedIds = otherTherapists
-            .filter((t: any) => t.linked_therapist_group_id === therapist.linked_therapist_group_id)
-            .map((t: any) => t.id);
-          setSelectedLinkIds(initialSelectedIds);
-        }
 
         const overridesObj: Record<string, string> = {};
         if (overridesRes.data) {
@@ -334,12 +374,14 @@ export default function EditTherapistPage() {
           badge: therapist.badge || "",
           tags: Array.isArray(therapist.tags) ? therapist.tags.join(", ") : "",
         });
-        // 写真一覧を取得
-        const { data: photoData } = await supabase
+        // 写真一覧を取得（店舗ごとグループは自店の写真のみ。フォールバックはしない）
+        let photoQuery = supabase
           .from("therapist_photos")
           .select("id, photo_url, display_order")
           .eq("therapist_id", therapistId)
           .order("display_order", { ascending: true });
+        if (scope === 'per_shop' && selectedShop?.id) photoQuery = photoQuery.eq('shop_id', selectedShop.id);
+        const { data: photoData } = await photoQuery;
         setPhotos((photoData || []) as { id: string; photo_url: string; display_order: number }[]);
 
       } catch (err: unknown) {
@@ -382,7 +424,7 @@ export default function EditTherapistPage() {
       const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 0;
       const { data: inserted, error: insertError } = await supabase
         .from("therapist_photos")
-        .insert({ therapist_id: therapistId, photo_url: urlData.publicUrl, display_order: nextOrder })
+        .insert({ therapist_id: therapistId, shop_id: selectedShop?.id || therapistShopId || null, photo_url: urlData.publicUrl, display_order: nextOrder })
         .select("id, photo_url, display_order")
         .single();
       if (insertError) {
@@ -416,6 +458,68 @@ export default function EditTherapistPage() {
     );
   };
 
+  // 在籍店舗タブ用の写真操作（店舗ごとに photos を持つ）
+  const handleRosterPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !activeRosterShopId) return;
+    const shopId = activeRosterShopId;
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`${file.name} は5MB以下にしてください`);
+        continue;
+      }
+      setRosterPhotoUploading(true);
+      setError(null);
+      const photoId = crypto.randomUUID();
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${therapistId}/${photoId}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('therapist-photos')
+        .upload(path, file, { contentType: file.type });
+      if (uploadError) {
+        setError("写真のアップロードに失敗しました: " + uploadError.message);
+        setRosterPhotoUploading(false);
+        continue;
+      }
+      const { data: urlData } = supabase.storage.from('therapist-photos').getPublicUrl(path);
+      const currentPhotos = rosterPhotos[shopId] || [];
+      const nextOrder = currentPhotos.length > 0 ? Math.max(...currentPhotos.map(p => p.display_order)) + 1 : 0;
+      const { data: inserted, error: insertError } = await supabase
+        .from("therapist_photos")
+        .insert({ therapist_id: therapistId, shop_id: shopId, photo_url: urlData.publicUrl, display_order: nextOrder })
+        .select("id, photo_url, display_order")
+        .single();
+      if (insertError) {
+        setError("写真の登録に失敗しました: " + insertError.message);
+        setRosterPhotoUploading(false);
+        continue;
+      }
+      if (inserted) {
+        setRosterPhotos(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), inserted as { id: string; photo_url: string; display_order: number }] }));
+      }
+    }
+    setRosterPhotoUploading(false);
+    if (rosterPhotoInputRef.current) rosterPhotoInputRef.current.value = '';
+  };
+
+  const handleRosterPhotoDelete = async (shopId: string, photoId: string) => {
+    if (!confirm("この写真を削除しますか？")) return;
+    await supabase.from("therapist_photos").delete().eq("id", photoId);
+    setRosterPhotos(prev => ({ ...prev, [shopId]: (prev[shopId] || []).filter(p => p.id !== photoId) }));
+  };
+
+  const handleRosterPhotoMove = async (shopId: string, index: number, direction: -1 | 1) => {
+    const list = [...(rosterPhotos[shopId] || [])];
+    const swapIndex = index + direction;
+    if (swapIndex < 0 || swapIndex >= list.length) return;
+    [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+    const updated = list.map((p, i) => ({ ...p, display_order: i }));
+    setRosterPhotos(prev => ({ ...prev, [shopId]: updated }));
+    await Promise.all(
+      updated.map(p => supabase.from("therapist_photos").update({ display_order: p.display_order }).eq("id", p.id))
+    );
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -441,6 +545,16 @@ export default function EditTherapistPage() {
         setError(`個別料金は数値で入力してください`);
         setLoading(false);
         return;
+      }
+    }
+
+    for (const r of roster) {
+      for (const field of ["age", "height", "bust", "waist", "hip"] as const) {
+        if (r[field] && isNaN(Number(r[field]))) {
+          setError(`${r.shop_name}の${field}は数値で入力してください`);
+          setLoading(false);
+          return;
+        }
       }
     }
     setError(null);
@@ -550,86 +664,27 @@ export default function EditTherapistPage() {
       }
     }
 
-    // === 店舗別源氏名の保存 ===
-    if (shopAliases.length > 0) {
-      for (const sa of shopAliases) {
+    // === 在籍店舗（店舗ごとのプロフィール・在籍中／退店）の保存 ===
+    if (roster.length > 0) {
+      const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
+      for (const r of roster) {
+        if (!r.existed && !r.is_active) continue; // 元々在籍していなかった店舗を「退店」のまま保存しない
         await supabase
           .from('therapist_shops')
           .upsert({
             therapist_id: therapistId,
-            shop_id: sa.shop_id,
-            alias_name: sa.alias_name.trim() || null,
+            shop_id: r.shop_id,
+            is_active: r.is_active,
+            alias_name: r.alias_name.trim() || null,
+            age: numOrNull(r.age),
+            height: numOrNull(r.height),
+            bust: numOrNull(r.bust),
+            bust_cup: r.bust_cup.trim() || null,
+            waist: numOrNull(r.waist),
+            hip: numOrNull(r.hip),
+            comment: r.comment.trim() || null,
+            rank_id: r.rank_id || null,
           }, { onConflict: 'therapist_id,shop_id' });
-      }
-    }
-
-    // === 多店舗セラピストリンク同期 ===
-    const newLinkIds = selectedLinkIds;
-
-    if (newLinkIds.length > 0) {
-      // リンクあり：グループIDを決定（既存のものを使用するか、新規に生成）
-      let groupId = originalGroupId;
-      if (!groupId) {
-        // 新規にグループIDを生成
-        groupId = crypto.randomUUID();
-      }
-
-      // 自分と選択された他店舗セラピスト全員のグループIDを更新
-      const targetIds = [therapistId, ...newLinkIds];
-      await supabase
-        .from("therapists")
-        .update({ linked_therapist_group_id: groupId })
-        .in("id", targetIds);
-
-      // それ以外の、以前同じグループだったが選択解除されたセラピストのグループIDをクリア（NULLに）
-      if (originalGroupId) {
-        const { data: oldMembers } = await supabase
-          .from("therapists")
-          .select("id")
-          .eq("linked_therapist_group_id", originalGroupId)
-          .not("id", "in", `(${targetIds.join(",")})`);
-        
-        if (oldMembers && oldMembers.length > 0) {
-          const oldMemberIds = oldMembers.map(m => m.id);
-          await supabase
-            .from("therapists")
-            .update({ linked_therapist_group_id: null })
-            .in("id", oldMemberIds);
-          
-          // 古いグループに残ったメンバーが1人以下になったら、そのグループを解体
-          const { data: remainingMembers } = await supabase
-            .from("therapists")
-            .select("id")
-            .eq("linked_therapist_group_id", originalGroupId);
-          if (remainingMembers && remainingMembers.length <= 1) {
-            await supabase
-              .from("therapists")
-              .update({ linked_therapist_group_id: null })
-              .eq("linked_therapist_group_id", originalGroupId);
-          }
-        }
-      }
-    } else {
-      // リンクなし：自分のグループIDをクリア
-      await supabase
-        .from("therapists")
-        .update({ linked_therapist_group_id: null })
-        .eq("id", therapistId);
-
-      // 以前のグループメンバーの整理
-      if (originalGroupId) {
-        const { data: remainingMembers } = await supabase
-          .from("therapists")
-          .select("id")
-          .eq("linked_therapist_group_id", originalGroupId);
-        
-        if (remainingMembers && remainingMembers.length <= 1) {
-          // 残ったメンバーが1人以下ならグループ解体
-          await supabase
-            .from("therapists")
-            .update({ linked_therapist_group_id: null })
-            .eq("linked_therapist_group_id", originalGroupId);
-        }
       }
     }
 
@@ -671,7 +726,8 @@ export default function EditTherapistPage() {
 
         <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="order-2 lg:order-1 lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-5 space-y-8">
-              {/* 写真 */}
+              {/* 写真（店舗ごとグループは在籍店舗タブの中で扱う） */}
+              {roster.length === 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">プロフィール写真</h3>
@@ -756,6 +812,7 @@ export default function EditTherapistPage() {
                 </div>
                 <p className="text-xs text-slate-400">JPG・PNG・WebP / 1枚最大5MB / 複数選択可 / 最初の写真がメイン表示</p>
               </div>
+              )}
 
               {/* 基本プロフィール */}
               <div className="space-y-5">
@@ -776,31 +833,241 @@ export default function EditTherapistPage() {
                   />
                 </div>
 
-                {/* 店舗別源氏名設定 */}
-                {shopAliases.length > 0 && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                    <label className="block text-xs font-bold text-slate-700">🏢 店舗ごとの源氏名（別名）設定</label>
-                    <p className="text-xs text-slate-500">店舗ごとに表示名を変える場合に入力してください。（未入力の場合は基本の「名前」が表示されます）</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      {shopAliases.map((sa, idx) => (
-                        <div key={sa.shop_id}>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">{sa.shop_name} での名前</label>
+                {therapistScope === 'all_shops' && (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                    このグループは全店共通のため、登録すると自動的にグループ内の全店舗に在籍します。
+                  </p>
+                )}
+
+                {/* 在籍店舗設定：店舗タブを切り替えて、店舗ごとのプロフィール・写真・在籍中/退店を編集する */}
+                {roster.length > 0 && (() => {
+                  const active = roster.find(r => r.shop_id === activeRosterShopId) || roster[0];
+                  const updateActive = (patch: Partial<RosterRow>) => {
+                    setRoster(prev => prev.map(item => item.shop_id === active.shop_id ? { ...item, ...patch } : item));
+                  };
+                  const activePhotos = rosterPhotos[active.shop_id] || [];
+                  const activeRanks = rosterRanks[active.shop_id] || [];
+                  return (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 border-b border-slate-200">
+                        {roster.map(r => (
+                          <button
+                            key={r.shop_id}
+                            type="button"
+                            onClick={() => setActiveRosterShopId(r.shop_id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                              r.shop_id === active.shop_id
+                                ? 'bg-indigo-600 text-white'
+                                : r.is_active ? 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100' : 'bg-slate-100 text-slate-400 border border-slate-200'
+                            }`}
+                          >
+                            {r.shop_name}{!r.is_active && '（退店）'}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="p-4 space-y-4">
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => updateActive({ is_active: true })}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-medium text-sm transition-all ${
+                              active.is_active ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${active.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                            在籍中
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateActive({ is_active: false })}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-medium text-sm transition-all ${
+                              !active.is_active ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${!active.is_active ? 'bg-rose-400' : 'bg-slate-300'}`}></span>
+                            退店
+                          </button>
+                        </div>
+                        {!active.is_active && (
+                          <p className="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                            退店に設定すると、{active.shop_name}のHP・一覧・シフトから消えます（本人のデータや他店の在籍には影響しません）。
+                          </p>
+                        )}
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">{active.shop_name}での源氏名</label>
                           <input
                             type="text"
-                            value={sa.alias_name}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setShopAliases(prev => prev.map((item, i) => i === idx ? { ...item, alias_name: val } : item));
-                            }}
-                            className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={active.alias_name}
+                            onChange={(e) => updateActive({ alias_name: e.target.value })}
+                            disabled={!active.is_active}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
                             placeholder={profile.name || "店舗での源氏名"}
                           />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">年齢</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                value={active.age}
+                                onChange={(e) => updateActive({ age: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 placeholder-slate-400"
+                                placeholder="25"
+                                min="0"
+                              />
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">歳</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">身長</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                value={active.height}
+                                onChange={(e) => updateActive({ height: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all pr-12 text-slate-800 placeholder-slate-400"
+                                placeholder="160"
+                                min="0"
+                              />
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">cm</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">スリーサイズ</label>
+                          <div className="flex bg-slate-50 rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
+                            <div className="flex-1 relative flex items-center">
+                              <span className="absolute left-3 text-slate-400 text-sm font-bold">B</span>
+                              <input
+                                type="number" value={active.bust} onChange={(e) => updateActive({ bust: e.target.value })}
+                                className="w-full py-3 pl-8 pr-2 bg-transparent outline-none text-slate-800 text-center" min="0" placeholder="-"
+                              />
+                            </div>
+                            <div className="w-px bg-slate-200"></div>
+                            <div className="relative flex items-center" style={{ width: '72px' }}>
+                              <select
+                                value={active.bust_cup}
+                                onChange={(e) => updateActive({ bust_cup: e.target.value })}
+                                className="w-full py-3 px-2 bg-transparent outline-none text-slate-800 text-center appearance-none cursor-pointer"
+                              >
+                                <option value="">C</option>
+                                {['A','B','C','D','E','F','G','H','I','J','K'].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="w-px bg-slate-200"></div>
+                            <div className="flex-1 relative flex items-center">
+                              <span className="absolute left-3 text-slate-400 text-sm font-bold">W</span>
+                              <input
+                                type="number" value={active.waist} onChange={(e) => updateActive({ waist: e.target.value })}
+                                className="w-full py-3 pl-8 pr-2 bg-transparent outline-none text-slate-800 text-center" min="0" placeholder="-"
+                              />
+                            </div>
+                            <div className="w-px bg-slate-200"></div>
+                            <div className="flex-1 relative flex items-center">
+                              <span className="absolute left-3 text-slate-400 text-sm font-bold">H</span>
+                              <input
+                                type="number" value={active.hip} onChange={(e) => updateActive({ hip: e.target.value })}
+                                className="w-full py-3 pl-8 pr-2 bg-transparent outline-none text-slate-800 text-center" min="0" placeholder="-"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">所属ランク（{active.shop_name}）</label>
+                          <select
+                            value={active.rank_id}
+                            onChange={(e) => updateActive({ rank_id: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800"
+                          >
+                            <option value="">ランクなし</option>
+                            {activeRanks.map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                            HP用アピールコメント（{active.shop_name}）
+                          </label>
+                          <textarea
+                            value={active.comment}
+                            onChange={(e) => updateActive({ comment: e.target.value })}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400 resize-none text-sm"
+                            placeholder="ホームページ掲載用のアピールコメント"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <label className="text-sm font-medium text-slate-700">プロフィール写真（{active.shop_name}）</label>
+                            <span className="text-xs text-slate-400">{activePhotos.length}枚 / 最大10枚</span>
+                          </div>
+                          <input
+                            ref={rosterPhotoInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            multiple
+                            className="hidden"
+                            onChange={handleRosterPhotoUpload}
+                          />
+                          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                            {activePhotos.map((photo, index) => (
+                              <div key={photo.id} className="relative group aspect-[3/4] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                                <Image src={photo.photo_url} alt={`写真${index + 1}`} fill className="object-cover" unoptimized />
+                                {index === 0 && (
+                                  <div className="absolute top-1 left-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">メイン</div>
+                                )}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                  <button type="button" onClick={() => handleRosterPhotoMove(active.shop_id, index, -1)} disabled={index === 0}
+                                    className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-slate-700 disabled:opacity-30 hover:bg-white" title="前へ">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                  </button>
+                                  <button type="button" onClick={() => handleRosterPhotoMove(active.shop_id, index, 1)} disabled={index === activePhotos.length - 1}
+                                    className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-slate-700 disabled:opacity-30 hover:bg-white" title="後へ">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                  </button>
+                                  <button type="button" onClick={() => handleRosterPhotoDelete(active.shop_id, photo.id)}
+                                    className="w-7 h-7 bg-rose-500/90 rounded-full flex items-center justify-center text-white hover:bg-rose-500" title="削除">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                            {activePhotos.length < 10 && (
+                              <button
+                                type="button"
+                                onClick={() => rosterPhotoInputRef.current?.click()}
+                                disabled={rosterPhotoUploading}
+                                className="aspect-[3/4] rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors disabled:opacity-50"
+                              >
+                                {rosterPhotoUploading ? (
+                                  <div className="w-5 h-5 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                                )}
+                                <span className="text-xs font-medium">追加</span>
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400">JPG・PNG・WebP / 1枚最大5MB / 複数選択可 / 最初の写真がメイン表示</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {roster.length === 0 && (
+                <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">年齢</label>
@@ -877,6 +1144,8 @@ export default function EditTherapistPage() {
                   </div>
                   <p className="text-xs text-slate-400 mt-1">バスト数値の隣のドロップダウンでカップを選択</p>
                 </div>
+                </>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -934,6 +1203,7 @@ export default function EditTherapistPage() {
                   />
                 </div>
 
+                {roster.length === 0 && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     HP用アピールコメント（公開・Web予約用） <span className="text-xs text-slate-400 font-normal">※ホームページやWeb予約画面で公開される自己紹介文章です（HP一括取り込み対象）</span>
@@ -947,6 +1217,7 @@ export default function EditTherapistPage() {
                     placeholder="ホームページ掲載用のアピールコメント"
                   />
                 </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -961,51 +1232,6 @@ export default function EditTherapistPage() {
                     placeholder="例: 寝坊が多い、遅刻注意、コース制限など社内共有用のメモ"
                   />
                 </div>
-
-                {/* 多店舗リンク設定 */}
-                {allOtherTherapists.length > 0 && (
-                  <div className="space-y-4 pt-4 border-t border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2">🔗 多店舗リンク設定</h3>
-                    <p className="text-xs text-slate-400">
-                      他の連携店舗に登録されている「同一人物のセラピスト」を選択してください。
-                      選択すると、スケジュール（予約ブロック）や精算が相互に自動的に同期されます。
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
-                      {allOtherTherapists.map((t) => {
-                        const isChecked = selectedLinkIds.includes(t.id);
-                        return (
-                          <label
-                            key={t.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              isChecked
-                                ? "bg-indigo-50 border-indigo-200"
-                                : "bg-white border-slate-200 hover:bg-slate-50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedLinkIds([...selectedLinkIds, t.id]);
-                                } else {
-                                  setSelectedLinkIds(selectedLinkIds.filter((id) => id !== t.id));
-                                }
-                              }}
-                              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                            />
-                            <div className="text-xs md:text-sm">
-                              <span className="font-bold text-slate-800">{t.name}</span>
-                              <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
-                                {t.shops?.name || "他店舗"}
-                              </span>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
               </div>
 
@@ -1075,6 +1301,7 @@ export default function EditTherapistPage() {
                   ランク設定
                 </h3>
 
+                {roster.length === 0 ? (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">所属ランク</label>
                   <select
@@ -1089,6 +1316,11 @@ export default function EditTherapistPage() {
                     ))}
                   </select>
                 </div>
+                ) : (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                    ランクは店舗ごとに異なるため、上の「在籍店舗」欄の各タブで設定してください。
+                  </p>
+                )}
 
                 <div className="flex items-center gap-2 mt-4">
                   <input

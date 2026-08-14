@@ -14,7 +14,6 @@ type TherapistItem = {
   name: string
   rank_id: string | null
   back_calc_type: 'percentage' | 'fixed' | 'half_split' | null
-  linked_therapist_group_id?: string | null
 }
 
 type ReservationWithDetails = {
@@ -177,7 +176,7 @@ export default function PayrollPage() {
 
       const { data, error } = await supabase
         .from('therapists')
-        .select('id, name, rank_id, back_calc_type, linked_therapist_group_id')
+        .select('id, name, rank_id, back_calc_type')
         .in('id', shiftTherapistIds)
         .order('name', { ascending: true })
 
@@ -273,7 +272,9 @@ export default function PayrollPage() {
       const therapist = therapists.find(t => t.id === selectedTherapistId)
       if (!therapist) throw new Error('セラピストが見つかりません')
 
-      // オーナーグループ配下の全店舗および相互リンク店舗のIDリストを取得
+      // オーナーグループ配下の全店舗のIDリストを取得。
+      // セラピストは1人1レコードのため、同じオーナー内であればどの店舗の
+      // 予約もこの1つの therapist_id に紐づく。店舗をまたいだ精算合算はこれで成立する。
       let targetShopIds = [selectedShop.id];
       if (selectedShop.owner_id) {
         const { data: groupShops } = await supabase
@@ -285,14 +286,6 @@ export default function PayrollPage() {
         }
       }
 
-      const { data: linksData } = await supabase
-        .from('shop_links')
-        .select('shop_id_1, shop_id_2')
-        .eq('is_active', true)
-        .or(`shop_id_1.eq.${selectedShop.id},shop_id_2.eq.${selectedShop.id}`);
-      const linkedShopIds = (linksData || []).map(l => l.shop_id_1 === selectedShop.id ? l.shop_id_2 : l.shop_id_1);
-      targetShopIds = Array.from(new Set([...targetShopIds, ...linkedShopIds]));
-
       // 各店舗の料金・バック設定共有先を解決するためのマップ
       const { data: targetShopsData } = await supabase
         .from('shops')
@@ -300,22 +293,18 @@ export default function PayrollPage() {
         .in('id', targetShopIds);
       const shopConfigMap = new Map((targetShopsData || []).map(s => [s.id, s]));
 
-      // リンクされている他店舗のセラピストも含めてIDを取得
-      let therapistIds = [selectedTherapistId]
-      let groupTherapists: TherapistItem[] = [therapist]
+      const therapistIds = [selectedTherapistId]
+      const groupTherapists: TherapistItem[] = [therapist]
 
-      if (therapist.linked_therapist_group_id) {
-        const { data: linkedTherapists } = await supabase
-          .from('therapists')
-          .select('id, name, rank_id, back_calc_type, linked_therapist_group_id')
-          .eq('linked_therapist_group_id', therapist.linked_therapist_group_id)
-          .in('shop_id', targetShopIds)
-          .eq('is_active', true)
-        if (linkedTherapists) {
-          therapistIds = linkedTherapists.map(t => t.id)
-          groupTherapists = linkedTherapists as TherapistItem[]
-        }
-      }
+      // 店舗ごとのランク上書き（therapist_shops.rank_id）。null ならその店舗では
+      // 共通ランク（therapist.rank_id）を使う。店舗別に持たせないとバック金額が
+      // 統合前と変わってしまう。
+      const { data: rosterRows } = await supabase
+        .from('therapist_shops')
+        .select('shop_id, rank_id')
+        .eq('therapist_id', selectedTherapistId)
+        .in('shop_id', targetShopIds)
+      const rankOverrideByShop = new Map((rosterRows || []).map(r => [r.shop_id, r.rank_id]))
 
       const { data: resData, error: resError } = await supabase
         .from('reservations')
@@ -382,12 +371,13 @@ export default function PayrollPage() {
           // 未計算 or 強制再計算 → calculateBack 実行
           const targetTherapist = groupTherapists.find(t => t.id === res.therapist_id) || therapist
           const resShop = shopConfigMap.get(res.shop_id) || selectedShop
+          const rankId = (res.shop_id && rankOverrideByShop.get(res.shop_id)) ?? targetTherapist.rank_id
           const input: BackCalculationInput = {
             shopId: res.shop_id || selectedShop.id,
             backShopId: getBackShopId(resShop),
             pricingShopId: getPricingShopId(resShop),
             therapistId: targetTherapist.id,
-            therapistRankId: targetTherapist.rank_id,
+            therapistRankId: rankId,
             therapistBackCalcType: targetTherapist.back_calc_type,
             courseId: res.course_id,
             coursePrice: res.course?.base_price ?? res.base_price ?? 0,
