@@ -665,26 +665,42 @@ export default function EditTherapistPage() {
     }
 
     // === 在籍店舗（店舗ごとのプロフィール・在籍中／退店）の保存 ===
-    if (roster.length > 0) {
-      const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
-      for (const r of roster) {
-        if (!r.existed && !r.is_active) continue; // 元々在籍していなかった店舗を「退店」のまま保存しない
-        await supabase
-          .from('therapist_shops')
-          .upsert({
-            therapist_id: therapistId,
-            shop_id: r.shop_id,
-            is_active: r.is_active,
-            alias_name: r.alias_name.trim() || null,
-            age: numOrNull(r.age),
-            height: numOrNull(r.height),
-            bust: numOrNull(r.bust),
-            bust_cup: r.bust_cup.trim() || null,
-            waist: numOrNull(r.waist),
-            hip: numOrNull(r.hip),
-            comment: r.comment.trim() || null,
-            rank_id: r.rank_id || null,
-          }, { onConflict: 'therapist_id,shop_id' });
+    // therapist_shops はブラウザから直接書けない（RLSがSELECTのみ）ため、
+    // サーバー側のルート経由でまとめて保存する。
+    const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
+    const rosterPayload = roster
+      .filter(r => r.existed || r.is_active) // 元々在籍していなかった店舗を「退店」のまま保存しない
+      .map(r => ({
+        shop_id: r.shop_id,
+        is_active: r.is_active,
+        alias_name: r.alias_name.trim() || null,
+        age: numOrNull(r.age),
+        height: numOrNull(r.height),
+        bust: numOrNull(r.bust),
+        bust_cup: r.bust_cup.trim() || null,
+        waist: numOrNull(r.waist),
+        hip: numOrNull(r.hip),
+        comment: r.comment.trim() || null,
+        rank_id: r.rank_id || null,
+      }));
+
+    if (rosterPayload.length > 0) {
+      try {
+        const res = await fetch('/api/admin/therapists', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ therapistId, shopId: therapistShopId, roster: rosterPayload }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || '在籍店舗の保存に失敗しました');
+          setLoading(false);
+          return;
+        }
+      } catch (e: unknown) {
+        setError('在籍店舗の保存に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
+        setLoading(false);
+        return;
       }
     }
 

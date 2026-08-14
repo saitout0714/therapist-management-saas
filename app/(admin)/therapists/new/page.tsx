@@ -67,34 +67,24 @@ export default function NewTherapistPage() {
     }
 
     setLoading(true)
-    const { data: minOrderData } = await supabase.from('therapists').select('order').eq('shop_id', selectedShop.id).order('order', { ascending: true }).limit(1)
-    const nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null ? minOrderData[0].order - 1 : 0
-
-    const { data: insertData, error: insertError } = await supabase
-      .from('therapists')
-      .insert([{ name, shop_id: selectedShop.id, owner_id: selectedShop.owner_id || null, order: nextOrder }])
-      .select()
-      .single()
-
-    if (insertError) {
+    // 在籍テーブル(therapist_shops)はブラウザから書けないので、本体と在籍行を
+    // まとめてサーバー側で作る。途中で失敗したときは本体も残さない。
+    try {
+      const res = await fetch('/api/admin/therapists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, shopId: selectedShop.id, targetShopIds }),
+      })
+      const data = await res.json()
       setLoading(false)
-      setError('登録に失敗しました: ' + insertError.message)
-      return
-    }
-
-    if (insertData) {
-      const { error: rosterError } = await supabase
-        .from('therapist_shops')
-        .insert(targetShopIds.map(shopId => ({ therapist_id: insertData.id, shop_id: shopId })))
-      setLoading(false)
-      if (rosterError) {
-        setError('在籍店舗の登録に失敗しました: ' + rosterError.message)
+      if (!res.ok) {
+        setError(data.error || '登録に失敗しました')
         return
       }
-      router.push(`/therapists/${insertData.id}/edit`)
-    } else {
+      router.push(`/therapists/${data.id}/edit`)
+    } catch (e: unknown) {
       setLoading(false)
-      router.push('/therapists')
+      setError('登録に失敗しました: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
 
