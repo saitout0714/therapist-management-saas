@@ -1,5 +1,6 @@
 export interface DispatchInfo {
   dispatch_type: 'store' | 'hotel' | 'home';
+  hotel_name?: string;
   hotel_room_number?: string;
   home_address?: string;
   parking_available?: 'yes' | 'no';
@@ -27,7 +28,16 @@ export function parseDispatchFromNotes(notes: string | null | undefined): Dispat
     return result;
   }
 
-  // Search for hotel room number
+  // Search for hotel dispatch (new format: 【派遣】ホテル名 部屋番号)
+  const hotelMatchNew = notes.match(/【派遣】(\S+)(?:[ \t]+([^\n\r]*))?/);
+  if (hotelMatchNew) {
+    result.dispatch_type = 'hotel';
+    result.hotel_name = hotelMatchNew[1];
+    result.hotel_room_number = (hotelMatchNew[2] || '').trim();
+    return result;
+  }
+
+  // Search for hotel room number (legacy format)
   const hotelMatch = notes.match(/【派遣先】ホテル部屋番号:\s*([^\n\r]*)/);
   if (hotelMatch) {
     result.dispatch_type = 'hotel';
@@ -47,7 +57,8 @@ export function updateNotesWithDispatch(
   // Remove existing dispatch patterns
   cleanNotes = cleanNotes.replace(/【派遣先】自宅派遣:.*?(?:\r?\n|$)/g, '');
   cleanNotes = cleanNotes.replace(/【派遣先】ホテル部屋番号:.*?(?:\r?\n|$)/g, '');
-  
+  cleanNotes = cleanNotes.replace(/【派遣】.*?(?:\r?\n|$)/g, '');
+
   cleanNotes = cleanNotes.trim();
 
   let dispatchLine = '';
@@ -63,7 +74,8 @@ export function updateNotesWithDispatch(
     const staffText = staffMap[info.pickup_staff || 'none'] || '不要';
     dispatchLine = `【派遣先】自宅派遣: ${info.home_address || ''} (駐車場: ${parkingText}, 送迎: ${staffText})`;
   } else if (info.dispatch_type === 'hotel') {
-    dispatchLine = `【派遣先】ホテル部屋番号: ${info.hotel_room_number || ''}`;
+    const roomPart = info.hotel_room_number ? ` ${info.hotel_room_number}` : '';
+    dispatchLine = `【派遣】${info.hotel_name || 'ホテル'}${roomPart}`;
   }
 
   if (dispatchLine) {

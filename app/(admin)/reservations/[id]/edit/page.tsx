@@ -944,6 +944,7 @@ export default function EditReservationPage() {
       if (selectedShop?.is_dispatch_enabled) {
         const dispatchInfo: DispatchInfo = {
           dispatch_type: dispatchType,
+          hotel_name: dispatchType === 'hotel' ? (rooms.find(r => r.id === selectedRoomId)?.display_name || rooms.find(r => r.id === selectedRoomId)?.name) : undefined,
           hotel_room_number: dispatchType === 'hotel' ? hotelRoomNumber : undefined,
           home_address: dispatchType === 'home' ? homeAddress : undefined,
           parking_available: dispatchType === 'home' ? parkingAvailable : undefined,
