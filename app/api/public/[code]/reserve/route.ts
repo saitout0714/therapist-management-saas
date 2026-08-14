@@ -701,21 +701,22 @@ export async function POST(
 
   // 指名区分の自動判定
   // therapist_id なし（フリー選択）→ free
-  // therapist_id あり + 同セラピストでの過去予約あり → confirmed（本指名）
+  // therapist_id あり + 既存顧客 + 同セラピスト履歴あり → confirmed（本指名）
   // therapist_id あり + それ以外 → first_nomination（初回指名）
   //
-  // isNewCustomer（この店舗では初めて）では判定を打ち切らない。顧客・セラピストとも
-  // 店舗をまたいで同一人物としてまとまっているため、他店で同じセラピストに
-  // 入ったことがあれば、この店舗が初めてでも本指名として扱うべきため。
+  // 「本指名」は店舗ごとに判断する（他店での担当実績は引き継がない）
   let designationType: string
   if (!therapist_id) {
     designationType = 'free'
+  } else if (isNewCustomer) {
+    designationType = 'first_nomination'
   } else {
     const { data: priorReservations } = await supabase
       .from('reservations')
       .select('id')
       .eq('customer_id', customerId)
       .eq('therapist_id', therapist_id)
+      .eq('shop_id', shopId)
       .limit(1)
 
     designationType = priorReservations && priorReservations.length > 0

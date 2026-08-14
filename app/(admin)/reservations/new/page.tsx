@@ -668,14 +668,13 @@ export default function NewReservationPage() {
     if (!formData.customer_id || !formData.therapist_id || !selectedShop) return
 
     try {
-      // 顧客・セラピストとも店舗をまたいで同一人物としてまとまっているため、
-      // 「本指名」の判定も店舗を限定せず、この顧客とこのセラピストの組み合わせで
-      // どこかの店舗で過去に予約があったかを見る
+      // 「本指名」は店舗ごとに判断する（他店での担当実績は引き継がない）
       const { data, error } = await supabase
         .from('reservations')
         .select('id')
         .eq('customer_id', formData.customer_id)
         .eq('therapist_id', formData.therapist_id)
+        .eq('shop_id', selectedShop.id)
         .neq('status', 'cancelled')
         .limit(1)
 
