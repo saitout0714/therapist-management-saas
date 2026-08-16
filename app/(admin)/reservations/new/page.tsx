@@ -1018,7 +1018,7 @@ export default function NewReservationPage() {
     }
 
     // NGセラピストチェック
-    if (!isBlocked && formData.customer_id && formData.therapist_id) {
+    if (!isBlocked && formData.customer_id && formData.therapist_id && formData.therapist_id !== 'unassigned') {
       try {
         setLoading(true)
         const { data: ngData, error: ngError } = await supabase

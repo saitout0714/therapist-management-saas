@@ -852,7 +852,7 @@ export default function EditReservationPage() {
     }
 
     // NGセラピストチェック（キャンセル時はパス、それ以外は確認ダイアログを表示して強制保存可能にする）
-    if (formData.customer_id && formData.therapist_id && formData.status !== 'cancelled') {
+    if (formData.customer_id && formData.therapist_id && formData.therapist_id !== 'unassigned' && formData.status !== 'cancelled') {
       try {
         const { data: ngData, error: ngError } = await supabase
           .from('customer_therapist_ng')
