@@ -9,6 +9,7 @@ import TimeSelectHM from '@/app/components/TimeSelectHM'
 import SearchableTherapistSelect from '@/app/components/SearchableTherapistSelect'
 import { parseDispatchFromNotes, updateNotesWithDispatch, DispatchInfo } from '@/lib/dispatchUtils'
 import { getPricingShopId, getBackShopId } from '@/lib/shopUtils'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type CustomerShopRoster = { shop_id: string; member_number: string | null; shops: { name: string } | null }
 
@@ -428,8 +429,9 @@ export default function EditReservationPage() {
       setFormData({
         customer_id: reservation.customer_id,
         date: reservation.date,
-        start_time: reservation.start_time,
-        end_time: reservation.end_time || '',
+        // 深夜帯は 24:00〜29:59 の営業日表記に揃えて表示する（旧データの 01:00 等も含む）
+        start_time: toDisplayTime(reservation.start_time),
+        end_time: toDisplayTime(reservation.end_time),
         course_id: reservation.status === 'blocked' ? '__blocked__' : reservation.course_id,
         therapist_id: reservation.therapist_id || 'unassigned',
         designation_type: reservation.designation_type,
@@ -806,7 +808,7 @@ export default function EditReservationPage() {
           const shiftEndAbs = timeToMinutesAbsolute(shift.end_time, baseTime)
 
           if (newStartAbs < shiftStartAbs || newEndAbs > shiftEndAbs) {
-            warnings.push(`予約時間が出勤時間（${shift.start_time}〜${shift.end_time}）からはみ出しています。`)
+            warnings.push(`予約時間が出勤時間（${toDisplayTime(shift.start_time)}〜${toDisplayTime(shift.end_time)}）からはみ出しています。`)
           }
         }
 
@@ -831,7 +833,7 @@ export default function EditReservationPage() {
               const resCustomer = customers.find(c => c.id === res.customer_id)
               const customerName = resCustomer ? resCustomer.name : 'ゲスト'
               const typeLabel = res.status === 'blocked' ? '予約不可（ブロック）' : `予約（${customerName}様）`
-              warnings.push(`${typeLabel} [${res.start_time}〜${res.end_time}] と時間が重なっています（インターバル: ${therapistInterval}分）。`)
+              warnings.push(`${typeLabel} [${toDisplayTime(res.start_time)}〜${toDisplayTime(res.end_time)}] と時間が重なっています（インターバル: ${therapistInterval}分）。`)
             }
           }
         }

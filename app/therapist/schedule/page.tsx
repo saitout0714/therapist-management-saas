@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTherapistAuth } from '@/contexts/TherapistAuthContext';
 import { supabase } from '@/lib/supabase';
+import { toDisplayTime } from '@/lib/timeUtils';
 
 interface ShiftItem {
   id?: string;
@@ -316,7 +317,7 @@ export default function TherapistSchedulePage() {
                       )}
                     </div>
                     <p className="text-xs font-mono text-[#d1b464] mt-1">
-                      ⏰ {s.start_time} ～ {s.end_time}
+                      ⏰ {toDisplayTime(s.start_time)} ～ {toDisplayTime(s.end_time)}
                     </p>
                     {s.notes && <p className="text-[11px] text-stone-400 mt-0.5">💬 {s.notes}</p>}
                   </div>

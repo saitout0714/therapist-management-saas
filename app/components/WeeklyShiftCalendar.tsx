@@ -52,11 +52,15 @@ const toMinutes = (t: string): number => {
   return h * 60 + m
 }
 
-/** 表示用時刻 (24:00+ 含む) → DB用 HH:MM:SS */
+/**
+ * 表示用時刻 (24:00+ 含む) → DB用 HH:MM:SS
+ * 深夜帯は 24:00+ のまま保存する。シフト編集モーダル・一括登録API・
+ * スプレッドシート同期・キャスカン同期がいずれもこの表記で読み書きしているため、
+ * ここだけ 0〜5時に戻すとキャスカン同期が毎回差分ありと判定してしまう。
+ */
 const displayToDbTime = (t: string): string => {
   const [h, m] = t.split(':').map(Number)
-  const actualH = h >= 24 ? h - 24 : h
-  return `${String(actualH).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
 }
 
 /** DBの時刻 (HH:MM:SS) を表示用 (HH:MM) に変換。6:00未満は翌日扱いとして +24 する */

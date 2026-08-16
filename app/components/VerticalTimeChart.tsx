@@ -216,12 +216,12 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const headerHeight = isDesktop ? 152 : 96; // Height of the top header row
   const timeColumnWidth = 60; // Width of left sticky time column
 
+  // 深夜帯は 24:00〜29:55 の営業日表記で通す（0:00〜5:55 に折り返さない）
   const timeSlots = useMemo(() => {
     const slots: string[] = [];
     for (let h = 10; h < 30; h++) {
-      const displayHour = h % 24;
       for (let m = 0; m < 60; m += 5) {
-        slots.push(`${String(displayHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
       }
     }
     return slots;
@@ -230,8 +230,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   const hourLabels = useMemo(() => {
     const labels: string[] = [];
     for (let h = 10; h < 30; h++) {
-      const displayHour = h % 24;
-      labels.push(`${String(displayHour).padStart(2, '0')}:00`);
+      labels.push(`${String(h).padStart(2, '0')}:00`);
     }
     return labels;
   }, []);

@@ -21,7 +21,7 @@ const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, prim
       className={`relative z-10 max-w-2xl mx-auto ${isCyberTheme ? 'cyber-card reveal px-6 py-7 space-y-3' : 'space-y-2'}`}
     >
       <div className={`text-xs sm:text-sm font-semibold tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-700'}`}>
-        {isCyberTheme ? '🐾 新宿・渋谷エリア メンズエステ' : '赤羽・川口 メンズエステ'}<br />
+        {isCyberTheme ? `🐾 ${store.catchphrase || 'メンズエステ'}` : (store.catchphrase || '赤羽・川口 メンズエステ')}<br />
         <span
           className={`inline-block text-xl sm:text-2xl font-bold tracking-widest leading-relaxed ${
             isCyberTheme

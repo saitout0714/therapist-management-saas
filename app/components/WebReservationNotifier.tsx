@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 interface NotifItem {
   id: string
@@ -125,8 +126,8 @@ export default function WebReservationNotifier() {
               customerName: custRes.data?.name ?? '不明',
               therapistName: therapistRes.data?.name ?? 'フリー（未割当）',
               date: row.date,
-              startTime: row.start_time?.slice(0, 5) ?? '',
-              endTime: row.end_time?.slice(0, 5) ?? '',
+              startTime: toDisplayTime(row.start_time),
+              endTime: toDisplayTime(row.end_time),
               courseName: courseRes.data?.name ?? '',
               receivedAt: new Date(row.created_at || new Date()),
               source: isMail ? 'mail_sync' : row.source,
@@ -187,8 +188,8 @@ export default function WebReservationNotifier() {
               customerName: custRes.data?.name ?? '不明',
               therapistName: therapistRes.data?.name ?? 'フリー（未割当）',
               date: row.date,
-              startTime: row.start_time?.slice(0, 5) ?? '',
-              endTime: row.end_time?.slice(0, 5) ?? '',
+              startTime: toDisplayTime(row.start_time),
+              endTime: toDisplayTime(row.end_time),
               courseName: courseRes.data?.name ?? '',
               receivedAt: new Date(),
               source: isMail ? 'mail_sync' : row.source,
@@ -246,8 +247,8 @@ export default function WebReservationNotifier() {
               customerName: custRes.data?.name ?? '不明',
               therapistName: therapistRes.data?.name ?? 'フリー（未割当）',
               date: row.date,
-              startTime: row.start_time?.slice(0, 5) ?? '',
-              endTime: row.end_time?.slice(0, 5) ?? '',
+              startTime: toDisplayTime(row.start_time),
+              endTime: toDisplayTime(row.end_time),
               courseName: courseRes.data?.name ?? '',
               receivedAt: new Date(),
               source: isMail ? 'mail_sync' : row.source,

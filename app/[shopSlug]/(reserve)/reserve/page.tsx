@@ -90,7 +90,8 @@ export default function ReservePage({
       const durationMinutes = selectedCourse?.durationMinutes || 90;
       const [h, m] = reserveTime.split(':').map(Number);
       const totalEndMinutes = h * 60 + m + durationMinutes;
-      const endH = Math.floor(totalEndMinutes / 60) % 24;
+      // 深夜またぎは 24:30 のような営業日表記のまま保存する（00:30 に折り返すと開始 > 終了になる）
+      const endH = Math.floor(totalEndMinutes / 60);
       const endM = totalEndMinutes % 60;
       const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 

@@ -193,7 +193,7 @@ export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: s
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
               }`}>
                 <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-stone-900'}`}>
-                  {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '新宿・渋谷エリア極上のサイバーリラクゼーション' : '赤羽・川口エリアで選ばれ続けるメンズエステへ')}
+                  {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '極上のサイバーリラクゼーション' : '選ばれ続けるメンズエステへ')}
                 </p>
 
                 {store.description ? (

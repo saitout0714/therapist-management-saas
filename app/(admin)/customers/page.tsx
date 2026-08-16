@@ -5,6 +5,7 @@ import { useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import Link from 'next/link'
+import { toDisplayTime } from '@/lib/timeUtils'
 
 type Customer = {
   id: string
@@ -1016,7 +1017,7 @@ export default function CustomersPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">{r.date.replace(/-/g, '/')}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                                {r.start_time.substring(0, 5)} - {r.end_time.substring(0, 5)}
+                                {toDisplayTime(r.start_time)} - {toDisplayTime(r.end_time)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                                 {r.course?.name ? (
