@@ -749,7 +749,8 @@ const WeeklyDayView: React.FC<WeeklyDayViewProps> = ({
                                       e.stopPropagation()
                                       const t = new Date()
                                       t.setHours(t.getHours() + 1, 0, 0, 0)
-                                      const time = `${String(t.getHours()).padStart(2, '0')}:00`
+                                      // 深夜0〜5時台は営業日表記（24〜29時）に補正する
+                                      const time = toDisplayTime(`${String(t.getHours()).padStart(2, '0')}:00`)
                                       const params = new URLSearchParams({ therapist_id: therapist.id, date: dateStr, time, from: 'weekly' })
                                       if (shift.room_id) params.set('room_id', shift.room_id)
                                       router.push(`/reservations/new?${params.toString()}`)
