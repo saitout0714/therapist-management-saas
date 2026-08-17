@@ -1,29 +1,17 @@
-'use client';
-
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { fetchStoreConfig } from '../../../../lib/storeApi';
-import { StoreConfig } from '../../../../types/store';
-import { BLANK_STORE } from '../../../../mock/specialgrade';
-import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
-export default function RecruitPage({ params }: { params: Promise<{ shopSlug: string }> }) {
-  const resolvedParams = use(params);
+/** サーバーコンポーネント。求人内容をHTMLに載せるため取得をサーバー側に移している。 */
+export default async function RecruitPage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
 
-  useEffect(() => {
-    async function loadData() {
-      const storeConfig = await fetchStoreConfig(shopSlug);
-      setStore(storeConfig);
-    }
-    loadData();
-  }, [shopSlug]);
+  const store = await fetchStoreConfig(shopSlug);
 
   const isCyberTheme = shopSlug === 'onyankospa';
 

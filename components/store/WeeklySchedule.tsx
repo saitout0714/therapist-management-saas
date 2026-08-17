@@ -1,3 +1,7 @@
+'use client';
+
+// 日付タブの選択状態を持つため、クライアントコンポーネントとして扱う。
+// （呼び出し元のページがサーバーコンポーネント化されたため明示が必要）
 import React, { useState } from 'react';
 import { Therapist, ConfirmedShift } from '../../types/store';
 import { TherapistCard } from './TherapistCard';
@@ -6,18 +10,25 @@ interface WeeklyScheduleProps {
   therapists: Therapist[];
   confirmedShifts?: ConfirmedShift[];
   storeSlug: string;
+  /** 店舗の営業日切り替え時刻(JST)を考慮した「本日の営業日」文字列 (YYYY-MM-DD)。
+   *  未指定の場合はブラウザのローカル日付にフォールバックする。 */
+  businessTodayStr?: string;
 }
 
 export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   therapists,
   confirmedShifts = [],
   storeSlug,
+  businessTodayStr,
 }) => {
   const isCyber = storeSlug === 'onyankospa';
 
+  // 起点日（店舗の営業日切り替え時刻を考慮した「本日」）
+  const startDate = businessTodayStr ? new Date(`${businessTodayStr}T00:00:00`) : new Date();
+
   // 向こう7日分の日付オブジェクトを生成
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = new Date(startDate);
     d.setDate(d.getDate() + i);
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -35,6 +46,9 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     };
   });
 
+  // businessTodayStr は呼び出し元（サーバーコンポーネント）が初回描画時点で渡すため、
+  // days[0].fullDate は既に正しい営業日になっている。
+  // 以前は取得が非同期だったので effect で選択日を後から合わせ直していたが、その必要はなくなった。
   const [selectedDate, setSelectedDate] = useState<string>(days[0].fullDate);
 
   // (therapistId, fullDate) => ConfirmedShift Map

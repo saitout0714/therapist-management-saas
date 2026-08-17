@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
@@ -11,36 +9,27 @@ import { NewsList } from '../../../components/store/NewsList';
 import { SectionHeading } from '../../../components/store/SectionHeading';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
-import { StoreConfig, Campaign, Therapist, NewsItem } from '../../../types/store';
-import { BLANK_STORE } from '../../../mock/specialgrade';
-import { BLANK_ONYANKO_STORE } from '../../../mock/onyankospa';
 import { DIARY_FEATURE_ENABLED } from '../../../lib/featureFlags';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 
-export default function StoreTopPage({ params }: { params: Promise<{ shopSlug: string }> }) {
-  const resolvedParams = use(params);
+/**
+ * サーバーコンポーネント。
+ * 以前は 'use client' + useEffect で取得していたため、クローラに配信される
+ * HTMLは店名以外が空（セラピスト・お知らせ・住所・営業時間がすべて空タグ）だった。
+ * サーバー側で取得してから描画することで、本文が最初のHTMLに載る。
+ * 見た目・レイアウトは変更していない。
+ */
+export default async function StoreTopPage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const isOnyanko = shopSlug === 'onyankospa';
 
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [news, setNews] = useState<NewsItem[]>([]);
-
-  useEffect(() => {
-    async function loadData() {
-      const storeConfig = await fetchStoreConfig(shopSlug);
-      setStore(storeConfig);
-      const campList = await fetchCampaigns(storeConfig.id);
-      setCampaigns(campList);
-      const thList = await fetchTherapists(storeConfig.id);
-      setTherapists(thList);
-      const newsList = await fetchNewsList(storeConfig.id);
-      setNews(newsList);
-    }
-    loadData();
-  }, [shopSlug]);
+  const store = await fetchStoreConfig(shopSlug);
+  const [campaigns, therapists, news] = await Promise.all([
+    fetchCampaigns(store.id),
+    fetchTherapists(store.id),
+    fetchNewsList(store.id),
+  ]);
 
   const isCyberTheme = shopSlug === 'onyankospa';
   const sectionOrder = store.layoutSections || ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'];

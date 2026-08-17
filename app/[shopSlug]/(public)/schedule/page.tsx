@@ -1,48 +1,36 @@
-'use client';
-
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { WeeklySchedule } from '../../../../components/store/WeeklySchedule';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts } from '../../../../lib/storeApi';
-import { StoreConfig, Therapist, ConfirmedShift } from '../../../../types/store';
-import { BLANK_STORE } from '../../../../mock/specialgrade';
-import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts, fetchBusinessDayCutoff, getJstBusinessDateStr } from '../../../../lib/storeApi';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
-export default function SchedulePage({ params }: { params: Promise<{ shopSlug: string }> }) {
-  const resolvedParams = use(params);
+/** サーバーコンポーネント。出勤スケジュールをHTMLに載せるため取得をサーバー側に移している。 */
+export default async function SchedulePage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
-  const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [confirmedShifts, setConfirmedShifts] = useState<ConfirmedShift[]>([]);
 
-  useEffect(() => {
-    async function loadData() {
-      const storeConfig = await fetchStoreConfig(shopSlug);
-      setStore(storeConfig);
+  const store = await fetchStoreConfig(shopSlug);
 
-      const today = new Date();
-      const endDay = new Date();
-      endDay.setDate(today.getDate() + 7);
+  // 深夜営業のシフトが日付を跨いでも「本日」が正しく判定されるよう、
+  // 店舗の営業日切り替え時刻を考慮したJST基準の営業日を起点にする。
+  const cutoff = await fetchBusinessDayCutoff(store.id);
+  const businessTodayStr = getJstBusinessDateStr(cutoff);
 
-      const startDateStr = today.toISOString().split('T')[0];
-      const endDateStr = endDay.toISOString().split('T')[0];
+  const endDay = new Date(`${businessTodayStr}T00:00:00`);
+  endDay.setDate(endDay.getDate() + 7);
+  const y = endDay.getFullYear();
+  const m = String(endDay.getMonth() + 1).padStart(2, '0');
+  const d = String(endDay.getDate()).padStart(2, '0');
+  const endDateStr = `${y}-${m}-${d}`;
 
-      const [list, shifts] = await Promise.all([
-        fetchTherapists(storeConfig.id),
-        fetchConfirmedShifts(storeConfig.id, startDateStr, endDateStr),
-      ]);
-
-      setTherapists(list);
-      setConfirmedShifts(shifts);
-    }
-    loadData();
-  }, [shopSlug]);
+  const [therapists, confirmedShifts] = await Promise.all([
+    fetchTherapists(store.id),
+    fetchConfirmedShifts(store.id, businessTodayStr, endDateStr),
+  ]);
 
   const isCyberTheme = shopSlug === 'onyankospa';
 
@@ -66,6 +54,7 @@ export default function SchedulePage({ params }: { params: Promise<{ shopSlug: s
             therapists={therapists}
             confirmedShifts={confirmedShifts}
             storeSlug={shopSlug}
+            businessTodayStr={businessTodayStr ?? undefined}
           />
         </main>
 

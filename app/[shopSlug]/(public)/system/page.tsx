@@ -1,40 +1,28 @@
-'use client';
-
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchSystemCourses, fetchSystemExtras } from '../../../../lib/storeApi';
-import { StoreConfig, SystemMenuCategory } from '../../../../types/store';
-import { BLANK_STORE } from '../../../../mock/specialgrade';
-import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { SystemMenuCategory } from '../../../../types/store';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
-export default function SystemPage({ params }: { params: Promise<{ shopSlug: string }> }) {
-  const resolvedParams = use(params);
+/**
+ * サーバーコンポーネント。コース・料金表をHTMLに載せるため取得をサーバー側に移している。
+ * データが揃った状態で描画されるので、読み込み中スピナーは不要になった。
+ */
+export default async function SystemPage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
-  const [categories, setCategories] = useState<SystemMenuCategory[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const storeConfig = await fetchStoreConfig(shopSlug);
-      setStore(storeConfig);
-      const [cList, extras] = await Promise.all([
-        fetchSystemCourses(storeConfig.id),
-        fetchSystemExtras(storeConfig.id),
-      ]);
-      setCategories([...cList, ...extras]);
-      setLoading(false);
-    }
-    loadData();
-  }, [shopSlug]);
+  const store = await fetchStoreConfig(shopSlug);
+  const [cList, extras] = await Promise.all([
+    fetchSystemCourses(store.id),
+    fetchSystemExtras(store.id),
+  ]);
+  const categories: SystemMenuCategory[] = [...cList, ...extras];
 
   const isCyberTheme = shopSlug === 'onyankospa';
 
@@ -57,16 +45,6 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
         <PageHeading title="System" subtitle="システム・料金案内" isCyber={isCyberTheme} className="mb-10" />
 
-        {loading ? (
-          <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
-            <div className={`w-8 h-8 rounded-full border-2 border-t-transparent animate-spin ${
-              isCyberTheme ? 'border-[#ff6fb5]' : 'border-[#d1b464]'
-            }`} />
-            <span className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-stone-500'}`}>
-              コース料金情報を読み込み中...
-            </span>
-          </div>
-        ) : (
           <div className="space-y-8">
             {categories.map((cat, idx) => (
             <div
@@ -136,7 +114,6 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
             </div>
           ))}
         </div>
-        )}
 
         <div className="mt-12 text-center">
           <Link

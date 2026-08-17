@@ -1,33 +1,19 @@
-'use client';
-
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchStoreRooms, RoomInfo } from '../../../../lib/storeApi';
-import { StoreConfig } from '../../../../types/store';
-import { BLANK_STORE } from '../../../../mock/specialgrade';
-import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
+import { fetchStoreConfig, fetchStoreRooms } from '../../../../lib/storeApi';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
-export default function AccessPage({ params }: { params: Promise<{ shopSlug: string }> }) {
-  const resolvedParams = use(params);
+/** サーバーコンポーネント。住所・アクセス情報をHTMLに載せるため取得をサーバー側に移している。 */
+export default async function AccessPage({ params }: { params: Promise<{ shopSlug: string }> }) {
+  const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
-  const isOnyanko = shopSlug === 'onyankospa';
-  const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
-  const [rooms, setRooms] = useState<RoomInfo[]>([]);
 
-  useEffect(() => {
-    async function loadData() {
-      const storeConfig = await fetchStoreConfig(shopSlug);
-      setStore(storeConfig);
-      const rList = await fetchStoreRooms(storeConfig.id);
-      setRooms(rList);
-    }
-    loadData();
-  }, [shopSlug]);
+  const store = await fetchStoreConfig(shopSlug);
+  const rooms = await fetchStoreRooms(store.id);
 
   const isCyberTheme = shopSlug === 'onyankospa';
 

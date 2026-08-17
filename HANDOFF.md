@@ -1,6 +1,6 @@
 # 作業引き継ぎメモ
 
-最終更新: 2026-08-04
+最終更新: 2026-08-18
 
 別のPCで作業を再開するときは、このファイルを読んでから続きに入ってください。
 
@@ -8,12 +8,88 @@
 
 ## いま取り組んでいること
 
-サイドバーと設定画面の再設計。機能追加のたびにメニューと設定項目が散らばってしまったため、
-「どこに何があるか」を整理し直している。
+**おニャンこスパ（onyankospa.com）の本番公開とSEO対応。** DNS切替待ちの状態。
+コード側の対応は入れ終わっているので、次はDNS反映確認 → デプロイ → Search Console登録。
+詳細は下の「2026-08-18 の作業」を読んでから始めること。
 
 ---
 
-## 完了したこと
+## 2026-08-18 の作業: おニャンこスパ SEO対応
+
+### 最初の状態（何が問題だったか）
+
+公開HPを実測したところ、SEOがほぼ機能しない状態だった。
+
+- 全店舗の全ページで `<title>YOYAKL`、description が「セラピストシフト・予約管理システム」。
+  `generateMetadata` がコードベースに1つも無かった
+- 全ページが `'use client'` + `useEffect` 取得だったため、**クローラに届くHTMLの本文が空**。
+  `豊島区` `南大塚` の出現回数が 0、セラピスト名も営業時間も空タグだった
+- `[shopSlug]` が任意のパスを拾い、`/wp-admin` `/.env` `/robots.txt` まで
+  **HTTP 200 で Special Grade の内容**を返していた（ソフト404・重複コンテンツ）
+- robots.txt / sitemap.xml / canonical / OGP / 構造化データ すべて無し
+
+### 入れたもの
+
+| ファイル | 役割 |
+|---|---|
+| `lib/shopDomains.ts` | 独自ドメイン⇄slug、canonicalオリジン。**依存ゼロを保つこと**（middlewareのEdgeバンドルと共用のため、Supabase等をimportしてはいけない） |
+| `lib/seo.ts` | `fetchShopSeo`（厳格取得）/ `buildShopMetadata` / JSON-LD生成 |
+| `app/[shopSlug]/layout.tsx` | DBに実在しないslugを `notFound()` に |
+| `app/[shopSlug]/(public)/layout.tsx` | TOPのmetadata + LocalBusiness JSON-LD |
+| 各ページの `layout.tsx` ×8 | ページ別 title/description/canonical |
+| `app/robots.ts` / `app/sitemap.ts` | ホスト別に出力 |
+| `components/store/TherapistFilterableGrid.tsx` | 一覧のタグ絞り込み（クライアント島） |
+| `components/store/TherapistDetailView.tsx` | セラピスト詳細の表示部（クライアント島） |
+
+**`fetchStoreConfig()` と `fetchShopSeo()` の違いに注意。** 前者は見つからないとモック店舗
+（Special Grade）にフォールバックする。だから存在しないURLが200を返していた。
+ルート検証とメタデータには**必ず後者**を使うこと（見つからなければ null を返す）。
+
+### SSR化
+
+公開ページ7つの取得をサーバー側に移した。見た目は変えていない。
+
+- TOP / アクセス / 料金 / 求人 / スケジュール → ページ全体をサーバーコンポーネント化
+- セラピスト一覧・詳細 → 表示部をクライアント島に切り出し、データはpropsで渡す
+
+**要点: 問題は「クライアントコンポーネントであること」ではなく「useEffectで取得していたこと」。**
+クライアントコンポーネントもSSRはされるので、propsでサーバー取得データを渡せば本文はHTMLに載る。
+
+結果: TOPのHTMLが 40KB → 149KB、`南大塚` が 0回 → 21回。全ページでセラピスト名・料金・
+住所・営業時間がHTMLに出るようになった。
+
+### ついでに直した不具合
+
+- **middlewareが `/robots.txt` を `/onyankospa/robots.txt` にリライトして404にしていた。**
+  独自ドメインでのみ露出するバグ。ルート直下に必要なファイル（robots/sitemap/favicon/
+  `.well-known/`/Search Console確認用HTML）を `isRootAsset()` で除外した
+- `WeeklySchedule` の setState-in-effect。営業日が非同期で届く前提の後追い修正だったが、
+  サーバーから初回描画時に渡るようになったので effect ごと削除した
+
+### DNSの状態（2026-08-17 時点の実測）
+
+お名前.comで設定中。ネームサーバー変更のため反映に27時間程度かかるとのこと。
+
+```
+NS : ns-rs1.gmoserver.jp / ns-rs2.gmoserver.jp（お名前.comレンタルサーバー側のDNS）
+A  : 157.120.209.57 → GMOのサーバー。Vercelではない
+http  → 403 Forbidden（GMOのApache）
+https → 503
+```
+
+**⚠️ ネームサーバーを変更すると MX と SPF が引き継がれない。** 切替後のDNS設定画面で
+以下を手動で再登録しないと `@onyankospa.com` 宛のメールが届かなくなる。
+
+| 種別 | ホスト名 | 値 | 優先度 |
+|---|---|---|---|
+| A | （空） | Vercelの IP（Vercelのドメイン画面に表示される値） | — |
+| CNAME | www | `cname.vercel-dns.com` | — |
+| MX | （空） | `mail1042.onamae.ne.jp` | 10 |
+| TXT | （空） | `v=spf1 include:_spf.onamae.ne.jp ~all` | — |
+
+---
+
+## 完了したこと（2026-08-04 まで）
 
 ### 1. 本番DBのスキーマ不足を解消
 
@@ -86,10 +162,36 @@
 
 ## 残っている作業
 
-1. **テンプレート設定の統合** — `/system` のテンプレート4タブと `/rooms` のルーム別
+### おニャンこスパ 公開（最優先・順番どおりに）
+
+1. **DNS反映を確認**
+
+   ```bash
+   nslookup -type=A onyankospa.com 8.8.8.8
+   ```
+
+   VercelのIPが返り、`curl -s -o /dev/null -w "%{http_code}" https://onyankospa.com` が
+   200になればOK。まだGMOのIP（157.120.209.57）なら待ち
+2. **MX / SPF が生きているか確認**（上の表を参照。メールが飛ぶと業務に直撃する）
+3. **デプロイ** — canonical が `https://onyankospa.com` 固定なので、DNS完了後に出すこと
+4. **Search Console に `https://onyankospa.com/sitemap.xml` を登録**
+
+### SEOの残り（優先度中）
+
+5. **`next/image` 化** — 店舗系は全部生 `<img>`（lintが8箇所警告中）。`width`/`height` 未指定で
+   CLS、LCPも改善余地あり
+6. **OG画像** — 現在 `/images/onyanko_mainvisual.jpg`（1264×843）を流用。1.91:1 でないため
+   SNSで上下が切れる。専用の1200×630を作る
+7. **他28店舗の `slug` が未設定** — `fetchStoreConfig` の `ilike(name)` フォールバックで
+   店名URL（`/SpecialGrade`）として解決されている。slugを入れると `/specialgrade` に正規化できる
+8. **`app/layout.tsx` の `userScalable: false`** — Lighthouseのアクセシビリティ減点
+
+### 以前からの継続
+
+9. **テンプレート設定の統合** — `/system` のテンプレート4タブと `/rooms` のルーム別
    テンプレート4種に分かれている
-2. **設定の入口を一本化** — 現在は `/system`（5カテゴリ×14タブ）、`/rooms`、`/sync` に分散。
-   1つにまとめ、「店舗を立ち上げる順番」に並べ直す方針
+10. **設定の入口を一本化** — 現在は `/system`（5カテゴリ×14タブ）、`/rooms`、`/sync` に分散。
+    1つにまとめ、「店舗を立ち上げる順番」に並べ直す方針
 
 ---
 
@@ -112,6 +214,14 @@
   false になると、プラン名から推測するフォールバックが効かなくなる
 - **予約フォームの時セレクトは 9〜29時。** 0時台を出すと営業日の誤入力事故につながる
   （過去に2回リグレッションあり）
+- **canonical に到達できないドメインを載せないこと。** `lib/shopDomains.ts` の
+  `SHOP_CANONICAL_ORIGIN` に追加した店舗は、canonical と sitemap がそのドメイン側に固定される。
+  DNS未設定のドメインを指定するとインデックスされなくなる。`specialgrade.jp` は
+  現在NXDOMAINなので、あえて載せていない（有効化したら追記する）
+- **既知のノイズ（追いかけなくてよい）**
+  - `app/[shopSlug]/(public)/therapist/login/page.tsx:91` の `no-explicit-any` は以前からのlintエラー
+  - `.next/types/validator.ts` が削除済みの `app/(admin)/register-therapist/page.js` を参照する
+    型エラーは、古いビルド成果物由来。`npm run build` すれば再生成されて消える
 
 ---
 
