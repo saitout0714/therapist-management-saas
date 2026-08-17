@@ -109,6 +109,45 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                 {link.label}
               </Link>
             ))}
+
+            {/* SNSリンク（常時表示のヘッダーに置くことで視認性を上げる） */}
+            {(store.xUrl || store.lineUrl) && (
+              <div className="flex items-center gap-1.5 ml-2">
+                {store.xUrl && (
+                  <a
+                    href={store.xUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="X (Twitter)"
+                    className={`w-8 h-8 flex items-center justify-center rounded-full border transition-all ${
+                      isCyberTheme
+                        ? 'border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-white hover:bg-[#ff6fb5]/20'
+                        : 'border-stone-300 text-stone-600 hover:border-stone-500 hover:bg-stone-50'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </a>
+                )}
+                {store.lineUrl && (
+                  <a
+                    href={store.lineUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="公式LINE"
+                    className={`w-8 h-8 flex items-center justify-center rounded-full border text-sm transition-all ${
+                      isCyberTheme
+                        ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
+                        : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
+                    }`}
+                  >
+                    💬
+                  </a>
+                )}
+              </div>
+            )}
+
             <Link
               href={reservePath}
               style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
@@ -251,6 +290,42 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
         {/* ドロワーフッターアクション */}
         <div className="pt-5 border-t border-[#ff6fb5]/30 mt-6 space-y-3">
+          {(store.xUrl || store.lineUrl) && (
+            <div className="flex items-center justify-center gap-3 pb-1">
+              {store.xUrl && (
+                <a
+                  href={store.xUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="X (Twitter)"
+                  className={`w-11 h-11 flex items-center justify-center rounded-full border transition-all ${
+                    isCyberTheme
+                      ? 'border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-white hover:bg-[#ff6fb5]/20'
+                      : 'border-stone-300 text-stone-600 hover:border-stone-500 hover:bg-stone-50'
+                  }`}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+              )}
+              {store.lineUrl && (
+                <a
+                  href={store.lineUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="公式LINE"
+                  className={`w-11 h-11 flex items-center justify-center rounded-full border text-lg transition-all ${
+                    isCyberTheme
+                      ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
+                      : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
+                  }`}
+                >
+                  💬
+                </a>
+              )}
+            </div>
+          )}
           <Link
             href={reservePath}
             onClick={() => setIsOpen(false)}

@@ -28,6 +28,46 @@ import {
 // 実写真が未登録のセラピストに使うプレースホルダー（他店舗のモック人物写真を誤って出さないため）
 const NO_IMAGE_THERAPIST = '/images/no-image-therapist.svg';
 
+// 店舗の営業日切り替え時刻（shop_back_rules.business_day_cutoff）を取得する。
+// 未設定の場合はDBのデフォルトと同じ '06:00' を返す。
+export async function fetchBusinessDayCutoff(shopId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('shop_back_rules')
+      .select('business_day_cutoff')
+      .eq('shop_id', shopId)
+      .maybeSingle();
+    const raw = (data as any)?.business_day_cutoff as string | undefined;
+    return raw ? raw.slice(0, 5) : '06:00';
+  } catch {
+    return '06:00';
+  }
+}
+
+// JST基準・営業日切り替え時刻考慮で「現在の営業日」の日付文字列 (YYYY-MM-DD) を返す。
+// 深夜営業（例: 19:00〜28:00）のシフトは、実時計が日付を跨いでも切り替え時刻までは
+// 前日の営業日として扱う。単純な `new Date().toISOString()` では日付が0時（またはUTC基準）
+// で切り替わってしまい、深夜シフト中の「本日出勤」判定がずれる。
+export function getJstBusinessDateStr(cutoff: string = '06:00'): string {
+  const now = new Date();
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+  const jstDate = new Date(utcTime + 9 * 3600000);
+
+  const [cutH, cutM] = cutoff.split(':').map(Number);
+  const currentJstMinutes = jstDate.getHours() * 60 + jstDate.getMinutes();
+  const cutoffMinutes = (cutH ?? 6) * 60 + (cutM ?? 0);
+
+  const businessDate = new Date(jstDate);
+  if (currentJstMinutes < cutoffMinutes) {
+    businessDate.setDate(businessDate.getDate() - 1);
+  }
+
+  const y = businessDate.getFullYear();
+  const m = String(businessDate.getMonth() + 1).padStart(2, '0');
+  const d = String(businessDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function parseThemeColor(colorInput: any, templateId?: string): StoreConfig['themeColor'] {
   // テンプレート指定によるデフォルトプリセットカラー
   let presetPrimary = '#d1b464';
@@ -218,7 +258,7 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
         threeSize: computedThreeSize,
         avatarUrl: defaultAvatar,
         images: photoUrls,
-        badge: t.is_rookie ? '新人' : (t.badge || undefined),
+        badge: t.badge || undefined,
         rankName: t.therapist_ranks?.name || t.grade || undefined,
         grade: t.therapist_ranks?.name || t.grade || undefined,
         isRookie: t.is_rookie ?? false,
@@ -298,7 +338,7 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
       threeSize: computedThreeSize,
       avatarUrl: data.photo_url || data.avatar_url || photoUrls[0] || NO_IMAGE_THERAPIST,
       images: photoUrls,
-      badge: data.is_rookie ? '新人' : (data.badge || undefined),
+      badge: data.badge || undefined,
       rankName: data.therapist_ranks?.name || data.grade || undefined,
       grade: data.therapist_ranks?.name || data.grade || undefined,
       isRookie: data.is_rookie ?? false,
@@ -320,7 +360,7 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
 }
 
 /**
- * オーナーが Yoyakl で部屋割り確定 (room_id IS NOT NULL) した確定シフトのみをリアルタイム抽出
+ * 登録済みシフトをリアルタイム抽出（部屋割りが未確定でも「本日出勤」等のHP表示に含める）
  */
 export async function fetchConfirmedShifts(
   shopId: string,
@@ -331,8 +371,7 @@ export async function fetchConfirmedShifts(
     let query = supabase
       .from('shifts')
       .select('*, rooms(name)')
-      .eq('shop_id', shopId)
-      .not('room_id', 'is', null);
+      .eq('shop_id', shopId);
 
     if (startDate) {
       query = query.gte('date', startDate);
@@ -492,9 +531,14 @@ export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
     if (shopId) query = query.eq('shop_id', shopId);
 
     const { data, error } = await query;
-    if (error || !data || data.length === 0) {
+    // 取得エラー（DB接続失敗など）の場合のみサンプルにフォールバックする。
+    // 単に記事が0件の場合はサンプルを出さず、空配列（お知らせなし）を返す。
+    if (error) {
       if (isOnyanko) return MOCK_ONYANKO_NEWS;
       return MOCK_NEWS;
+    }
+    if (!data || data.length === 0) {
+      return [];
     }
 
     return data.map((n: any) => ({

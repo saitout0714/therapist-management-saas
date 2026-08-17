@@ -52,15 +52,24 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {/* グラデーションシャドウ */}
           <div className={`absolute inset-0 ${isCyber ? 'bg-gradient-to-t from-[#190a20]/95 via-[#190a20]/25 to-transparent' : 'bg-gradient-to-t from-stone-950/95 via-stone-950/20 to-transparent'}`} />
 
-          {/* 左上バッジ (isRookie / NEW / 新人 / 看板猫) */}
+          {/* 左上バッジ群（新人リボンとカスタムバッジは独立して両方表示できる） */}
           {(therapist.isRookie || therapist.badge) && (
-            <div
-              style={{ backgroundColor: isCyber ? undefined : primaryColor }}
-              className={`absolute top-3 left-3 text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest badge-float ${
-                isCyber ? 'neon-badge-pink' : ''
-              }`}
-            >
-              {therapist.isRookie ? '新人' : therapist.badge}
+            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+              {therapist.isRookie && (
+                <span className="text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest badge-float bg-gradient-to-r from-pink-500 to-rose-500">
+                  ♥ 新人
+                </span>
+              )}
+              {therapist.badge && (
+                <span
+                  style={{ backgroundColor: isCyber ? undefined : primaryColor }}
+                  className={`text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest badge-float ${
+                    isCyber ? 'neon-badge-pink' : ''
+                  }`}
+                >
+                  {therapist.badge}
+                </span>
+              )}
             </div>
           )}
 

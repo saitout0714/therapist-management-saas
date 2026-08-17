@@ -9,6 +9,18 @@ interface NewsListProps {
 export const NewsList: React.FC<NewsListProps> = ({ news, storeSlug }) => {
   const isCyber = storeSlug === 'onyankospa';
 
+  if (news.length === 0) {
+    return (
+      <div className={`p-6 text-center ${
+        isCyber
+          ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40 font-sans'
+          : 'bg-white rounded-sm border border-[#d1b464]/30 font-serif shadow-sm'
+      }`}>
+        <p className={`text-xs ${isCyber ? 'text-[#ded1ee]/60' : 'text-stone-400'}`}>現在お知らせはありません。</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`p-4 sm:p-6 divide-y ${
       isCyber
