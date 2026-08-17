@@ -57,6 +57,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
         ((th.id.charCodeAt(th.id.length - 1) + (selectedDayIndex >= 0 ? selectedDayIndex : 0)) % 2 === 0 ||
           selectedDayObj.isToday);
 
+      const startTime = shift ? shift.startTime : isWorkingFallback ? '13:00' : null;
       const shiftTime = shift
         ? `${shift.startTime}~${shift.endTime}`
         : isWorkingFallback
@@ -66,9 +67,12 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       return {
         therapist: th,
         shiftTime,
+        startTime,
       };
     })
-    .filter((item) => item.shiftTime !== null);
+    .filter((item) => item.shiftTime !== null)
+    // 出勤時間順（早い時間から）に表示する
+    .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
 
   return (
     <div className="space-y-6">

@@ -140,7 +140,7 @@ export default function SystemPage({ params }: { params: Promise<{ shopSlug: str
 
         <div className="mt-12 text-center">
           <Link
-            href={`/${shopSlug}/reserve`}
+            href={`/reserve/${shopSlug}`}
             className={`inline-block px-10 py-3.5 font-bold text-xs shadow-md transition-all tracking-widest ${
               isCyberTheme
                 ? 'text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'

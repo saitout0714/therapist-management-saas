@@ -10,6 +10,7 @@ interface MobileFloatingBarProps {
 
 export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) => {
   const basePath = `/${store.slug}`;
+  const reservePath = `/reserve/${store.slug}`;
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyber = store.slug === 'onyankospa' || primaryColor === '#ff6fb5';
 
@@ -37,7 +38,7 @@ export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) =
         </a>
 
         <Link
-          href={`${basePath}/reserve`}
+          href={reservePath}
           style={{ backgroundColor: isCyber ? undefined : primaryColor }}
           className={`flex items-center justify-center gap-1.5 py-3 px-3 text-white font-bold text-xs transition-all active:scale-95 ${
             isCyber

@@ -8,6 +8,7 @@ interface TherapistCardProps {
   therapist: Therapist;
   storeSlug: string;
   confirmedShiftTime?: string;
+  showTodayBadge?: boolean;
   primaryColor?: string;
   index?: number;
 }
@@ -16,11 +17,12 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
   therapist,
   storeSlug,
   confirmedShiftTime,
+  showTodayBadge = false,
   primaryColor = '#d1b464',
   index = 0,
 }) => {
   const detailUrl = `/${storeSlug}/therapists/${therapist.id}`;
-  const reserveUrl = `/${storeSlug}/reserve?therapistId=${therapist.id}`;
+  const reserveUrl = `/reserve/${storeSlug}?therapist_id=${therapist.id}`;
   const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff6fb5';
 
   return (
@@ -90,12 +92,14 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             {/* 確定出勤シフト時間帯バッジ */}
             {confirmedShiftTime && (
               <div className="pt-1 flex items-center gap-1.5">
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-white font-bold text-[10px] rounded-md shadow-sm ${
-                  isCyber ? 'bg-[#ff6fb5] neon-on-pink' : 'bg-emerald-500/90'
-                }`}>
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse-dot shadow-[0_0_8px_#fff]" />
-                  本日出勤
-                </span>
+                {showTodayBadge && (
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-white font-bold text-[10px] rounded-md shadow-sm ${
+                    isCyber ? 'bg-[#ff6fb5] neon-on-pink' : 'bg-emerald-500/90'
+                  }`}>
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse-dot shadow-[0_0_8px_#fff]" />
+                    本日出勤
+                  </span>
+                )}
                 <span style={{ color: isCyber ? '#ffa8d8' : primaryColor }} className="text-xs font-mono font-bold drop-shadow">
                   ⏰ {confirmedShiftTime}
                 </span>

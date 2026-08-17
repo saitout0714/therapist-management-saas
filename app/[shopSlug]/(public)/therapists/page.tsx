@@ -7,8 +7,8 @@ import { Footer } from '../../../../components/store/Footer';
 import { TherapistCard } from '../../../../components/store/TherapistCard';
 import { TherapistFilter } from '../../../../components/store/TherapistFilter';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchTherapists } from '../../../../lib/storeApi';
-import { StoreConfig, Therapist } from '../../../../types/store';
+import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts } from '../../../../lib/storeApi';
+import { StoreConfig, Therapist, ConfirmedShift } from '../../../../types/store';
 import { BLANK_STORE } from '../../../../mock/specialgrade';
 import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 
@@ -20,17 +20,25 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
   const isOnyanko = shopSlug === 'onyankospa';
   const [store, setStore] = useState<StoreConfig>(isOnyanko ? BLANK_ONYANKO_STORE : BLANK_STORE);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [todayShifts, setTodayShifts] = useState<ConfirmedShift[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       const storeConfig = await fetchStoreConfig(shopSlug);
       setStore(storeConfig);
-      const list = await fetchTherapists(storeConfig.id);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const [list, shifts] = await Promise.all([
+        fetchTherapists(storeConfig.id),
+        fetchConfirmedShifts(storeConfig.id, todayStr, todayStr),
+      ]);
       setTherapists(list);
+      setTodayShifts(shifts);
     }
     loadData();
   }, [shopSlug]);
+
+  const todayShiftMap = new Map(todayShifts.map((s) => [s.therapistId, s]));
 
   const allTags = Array.from(new Set(therapists.flatMap((t) => t.tags)));
 
@@ -61,15 +69,20 @@ export default function TherapistsPage({ params }: { params: Promise<{ shopSlug:
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          {filteredTherapists.map((therapist, idx) => (
-            <TherapistCard
-              key={therapist.id}
-              therapist={therapist}
-              storeSlug={shopSlug}
-              primaryColor={store.themeColor?.primary}
-              index={idx}
-            />
-          ))}
+          {filteredTherapists.map((therapist, idx) => {
+            const todayShift = todayShiftMap.get(therapist.id);
+            return (
+              <TherapistCard
+                key={therapist.id}
+                therapist={therapist}
+                storeSlug={shopSlug}
+                confirmedShiftTime={todayShift ? `${todayShift.startTime}~${todayShift.endTime}` : undefined}
+                showTodayBadge={!!todayShift}
+                primaryColor={store.themeColor?.primary}
+                index={idx}
+              />
+            );
+          })}
         </div>
       </main>
 

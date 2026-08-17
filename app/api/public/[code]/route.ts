@@ -46,7 +46,7 @@ export async function GET(
 
   const { data: shopRow, error: shopError } = await supabase
     .from('shops')
-    .select('id, name, short_name, description, owner_id')
+    .select('id, name, short_name, description, owner_id, theme_color, has_hp, template_id')
     .eq('id', shopId)
     .single()
   if (shopError || !shopRow) {
@@ -302,7 +302,7 @@ export async function GET(
   const business_day_cutoff = (backRulesRes.data as any)?.business_day_cutoff?.substring(0, 5) ?? '06:00'
 
   return NextResponse.json({
-    shop: { id: shopRow.id, name: shopRow.name, short_name: shopRow.short_name, description: shopRow.description },
+    shop: { id: shopRow.id, name: shopRow.name, short_name: shopRow.short_name, description: shopRow.description, theme_color: shopRow.theme_color, has_hp: shopRow.has_hp, template_id: shopRow.template_id },
     courses: coursesRes.data || [],
     shifts: shiftsWithPhotos,
     reservations: reservationsRes.data || [],

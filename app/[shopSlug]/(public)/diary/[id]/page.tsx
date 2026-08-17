@@ -120,7 +120,7 @@ export default function DiaryDetailPage({
             </Link>
 
             <Link
-              href={`/${shopSlug}/reserve?therapistId=${currentArticle.therapistId}`}
+              href={`/reserve/${shopSlug}?therapist_id=${currentArticle.therapistId}`}
               className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white font-bold text-xs rounded-sm shadow-md text-center hover:brightness-105 transition-all tracking-widest"
             >
               {currentArticle.therapistName} さんを指名予約する

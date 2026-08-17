@@ -9,6 +9,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ store }) => {
   const basePath = `/${store.slug}`;
+  const reservePath = `/reserve/${store.slug}`;
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const accentColor = store.themeColor?.accent || '#a39573';
   const isCyberTheme = store.slug === 'onyankospa';
@@ -52,7 +53,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
               )}
               <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors">アクセス</Link>
               <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors">求人情報</Link>
-              <Link href={`${basePath}/reserve`} className="hover:opacity-80 transition-colors">WEB予約</Link>
+              <Link href={reservePath} className="hover:opacity-80 transition-colors">WEB予約</Link>
             </div>
           </div>
 
@@ -108,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
               )}
             </div>
             <Link
-              href={`${basePath}/reserve`}
+              href={reservePath}
               className={`inline-block w-full py-3 text-center text-white font-bold text-xs tracking-widest shadow-md transition-all ${
                 isCyberTheme
                   ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'

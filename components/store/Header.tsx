@@ -13,6 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
   const basePath = `/${store.slug}`;
+  const reservePath = `/reserve/${store.slug}`;
 
   useEffect(() => {
     setImageError(false);
@@ -109,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               </Link>
             ))}
             <Link
-              href={`${basePath}/reserve`}
+              href={reservePath}
               style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
               className={`ml-3 px-6 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
                 isCyberTheme
@@ -124,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           {/* モバイルメニューボタン */}
           <div className="flex lg:hidden items-center gap-2">
             <Link
-              href={`${basePath}/reserve`}
+              href={reservePath}
               style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
               className={`px-4 py-1.5 text-white text-xs font-bold transition-all ${
                 isCyberTheme
@@ -251,7 +252,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         {/* ドロワーフッターアクション */}
         <div className="pt-5 border-t border-[#ff6fb5]/30 mt-6 space-y-3">
           <Link
-            href={`${basePath}/reserve`}
+            href={reservePath}
             onClick={() => setIsOpen(false)}
             className={`block w-full py-3 text-center text-white font-extrabold text-sm tracking-widest active:scale-95 transition-all duration-300 ${
               isCyberTheme

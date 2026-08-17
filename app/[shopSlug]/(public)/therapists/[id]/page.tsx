@@ -275,7 +275,7 @@ export default function TherapistDetailPage({
               {/* 指名WEB予約ボタン */}
               <div className="pt-2">
                 <Link
-                  href={`/${shopSlug}/reserve?therapistId=${currentTherapist.id}`}
+                  href={`/reserve/${shopSlug}?therapist_id=${currentTherapist.id}`}
                   className={`block w-full py-4 text-center text-white font-bold text-sm tracking-widest transition-all ${
                     isCyberTheme
                       ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'

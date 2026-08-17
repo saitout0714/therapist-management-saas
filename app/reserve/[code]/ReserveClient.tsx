@@ -3,12 +3,19 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import { Header } from '@/components/store/Header'
+import { Footer } from '@/components/store/Footer'
+import { fetchStoreConfig } from '@/lib/storeApi'
+import type { StoreConfig } from '@/types/store'
 
 export type Shop = {
   id: string
   name: string
   short_name: string | null
   description: string | null
+  theme_color?: string | null
+  has_hp?: boolean | null
+  template_id?: string | null
 }
 
 export type Course = {
@@ -338,6 +345,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const [error, setError] = useState<string | null>(null)
 
   const [shop, setShop] = useState<Shop | null>(initialData.shop)
+  const [storeConfig, setStoreConfig] = useState<StoreConfig | null>(null)
   const [courses, setCourses] = useState<Course[]>(initialData.courses)
   const [shifts, setShifts] = useState<Shift[]>(initialData.shifts)
   const [existingReservations, setExistingReservations] = useState<ExistingReservation[]>(initialData.reservations)
@@ -482,6 +490,16 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   useEffect(() => {
     void fetchData()
   }, [fetchData])
+
+  // HPを持つ店舗は、予約フォームのヘッダー/フッターにHP本体と全く同じ Header/Footer コンポーネントを
+  // 使うため、HP用のフル店舗情報（ロゴ・ナビ・SNS等）も取得する。予約コードは店舗slugと同一の値で
+  // 運用しているため、そのまま fetchStoreConfig の slug として使える。
+  useEffect(() => {
+    if (!shop?.has_hp) return
+    let cancelled = false
+    fetchStoreConfig(code).then(cfg => { if (!cancelled) setStoreConfig(cfg) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [shop?.has_hp, code])
 
   // 読み込み完了後に最初の日付を選択
   useEffect(() => {
@@ -703,55 +721,107 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
   const stepIndex = stepLabels.findIndex(s => s.key === step)
 
   const themeParam = searchParams.get('theme')
-  const activeThemeColor = themeParam || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null)
+  // HPを持つ店舗（has_hp）は、HP側で設定済みのブランドカラー（theme_color）を予約エンジンにも
+  // 反映する。theme_color は "#rrggbb" 単色 or {"primary":"#rrggbb",...} のJSON文字列の2形式がある。
+  // HPを持たない店舗（こころリンス等）の theme_color はHP用に使われていない共通デフォルト値
+  // （見た目に無関係のプレースホルダ）が入っているだけなので、ここでは使わない。
+  const shopThemeColor = useMemo(() => {
+    const raw = shop?.theme_color
+    if (!raw || !shop?.has_hp) return null
+    let hex: string | null = null
+    try {
+      const parsed = JSON.parse(raw)
+      hex = typeof parsed?.primary === 'string' ? parsed.primary : null
+    } catch {
+      hex = raw
+    }
+    return hex ? hex.replace('#', '') : null
+  }, [shop?.theme_color, shop?.has_hp])
+  // おニャンこスパ（template_id: 'cute'）はHP側と同じサイバーネオンの専用デザインをここでも使う。
+  // 色相を変えるだけの汎用テーマ機構ではなく、Header/Footer等と同じ isCyberTheme 分岐で全面的に描き分ける。
+  const isCyberTheme = shop?.template_id === 'cute'
+  const activeThemeColor = isCyberTheme ? null : (themeParam || shopThemeColor || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null))
 
   return (
-    <div ref={mainRef} className={`${isEmbed ? 'min-h-0' : 'min-h-screen'} bg-white`}>
+    <div ref={mainRef} className={`${isEmbed ? 'min-h-0' : 'min-h-screen'} ${isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-white'}`}>
       {activeThemeColor && (
         <style dangerouslySetInnerHTML={{ __html: generateThemeStyles(activeThemeColor) }} />
       )}
       {/* ヘッダー */}
       {!isEmbed && (
-        <header className="bg-white border-b border-blue-100 sticky top-0 z-10">
-          <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Web予約</p>
-              <h1 className="text-base font-bold text-slate-800 leading-tight">{shop?.name || ''}</h1>
-            </div>
+        isCyberTheme && storeConfig ? (
+          <>
+            {/* HP本体と全く同じ Header コンポーネントを使用（ロゴ・ナビ・SNS等もHPと共通） */}
+            <Header store={storeConfig} />
             {step !== 'complete' && (
-              <div className="flex items-center gap-1.5">
-                {stepLabels.map((s, i) => (
-                  <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
-                    {i > 0 && <div className="w-3 h-px bg-slate-200" />}
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                      i < stepIndex ? 'bg-blue-500 text-white' :
-                      i === stepIndex ? 'bg-blue-500 text-white' :
-                      'bg-slate-100 text-slate-400'
-                    }`}>
-                      {i < stepIndex ? (
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : i + 1}
+              <div className="bg-[#150e20]/85 backdrop-blur-xl border-b border-[#ff6fb5]/35 shadow-[0_6px_28px_rgba(255,111,181,0.22)]">
+                <div className="max-w-2xl mx-auto px-4 h-11 flex items-center justify-center gap-1.5">
+                  {stepLabels.map((s, i) => (
+                    <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
+                      {i > 0 && <div className="w-4 h-px bg-[#ff6fb5]/30" />}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                        i <= stepIndex ? 'bg-gradient-to-r from-[#ff6fb5] to-[#cf82d8] text-white shadow-[0_0_10px_rgba(255,111,181,0.6)]' : 'bg-white/10 text-[#ded1ee]/50 border border-[#ff6fb5]/20'
+                      }`}>
+                        {i < stepIndex ? (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : i + 1}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
-          </div>
-        </header>
+          </>
+        ) : (
+          <header className={`sticky top-0 z-10 backdrop-blur-xl ${
+            isCyberTheme ? 'bg-[#150e20]/85 border-b border-[#ff6fb5]/35 shadow-[0_6px_28px_rgba(255,111,181,0.22)]' : 'bg-white border-b border-blue-100'
+          }`}>
+            <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+              <div>
+                <p className={`text-xs ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-slate-400'}`}>Web予約</p>
+                <h1 className={`text-base font-bold leading-tight ${isCyberTheme ? 'neon-text-pink font-cyber-display tracking-wider' : 'text-slate-800'}`}>{shop?.name || ''}</h1>
+              </div>
+              {step !== 'complete' && (
+                <div className="flex items-center gap-1.5">
+                  {stepLabels.map((s, i) => (
+                    <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
+                      {i > 0 && <div className={`w-3 h-px ${isCyberTheme ? 'bg-[#ff6fb5]/30' : 'bg-slate-200'}`} />}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                        isCyberTheme
+                          ? (i <= stepIndex ? 'bg-gradient-to-r from-[#ff6fb5] to-[#cf82d8] text-white shadow-[0_0_10px_rgba(255,111,181,0.6)]' : 'bg-white/10 text-[#ded1ee]/50 border border-[#ff6fb5]/20')
+                          : (i <= stepIndex ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-400')
+                      }`}>
+                        {i < stepIndex ? (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : i + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </header>
+        )
       )}
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>
+          <div className={`mb-4 p-3 rounded-xl text-sm ${
+            isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/40 text-[#ffa8d8]' : 'bg-red-50 border border-red-200 text-red-600'
+          }`}>{error}</div>
         )}
 
         {/* Step 1: 出勤情報 */}
         {step === 'attendance' && (
           <div className="space-y-5">
             {allowNewCustomers === false && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm whitespace-pre-wrap leading-relaxed">
+              <div className={`p-4 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${
+                isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/40 text-[#ffd6ec]' : 'bg-amber-50 border border-amber-200 text-amber-800'
+              }`}>
 {`⚠️ 会員限定予約のお知らせ
 
 当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。
@@ -760,17 +830,17 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               </div>
             )}
             <div>
-              <h2 className="text-xl font-bold text-slate-800">出勤情報</h2>
-              <p className="text-sm text-slate-500 mt-1">ご希望のセラピストをお選びください</p>
+              <h2 className={`text-xl font-bold ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-slate-800'}`}>出勤情報</h2>
+              <p className={`text-sm mt-1 ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-500'}`}>ご希望のセラピストをお選びください</p>
             </div>
 
             {/* 日付タブ */}
             {dataLoading ? (
               <div className="grid grid-cols-7 gap-1 w-full animate-pulse">
                 {[...Array(7)].map((_, i) => (
-                  <div key={i} className="flex flex-col items-center justify-center py-5 bg-slate-100 rounded-xl">
-                    <div className="h-3 bg-slate-200 rounded w-8 mb-1.5" />
-                    <div className="h-2.5 bg-slate-200 rounded w-6" />
+                  <div key={i} className={`flex flex-col items-center justify-center py-5 rounded-xl ${isCyberTheme ? 'bg-white/5' : 'bg-slate-100'}`}>
+                    <div className={`h-3 rounded w-8 mb-1.5 ${isCyberTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <div className={`h-2.5 rounded w-6 ${isCyberTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
                   </div>
                 ))}
               </div>
@@ -784,10 +854,16 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   const dayOfWeek = days[d.getDay()]
                   const isSunday = dayOfWeek === '日'
                   const isSaturday = dayOfWeek === '土'
-                  const dayClass = isSunday ? 'text-red-500' : (isSaturday ? 'text-blue-500' : 'text-slate-500')
-                  const activeClass = selectedDate === dateStr
-                    ? 'bg-blue-500 border-blue-500 text-white'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
+                  const dayClass = isCyberTheme
+                    ? (isSunday ? 'text-[#e0468f]' : (isSaturday ? 'text-[#2f7fd6]' : 'text-stone-500'))
+                    : (isSunday ? 'text-red-500' : (isSaturday ? 'text-blue-500' : 'text-slate-500'))
+                  const activeClass = isCyberTheme
+                    ? (selectedDate === dateStr
+                        ? 'bg-[#ff6fb5] border-[#ff6fb5] text-white shadow-[0_0_12px_rgba(255,111,181,0.5)]'
+                        : 'bg-white border-[#ff6fb5]/50 text-stone-700 hover:border-[#ff6fb5]')
+                    : (selectedDate === dateStr
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300')
                   return (
                     <button
                       key={dateStr}
@@ -805,17 +881,17 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             {dataLoading ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm animate-pulse p-3 space-y-3">
-                    <div className="aspect-[3/4] bg-slate-100 rounded-xl" />
-                    <div className="h-4 bg-slate-200 rounded w-2/3" />
-                    <div className="h-3 bg-slate-200 rounded w-1/2" />
-                    <div className="h-3 bg-slate-200 rounded w-3/4" />
+                  <div key={i} className={`rounded-2xl overflow-hidden animate-pulse p-3 space-y-3 ${isCyberTheme ? 'bg-white/5 border border-[#ff6fb5]/15' : 'bg-white border border-slate-100 shadow-sm'}`}>
+                    <div className={`aspect-[3/4] rounded-xl ${isCyberTheme ? 'bg-white/10' : 'bg-slate-100'}`} />
+                    <div className={`h-4 rounded w-2/3 ${isCyberTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <div className={`h-3 rounded w-1/2 ${isCyberTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <div className={`h-3 rounded w-3/4 ${isCyberTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
                   </div>
                 ))}
               </div>
             ) : todayShifts.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
-                <p className="text-slate-400 text-sm">本日の出勤情報はありません</p>
+              <div className={`rounded-2xl p-8 text-center ${isCyberTheme ? 'cyber-card' : 'bg-white border border-slate-100'}`}>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>本日の出勤情報はありません</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -831,13 +907,15 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           handleSelectTherapist(t, shift)
                         }
                       }}
-                      className={`relative bg-white rounded-2xl border border-slate-100 overflow-hidden transition-all text-left group ${
-                        isAvailable 
-                          ? 'cursor-pointer hover:border-[#789280] hover:shadow-md' 
+                      className={`relative overflow-hidden transition-all text-left group ${
+                        isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'
+                      } ${
+                        isAvailable
+                          ? (isCyberTheme ? 'cursor-pointer' : 'cursor-pointer hover:border-[#789280] hover:shadow-md')
                           : 'cursor-not-allowed opacity-60'
                       }`}
                     >
-                      <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
+                      <div className={`aspect-[3/4] relative overflow-hidden ${isCyberTheme ? 'bg-white/5' : 'bg-slate-100'}`}>
                         <PhotoCarousel photos={t.photos?.length ? t.photos : (t.photo_url ? [t.photo_url] : [])} name={t.name} />
                         {t.is_rookie && (
                           <span className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 animate-pulse">
@@ -845,7 +923,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           </span>
                         )}
                         {!isAvailable && (
-                          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-20">
+                          <div className={`absolute inset-0 flex flex-col items-center justify-center z-20 ${isCyberTheme ? 'bg-[#0d0914]/85' : 'bg-black/60'}`}>
                             <span className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg tracking-wider border border-red-400/30">
                               ご予約満了
                             </span>
@@ -853,34 +931,34 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         )}
                       </div>
                       <div className="p-3">
-                        <p className="font-bold text-slate-800 text-sm truncate">{t.name}</p>
+                        <p className={`font-bold text-sm truncate ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>{t.name}</p>
                         {t.therapist_ranks && (
-                          <p className="text-xs text-[#b89035] font-semibold mt-0.5">{t.therapist_ranks.name}</p>
+                          <p className={`text-xs font-semibold mt-0.5 ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#b89035]'}`}>{t.therapist_ranks.name}</p>
                         )}
-                        <div className="mt-3 space-y-2 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                        <div className={`mt-3 space-y-2 rounded-xl p-2.5 ${isCyberTheme ? 'bg-white/5 border border-[#ff6fb5]/15' : 'bg-slate-50 border border-slate-100'}`}>
                           {/* 出勤時間 */}
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400 font-medium">出勤時間</span>
-                            <span className="text-xs text-slate-600 font-semibold">{formatTime(shift.start_time)} 〜 {formatTime(shift.end_time)}</span>
+                            <span className={`text-[10px] font-medium ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>出勤時間</span>
+                            <span className={`text-xs font-semibold ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-600'}`}>{formatTime(shift.start_time)} 〜 {formatTime(shift.end_time)}</span>
                           </div>
-                          
+
                           {/* 最短案内 */}
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400 font-medium">最短案内</span>
+                            <span className={`text-[10px] font-medium ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>最短案内</span>
                             {!isAvailable ? (
-                              <span className="text-xs text-red-500 font-bold">ご予約満了</span>
+                              <span className={`text-xs font-bold ${isCyberTheme ? 'text-[#ff9fb0]' : 'text-red-500'}`}>ご予約満了</span>
                             ) : (shift as any).isImmediate ? (
                               <span className="text-[11px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">今すぐご案内</span>
                             ) : (shift as any).firstAvailableTime ? (
-                              <span className="text-xs text-emerald-600 font-bold">{(shift as any).firstAvailableTime} 〜</span>
+                              <span className={`text-xs font-bold ${isCyberTheme ? 'text-[#a8f0c8]' : 'text-emerald-600'}`}>{(shift as any).firstAvailableTime} 〜</span>
                             ) : (
-                              <span className="text-xs text-slate-400">-</span>
+                              <span className={`text-xs ${isCyberTheme ? 'text-[#ded1ee]/40' : 'text-slate-400'}`}>-</span>
                             )}
                           </div>
                         </div>
 
                         {(t.age || t.height || t.comment) && (
-                          <div className="mt-2 text-xs text-slate-400">
+                          <div className={`mt-2 text-xs ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>
                             {(t.age || t.height) && (
                               <p>{t.age && `${t.age}歳`}{t.age && t.height && ' / '}{t.height && `${t.height}cm`}</p>
                             )}
@@ -891,12 +969,14 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         )}
 
                         <div className="mt-3">
-                          <button 
+                          <button
                             disabled={!isAvailable}
-                            className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
-                              isAvailable 
-                                ? 'bg-[#789280] text-white hover:bg-[#5d7362] active:scale-95' 
-                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            className={`w-full py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${
+                              isAvailable
+                                ? (isCyberTheme
+                                    ? 'neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] text-white active:scale-95'
+                                    : 'rounded-xl bg-[#789280] text-white hover:bg-[#5d7362] active:scale-95')
+                                : (isCyberTheme ? 'bg-white/10 text-[#ded1ee]/30 cursor-not-allowed' : 'rounded-xl bg-slate-200 text-slate-400 cursor-not-allowed')
                             }`}
                           >
                             {isAvailable ? '予約する' : '受付終了'}
@@ -909,19 +989,27 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 {/* フリー（指名なし）カード */}
                 <div
                   onClick={handleSelectFree}
-                  className="cursor-pointer bg-white rounded-2xl border border-dashed border-slate-200 overflow-hidden hover:border-[#789280] hover:shadow-md transition-all text-left group"
+                  className={`cursor-pointer overflow-hidden transition-all text-left group ${
+                    isCyberTheme
+                      ? 'cyber-card border-dashed'
+                      : 'bg-white rounded-2xl border border-dashed border-slate-200 hover:border-[#789280] hover:shadow-md'
+                  }`}
                 >
-                  <div className="aspect-[3/4] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-3">
-                    <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center">
-                      <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className={`aspect-[3/4] flex flex-col items-center justify-center gap-3 ${
+                    isCyberTheme ? 'bg-white/5' : 'bg-gradient-to-br from-slate-50 to-slate-100'
+                  }`}>
+                    <div className={`w-14 h-14 rounded-full border-2 border-dashed flex items-center justify-center ${
+                      isCyberTheme ? 'bg-white/5 border-[#ff6fb5]/40' : 'bg-white border-slate-300'
+                    }`}>
+                      <svg className={`w-7 h-7 ${isCyberTheme ? 'text-[#ff6fb5]' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium">指名なし</p>
+                    <p className={`text-xs font-medium ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>指名なし</p>
                   </div>
                   <div className="p-3">
-                    <p className="font-bold text-slate-700 text-sm">フリー</p>
-                    <p className="text-xs text-slate-400 mt-0.5">セラピストおまかせ</p>
+                    <p className={`font-bold text-sm ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>フリー</p>
+                    <p className={`text-xs mt-0.5 ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>セラピストおまかせ</p>
                   </div>
                 </div>
               </div>
@@ -935,15 +1023,17 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setStep('attendance'); setSelectedTherapist(null); setSelectedShift(null); setIsFreeReservation(false) }}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-blue-300"
+                className={`w-9 h-9 rounded-full flex items-center justify-center border ${
+                  isCyberTheme ? 'bg-white border-[#ff6fb5]/50 text-[#e0468f] hover:border-[#ff6fb5]' : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300'
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h2 className="text-xl font-bold text-slate-800">コース・時間の選択</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className={`text-xl font-bold ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-slate-800'}`}>コース・時間の選択</h2>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-500'}`}>
                   {isFreeReservation ? 'フリー（指名なし）' : selectedTherapist?.name} / {formatDate(currentShift?.date ?? selectedDate)}
                 </p>
               </div>
@@ -951,35 +1041,35 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
             {/* セラピスト情報カード */}
             {selectedTherapist ? (
-              <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 relative">
+              <div className={`p-4 flex items-center gap-4 ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
+                <div className={`w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 relative ${isCyberTheme ? 'bg-white/5' : 'bg-slate-100'}`}>
                   <PhotoCarousel
                     photos={selectedTherapist.photos?.length ? selectedTherapist.photos : (selectedTherapist.photo_url ? [selectedTherapist.photo_url] : [])}
                     name={selectedTherapist.name}
                   />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800">{selectedTherapist.name}</p>
+                  <p className={`font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>{selectedTherapist.name}</p>
                   {selectedTherapist.therapist_ranks && (
-                    <p className="text-xs text-blue-500">{selectedTherapist.therapist_ranks.name}</p>
+                    <p className={`text-xs ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-blue-500'}`}>{selectedTherapist.therapist_ranks.name}</p>
                   )}
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className={`text-xs mt-1 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>
                     出勤: {formatTime(selectedShift!.start_time)} 〜 {formatTime(selectedShift!.end_time)}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-4 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className={`p-4 flex items-center gap-4 ${isCyberTheme ? 'cyber-card border-dashed' : 'bg-white rounded-2xl border border-dashed border-slate-200'}`}>
+                <div className={`w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center ${isCyberTheme ? 'bg-white/5' : 'bg-slate-100'}`}>
+                  <svg className={`w-8 h-8 ${isCyberTheme ? 'text-[#ff6fb5]/60' : 'text-slate-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800">フリー（指名なし）</p>
-                  <p className="text-xs text-slate-400 mt-0.5">セラピストはお任せします</p>
+                  <p className={`font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>フリー（指名なし）</p>
+                  <p className={`text-xs mt-0.5 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>セラピストはお任せします</p>
                   {currentShift && (
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className={`text-xs mt-1 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>
                       受付時間: {formatTime(currentShift.start_time)} 〜 {formatTime(currentShift.end_time)}
                     </p>
                   )}
@@ -989,23 +1079,23 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
             {/* コース選択 */}
             <div className="space-y-2">
-              <h3 className="text-sm font-bold text-slate-700">コースを選択</h3>
+              <h3 className={`text-sm font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>コースを選択</h3>
               <div className="space-y-2">
                 {courses.map(c => (
                   <button
                     key={c.id}
                     onClick={() => { setSelectedCourse(c); setSelectedStartTime('') }}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all text-left ${
-                      selectedCourse?.id === c.id
-                        ? 'border-blue-400 bg-blue-50'
-                        : 'border-slate-200 bg-white hover:border-blue-300'
+                      isCyberTheme
+                        ? (selectedCourse?.id === c.id ? 'border-[#ff6fb5] bg-[#ff6fb5] shadow-[0_0_16px_rgba(255,111,181,0.6)]' : 'border-[#ff6fb5]/50 bg-white hover:border-[#ff6fb5]')
+                        : (selectedCourse?.id === c.id ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-300')
                     }`}
                   >
                     <div>
-                      <p className={`font-medium text-sm ${selectedCourse?.id === c.id ? 'text-blue-700' : 'text-slate-700'}`}>{c.name}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{c.duration}分</p>
+                      <p className={`font-medium text-sm ${isCyberTheme ? (selectedCourse?.id === c.id ? 'text-white' : 'text-stone-800') : (selectedCourse?.id === c.id ? 'text-blue-700' : 'text-slate-700')}`}>{c.name}</p>
+                      <p className={`text-xs mt-0.5 ${isCyberTheme ? (selectedCourse?.id === c.id ? 'text-white/80' : 'text-stone-500') : 'text-slate-400'}`}>{c.duration}分</p>
                     </div>
-                    <p className={`font-bold text-sm ${selectedCourse?.id === c.id ? 'text-blue-600' : 'text-slate-600'}`}>
+                    <p className={`font-bold text-sm ${isCyberTheme ? (selectedCourse?.id === c.id ? 'text-white' : 'text-[#e0468f]') : (selectedCourse?.id === c.id ? 'text-blue-600' : 'text-slate-600')}`}>
                       {formatPrice(c.base_price)}
                     </p>
                   </button>
@@ -1029,14 +1119,15 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               // 5分刻みスロット生成
               const allSlots = generateSlots(currentShift.start_time, currentShift.end_time, selectedCourse.duration, 5)
               const slotsWithAvailability = allSlots.map(slot => {
-                if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, currentShift.start_time)) {
-                  return { time: slot, available: false }
-                }
                 const slotJstDate = getJstDateFromDateTime(currentShift.date, slot)
-                if (slotJstDate.getTime() < minAllowedTime) {
-                  return { time: slot, available: false }
+                const isPast = slotJstDate.getTime() < minAllowedTime
+                if (isPast) {
+                  return { time: slot, available: false, isPast: true }
                 }
-                return { time: slot, available: true }
+                if (!isSlotAvailable(slot, selectedCourse.duration, therapistReservations, interval, currentShift.start_time)) {
+                  return { time: slot, available: false, isPast: false }
+                }
+                return { time: slot, available: true, isPast: false }
               })
               const availableCount = slotsWithAvailability.filter(s => s.available).length
               const timelineSegs = getTimelineSegments(currentShift.start_time, currentShift.end_time, therapistReservations, interval)
@@ -1108,20 +1199,20 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               return (
                 <div className="space-y-3">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-700">開始時間を選択</h3>
+                    <h3 className={`text-sm font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>開始時間を選択</h3>
                   </div>
 
                   {availableCount === 0 ? (
-                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-4 text-center">
-                      <p className="text-sm text-red-600 font-medium">このコースの空き枠がありません</p>
-                      <p className="text-xs text-red-400 mt-1">他のコースをお試しください</p>
+                    <div className={`rounded-xl px-4 py-4 text-center ${isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/40' : 'bg-red-50 border border-red-200'}`}>
+                      <p className={`text-sm font-medium ${isCyberTheme ? 'text-[#ffd6ec]' : 'text-red-600'}`}>このコースの空き枠がありません</p>
+                      <p className={`text-xs mt-1 ${isCyberTheme ? 'text-[#ffa8d8]/70' : 'text-red-400'}`}>他のコースをお試しください</p>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4">
+                    <div className={`p-4 space-y-4 ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
                       {/* タイムライン概要 */}
                       <div className="select-none">
                         {/* 出勤時間ラベル */}
-                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <div className={`flex justify-between text-[10px] mb-1 ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>
                           <span>{formatTime(currentShift.start_time)}</span>
                           <span>{formatTime(currentShift.end_time)}</span>
                         </div>
@@ -1132,7 +1223,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                             {hourLabels.map(({ label, leftPct }) => (
                               <span
                                 key={label}
-                                className="absolute text-[9px] text-slate-400 -translate-x-1/2"
+                                className={`absolute text-[9px] -translate-x-1/2 ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}
                                 style={{ left: `${leftPct}%` }}
                               >
                                 {label}
@@ -1149,30 +1240,32 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                           onClick={e => handleTap(e.clientX)}
                           onTouchEnd={e => { if (e.changedTouches[0]) handleTap(e.changedTouches[0].clientX) }}
                         >
-                          <div className="absolute inset-0 bg-emerald-100" />
+                          <div className={`absolute inset-0 ${isCyberTheme ? 'bg-[#ff6fb5]' : 'bg-emerald-100'}`} />
                           {hourLabels.map(({ label, leftPct }) => (
                             <div
                               key={label}
-                              className="absolute top-0 bottom-0 w-px bg-white/60"
+                              className={`absolute top-0 bottom-0 w-px ${isCyberTheme ? 'bg-black/20' : 'bg-white/60'}`}
                               style={{ left: `${leftPct}%` }}
                             />
                           ))}
                           {timelineSegs.map((seg, i) => (
                             <div
                               key={i}
-                              className="absolute top-0 h-full bg-slate-300"
+                              className={`absolute top-0 h-full ${isCyberTheme ? 'bg-white' : 'bg-slate-300'}`}
                               style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
                             />
                           ))}
                           {pastEndPct > 0 && (
                             <div
-                              className="absolute top-0 left-0 h-full bg-slate-400/60"
+                              className={`absolute top-0 left-0 h-full ${isCyberTheme ? 'bg-black/60' : 'bg-slate-400/60'}`}
                               style={{ width: `${pastEndPct}%` }}
                             />
                           )}
                           {selectedLeft !== null && (
                             <div
-                              className="absolute top-1 bottom-1 bg-[#789280] rounded-lg shadow-md flex items-center justify-center pointer-events-none"
+                              className={`absolute top-1 bottom-1 rounded-lg shadow-md flex items-center justify-center pointer-events-none ${
+                                isCyberTheme ? 'bg-[#150e20] ring-2 ring-white' : 'bg-[#789280]'
+                              }`}
                               style={{ left: `${selectedLeft}%`, width: `${Math.max(selectedWidth, 2)}%` }}
                             >
                               {selectedWidth > 8 && (
@@ -1185,17 +1278,17 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         {/* 凡例 */}
                         <div className="flex items-center gap-3 mt-1.5">
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-2 rounded-sm bg-[#e2ebe6]" />
-                            <span className="text-[10px] text-slate-500">予約可</span>
+                            <div className={`w-3 h-2 rounded-sm ${isCyberTheme ? 'bg-[#ff6fb5]' : 'bg-[#e2ebe6]'}`} />
+                            <span className={`text-[10px] ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>予約可</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-3 h-2 rounded-sm bg-slate-300" />
-                            <span className="text-[10px] text-slate-500">予約不可</span>
+                            <div className={`w-3 h-2 rounded-sm ${isCyberTheme ? 'bg-white' : 'bg-slate-300'}`} />
+                            <span className={`text-[10px] ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>予約不可</span>
                           </div>
                           {selectedStartTime && (
                             <div className="flex items-center gap-1">
-                              <div className="w-3 h-2 rounded-sm bg-[#789280]" />
-                              <span className="text-[10px] text-slate-500">選択中</span>
+                              <div className={`w-3 h-2 rounded-sm ${isCyberTheme ? 'bg-[#150e20] ring-1 ring-white' : 'bg-[#789280]'}`} />
+                              <span className={`text-[10px] ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>選択中</span>
                             </div>
                           )}
                         </div>
@@ -1203,10 +1296,12 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
                       {/* 時間ボタングリッド */}
                       <div>
-                        <p className="text-xs text-slate-500 mb-2">開始時間を選択（±5分で微調整できます）</p>
+                        <p className={`text-xs mb-2 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>開始時間を選択（±5分で微調整できます）</p>
                         <div className="max-h-52 overflow-y-auto rounded-xl">
                           <div className="grid grid-cols-4 gap-2">
                             {slotsWithAvailability
+                              // 過ぎてしまった時間はボタン自体を表示しない
+                              .filter(s => !s.isPast)
                               .filter((s, _, arr) => {
                                 // 最短の案内枠（最初の空き枠）は30分刻みでなくても常に表示する
                                 const firstAvailable = arr.find(item => item.available)
@@ -1236,11 +1331,17 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                                   onClick={() => { if (slot.available) setSelectedStartTime(slot.time) }}
                                   disabled={!slot.available}
                                   className={`py-3 rounded-xl text-sm font-semibold transition-all ${
-                                    selectedStartTime === slot.time
-                                      ? 'bg-[#789280] text-white shadow-sm'
-                                      : slot.available
-                                      ? 'bg-[#f4f7f5] text-[#4a5c50] active:bg-[#e2ebe6]'
-                                      : 'bg-slate-100 text-slate-300 cursor-not-allowed line-through'
+                                    isCyberTheme
+                                      ? (selectedStartTime === slot.time
+                                          ? 'bg-gradient-to-r from-[#ff6fb5] to-[#cf82d8] text-white shadow-[0_0_10px_rgba(255,111,181,0.5)]'
+                                          : slot.available
+                                          ? 'bg-white border border-[#ff6fb5]/50 text-stone-800 active:bg-[#ff6fb5]/20 hover:border-[#ff6fb5]'
+                                          : 'bg-white/20 border border-white/10 text-white/30 cursor-not-allowed line-through')
+                                      : (selectedStartTime === slot.time
+                                          ? 'bg-[#789280] text-white shadow-sm'
+                                          : slot.available
+                                          ? 'bg-[#f4f7f5] text-[#4a5c50] active:bg-[#e2ebe6]'
+                                          : 'bg-slate-100 text-slate-300 cursor-not-allowed line-through')
                                   }`}
                                 >
                                   {slot.time}
@@ -1255,7 +1356,9 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         <button
                           onClick={() => adjustTime(-5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50] disabled:opacity-30 transition-colors"
+                          className={`w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-30 transition-colors ${
+                            isCyberTheme ? 'bg-white border border-[#ff6fb5]/50 text-[#e0468f] hover:bg-[#ff6fb5] hover:text-white hover:border-[#ff6fb5]' : 'bg-slate-100 text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50]'
+                          }`}
                           aria-label="-5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1266,18 +1369,20 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                         <div className="text-center min-w-[140px]">
                           {selectedStartTime ? (
                             <>
-                              <p className="text-3xl font-black text-slate-800 tabular-nums leading-none">{selectedStartTime}</p>
-                              <p className="text-xs text-slate-400 mt-1.5">〜 {endTime}（{selectedCourse.duration}分）</p>
+                              <p className={`text-3xl font-black tabular-nums leading-none ${isCyberTheme ? 'neon-text-pink' : 'text-slate-800'}`}>{selectedStartTime}</p>
+                              <p className={`text-xs mt-1.5 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-400'}`}>〜 {endTime}（{selectedCourse.duration}分）</p>
                             </>
                           ) : (
-                            <p className="text-sm text-slate-400">時間を選んでください</p>
+                            <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]/50' : 'text-slate-400'}`}>時間を選んでください</p>
                           )}
                         </div>
 
                         <button
                           onClick={() => adjustTime(5)}
                           disabled={!selectedStartTime}
-                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50] disabled:opacity-30 transition-colors"
+                          className={`w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-30 transition-colors ${
+                            isCyberTheme ? 'bg-white border border-[#ff6fb5]/50 text-[#e0468f] hover:bg-[#ff6fb5] hover:text-white hover:border-[#ff6fb5]' : 'bg-slate-100 text-slate-500 hover:bg-[#f0f4f1] hover:text-[#4a5c50]'
+                          }`}
                           aria-label="+5分"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1293,14 +1398,14 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
 
             {/* 支払い方法 */}
             <div className="space-y-2">
-              <h3 className="text-sm font-bold text-slate-700">お支払い方法</h3>
+              <h3 className={`text-sm font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>お支払い方法</h3>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setPaymentMethod('cash')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'cash'
-                      ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]'
+                    isCyberTheme
+                      ? (paymentMethod === 'cash' ? 'border-[#ff6fb5] bg-[#ff6fb5] text-white shadow-[0_0_12px_rgba(255,111,181,0.5)]' : 'border-[#ff6fb5]/50 bg-white text-stone-700 hover:border-[#ff6fb5]')
+                      : (paymentMethod === 'cash' ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]' : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]')
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1311,9 +1416,9 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 <button
                   onClick={() => setPaymentMethod('credit')}
                   className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'credit'
-                      ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]'
+                    isCyberTheme
+                      ? (paymentMethod === 'credit' ? 'border-[#ff6fb5] bg-[#ff6fb5] text-white shadow-[0_0_12px_rgba(255,111,181,0.5)]' : 'border-[#ff6fb5]/50 bg-white text-stone-700 hover:border-[#ff6fb5]')
+                      : (paymentMethod === 'credit' ? 'border-[#789280] bg-[#f0f4f1]/50 text-[#4a5c50]' : 'border-slate-200 bg-white text-slate-600 hover:border-[#789280]')
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1327,7 +1432,11 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <button
               onClick={handleDetailsNext}
               disabled={!selectedCourse || !selectedStartTime}
-              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362] disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`w-full py-4 rounded-2xl font-bold text-base transition-all disabled:cursor-not-allowed ${
+                isCyberTheme
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] text-white disabled:opacity-30'
+                  : 'bg-[#789280] text-white hover:bg-[#5d7362] disabled:opacity-40'
+              }`}
             >
               お客様情報の入力へ
             </button>
@@ -1340,20 +1449,24 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('details')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-[#789280]"
+                className={`w-9 h-9 rounded-full flex items-center justify-center border ${
+                  isCyberTheme ? 'bg-white border-[#ff6fb5]/50 text-[#e0468f] hover:border-[#ff6fb5]' : 'bg-white border-slate-200 text-slate-500 hover:border-[#789280]'
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h2 className="text-xl font-bold text-slate-800">お客様情報</h2>
-                <p className="text-sm text-slate-500">ご予約者の情報を入力してください</p>
+                <h2 className={`text-xl font-bold ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-slate-800'}`}>お客様情報</h2>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-500'}`}>ご予約者の情報を入力してください</p>
               </div>
             </div>
 
             {allowNewCustomers === false && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 whitespace-pre-wrap leading-relaxed">
+              <div className={`rounded-2xl p-4 text-sm whitespace-pre-wrap leading-relaxed ${
+                isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/40 text-[#ffd6ec]' : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
 {`⚠️ 会員限定予約のお知らせ
 
 当店は既存の会員様限定のWEB予約となっております。ご新規様のWEB予約は受け付けておりません。
@@ -1362,7 +1475,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+            <div className={`p-5 space-y-4 ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
               {([
                 { key: 'name', label: 'お名前', placeholder: '山田 花子', type: 'text' },
                 { key: 'furigana', label: 'フリガナ', placeholder: 'ヤマダ ハナコ', type: 'text' },
@@ -1370,9 +1483,11 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 { key: 'email', label: 'メールアドレス', placeholder: 'example@email.com', type: 'email' },
               ] as { key: keyof CustomerForm; label: string; placeholder: string; type: string }[]).map(field => (
                 <div key={field.key}>
-                  <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5">
+                  <label className={`flex items-center text-sm font-medium mb-1.5 ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>
                     {field.label}
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#f0f4f1] text-[#4a5c50]">必須</span>
+                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      isCyberTheme ? 'bg-[#ff6fb5]/20 text-[#ffa8d8]' : 'bg-[#f0f4f1] text-[#4a5c50]'
+                    }`}>必須</span>
                   </label>
                   <input
                     type={field.type}
@@ -1384,30 +1499,40 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                       }
                     }}
                     placeholder={field.placeholder}
-                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-[#789280]/50 ${
-                      validationErrors[field.key] ? 'border-red-400' : 'border-slate-200'
+                    className={`w-full px-4 py-3 border rounded-xl outline-none transition-all ${
+                      isCyberTheme
+                        ? `bg-white/90 border-2 text-stone-800 focus:border-[#ff6fb5] ${validationErrors[field.key] ? 'border-red-400' : 'border-[#ff6fb5]/40'}`
+                        : `bg-slate-50 text-slate-800 placeholder-slate-300 focus:ring-2 focus:ring-[#789280]/50 ${validationErrors[field.key] ? 'border-red-400' : 'border-slate-200'}`
                     }`}
                   />
                   {validationErrors[field.key] && (
-                    <p className="text-red-500 text-xs mt-1">{validationErrors[field.key]}</p>
+                    <p className={`text-xs mt-1 ${isCyberTheme ? 'text-[#ff9fb0]' : 'text-red-500'}`}>{validationErrors[field.key]}</p>
                   )}
                 </div>
               ))}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">その他ご希望</label>
+                <label className={`block text-sm font-medium mb-1.5 ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-700'}`}>その他ご希望</label>
                 <textarea
                   value={customer.notes}
                   onChange={e => setCustomer(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="ご要望やご質問があればご記入ください"
                   rows={3}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-300 outline-none transition-all focus:ring-2 focus:ring-[#789280]/50 resize-none"
+                  className={`w-full px-4 py-3 border rounded-xl outline-none transition-all resize-none ${
+                    isCyberTheme
+                      ? 'bg-white/90 border-2 border-[#ff6fb5]/40 text-stone-800 focus:border-[#ff6fb5]'
+                      : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-300 focus:ring-2 focus:ring-[#789280]/50'
+                  }`}
                 />
               </div>
             </div>
 
             <button
               onClick={handleCustomerNext}
-              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362]"
+              className={`w-full py-4 rounded-2xl font-bold text-base transition-all ${
+                isCyberTheme
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] text-white'
+                  : 'bg-[#789280] text-white hover:bg-[#5d7362]'
+              }`}
             >
               予約内容の確認へ
             </button>
@@ -1420,23 +1545,25 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep('customer')}
-                className="w-9 h-9 bg-white rounded-full flex items-center justify-center border border-slate-200 text-slate-500 hover:border-[#789280]"
+                className={`w-9 h-9 rounded-full flex items-center justify-center border ${
+                  isCyberTheme ? 'bg-white border-[#ff6fb5]/50 text-[#e0468f] hover:border-[#ff6fb5]' : 'bg-white border-slate-200 text-slate-500 hover:border-[#789280]'
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h2 className="text-xl font-bold text-slate-800">予約内容の確認</h2>
-                <p className="text-sm text-slate-500">内容をご確認ください</p>
+                <h2 className={`text-xl font-bold ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-slate-800'}`}>予約内容の確認</h2>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-500'}`}>内容をご確認ください</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">ご予約内容</p>
+            <div className={`overflow-hidden ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
+              <div className={`px-5 py-3 ${isCyberTheme ? 'bg-white/5 border-b border-[#ff6fb5]/20' : 'bg-slate-50 border-b border-slate-100'}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-slate-500'}`}>ご予約内容</p>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className={isCyberTheme ? 'divide-y divide-[#ff6fb5]/15' : 'divide-y divide-slate-100'}>
                 {[
                   { label: '日時', value: `${formatDate(currentShift?.date ?? selectedDate)} ${formatTime(selectedStartTime)} 〜 ${formatTime(endTime)}` },
                   { label: 'セラピスト', value: selectedTherapist?.name ?? 'フリー（指名なし）' },
@@ -1445,18 +1572,18 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   { label: 'お支払い', value: paymentMethod === 'cash' ? '現金' : 'クレジットカード' },
                 ].map(row => (
                   <div key={row.label} className="px-5 py-3 flex items-start justify-between gap-4">
-                    <span className="text-sm text-slate-500 flex-shrink-0">{row.label}</span>
-                    <span className="text-sm font-medium text-slate-800 text-right">{row.value}</span>
+                    <span className={`text-sm flex-shrink-0 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>{row.label}</span>
+                    <span className={`text-sm font-medium text-right ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>{row.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">お客様情報</p>
+            <div className={`overflow-hidden ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
+              <div className={`px-5 py-3 ${isCyberTheme ? 'bg-white/5 border-b border-[#ff6fb5]/20' : 'bg-slate-50 border-b border-slate-100'}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-slate-500'}`}>お客様情報</p>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className={isCyberTheme ? 'divide-y divide-[#ff6fb5]/15' : 'divide-y divide-slate-100'}>
                 {[
                   { label: 'お名前', value: customer.name },
                   { label: 'フリガナ', value: customer.furigana },
@@ -1465,15 +1592,15 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                   ...(customer.notes ? [{ label: 'ご希望', value: customer.notes }] : []),
                 ].map(row => (
                   <div key={row.label} className="px-5 py-3 flex items-start justify-between gap-4">
-                    <span className="text-sm text-slate-500 flex-shrink-0">{row.label}</span>
-                    <span className="text-sm font-medium text-slate-800 text-right break-all">{row.value}</span>
+                    <span className={`text-sm flex-shrink-0 ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>{row.label}</span>
+                    <span className={`text-sm font-medium text-right break-all ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>{row.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-xs text-amber-700">
+            <div className={`rounded-xl px-4 py-3 ${isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/30' : 'bg-amber-50 border border-amber-200'}`}>
+              <p className={`text-xs ${isCyberTheme ? 'text-[#ffd6ec]' : 'text-amber-700'}`}>
                 ご予約は仮予約となります。店舗より確認のご連絡をお送りしてから正式に確定いたします。
               </p>
             </div>
@@ -1481,7 +1608,11 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-4 bg-[#789280] text-white rounded-2xl font-bold text-base transition-all hover:bg-[#5d7362] disabled:opacity-60"
+              className={`w-full py-4 rounded-2xl font-bold text-base transition-all disabled:opacity-60 ${
+                isCyberTheme
+                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] text-white'
+                  : 'bg-[#789280] text-white hover:bg-[#5d7362]'
+              }`}
             >
               {submitting ? '送信中...' : 'この内容で予約を申し込む'}
             </button>
@@ -1491,24 +1622,26 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         {/* Step 5: 完了 */}
         {step === 'complete' && (
           <div className="flex flex-col items-center text-center py-16 space-y-6">
-            <div className="w-20 h-20 bg-[#f0f4f1] rounded-full flex items-center justify-center">
-              <svg className="w-10 h-10 text-[#789280]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center ${
+              isCyberTheme ? 'bg-[#ff6fb5]/20 border border-[#ff6fb5] shadow-[0_0_20px_rgba(255,111,181,0.5)]' : 'bg-[#f0f4f1]'
+            }`}>
+              <svg className={`w-10 h-10 ${isCyberTheme ? 'text-[#ff6fb5]' : 'text-[#789280]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">ご予約を受け付けました</h2>
-              <p className="text-slate-500 mt-2 text-sm leading-relaxed">
+              <h2 className={`text-2xl font-bold ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-slate-800'}`}>ご予約を受け付けました</h2>
+              <p className={`mt-2 text-sm leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-500'}`}>
                 ありがとうございます。<br />
                 店舗より確認のご連絡をお送りします。<br />
                 しばらくお待ちください。
               </p>
             </div>
             {selectedCourse && (currentShift || isFreeReservation) && (
-              <div className="bg-white rounded-2xl border border-slate-100 p-5 w-full text-left space-y-2">
-                <p className="text-sm text-slate-500">{formatDate(currentShift?.date ?? selectedDate)} {formatTime(selectedStartTime)} 〜 {formatTime(endTime)}</p>
-                <p className="font-bold text-slate-800">{selectedTherapist?.name ?? 'フリー（指名なし）'}</p>
-                <p className="text-sm text-slate-600">{selectedCourse.name}（{selectedCourse.duration}分）</p>
+              <div className={`p-5 w-full text-left space-y-2 ${isCyberTheme ? 'cyber-card' : 'bg-white rounded-2xl border border-slate-100'}`}>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]/60' : 'text-slate-500'}`}>{formatDate(currentShift?.date ?? selectedDate)} {formatTime(selectedStartTime)} 〜 {formatTime(endTime)}</p>
+                <p className={`font-bold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-slate-800'}`}>{selectedTherapist?.name ?? 'フリー（指名なし）'}</p>
+                <p className={`text-sm ${isCyberTheme ? 'text-[#ded1ee]' : 'text-slate-600'}`}>{selectedCourse.name}（{selectedCourse.duration}分）</p>
               </div>
             )}
             <button
@@ -1521,13 +1654,16 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
                 setIsFreeReservation(false)
                 setCustomer({ name: '', furigana: '', phone: '', email: '', notes: '' })
               }}
-              className="text-sm text-[#4a5c50] hover:underline font-semibold"
+              className={`text-sm hover:underline font-semibold ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#4a5c50]'}`}
             >
               トップへ戻る
             </button>
           </div>
         )}
       </div>
+
+      {/* HP本体と全く同じ Footer コンポーネントを使用 */}
+      {!isEmbed && isCyberTheme && storeConfig && <Footer store={storeConfig} />}
     </div>
   )
 }
