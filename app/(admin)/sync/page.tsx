@@ -233,15 +233,17 @@ export default function SyncPage() {
 
   const handleMatchExistingTherapists = async () => {
     if (!selectedShop) return;
-    if (activeTab !== 'esthe_ranking') return;
 
-    if (!confirm('メンズエステランキング側に既に登録済みのプロフィールを名前で検索し、yoyakl側のセラピストと自動で紐付けます（新規登録は行いません）。\n実行しますか？\n※ランキングサイトへのログインを伴うため、数十秒かかることがあります。')) return;
+    const matchEndpoint = activeTab === 'esthe_ranking' ? '/api/sync/esthe-ranking-match' : '/api/sync/estama-match';
+    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
+
+    if (!confirm(`${siteName}側に既に登録済みのプロフィールを名前で検索し、yoyakl側のセラピストと自動で紐付けます（新規登録は行いません）。\n実行しますか？\n※ポータルサイトへのログインを伴うため、数十秒かかることがあります。`)) return;
 
     setIsSyncing(true);
-    setSyncProgressText('ランキングサイト側のプロフィールを照合中...');
+    setSyncProgressText('ポータルサイト側のプロフィールを照合中...');
 
     try {
-      const res = await fetch('/api/sync/esthe-ranking-match', {
+      const res = await fetch(matchEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shopId: selectedShop.id }),
@@ -426,21 +428,19 @@ export default function SyncPage() {
                 <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は情報を上書き更新し、いない場合は新規登録として追加します。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
               </div>
 
-              {activeTab === 'esthe_ranking' && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">既存プロフィールと自動照合（連携が切れている場合）</h3>
-                    <p className="text-xs text-slate-500 mt-1">ポータル側に既にプロフィールが存在するのにyoyakl側で連携IDが未設定のキャストを、名前の一致で自動的に紐付け直します。新規登録は行わないため重複プロフィールは作られません。出勤が同期されない場合はまずこちらをお試しください。</p>
-                  </div>
-                  <button
-                    onClick={handleMatchExistingTherapists}
-                    disabled={isSyncing || !isCurrentTabConfigured}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-white border-2 border-slate-700 text-slate-700 rounded-lg hover:bg-slate-50 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {isSyncing ? (syncProgressText || '照合中...') : '既存プロフィールと自動照合'}
-                  </button>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">既存プロフィールと自動照合（連携が切れている場合）</h3>
+                  <p className="text-xs text-slate-500 mt-1">ポータル側に既にプロフィールが存在するのにyoyakl側で連携IDが未設定のキャストを、名前の一致で自動的に紐付け直します。新規登録は行わないため重複プロフィールは作られません。出勤が同期されない場合はまずこちらをお試しください。</p>
                 </div>
-              )}
+                <button
+                  onClick={handleMatchExistingTherapists}
+                  disabled={isSyncing || !isCurrentTabConfigured}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-white border-2 border-slate-700 text-slate-700 rounded-lg hover:bg-slate-50 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isSyncing ? (syncProgressText || '照合中...') : '既存プロフィールと自動照合'}
+                </button>
+              </div>
             </div>
           </div>
 
