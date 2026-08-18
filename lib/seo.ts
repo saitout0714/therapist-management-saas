@@ -12,6 +12,11 @@ const SHOP_OG_IMAGE: Record<string, string> = {
   onyankospa: '/images/onyanko_mainvisual.jpg',
 };
 
+/** Google Search Console のHTMLタグ確認用コード（content属性の値のみ）。 */
+const SHOP_GOOGLE_SITE_VERIFICATION: Record<string, string> = {
+  onyankospa: 'w8P60bwofIXrWSNhKuV5cQmLhi6gCF52syAy8aFaBMM',
+};
+
 export type ShopPageKey =
   | 'top'
   | 'therapists'
@@ -182,6 +187,7 @@ export async function buildShopMetadata(
 
   const canonical = shopCanonicalUrl(shop, path);
   const ogImage = shop.logoUrl || SHOP_OG_IMAGE[shop.slug];
+  const googleSiteVerification = SHOP_GOOGLE_SITE_VERIFICATION[shop.slug];
 
   return {
     metadataBase: new URL(SHOP_CANONICAL_ORIGIN[shop.slug] || SAAS_ORIGIN),
@@ -192,6 +198,7 @@ export async function buildShopMetadata(
     robots: shop.hasHp
       ? { index: true, follow: true }
       : { index: false, follow: false },
+    ...(googleSiteVerification ? { verification: { google: googleSiteVerification } } : {}),
     openGraph: {
       type: 'website',
       siteName: shop.name,

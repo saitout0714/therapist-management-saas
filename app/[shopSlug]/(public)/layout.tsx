@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { buildShopMetadata, fetchShopSeo, buildLocalBusinessJsonLd } from '../../../lib/seo';
+import { SHOP_GA_MEASUREMENT_ID } from '../../../lib/analytics';
+import { GoogleAnalytics } from '../../../components/store/GoogleAnalytics';
 
 type LayoutParams = { params: Promise<{ shopSlug: string }> };
 
@@ -27,6 +29,8 @@ export default async function StorePublicLayout({
     notFound();
   }
 
+  const gaMeasurementId = shop.hasHp ? SHOP_GA_MEASUREMENT_ID[shop.slug] : undefined;
+
   return (
     <>
       {/* ローカル検索向けの構造化データ。公開HP契約がある店舗のみ出力する。 */}
@@ -39,6 +43,7 @@ export default async function StorePublicLayout({
           }}
         />
       )}
+      {gaMeasurementId && <GoogleAnalytics measurementId={gaMeasurementId} />}
       {children}
     </>
   );

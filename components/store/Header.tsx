@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { StoreConfig } from '../../types/store';
 import { DIARY_FEATURE_ENABLED } from '../../lib/featureFlags';
 
@@ -70,11 +71,14 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           {/* ロゴ / 店舗名 */}
           <Link href={basePath || '/'} className="flex items-center gap-3 group">
             {store.logoUrl && !imageError && !store.logoUrl.includes('mainvisual') ? (
-              <div className="h-12 max-w-[200px] flex items-center">
-                <img
+              <div className="relative h-12 w-[200px]">
+                <Image
                   src={store.logoUrl}
                   alt={store.name}
-                  className="max-h-full w-auto object-contain transition-transform group-hover:scale-102 rounded-md shadow-sm"
+                  fill
+                  sizes="200px"
+                  priority
+                  className="object-contain object-left transition-transform group-hover:scale-102 rounded-md shadow-sm"
                   onError={() => setImageError(true)}
                 />
               </div>
