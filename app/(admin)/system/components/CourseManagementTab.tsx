@@ -159,7 +159,6 @@ export function CourseManagementTab() {
                             <label className="block text-xs font-semibold text-slate-600">コース表示カテゴリ名（HPシステムページでの分類見出し）</label>
                             <input
                                 className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none font-medium"
-                                placeholder="例: Standard Onyanko Aroma (スタンダードアロマ) / Special Premium Option (オプション)"
                                 value={formData.category_name}
                                 onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
                             />
@@ -309,18 +308,17 @@ export function CourseManagementTab() {
 
                     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[1200px]">
+                            <table className="w-full text-left border-collapse">
                                 <thead className="bg-slate-50">
-                                    <tr className="border-b border-slate-200 text-sm font-semibold text-slate-600">
-                                        <th className="p-4 w-10"></th>
-                                        {shopHasHp && <th className="p-4 w-40">カテゴリ</th>}
-                                        <th className="p-4 w-48 whitespace-nowrap">コース名</th>
-                                        <th className="p-4 w-20">時間</th>
-                                        <th className="p-4 w-28">料金</th>
-                                        <th className="p-4 w-28 text-indigo-600">バック額</th>
-                                        <th className="p-4 w-20">状態</th>
-                                        <th className="p-4 w-28">タイムチャート</th>
-                                        <th className="p-4 w-28 text-right">操作</th>
+                                    <tr className="border-b border-slate-200 text-xs font-semibold text-slate-600">
+                                        <th className="p-2.5 w-6"></th>
+                                        {shopHasHp && <th className="p-2.5">カテゴリ</th>}
+                                        <th className="p-2.5">コース名</th>
+                                        <th className="p-2.5 whitespace-nowrap">時間</th>
+                                        <th className="p-2.5 whitespace-nowrap">料金</th>
+                                        <th className="p-2.5 text-indigo-600 whitespace-nowrap">バック額</th>
+                                        <th className="p-2.5 whitespace-nowrap">表示設定</th>
+                                        <th className="p-2.5 text-right whitespace-nowrap">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -333,13 +331,13 @@ export function CourseManagementTab() {
                                             onDragOver={(e) => handleDragOver(e, index)}
                                             onDragEnd={handleDragEnd}
                                         >
-                                            <td className="p-4 text-sm text-slate-600 font-medium whitespace-nowrap">
+                                            <td className="p-2.5 text-sm text-slate-600 font-medium whitespace-nowrap">
                                                 <span className="cursor-grab select-none text-slate-400 font-bold hover:text-indigo-600">⋮⋮</span>
                                             </td>
                                             {shopHasHp && (
-                                                <td className="p-4 text-sm">
+                                                <td className="p-2.5 text-sm">
                                                     {course.category_name ? (
-                                                        <span className="inline-flex text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 w-fit">
+                                                        <span className="inline-flex text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 w-fit">
                                                             {course.category_name}
                                                         </span>
                                                     ) : (
@@ -347,27 +345,28 @@ export function CourseManagementTab() {
                                                     )}
                                                 </td>
                                             )}
-                                            <td className="p-4 text-sm">
+                                            <td className="p-2.5 text-sm">
                                                 <span className="font-bold text-slate-800">{course.name}</span>
                                             </td>
-                                            <td className="p-4 text-sm text-slate-600">{course.duration}分</td>
-                                            <td className="p-4 text-sm font-bold text-slate-800">¥{course.base_price.toLocaleString()}</td>
-                                            <td className="p-4 text-sm font-bold text-indigo-700">
+                                            <td className="p-2.5 text-sm text-slate-600 whitespace-nowrap">{course.duration}分</td>
+                                            <td className="p-2.5 text-sm font-bold text-slate-800 whitespace-nowrap">¥{course.base_price.toLocaleString()}</td>
+                                            <td className="p-2.5 text-sm font-bold text-indigo-700 whitespace-nowrap">
                                                 ¥{(course.back_amount ?? 0).toLocaleString()}
                                             </td>
-                                            <td className="p-4 text-sm">
-                                                <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${course.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {course.is_active ? '有効' : '無効'}
-                                                </span>
+                                            <td className="p-2.5 text-xs">
+                                                <div className="flex flex-col gap-1 w-fit">
+                                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${course.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {course.is_active ? '有効' : '無効'}
+                                                    </span>
+                                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${course.show_on_timechart ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                        TC{course.show_on_timechart ? '表示' : '非表示'}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="p-4 text-sm">
-                                                <span className={`inline-flex px-2 py-1 rounded-md text-xs font-semibold ${course.show_on_timechart ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                    {course.show_on_timechart ? '表示' : '非表示'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-sm text-right space-x-3 whitespace-nowrap">
+                                            <td className="p-2.5 text-sm text-right whitespace-nowrap">
                                                 <button
-                                                    className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors align-middle"
+                                                    className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors align-middle"
+                                                    title="編集"
                                                     onClick={() => {
                                                         setEditingCourse(course)
                                                         setFormData({
@@ -385,13 +384,25 @@ export function CourseManagementTab() {
                                                         })
                                                         setShowForm(true)
                                                     }}
-                                                >編集</button>
-                                                <button className="font-medium text-rose-600 hover:text-rose-800 transition-colors align-middle" onClick={() => void handleDelete(course.id)}>削除</button>
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors align-middle"
+                                                    title="削除"
+                                                    onClick={() => void handleDelete(course.id)}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
                                     {courses.length === 0 && (
-                                        <tr><td className="p-8 text-center text-slate-500" colSpan={shopHasHp ? 9 : 8}>コースがありません</td></tr>
+                                        <tr><td className="p-8 text-center text-slate-500" colSpan={shopHasHp ? 8 : 7}>コースがありません</td></tr>
                                     )}
                                 </tbody>
                             </table>
