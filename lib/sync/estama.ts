@@ -1,6 +1,19 @@
 import { chromium as playwrightLocal } from 'playwright';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
+async function uploadDebugScreenshot(page: any, name: string): Promise<string | null> {
+  try {
+    const buffer = await page.screenshot({ type: 'jpeg', quality: 70, fullPage: true });
+    const path = `debug/${name}_${Date.now()}.jpg`;
+    await supabaseAdmin.storage.from('therapist-photos').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+    const { data } = supabaseAdmin.storage.from('therapist-photos').getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e) {
+    console.error('[EstamaSync] Screenshot failed:', e);
+    return null;
+  }
+}
+
 const CHROMIUM_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
@@ -41,6 +54,7 @@ export interface SyncResult {
   success: boolean;
   message?: string;
   error?: string;
+  details?: any[];
 }
 
 /**
@@ -176,6 +190,8 @@ export async function syncShiftsToEstama(
 
     console.log(`[EstamaSync] Syncing ${targetTherapists.length} therapists for Estama...`);
 
+    const details: any[] = [];
+
     // メモリ節約とブラウザクラッシュ防止のため、Promise.allとnewPage()を使わず直列処理する
     for (const estamaId of targetTherapists) {
       let tPage: any = null;
@@ -219,7 +235,7 @@ export async function syncShiftsToEstama(
       }
 
       // JSで動的にテーブルを解析して入力する
-      await tPage.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
+      const diagResult: any = await tPage.evaluate(({ shifts, reservations, targetDatesMmdd }: { shifts: any[], reservations: any[], targetDatesMmdd: string[] }) => {
         const timeToMins = (t: string, baseStart?: string) => {
           if (!t) return 0;
           let [h, m] = t.split(':').map(Number);
@@ -292,6 +308,11 @@ export async function syncShiftsToEstama(
           }
         });
 
+        // 診断用カウンタ：予約(×)が期待される枠数と、実際に反映できた枠数
+        let reservationTargetCount = 0;
+        let reservationSetCount = 0;
+        let sampleOptions: { value: string; text: string }[] = [];
+
         const trs = document.querySelectorAll('tr');
         trs.forEach(tr => {
           const timeTh = tr.querySelector('th');
@@ -330,33 +351,41 @@ export async function syncShiftsToEstama(
                     targetStatus = '─';
                   }
                   
+                  if (sampleOptions.length === 0) {
+                    sampleOptions = Array.from(select.options).map(o => ({ value: o.value, text: o.text }));
+                  }
+                  if (targetStatus === '×') reservationTargetCount++;
+
                   if (targetStatus === '─') {
                     for (const opt of Array.from(select.options)) {
                       if (opt.value === '0' || opt.text.includes('─') || opt.text.includes('お休み') || opt.text.includes('未設定')) {
                         if (select.value !== opt.value) {
                           select.value = opt.value;
-                          
+
                         }
                         break;
                       }
                     }
                   } else {
+                    let matched = false;
                     for (const opt of Array.from(select.options)) {
                       // 記号揺れや表記揺れを考慮。エステ魂の実際のオプション値（1: ○, 2: ×）も考慮
                       const t = opt.text;
                       const val = opt.value;
                       if (
-                        t.includes(targetStatus) || 
+                        t.includes(targetStatus) ||
                         (targetStatus === '×' && (val === '2' || t.includes('x') || t.includes('✕') || t.includes('空きなし'))) ||
                         (targetStatus === '○' && (val === '1' || t.includes('受付中') || t === '〇'))
                       ) {
                         if (select.value !== opt.value) {
                           select.value = opt.value;
-                          
+
                         }
+                        matched = true;
                         break;
                       }
                     }
+                    if (targetStatus === '×' && matched) reservationSetCount++;
                   }
                 }
               }
@@ -445,7 +474,27 @@ export async function syncShiftsToEstama(
             });
           }
         });
+
+        return { dateColsMatched: Object.keys(cols).length, reservationTargetCount, reservationSetCount, sampleOptions };
       }, { shifts: therapistShifts, reservations: therapistReservations, targetDatesMmdd });
+
+      console.log(`[EstamaSync] Therapist ${estamaId} diag:`, diagResult);
+
+      const therapistName = therapistShifts[0]?.therapists?.name || activeTherapists?.find(t => t.estama_therapist_id === estamaId)?.name;
+      const reservationIssue = diagResult && therapistReservations.length > 0 && diagResult.reservationSetCount < diagResult.reservationTargetCount;
+
+      let screenshotUrl: string | null = null;
+      if (reservationIssue) {
+        screenshotUrl = await uploadDebugScreenshot(tPage, `estama_reservation_mismatch_${estamaId}`);
+      }
+
+      details.push({
+        estamaId,
+        therapistName,
+        reservationsExpected: therapistReservations.length,
+        ...diagResult,
+        screenshotUrl,
+      });
 
       // 保存ボタンの実行（IDで確実に指定）
       const saveBtn = await tPage.$('#SendWorkSchedule, button:has-text("出勤情報を保存する"), input[value*="保存"], a:has-text("保存")');
@@ -458,15 +507,17 @@ export async function syncShiftsToEstama(
         await tPage.waitForTimeout(500);
       } else {
         console.warn(`[EstamaSync] 保存ボタンが見つかりませんでした (therapist: ${estamaId})`);
+        details[details.length - 1].saveButtonFound = false;
       }
       } catch (e: any) {
         console.error(`[EstamaSync] Error on therapist ${estamaId}:`, e);
+        details.push({ estamaId, error: e.message });
       } finally {
         if (tPage) await tPage.close().catch(() => {});
       }
     }
 
-    return { success: true, message: 'エステ魂への出勤情報・予約状況(×)の同期が完了しました。' };
+    return { success: true, message: 'エステ魂への出勤情報・予約状況(×)の同期が完了しました。', details };
   } catch (error: any) {
     const pageTitle = page ? await page.title().catch(() => 'unknown') : 'unknown';
     const pageUrl = page ? page.url() : 'unknown';
