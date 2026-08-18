@@ -136,13 +136,11 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="公式LINE"
-                    className={`w-8 h-8 flex items-center justify-center rounded-full border text-sm transition-all ${
-                      isCyberTheme
-                        ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
-                        : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
-                    }`}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-[#06C755] transition-transform hover:scale-105"
                   >
-                    💬
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#fff">
+                      <path d="M12 2C6.48 2 2 5.94 2 10.7c0 4.27 3.53 7.85 8.3 8.53.32.07.76.22.87.5.1.26.07.66.03.92l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.8-3.42 7.92-5.85C21.5 14.02 22 12.42 22 10.7 22 5.94 17.52 2 12 2z"/>
+                    </svg>
                   </a>
                 )}
               </div>
@@ -315,13 +313,11 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="公式LINE"
-                  className={`w-11 h-11 flex items-center justify-center rounded-full border text-lg transition-all ${
-                    isCyberTheme
-                      ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
-                      : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
-                  }`}
+                  className="w-11 h-11 flex items-center justify-center rounded-full bg-[#06C755] transition-transform hover:scale-105"
                 >
-                  💬
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#fff">
+                    <path d="M12 2C6.48 2 2 5.94 2 10.7c0 4.27 3.53 7.85 8.3 8.53.32.07.76.22.87.5.1.26.07.66.03.92l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.8-3.42 7.92-5.85C21.5 14.02 22 12.42 22 10.7 22 5.94 17.52 2 12 2z"/>
+                  </svg>
                 </a>
               )}
             </div>

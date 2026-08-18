@@ -84,13 +84,16 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.lineUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
                     isCyberTheme
                       ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
-                  💬 公式LINE
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="#06C755">
+                    <path d="M12 2C6.48 2 2 5.94 2 10.7c0 4.27 3.53 7.85 8.3 8.53.32.07.76.22.87.5.1.26.07.66.03.92l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.8-3.42 7.92-5.85C21.5 14.02 22 12.42 22 10.7 22 5.94 17.52 2 12 2z"/>
+                  </svg>
+                  公式LINE
                 </a>
               )}
               {store.googleMapUrl && (
