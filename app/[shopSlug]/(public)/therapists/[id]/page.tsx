@@ -1,4 +1,5 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { TherapistDetailView } from '../../../../../components/store/TherapistDetailView';
 import {
   fetchStoreConfig,
@@ -9,6 +10,7 @@ import {
   getJstBusinessDateStr,
 } from '../../../../../lib/storeApi';
 import { DIARY_FEATURE_ENABLED } from '../../../../../lib/featureFlags';
+import { publicBasePath } from '../../../../../lib/shopDomains';
 
 /**
  * サーバーコンポーネント。
@@ -24,7 +26,9 @@ export default async function TherapistDetailPage({
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
   const therapistId = resolvedParams.id;
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
 
   const [therapist, blogs] = await Promise.all([
     fetchTherapistDetail(therapistId),

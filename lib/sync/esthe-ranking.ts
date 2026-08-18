@@ -325,3 +325,29 @@ export async function fetchTherapistsFromEstheRanking(
   }
 }
 
+function normalizeTherapistName(name: string): string {
+  return name.replace(/\s+/g, '').toLowerCase();
+}
+
+/**
+ * ポータル側に既にプロフィールが存在するキャストを名前で探す。
+ * 新規登録前にこれを挟むことで、同名の重複プロフィール作成を防ぐ。
+ * 見つからない・取得に失敗した場合はnullを返す（呼び出し側は新規登録にフォールバックする）。
+ */
+export async function findExistingRankingIdByName(
+  shopUrl: string,
+  loginId: string,
+  password: string,
+  therapistName: string
+): Promise<string | null> {
+  try {
+    const portalTherapists = await fetchTherapistsFromEstheRanking(shopUrl, loginId, password);
+    const normalized = normalizeTherapistName(therapistName);
+    const match = portalTherapists.find(t => normalizeTherapistName(t.name) === normalized);
+    return match ? match.id : null;
+  } catch (e) {
+    console.error('[EstheRankingSync] findExistingRankingIdByName failed:', e);
+    return null;
+  }
+}
+

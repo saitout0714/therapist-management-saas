@@ -3,7 +3,21 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstama } from '@/lib/sync/estama-therapist';
 import { syncTherapistToEstheRanking } from '@/lib/sync/esthe-ranking-therapist';
+import { fetchTherapistsFromEstama } from '@/lib/sync/estama';
+import { fetchTherapistsFromEstheRanking } from '@/lib/sync/esthe-ranking';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
+
+function normalizeTherapistName(name: string): string {
+  return name.replace(/\s+/g, '').toLowerCase();
+}
+
+function buildPortalNameMap(portalTherapists: { id: string; name: string }[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const t of portalTherapists) {
+    map.set(normalizeTherapistName(t.name), t.id);
+  }
+  return map;
+}
 
 export const maxDuration = 300;
 
@@ -37,6 +51,32 @@ export async function POST(req: NextRequest) {
         let successCount = 0;
         let errorCount = 0;
         const details: any[] = [];
+
+        // 連携ID未設定のキャストがいる場合、新規登録前に一度だけポータル側の
+        // 既存プロフィール一覧を取得し、名前が一致すればそちらに紐付ける
+        // （重複プロフィール作成を防ぐ）。取得に失敗しても従来通り新規登録に
+        // フォールバックするだけなので、ここでの失敗はバッチ全体を止めない。
+        let portalNameMap: Map<string, string> | null = null;
+        const idField = targetSite === 'estama' ? 'estama_therapist_id' : 'esthe_ranking_therapist_id';
+        const { data: unlinkedCheck } = await supabase
+          .from('therapists')
+          .select('id')
+          .in('id', therapistIds)
+          .is(idField, null);
+
+        if (unlinkedCheck && unlinkedCheck.length > 0) {
+          try {
+            if (targetSite === 'estama' && shop.estama_login_id && shop.estama_password) {
+              const portalTherapists = await fetchTherapistsFromEstama('https://estama.jp/', shop.estama_login_id, shop.estama_password);
+              portalNameMap = buildPortalNameMap(portalTherapists);
+            } else if (targetSite !== 'estama' && shop.esthe_ranking_login_id && shop.esthe_ranking_password) {
+              const portalTherapists = await fetchTherapistsFromEstheRanking(shop.esthe_ranking_shop_url || '', shop.esthe_ranking_login_id, shop.esthe_ranking_password);
+              portalNameMap = buildPortalNameMap(portalTherapists);
+            }
+          } catch (e: any) {
+            console.error('Batch Therapist Sync: failed to pre-fetch portal therapist list, falling back to create-new for unlinked casts:', e);
+          }
+        }
 
         for (let i = 0; i < therapistIds.length; i++) {
           const therapistId = therapistIds[i];
@@ -75,10 +115,18 @@ export async function POST(req: NextRequest) {
               await completeSyncJob(jobId, 'failed', { error: 'ログイン情報未設定' });
               return;
             }
+            let estamaId = therapist.estama_therapist_id;
+            if (!estamaId && portalNameMap) {
+              const matched = portalNameMap.get(normalizeTherapistName(therapist.name));
+              if (matched) {
+                estamaId = matched;
+                await supabase.from('therapists').update({ estama_therapist_id: estamaId }).eq('id', therapist.id);
+              }
+            }
             res = await syncTherapistToEstama(
-              'https://estama.jp/', shop.estama_login_id, shop.estama_password, therapistWithPhotos, therapist.estama_therapist_id
+              'https://estama.jp/', shop.estama_login_id, shop.estama_password, therapistWithPhotos, estamaId
             );
-            if (res.success && res.newId && String(res.newId) !== String(therapist.estama_therapist_id)) {
+            if (res.success && res.newId && String(res.newId) !== String(estamaId)) {
               await supabase.from('therapists').update({ estama_therapist_id: String(res.newId) }).eq('id', therapist.id);
             }
           } else {
@@ -86,10 +134,18 @@ export async function POST(req: NextRequest) {
               await completeSyncJob(jobId, 'failed', { error: 'ログイン情報未設定' });
               return;
             }
+            let rankingId = therapist.esthe_ranking_therapist_id;
+            if (!rankingId && portalNameMap) {
+              const matched = portalNameMap.get(normalizeTherapistName(therapist.name));
+              if (matched) {
+                rankingId = matched;
+                await supabase.from('therapists').update({ esthe_ranking_therapist_id: rankingId }).eq('id', therapist.id);
+              }
+            }
             res = await syncTherapistToEstheRanking(
-              shop.esthe_ranking_shop_url || '', shop.esthe_ranking_login_id, shop.esthe_ranking_password, therapistWithPhotos, therapist.esthe_ranking_therapist_id
+              shop.esthe_ranking_shop_url || '', shop.esthe_ranking_login_id, shop.esthe_ranking_password, therapistWithPhotos, rankingId
             );
-            if (res.success && res.newId && String(res.newId) !== String(therapist.esthe_ranking_therapist_id)) {
+            if (res.success && res.newId && String(res.newId) !== String(rankingId)) {
               await supabase.from('therapists').update({ esthe_ranking_therapist_id: String(res.newId) }).eq('id', therapist.id);
             }
           }

@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { BlogArticle } from '../../types/store';
 
 interface DiarySectionProps {
@@ -23,24 +24,30 @@ export const DiarySection: React.FC<DiarySectionProps> = ({ articles, storeSlug 
           }`}
         >
           {art.eyeCatchUrl ? (
-            <img
+            <Image
               src={art.eyeCatchUrl}
               alt={art.title}
+              width={80}
+              height={80}
               className="w-20 h-20 rounded-lg object-cover border border-stone-200 group-hover:scale-105 transition-transform"
             />
           ) : (
-            <img
+            <Image
               src={art.therapistAvatar}
               alt={art.therapistName}
+              width={80}
+              height={80}
               className="w-20 h-20 rounded-lg object-cover border border-stone-200 group-hover:scale-105 transition-transform"
             />
           )}
           <div className="flex-1 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <img
+                <Image
                   src={art.therapistAvatar}
                   alt={art.therapistName}
+                  width={16}
+                  height={16}
                   className="w-4 h-4 rounded-full object-cover"
                 />
                 <span className={`text-xs font-bold ${isCyber ? 'text-[#ded1ee]' : 'text-stone-800'}`}>{art.therapistName}</span>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Header } from '../../../../../components/store/Header';
 import { Footer } from '../../../../../components/store/Footer';
@@ -82,9 +83,11 @@ export default function DiaryDetailPage({
               href={`/${shopSlug}/therapists/${currentArticle.therapistId}`}
               className="inline-flex items-center gap-3 p-2 bg-[#faf7f0] rounded-sm border border-[#d1b464]/30 hover:border-[#a39573] transition-colors"
             >
-              <img
+              <Image
                 src={currentArticle.therapistAvatar}
                 alt={currentArticle.therapistName}
+                width={40}
+                height={40}
                 className="w-10 h-10 rounded-full object-cover border border-[#d1b464]/30"
               />
               <div>
@@ -96,11 +99,13 @@ export default function DiaryDetailPage({
 
           {/* アイキャッチ画像 */}
           {currentArticle.eyeCatchUrl && (
-            <div className="rounded-sm overflow-hidden border border-stone-200">
-              <img
+            <div className="relative w-full h-64 sm:h-96 rounded-sm overflow-hidden border border-stone-200">
+              <Image
                 src={currentArticle.eyeCatchUrl}
                 alt={currentArticle.title}
-                className="w-full max-h-96 object-cover"
+                fill
+                sizes="(min-width: 640px) 768px, 100vw"
+                className="object-cover"
               />
             </div>
           )}

@@ -1,9 +1,11 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchStoreRooms } from '../../../../lib/storeApi';
+import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -12,7 +14,10 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const storeConfig = await fetchStoreConfig(shopSlug);
+  const store = { ...storeConfig, basePath };
   const rooms = await fetchStoreRooms(store.id);
 
   const isCyberTheme = shopSlug === 'onyankospa';

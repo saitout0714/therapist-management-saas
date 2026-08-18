@@ -110,7 +110,7 @@ export async function POST(req: Request) {
           return;
         }
 
-        await completeSyncJob(jobId, 'completed', { message: result.message || '同期が完了しました', target: 'estama' });
+        await completeSyncJob(jobId, 'completed', { message: result.message || '同期が完了しました', target: 'estama', details: result.details });
       } catch (error: any) {
         console.error('Estama Shift Sync Error (Background):', error);
         await completeSyncJob(jobId, 'failed', { error: error.message || 'サーバーエラーが発生しました' });

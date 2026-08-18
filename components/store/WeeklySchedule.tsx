@@ -10,6 +10,7 @@ interface WeeklyScheduleProps {
   therapists: Therapist[];
   confirmedShifts?: ConfirmedShift[];
   storeSlug: string;
+  basePath?: string;
   /** 店舗の営業日切り替え時刻(JST)を考慮した「本日の営業日」文字列 (YYYY-MM-DD)。
    *  未指定の場合はブラウザのローカル日付にフォールバックする。 */
   businessTodayStr?: string;
@@ -19,6 +20,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   therapists,
   confirmedShifts = [],
   storeSlug,
+  basePath,
   businessTodayStr,
 }) => {
   const isCyber = storeSlug === 'onyankospa';
@@ -57,31 +59,17 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     shiftMap.set(`${s.therapistId}_${s.date}`, s);
   });
 
-  const hasRealShifts = confirmedShifts.length > 0;
-
   // 選択された日付の出勤セラピストとシフト時間のリストを抽出
-  const selectedDayIndex = days.findIndex((d) => d.fullDate === selectedDate);
   const selectedDayObj = days.find((d) => d.fullDate === selectedDate) || days[0];
 
   const workingTherapistsWithShift = therapists
     .map((th) => {
       const shift = shiftMap.get(`${th.id}_${selectedDate}`);
-      const isWorkingFallback =
-        !hasRealShifts &&
-        ((th.id.charCodeAt(th.id.length - 1) + (selectedDayIndex >= 0 ? selectedDayIndex : 0)) % 2 === 0 ||
-          selectedDayObj.isToday);
-
-      const startTime = shift ? shift.startTime : isWorkingFallback ? '13:00' : null;
-      const shiftTime = shift
-        ? `${shift.startTime}~${shift.endTime}`
-        : isWorkingFallback
-        ? '13:00~22:00'
-        : null;
 
       return {
         therapist: th,
-        shiftTime,
-        startTime,
+        shiftTime: shift ? `${shift.startTime}~${shift.endTime}` : null,
+        startTime: shift ? shift.startTime : null,
       };
     })
     .filter((item) => item.shiftTime !== null)
@@ -163,6 +151,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
               key={therapist.id}
               therapist={therapist}
               storeSlug={storeSlug}
+              basePath={basePath}
               confirmedShiftTime={shiftTime || undefined}
               index={idx}
             />

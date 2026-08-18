@@ -1,9 +1,11 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { Header } from '../../../../components/store/Header';
 import { Footer } from '../../../../components/store/Footer';
 import { TherapistFilterableGrid } from '../../../../components/store/TherapistFilterableGrid';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts, fetchBusinessDayCutoff, getJstBusinessDateStr } from '../../../../lib/storeApi';
+import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -15,7 +17,9 @@ export default async function TherapistsPage({ params }: { params: Promise<{ sho
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
 
   // 深夜営業のシフトが日付を跨いでも「本日出勤」が正しく判定されるよう、
   // 店舗の営業日切り替え時刻を考慮したJST基準の営業日を使う。
@@ -42,6 +46,7 @@ export default async function TherapistsPage({ params }: { params: Promise<{ sho
             therapists={therapists}
             todayShifts={todayShifts}
             shopSlug={shopSlug}
+            basePath={basePath}
             isCyber={isCyberTheme}
             primaryColor={store.themeColor?.primary}
           />

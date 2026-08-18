@@ -9,7 +9,7 @@ interface MobileFloatingBarProps {
 }
 
 export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) => {
-  const basePath = `/${store.slug}`;
+  const basePath = store.basePath ?? `/${store.slug}`;
   const reservePath = `/reserve/${store.slug}`;
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyber = store.slug === 'onyankospa' || primaryColor === '#ff6fb5';

@@ -1,5 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { headers } from 'next/headers';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
 import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
@@ -8,8 +10,9 @@ import { TherapistCard } from '../../../components/store/TherapistCard';
 import { NewsList } from '../../../components/store/NewsList';
 import { SectionHeading } from '../../../components/store/SectionHeading';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
-import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList } from '../../../lib/storeApi';
+import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList, fetchConfirmedShifts, fetchBusinessDayCutoff, getJstBusinessDateStr } from '../../../lib/storeApi';
 import { DIARY_FEATURE_ENABLED } from '../../../lib/featureFlags';
+import { publicBasePath } from '../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 
@@ -24,12 +27,25 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
-  const [campaigns, therapists, news] = await Promise.all([
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
+
+  // 深夜営業のシフトが日付を跨いでも「本日出勤」が正しく判定されるよう、
+  // 店舗の営業日切り替え時刻を考慮したJST基準の営業日を使う（他ページと同じ方式）。
+  const cutoff = await fetchBusinessDayCutoff(store.id);
+  const todayStr = getJstBusinessDateStr(cutoff);
+
+  const [campaigns, therapists, news, todayShifts] = await Promise.all([
     fetchCampaigns(store.id),
     fetchTherapists(store.id),
     fetchNewsList(store.id),
+    fetchConfirmedShifts(store.id, todayStr, todayStr),
   ]);
+
+  // 本日シフトが入っているセラピストを「本日の出勤」として表示する（部屋割り未確定でも掲載）
+  const todayTherapistIds = new Set(todayShifts.map((s) => s.therapistId));
+  const todayTherapists = therapists.filter((t) => todayTherapistIds.has(t.id));
 
   const isCyberTheme = shopSlug === 'onyankospa';
   const sectionOrder = store.layoutSections || ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'];
@@ -58,16 +74,22 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </>
             )}
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-              <SectionHeading title="Therapist" subtitle="出勤セラピスト" isCyber={isCyberTheme} />
+              <SectionHeading title="Today's Shift" subtitle="本日の出勤" isCyber={isCyberTheme} />
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {therapists.map((therapist, idx) => (
-                  <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} index={idx} />
-                ))}
-              </div>
+              {todayTherapists.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {todayTherapists.map((therapist, idx) => (
+                    <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} basePath={basePath} index={idx} />
+                  ))}
+                </div>
+              ) : (
+                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : 'text-stone-500'}`}>
+                  本日出勤のセラピストは現在準備中です。出勤スケジュールをご確認ください。
+                </p>
+              )}
 
               <div className="text-center pt-4">
-                <Link href={`/${shopSlug}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
+                <Link href={`${basePath}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
                   セラピスト一覧を見る 🐾
                 </Link>
               </div>
@@ -95,9 +117,11 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                     className={`p-5 space-y-3 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-[#d1b464]/30'}`}
                   >
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={therapist.avatarUrl}
                         alt={therapist.name}
+                        width={44}
+                        height={44}
                         className="w-11 h-11 rounded-full object-cover border border-[#ff6fb5] shadow-[0_0_12px_rgba(255,111,181,0.5)]"
                       />
                       <div>
@@ -113,7 +137,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </div>
 
               <div className="text-center pt-2">
-                <Link href={`/${shopSlug}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
+                <Link href={`${basePath}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
                   写メ日記 一覧はこちら
                 </Link>
               </div>

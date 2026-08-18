@@ -2,11 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Therapist } from '../../types/store';
 
 interface TherapistCardProps {
   therapist: Therapist;
   storeSlug: string;
+  /** 内部リンクの先頭パス。独自ドメインでは ''、SaaS本体では `/${storeSlug}` （lib/shopDomains.ts 参照） */
+  basePath?: string;
   confirmedShiftTime?: string;
   showTodayBadge?: boolean;
   primaryColor?: string;
@@ -16,12 +19,13 @@ interface TherapistCardProps {
 export const TherapistCard: React.FC<TherapistCardProps> = ({
   therapist,
   storeSlug,
+  basePath,
   confirmedShiftTime,
   showTodayBadge = false,
   primaryColor = '#d1b464',
   index = 0,
 }) => {
-  const detailUrl = `/${storeSlug}/therapists/${therapist.id}`;
+  const detailUrl = `${basePath ?? `/${storeSlug}`}/therapists/${therapist.id}`;
   const reserveUrl = `/reserve/${storeSlug}?therapist_id=${therapist.id}`;
   const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff6fb5';
 
@@ -40,10 +44,12 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
       <Link href={detailUrl} className="block group/photo">
         {/* 写真領域 (写真クリックで個人詳細ページへ移動) */}
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-stone-900">
-          <img
+          <Image
             src={therapist.avatarUrl}
             alt={therapist.name}
-            className="w-full h-full object-cover group-hover/photo:scale-110 transition-transform duration-700 ease-out"
+            fill
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+            className="object-cover group-hover/photo:scale-110 transition-transform duration-700 ease-out"
           />
           
           {/* ホバー時のShimmer光沢ビーム光彩エフェクト */}

@@ -186,6 +186,15 @@ export function UserManagementTab() {
             </div>
           </div>
 
+          {!editingUser && (
+            <div className="flex items-center gap-2 -mt-2 mb-2 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm">
+              <span className="text-indigo-600">🏬</span>
+              <span className="text-slate-600">対象店舗：</span>
+              <span className="font-bold text-indigo-800">{selectedShop?.name || '未選択'}</span>
+              <span className="text-xs text-slate-400 ml-1">（このアカウントはこの店舗に紐づきます。画面上部のショップ切り替えバーで変更できます）</span>
+            </div>
+          )}
+
           {/* Form Body */}
           <div className="space-y-6 max-w-2xl">
             <div className="space-y-1">

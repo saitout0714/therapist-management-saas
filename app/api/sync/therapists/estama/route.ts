@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstama } from '@/lib/sync/estama-therapist';
+import { findExistingEstamaIdByName } from '@/lib/sync/estama';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300;
@@ -61,12 +62,25 @@ export async function POST(req: NextRequest) {
           photo_url: photoUrls[0] || null
         };
 
+        let estamaId = therapist.estama_therapist_id;
+        if (!estamaId) {
+          estamaId = await findExistingEstamaIdByName(
+            'https://estama.jp/',
+            shop.estama_login_id,
+            shop.estama_password,
+            therapist.name
+          );
+          if (estamaId) {
+            await supabase.from('therapists').update({ estama_therapist_id: estamaId }).eq('id', therapist.id);
+          }
+        }
+
         const result = await syncTherapistToEstama(
           'https://estama.jp/',
           shop.estama_login_id,
           shop.estama_password,
           therapistWithPhotos,
-          therapist.estama_therapist_id
+          estamaId
         );
 
         if (!result.success) {

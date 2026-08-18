@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstheRanking } from '@/lib/sync/esthe-ranking-therapist';
+import { findExistingRankingIdByName } from '@/lib/sync/esthe-ranking';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300;
@@ -61,12 +62,25 @@ export async function POST(req: NextRequest) {
           photo_url: photoUrls[0] || null
         };
 
+        let rankingId = therapist.esthe_ranking_therapist_id;
+        if (!rankingId) {
+          rankingId = await findExistingRankingIdByName(
+            shop.esthe_ranking_shop_url || '',
+            shop.esthe_ranking_login_id,
+            shop.esthe_ranking_password,
+            therapist.name
+          );
+          if (rankingId) {
+            await supabase.from('therapists').update({ esthe_ranking_therapist_id: rankingId }).eq('id', therapist.id);
+          }
+        }
+
         const result = await syncTherapistToEstheRanking(
           shop.esthe_ranking_shop_url || '',
           shop.esthe_ranking_login_id,
           shop.esthe_ranking_password,
           therapistWithPhotos,
-          therapist.esthe_ranking_therapist_id
+          rankingId
         );
 
         if (!result.success) {

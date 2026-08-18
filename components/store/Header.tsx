@@ -12,7 +12,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ store }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const basePath = `/${store.slug}`;
+  const basePath = store.basePath ?? `/${store.slug}`;
   const reservePath = `/reserve/${store.slug}`;
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   }, [isOpen]);
 
   const navLinks = [
-    { label: 'TOP', subLabel: 'トップページ', href: basePath, code: '01' },
+    { label: 'TOP', subLabel: 'トップページ', href: basePath || '/', code: '01' },
     { label: 'システム・料金', subLabel: 'コース・指名料金のご案内', href: `${basePath}/system`, code: '02' },
     { label: 'セラピスト一覧', subLabel: '在籍セラピストのご紹介', href: `${basePath}/therapists`, code: '03' },
     { label: '出勤スケジュール', subLabel: '本日・今週の出勤情報', href: `${basePath}/schedule`, code: '04' },
@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* ロゴ / 店舗名 */}
-          <Link href={basePath} className="flex items-center gap-3 group">
+          <Link href={basePath || '/'} className="flex items-center gap-3 group">
             {store.logoUrl && !imageError && !store.logoUrl.includes('mainvisual') ? (
               <div className="h-12 max-w-[200px] flex items-center">
                 <img
@@ -136,13 +136,11 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="公式LINE"
-                    className={`w-8 h-8 flex items-center justify-center rounded-full border text-sm transition-all ${
-                      isCyberTheme
-                        ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
-                        : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
-                    }`}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-[#06C755] transition-transform hover:scale-105"
                   >
-                    💬
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#fff">
+                      <path d="M12 2C6.48 2 2 5.94 2 10.7c0 4.27 3.53 7.85 8.3 8.53.32.07.76.22.87.5.1.26.07.66.03.92l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.8-3.42 7.92-5.85C21.5 14.02 22 12.42 22 10.7 22 5.94 17.52 2 12 2z"/>
+                    </svg>
                   </a>
                 )}
               </div>
@@ -163,17 +161,6 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
           {/* モバイルメニューボタン */}
           <div className="flex lg:hidden items-center gap-2">
-            <Link
-              href={reservePath}
-              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-              className={`px-4 py-1.5 text-white text-xs font-bold transition-all ${
-                isCyberTheme
-                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-                  : 'rounded-sm shadow-xs'
-              }`}
-            >
-              予約
-            </Link>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className={`p-2.5 rounded-xl transition-all duration-300 focus:outline-none ${
@@ -315,13 +302,11 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="公式LINE"
-                  className={`w-11 h-11 flex items-center justify-center rounded-full border text-lg transition-all ${
-                    isCyberTheme
-                      ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-[#ff6fb5]/20'
-                      : 'border-stone-300 hover:border-stone-500 hover:bg-stone-50'
-                  }`}
+                  className="w-11 h-11 flex items-center justify-center rounded-full bg-[#06C755] transition-transform hover:scale-105"
                 >
-                  💬
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#fff">
+                    <path d="M12 2C6.48 2 2 5.94 2 10.7c0 4.27 3.53 7.85 8.3 8.53.32.07.76.22.87.5.1.26.07.66.03.92l-.14.87c-.04.26-.2 1.01.88.55 1.08-.46 5.8-3.42 7.92-5.85C21.5 14.02 22 12.42 22 10.7 22 5.94 17.52 2 12 2z"/>
+                  </svg>
                 </a>
               )}
             </div>

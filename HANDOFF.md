@@ -8,8 +8,10 @@
 
 ## いま取り組んでいること
 
-**おニャンこスパ（onyankospa.com）の本番公開とSEO対応。** DNS切替待ちの状態。
-コード側の対応は入れ終わっているので、次はDNS反映確認 → デプロイ → Search Console登録。
+**おニャンこスパ（onyankospa.com）の本番公開は完了（2026-08-18）。** DNS切替・デプロイ・
+本番HTML検証まで完了し、実際にブラウザで画像込みで表示できることを確認済み。
+残っているのは Search Console へのサイトマップ登録（ユーザー側の手動操作が必要）と、
+優先度中の SEO 残作業（OG画像・他店舗のslug・userScalable）。
 詳細は下の「2026-08-18 の作業」を読んでから始めること。
 
 ---
@@ -89,6 +91,65 @@ https → 503
 
 ---
 
+## 2026-08-18 の続き: DNS切替・デプロイ・本番公開完了
+
+### DNS切替
+
+お名前.comの「ネームサーバー設定」画面で、実際には**ネームサーバー変更が一度も申請されて
+いなかった**（DNSレコード設定＝01〜04.dnsv.jp側にA/CNAMEを用意しただけの状態で止まっていた）。
+「DNSレコード設定用ネームサーバー変更確認」にチェックを入れてMX/TXTと同時に確定申請したところ、
+数分〜十数分でNS/A/CNAME/MX/TXTすべて反映された（お名前.com側の案内は最大72時間だが、
+実際はかなり早かった）。
+
+### SSL証明書は発行に時間差がある
+
+Vercel側はドメイン接続済みでも、証明書は **apex（onyankospa.com）とwww（www.onyankospa.com）
+で別々に発行される。** apexが先に発行され、その状態でapex→wwwへ308リダイレクトする設定に
+なっていたため、**wwwの証明書が追いつくまでの数分〜数十分、サイト全体が閲覧不可**になった
+（`SEC_E_WRONG_PRINCIPAL`＝証明書とホスト名の不一致）。Vercelの「SSL Certificates」欄で
+CN一覧を見れば発行状況が分かる。エラー表示は出ない・ただ「まだ無い」だけなので、
+気づきにくい。
+
+**ブラウザキャッシュの罠:** 証明書が揃った後も、途中の失敗状態を先に読み込んでいた
+タブ・プロファイルでは「保護されていない通信」の表示が残り続けた。シークレットウィンドウでは
+正常に見えたため、サーバー側ではなくブラウザ側のキャッシュと判明。ブラウザの再起動で解消。
+実際に見えているのに「まだ直っていない」と誤認しやすいので注意。
+
+### 【重大】独自ドメインで画像が全滅していたバグ
+
+デプロイ後、本番で**画像が1枚も表示されない**不具合を発見。原因は以前直した
+「middlewareがrobots.txt等を`/[shopSlug]/...`に誤ってリライトして404にする」バグの
+再発・未網羅だった。`isRootAsset()` はrobots/sitemap/faviconなど個別ファイル名しか
+除外しておらず、`/images/*.jpg` のような `public/` 配下の静的ファイル全般が対象外だった。
+そのため `onyankospa.com/images/xxx.jpg` が存在しない `onyankospa.com/onyankospa/images/xxx.jpg`
+に書き換えられ、ローカル画像もSupabase画像のフォールバックSVGも含めて全部404になっていた。
+
+`middleware.ts` の `isRootAsset()` に「拡張子を持つパスは常にそのまま配信する」という
+一般ルールを追加して解消（`fix: 独自ドメインで/images配下の静的ファイルが全て404になる
+不具合を修正し、店舗公開ページをnext/image化` コミットで対応）。**独自ドメインを使う店舗が
+増えるほど踏みやすいバグなので、他店舗を独自ドメイン化する際も画像表示は必ず確認すること。**
+
+### next/image化（SEO残り5番、完了）
+
+店舗公開ページ8ファイル（TherapistCard / HeroBanner / HeroBannerSlider /
+ImageLightboxModal / DiarySection / TherapistDetailView / TOPページ / 日記詳細ページ）の
+生`<img>`を`next/image`に置き換え。管理画面・セラピスト専用画面（ログイン必須でクローラに
+見えない）は対象外とした。ビルド・lint（no-img-element警告0件）・本番での実画像読み込みまで確認済み。
+
+### 本番検証結果
+
+title / meta description / meta robots(`index, follow`) / canonical(`https://onyankospa.com`) /
+OGP一式 / JSON-LD(`HealthAndBeautyBusiness`) / robots.txt / sitemap.xml、すべて意図通り出力
+されていることを確認済み。
+
+### Search Console登録（未実施・ユーザー操作待ち）
+
+手順は案内済み。URLプレフィックスで `https://onyankospa.com` を登録し、サイトマップに
+`https://onyankospa.com/sitemap.xml` を登録する。所有権確認はHTMLタグ方式が簡単
+（発行されたmetaタグを`app/[shopSlug]/(public)/layout.tsx`あたりに埋め込んで再デプロイが必要）。
+
+---
+
 ## 完了したこと（2026-08-04 まで）
 
 ### 1. 本番DBのスキーマ不足を解消
@@ -162,36 +223,28 @@ https → 503
 
 ## 残っている作業
 
-### おニャンこスパ 公開（最優先・順番どおりに）
+### おニャンこスパ 公開 — 完了（2026-08-18）
 
-1. **DNS反映を確認**
+DNS反映・MX/SPF維持・デプロイ・本番HTML検証まで完了。残るは以下のみ。
 
-   ```bash
-   nslookup -type=A onyankospa.com 8.8.8.8
-   ```
-
-   VercelのIPが返り、`curl -s -o /dev/null -w "%{http_code}" https://onyankospa.com` が
-   200になればOK。まだGMOのIP（157.120.209.57）なら待ち
-2. **MX / SPF が生きているか確認**（上の表を参照。メールが飛ぶと業務に直撃する）
-3. **デプロイ** — canonical が `https://onyankospa.com` 固定なので、DNS完了後に出すこと
-4. **Search Console に `https://onyankospa.com/sitemap.xml` を登録**
+1. **Search Console に `https://onyankospa.com/sitemap.xml` を登録**（ユーザーがGoogleに
+   ログインして行う必要がある。手順は上の「Search Console登録」参照）
 
 ### SEOの残り（優先度中）
 
-5. **`next/image` 化** — 店舗系は全部生 `<img>`（lintが8箇所警告中）。`width`/`height` 未指定で
-   CLS、LCPも改善余地あり
-6. **OG画像** — 現在 `/images/onyanko_mainvisual.jpg`（1264×843）を流用。1.91:1 でないため
+2. ~~`next/image` 化~~ — **完了（2026-08-18）**。店舗公開ページ8ファイルを変換済み
+3. **OG画像** — 現在 `/images/onyanko_mainvisual.jpg`（1264×843）を流用。1.91:1 でないため
    SNSで上下が切れる。専用の1200×630を作る
-7. **他28店舗の `slug` が未設定** — `fetchStoreConfig` の `ilike(name)` フォールバックで
+4. **他28店舗の `slug` が未設定** — `fetchStoreConfig` の `ilike(name)` フォールバックで
    店名URL（`/SpecialGrade`）として解決されている。slugを入れると `/specialgrade` に正規化できる
-8. **`app/layout.tsx` の `userScalable: false`** — Lighthouseのアクセシビリティ減点
+5. **`app/layout.tsx` の `userScalable: false`** — Lighthouseのアクセシビリティ減点
 
 ### 以前からの継続
 
-9. **テンプレート設定の統合** — `/system` のテンプレート4タブと `/rooms` のルーム別
+6. **テンプレート設定の統合** — `/system` のテンプレート4タブと `/rooms` のルーム別
    テンプレート4種に分かれている
-10. **設定の入口を一本化** — 現在は `/system`（5カテゴリ×14タブ）、`/rooms`、`/sync` に分散。
-    1つにまとめ、「店舗を立ち上げる順番」に並べ直す方針
+7. **設定の入口を一本化** — 現在は `/system`（5カテゴリ×14タブ）、`/rooms`、`/sync` に分散。
+   1つにまとめ、「店舗を立ち上げる順番」に並べ直す方針
 
 ---
 
@@ -218,6 +271,9 @@ https → 503
   `SHOP_CANONICAL_ORIGIN` に追加した店舗は、canonical と sitemap がそのドメイン側に固定される。
   DNS未設定のドメインを指定するとインデックスされなくなる。`specialgrade.jp` は
   現在NXDOMAINなので、あえて載せていない（有効化したら追記する）
+- **独自ドメインを新しく設定するときは画像表示を必ず確認する。** `middleware.ts` の
+  `isRootAsset()` で拡張子付きパスを除外しているが、新しい種類の除外例外が必要になった場合は
+  同じ場所に足すこと（詳細は上の「独自ドメインで画像が全滅していたバグ」参照）
 - **既知のノイズ（追いかけなくてよい）**
   - `app/[shopSlug]/(public)/therapist/login/page.tsx:91` の `no-explicit-any` は以前からのlintエラー
   - `.next/types/validator.ts` が削除済みの `app/(admin)/register-therapist/page.js` を参照する

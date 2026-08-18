@@ -53,6 +53,7 @@ export default function OwnerStoreSettingPage() {
     line_url: '',
     x_url: '',
     litlink_url: '',
+    terms_of_service: '',
   })
 
   // メインバナー一覧＆入力
@@ -96,7 +97,7 @@ export default function OwnerStoreSettingPage() {
         // 選択中店舗の最新プロファイルを取得
         const { data: shopData, error: fetchErr } = await supabase
           .from('shops')
-          .select('id, name, slug, short_name, phone, hp_url, business_hours, address, access_info, google_map_url, catchphrase, description, notice_banner, line_url, x_url, litlink_url, recruit_info')
+          .select('id, name, slug, short_name, phone, hp_url, business_hours, address, access_info, google_map_url, catchphrase, description, notice_banner, line_url, x_url, litlink_url, terms_of_service, recruit_info')
           .eq('id', selectedShop.id)
           .single()
 
@@ -122,6 +123,7 @@ export default function OwnerStoreSettingPage() {
             line_url: shopData.line_url || '',
             x_url: shopData.x_url || '',
             litlink_url: shopData.litlink_url || '',
+            terms_of_service: (shopData as any).terms_of_service || '',
           })
 
           if ((shopData as any).recruit_info) {
@@ -192,6 +194,7 @@ export default function OwnerStoreSettingPage() {
           line_url: profileForm.line_url.trim() || null,
           x_url: profileForm.x_url.trim() || null,
           litlink_url: profileForm.litlink_url.trim() || null,
+          terms_of_service: profileForm.terms_of_service.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', shopId)
@@ -583,7 +586,7 @@ export default function OwnerStoreSettingPage() {
             </div>
 
             {/* 4. SNS各種リンク */}
-            <div className="border-t pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">公式LINE URL</label>
                 <input
@@ -604,16 +607,20 @@ export default function OwnerStoreSettingPage() {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">リットリンク (Lit.link) URL</label>
-                <input
-                  type="text"
-                  value={profileForm.litlink_url}
-                  onChange={(e) => setProfileForm({ ...profileForm, litlink_url: e.target.value })}
-                  placeholder="https://lit.link/..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
-                />
-              </div>
+            </div>
+
+            {/* 5. 利用規約・禁止事項 */}
+            <div className="border-t pt-4">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                利用規約・禁止事項 <span className="text-[11px] text-slate-400 font-normal">「システム・料金」ページの末尾に表示されます（未入力の場合は非表示）</span>
+              </label>
+              <textarea
+                rows={10}
+                value={profileForm.terms_of_service}
+                onChange={(e) => setProfileForm({ ...profileForm, terms_of_service: e.target.value })}
+                placeholder="利用規約や禁止事項の全文を入力してください。改行もそのままHPへ反映されます。"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800 font-mono"
+              />
             </div>
           </div>
 

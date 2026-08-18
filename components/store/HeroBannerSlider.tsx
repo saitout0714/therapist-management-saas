@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Campaign } from '../../types/store';
 
 interface HeroBannerSliderProps {
@@ -34,10 +35,12 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
               idx === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
             }`}
           >
-            <img
+            <Image
               src={camp.imageUrl}
               alt={camp.title}
-              className="w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-700"
+              fill
+              sizes="(min-width: 640px) 90vw, 100vw"
+              className="object-cover transform scale-105 group-hover:scale-100 transition-transform duration-700"
             />
             {/* ダークグラデーションオーバーレイ */}
             <div className={`absolute inset-0 ${isCyber ? 'bg-gradient-to-t from-[#190a20]/90 via-[#190a20]/25 to-transparent' : 'bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent'}`} />

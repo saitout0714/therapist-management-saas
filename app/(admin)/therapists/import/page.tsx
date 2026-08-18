@@ -271,7 +271,7 @@ export default function ImportTherapistsPage() {
       ? minOrderData[0].order - toSave.length : 0
 
     const rows = toSave.map(t => {
-      const row: Record<string, unknown> = { name: t.name, shop_id: selectedShop.id, order: nextOrder++ }
+      const row: Record<string, unknown> = { name: t.name, shop_id: selectedShop.id, owner_id: selectedShop.owner_id || null, order: nextOrder++ }
       if (t.age != null) row.age = t.age
       if (t.height != null) row.height = t.height
       if (t.bust != null) row.bust = t.bust
@@ -286,6 +286,28 @@ export default function ImportTherapistsPage() {
 
     const { data: inserted, error } = await supabase.from('therapists').insert(rows).select('id, name')
     if (error) { setSaveError('登録に失敗しました: ' + error.message); setSaving(false); return }
+
+    // 在籍行（therapist_shops）も必ず作る。セラピスト一覧やシフト画面は shop_id ではなく
+    // 在籍行を見ているため、これが無いと取り込んだのに一覧にもシフトにも出てこない。
+    if (inserted && inserted.length > 0) {
+      let rosterShopIds = [selectedShop.id]
+      if (selectedShop.owner_id) {
+        const { data: ownerRow } = await supabase
+          .from('owners').select('therapist_scope').eq('id', selectedShop.owner_id).maybeSingle()
+        if (ownerRow?.therapist_scope === 'all_shops') {
+          rosterShopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
+        }
+      }
+      const rosterRows = inserted.flatMap((th: { id: string }) =>
+        rosterShopIds.map(shopId => ({ therapist_id: th.id, shop_id: shopId, is_active: true }))
+      )
+      const { error: rosterError } = await supabase.from('therapist_shops').insert(rosterRows)
+      if (rosterError) {
+        setSaveError('在籍店舗の登録に失敗しました: ' + rosterError.message)
+        setSaving(false)
+        return
+      }
+    }
 
     // 写真をアップロード（photo_urls または photo_url があるセラピストのみ）
     const jobs = (inserted || []).map((th: { id: string; name: string }) => {

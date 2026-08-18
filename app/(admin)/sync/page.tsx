@@ -190,7 +190,7 @@ export default function SyncPage() {
     const targetSite = activeTab === 'esthe_ranking' ? 'esthe_ranking' : 'estama';
     const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
 
-    if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期（新規登録または上書き更新）しますか？\n※人数が多い場合は数分かかることがあります。`)) return;
+    if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期します。\n${siteName}側に既に同名のプロフィールがあれば自動的に紐付けて更新し、なければ新規登録します（重複登録の心配はありません）。\n※人数が多い場合は数分かかることがあります。`)) return;
 
     setIsSyncing(true);
     setSyncProgressText('対象セラピストを取得中...');
@@ -393,7 +393,7 @@ export default function SyncPage() {
                   <li>一言コメント（自己紹介）</li>
                   <li>プロフィール写真（画像の自動アップロード）</li>
                 </ul>
-                <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は情報を上書き更新し、いない場合は新規登録として追加します。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
+                <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は自動で連携IDを紐付けて情報を上書き更新し、いない場合は新規登録として追加します（重複登録は作られません）。出勤・予約が同期されない場合、まずここで一括同期をお試しください。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
               </div>
             </div>
           </div>
@@ -406,7 +406,17 @@ export default function SyncPage() {
               </h2>
               <p className="text-xs text-slate-500">店舗管理画面のログイン情報を入力してください。同期機能を使用するために必須となります。</p>
             </div>
-            
+
+            <div className="flex gap-2.5 items-start bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+              <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                <span className="font-bold">新規店舗で初めて設定する場合は必ずお読みください：</span>
+                ID・パスワードを保存しただけでは自動同期は始まりません。保存後に、上の「セラピスト情報の同期」欄にある
+                <span className="font-bold">「全キャストを一括同期」</span>（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}側にまだキャストが登録されていない場合）
+                または<span className="font-bold">「既存プロフィールと自動照合」</span>（既に向こうにキャスト登録済みの場合）を<span className="font-bold">一度だけ手動で実行</span>してください。これを行わないと、キャストごとの連携IDが設定されず、出勤・予約情報が同期されません（ジョブ自体は「成功」と表示されるため気づきにくい不具合です）。
+              </p>
+            </div>
+
             {activeTab === 'esthe_ranking' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
