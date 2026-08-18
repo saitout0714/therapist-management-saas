@@ -161,17 +161,6 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
           {/* モバイルメニューボタン */}
           <div className="flex lg:hidden items-center gap-2">
-            <Link
-              href={reservePath}
-              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
-              className={`px-4 py-1.5 text-white text-xs font-bold transition-all ${
-                isCyberTheme
-                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-                  : 'rounded-sm shadow-xs'
-              }`}
-            >
-              予約
-            </Link>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className={`p-2.5 rounded-xl transition-all duration-300 focus:outline-none ${
