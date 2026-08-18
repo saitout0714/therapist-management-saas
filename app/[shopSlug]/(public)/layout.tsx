@@ -31,6 +31,17 @@ export default async function StorePublicLayout({
 
   const gaMeasurementId = shop.hasHp ? SHOP_GA_MEASUREMENT_ID[shop.slug] : undefined;
 
+  /*
+   * テーマの地色をここで敷いておく。ページ本体も同じ背景を持っているので
+   * 通常表示の見た目は変わらないが、loading.tsx（params を受け取れない）が
+   * 表示される間も店舗の背景色になり、遷移時に白くフラッシュしなくなる。
+   * --skeleton は loading.tsx のプレースホルダー色。
+   */
+  const isCyber = shop.slug === 'onyankospa';
+  const isLuxury = shop.slug === 'specialgrade';
+  const shellClass = isCyber ? 'cyber-bg' : isLuxury ? 'luxury-marble-bg' : 'bg-[#faf9f5]';
+  const skeletonColor = isCyber ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)';
+
   return (
     <>
       {/* ローカル検索向けの構造化データ。公開HP契約がある店舗のみ出力する。 */}
@@ -44,7 +55,9 @@ export default async function StorePublicLayout({
         />
       )}
       {gaMeasurementId && <GoogleAnalytics measurementId={gaMeasurementId} />}
-      {children}
+      <div className={shellClass} style={{ '--skeleton': skeletonColor } as React.CSSProperties}>
+        {children}
+      </div>
     </>
   );
 }

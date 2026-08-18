@@ -80,7 +80,7 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
                 {cat.courses.map((course) => (
                   <div
                     key={course.id}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border gap-3 transition-colors ${
+                    className={`flex flex-row items-center justify-between p-4 border gap-3 transition-colors ${
                       isCyberTheme
                         ? 'bg-white/10 border-[#ff6fb5]/30 hover:border-[#ff6fb5] rounded-xl'
                         : isLuxuryTheme
@@ -88,8 +88,8 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
                         : 'bg-[#faf7f0] border-[#d1b464]/20 hover:border-[#d1b464] rounded-sm'
                     }`}
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className={`font-bold text-sm sm:text-base tracking-wider ${
                           isCyberTheme ? 'text-[#f4eefa]' : isLuxuryTheme ? 'text-[#2b2b2b]' : 'text-stone-800'
                         }`}>
@@ -115,7 +115,7 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
                         </p>
                       )}
                     </div>
-                    <div className="text-left sm:text-right shrink-0">
+                    <div className="text-right shrink-0">
                       <span className={`text-lg sm:text-xl font-extrabold tracking-wider ${
                         isCyberTheme ? 'neon-text-pink' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a]' : 'text-stone-900'
                       }`}>

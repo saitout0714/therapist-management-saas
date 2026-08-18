@@ -1,4 +1,6 @@
 {
+  "$comment": "Supabaseのプロジェクトが AWS ap-northeast-1(東京) にあるため、関数も東京(hnd1)で実行する。未指定だと iad1(米国東部) で動き、DBクエリのたびに太平洋を往復して1回あたり約170msかかっていた。",
+  "regions": ["hnd1"],
   "functions": {
     "app/api/**/*": {
       "memory": 3008,
