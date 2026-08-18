@@ -74,6 +74,8 @@ export default function OwnerStoreSettingPage() {
     content: '',
     category: 'お知らせ',
   })
+  // 編集中のトピックスID。null なら新規投稿モード。
+  const [editingNewsId, setEditingNewsId] = useState<string | null>(null)
 
   // 求人情報入力
   const [recruitForm, setRecruitForm] = useState({
@@ -285,10 +287,36 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
-  // トピックス追加
-  const handleAddNews = async () => {
+  // トピックス投稿・更新（editingNewsId が立っていれば更新、無ければ新規投稿）
+  const handleSaveNews = async () => {
     if (!newNews.title || !newNews.content || !shopId) {
       alert('トピックスのタイトルと本文を入力してください。')
+      return
+    }
+
+    if (editingNewsId) {
+      try {
+        const { data: updated, error: err } = await supabase
+          .from('news_items')
+          .update({
+            title: newNews.title,
+            content: newNews.content,
+            category: newNews.category || 'お知らせ',
+          })
+          .eq('id', editingNewsId)
+          .select()
+          .single()
+
+        if (err) throw err
+
+        if (updated) {
+          setNewsList((prev) => prev.map((n) => (n.id === editingNewsId ? updated : n)))
+          handleCancelEditNews()
+          alert('トピックスを更新しました！')
+        }
+      } catch (err: any) {
+        alert('トピックス更新失敗: ' + err.message)
+      }
       return
     }
 
@@ -319,12 +347,28 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
+  // トピックス編集開始（一覧の内容をフォームに読み込む）
+  const handleEditNewsClick = (n: NewsItemData) => {
+    setEditingNewsId(n.id || null)
+    setNewNews({ title: n.title, content: n.content, category: n.category || 'お知らせ' })
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  // トピックス編集キャンセル
+  const handleCancelEditNews = () => {
+    setEditingNewsId(null)
+    setNewNews({ title: '', content: '', category: 'お知らせ' })
+  }
+
   // トピックス削除
   const handleDeleteNews = async (newsId?: string) => {
     if (!newsId || !confirm('このトピックスを削除しますか？')) return
     const { error: err } = await supabase.from('news_items').delete().eq('id', newsId)
     if (!err) {
       setNewsList((prev) => prev.filter((n) => n.id !== newsId))
+      if (editingNewsId === newsId) handleCancelEditNews()
     } else {
       alert('削除失敗: ' + err.message)
     }
@@ -729,8 +773,10 @@ export default function OwnerStoreSettingPage() {
         <div className="space-y-6">
           {/* 新規投稿 */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">📝 新しいトピックス（お知らせ）の投稿</h2>
-            
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">
+              {editingNewsId ? '✎ トピックスの編集' : '📝 新しいトピックス（お知らせ）の投稿'}
+            </h2>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">タイトル</label>
@@ -765,13 +811,24 @@ export default function OwnerStoreSettingPage() {
               />
             </div>
 
-            <button
-              type="button"
-              onClick={handleAddNews}
-              className="btn-primary w-full py-2.5"
-            >
-              ＋ トピックスを投稿してHPへ即時反映
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveNews}
+                className="btn-primary flex-1 py-2.5"
+              >
+                {editingNewsId ? '✎ トピックスを更新' : '＋ トピックスを投稿してHPへ即時反映'}
+              </button>
+              {editingNewsId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEditNews}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all"
+                >
+                  キャンセル
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 投稿済みトピックス一覧 */}
@@ -795,12 +852,20 @@ export default function OwnerStoreSettingPage() {
                       <div className="text-xs font-bold text-slate-800">{n.title}</div>
                       <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{n.content}</p>
                     </div>
-                    <button
-                      onClick={() => handleDeleteNews(n.id)}
-                      className="shrink-0 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold rounded-lg transition-all"
-                    >
-                      削除 ✕
-                    </button>
+                    <div className="shrink-0 flex gap-2">
+                      <button
+                        onClick={() => handleEditNewsClick(n)}
+                        className="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[11px] font-bold rounded-lg transition-all"
+                      >
+                        編集 ✎
+                      </button>
+                      <button
+                        onClick={() => handleDeleteNews(n.id)}
+                        className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold rounded-lg transition-all"
+                      >
+                        削除 ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
