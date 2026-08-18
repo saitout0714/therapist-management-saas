@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface ImageLightboxModalProps {
   isOpen: boolean;
@@ -44,13 +45,19 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
       {/* メイン画像表示 */}
       <div className="relative flex-1 w-full max-w-4xl flex items-center justify-center p-2">
-        <img
-          src={images[currentIndex]}
-          alt="Lightbox Preview"
-          className={`max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl border ${
+        <div
+          className={`relative w-full max-w-2xl aspect-[3/4] max-h-[75vh] rounded-xl overflow-hidden shadow-2xl border ${
             isCyber ? 'border-[#ff6fb5]/50 shadow-[0_0_25px_rgba(255,111,181,0.4)]' : 'border-stone-800'
           }`}
-        />
+        >
+          <Image
+            src={images[currentIndex]}
+            alt="Lightbox Preview"
+            fill
+            sizes="90vw"
+            className="object-contain"
+          />
+        </div>
 
         {images.length > 1 && (
           <>
@@ -85,13 +92,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             <button
               key={idx}
               onClick={() => onSelectIndex(idx)}
-              className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
+              className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
                 idx === currentIndex
                   ? isCyber ? 'border-[#ff6fb5] scale-105 shadow-[0_0_10px_#ff6fb5]' : 'border-[#d1b464] scale-105'
                   : 'border-stone-800 opacity-50 hover:opacity-100'
               }`}
             >
-              <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
+              <Image src={img} alt={`Thumb ${idx}`} fill sizes="56px" className="object-cover" />
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Campaign, StoreConfig } from '../../types/store';
 import { HeroBannerSlider } from './HeroBannerSlider';
 import { SectionHeading } from './SectionHeading';
@@ -124,10 +125,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
                   isRevealed ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
                 }`}
               >
-                <img
+                <Image
                   src="/images/onyanko_mainvisual.jpg"
                   alt="おニャンこスパ メインビジュアル"
-                  className="w-full h-full object-cover object-center animate-ken-burns transform group-hover:scale-103 transition-transform duration-1000"
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover object-center animate-ken-burns transform group-hover:scale-103 transition-transform duration-1000"
                 />
               </div>
 

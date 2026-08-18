@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { ThemeProvider } from './ThemeProvider';
@@ -89,10 +90,12 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
                   isCyberTheme ? 'border-[#ff6fb5]/40 hover:border-[#ff6fb5]' : 'border-stone-800'
                 }`}
               >
-                <img
+                <Image
                   src={mainPhoto}
                   alt={currentTherapist.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                   <span className="opacity-0 group-hover:opacity-100 bg-stone-950/80 text-white font-bold text-xs px-3 py-1.5 rounded-full border border-white/20 transition-opacity">
@@ -137,16 +140,18 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
                       <div
                         key={idx}
                         onClick={() => setSelectedPhotoIndex(idx)}
-                        className={`aspect-square rounded-lg overflow-hidden border cursor-pointer transition-all ${
+                        className={`relative aspect-square rounded-lg overflow-hidden border cursor-pointer transition-all ${
                           selectedPhotoIndex === idx
                             ? isCyberTheme ? 'border-[#ff6fb5] ring-2 ring-[#ff6fb5]/50 opacity-100 scale-105' : 'border-[#d1b464] ring-2 ring-[#d1b464]/50 opacity-100 scale-105'
                             : 'border-stone-200 opacity-70 hover:opacity-100'
                         }`}
                       >
-                        <img
+                        <Image
                           src={img}
                           alt={`${currentTherapist.name}-${idx + 1}`}
-                          className="w-full h-full object-cover"
+                          fill
+                          sizes="120px"
+                          className="object-cover"
                         />
                       </div>
                     ))}
@@ -295,9 +300,11 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
                     }`}
                   >
                     {b.eyeCatchUrl && (
-                      <img
+                      <Image
                         src={b.eyeCatchUrl}
                         alt={b.title}
+                        width={64}
+                        height={64}
                         className="w-16 h-16 rounded-md object-cover border border-stone-200 shrink-0"
                       />
                     )}

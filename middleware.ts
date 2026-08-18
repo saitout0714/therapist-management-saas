@@ -24,6 +24,11 @@ function isRootAsset(pathname: string): boolean {
   if (/^\/sitemap[-/][\w./-]*\.xml$/.test(pathname)) return true;
   // Google Search Console 等のドメイン所有権確認ファイル
   if (/^\/(google[0-9a-f]+\.html|\.well-known\/[\w./-]+)$/.test(pathname)) return true;
+  // /public 配下の静的ファイル（/images/*.jpg, /logo.png 等）。
+  // ページルートは拡張子を持たないため、拡張子付きパスは常にそのまま配信する。
+  // これが無いと独自ドメインで /images/xxx.jpg が /[shopSlug]/images/xxx.jpg に
+  // 書き換えられて404になり、画像が一枚も表示されなくなる。
+  if (/\.[a-zA-Z0-9]+$/.test(pathname)) return true;
   return false;
 }
 

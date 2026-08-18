@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Therapist } from '../../types/store';
 
 interface TherapistCardProps {
@@ -40,10 +41,12 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
       <Link href={detailUrl} className="block group/photo">
         {/* 写真領域 (写真クリックで個人詳細ページへ移動) */}
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-stone-900">
-          <img
+          <Image
             src={therapist.avatarUrl}
             alt={therapist.name}
-            className="w-full h-full object-cover group-hover/photo:scale-110 transition-transform duration-700 ease-out"
+            fill
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+            className="object-cover group-hover/photo:scale-110 transition-transform duration-700 ease-out"
           />
           
           {/* ホバー時のShimmer光沢ビーム光彩エフェクト */}

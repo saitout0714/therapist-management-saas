@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
 import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
@@ -95,9 +96,11 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                     className={`p-5 space-y-3 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-[#d1b464]/30'}`}
                   >
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={therapist.avatarUrl}
                         alt={therapist.name}
+                        width={44}
+                        height={44}
                         className="w-11 h-11 rounded-full object-cover border border-[#ff6fb5] shadow-[0_0_12px_rgba(255,111,181,0.5)]"
                       />
                       <div>
