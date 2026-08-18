@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     // 4. 名前でマッチング
     let matchedCount = 0;
-    const updates = [];
+    const updates: { id: string; estama_therapist_id: string }[] = [];
 
     for (const portalT of portalTherapists) {
       const normalizedPortalName = portalT.name.replace(/\s+/g, '').toLowerCase();
@@ -84,14 +84,20 @@ export async function POST(req: Request) {
       }
     }
 
+    const stillUnmatchedLocalNames = (localTherapists || [])
+      .filter(t => !t.estama_therapist_id && !updates.some(u => u.id === t.id))
+      .map(t => t.name);
+
     const msg = matchedCount > 0
       ? `エステ魂のセラピスト${portalTherapists.length}人中、${matchedCount}人のセラピストIDを新しく自動設定しました！`
-      : `エステ魂から${portalTherapists.length}人のセラピストを取得しました。既に全員の連携IDが設定済みであるか、名前が一致する未設定のセラピストがいなかったため、更新対象は0件でした。`;
+      : `エステ魂から${portalTherapists.length}人のセラピストを取得しました。既に全員の連携IDが設定済みであるか、名前が一致する未設定のセラピストがいなかったため、更新対象は0件でした。\n\n[ポータル側の名前一覧]\n${portalTherapists.map(t => t.name).join(', ')}\n\n[yoyakl側の未連携キャスト]\n${stillUnmatchedLocalNames.join(', ')}`;
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: msg,
       matchedCount,
-      totalPortalCount: portalTherapists.length
+      totalPortalCount: portalTherapists.length,
+      portalTherapists,
+      stillUnmatchedLocalNames,
     });
 
   } catch (error: any) {
