@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   }, [isOpen]);
 
   const navLinks = [
-    { label: 'TOP', subLabel: 'トップページ', href: basePath, code: '01' },
+    { label: 'TOP', subLabel: 'トップページ', href: basePath || '/', code: '01' },
     { label: 'システム・料金', subLabel: 'コース・指名料金のご案内', href: `${basePath}/system`, code: '02' },
     { label: 'セラピスト一覧', subLabel: '在籍セラピストのご紹介', href: `${basePath}/therapists`, code: '03' },
     { label: '出勤スケジュール', subLabel: '本日・今週の出勤情報', href: `${basePath}/schedule`, code: '04' },
@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* ロゴ / 店舗名 */}
-          <Link href={basePath} className="flex items-center gap-3 group">
+          <Link href={basePath || '/'} className="flex items-center gap-3 group">
             {store.logoUrl && !imageError && !store.logoUrl.includes('mainvisual') ? (
               <div className="h-12 max-w-[200px] flex items-center">
                 <img

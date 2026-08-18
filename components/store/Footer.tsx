@@ -44,7 +44,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
               CONTENTS
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              <Link href={basePath} className="hover:opacity-80 transition-colors">TOP</Link>
+              <Link href={basePath || '/'} className="hover:opacity-80 transition-colors">TOP</Link>
               <Link href={`${basePath}/system`} className="hover:opacity-80 transition-colors">システム・料金</Link>
               <Link href={`${basePath}/therapists`} className="hover:opacity-80 transition-colors">セラピスト一覧</Link>
               <Link href={`${basePath}/schedule`} className="hover:opacity-80 transition-colors">出勤スケジュール</Link>
