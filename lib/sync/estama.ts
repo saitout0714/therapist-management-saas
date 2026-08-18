@@ -651,6 +651,14 @@ export async function fetchTherapistsFromEstama(
     });
 
     console.log(`[EstamaSync] Found ${therapists.length} therapists on Estama portal.`);
+
+    if (therapists.length === 0) {
+      const pageTitle = await page.title().catch(() => 'unknown');
+      const pageUrl = page.url();
+      const screenshotUrl = await uploadDebugScreenshot(page, 'estama_fetch_zero_therapists');
+      throw new Error(`エステ魂のセラピスト一覧を取得できませんでした（0件）。ログインまたはページ構造の読み取りに失敗している可能性があります。(画面タイトル: ${pageTitle}, URL: ${pageUrl}, スクリーンショット: ${screenshotUrl || 'なし'})`);
+    }
+
     return therapists;
   } catch (error: any) {
     const pageTitle = page ? await page.title().catch(() => 'unknown') : 'unknown';
