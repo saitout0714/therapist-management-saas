@@ -3,8 +3,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), "Inter", "Helvetica Neue", Arial, sans-serif;
+  /* 欧文のあとに日本語の端末標準フォントを明示的に繋ぐ（総称sans-serif任せにしない） */
+  --font-sans: var(--font-geist-sans), "Inter", "Helvetica Neue", Arial, var(--font-jp-system);
   --font-mono: var(--font-geist-mono), "Fira Code", monospace;
+
+  /*
+   * 日本語は端末標準のフォントを使う。
+   * Noto Sans JP をWebフォントで配ると unicode-range 分割のせいで
+   * @font-face だけで183KB（CSS全体の47%）＋本体416KBがレンダリングを
+   * 妨げていた。Androidには同じ Noto Sans CJK が最初から入っており、
+   * iOSのヒラギノ角ゴも高品質なので、実質的な見た目の劣化なく削減できる。
+   */
+  --font-jp-system: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    "Noto Sans CJK JP", "Yu Gothic", YuGothic, Meiryo, sans-serif;
 
   /* Custom Color Palette (Premium Corporate Navy & Vibrant Orange) */
   --color-primary-50: #f0f4f9;
@@ -414,12 +425,12 @@ input[type="time"]::-webkit-datetime-edit {
 
 /* 店舗ページのタイポグラフィ */
 .font-cyber-display {
-  font-family: var(--font-display), var(--font-jp), "Noto Sans JP", sans-serif;
+  font-family: var(--font-display), var(--font-jp-system);
   letter-spacing: 0.08em;
 }
 .cyber-bg,
 .cyber-body {
-  font-family: var(--font-jp), var(--font-display), "Noto Sans JP", sans-serif;
+  font-family: var(--font-jp-system);
 }
 
 /* 明るいテーマ用の文字色ユーティリティ */
@@ -801,7 +812,7 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 .luxury-body {
-  font-family: var(--font-jp), "Noto Sans JP", sans-serif;
+  font-family: var(--font-jp-system);
 }
 
 .font-luxury-display {

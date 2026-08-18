@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Montserrat, Noto_Sans_JP, Great_Vibes, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono, Montserrat, Great_Vibes, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { TherapistAuthProvider } from "@/contexts/TherapistAuthContext";
 
@@ -28,19 +28,11 @@ const montserrat = Montserrat({
 });
 
 /*
- * 日本語フォントは unicode-range で124分割されて配信されるため、
- * ウェイトを1つ増やすごとに @font-face が124個増え、
- * レンダリングを妨げるCSSがそのぶん肥大する（4ウェイトで約370KB）。
- * 実際に使っているのは通常と太字だけなので2ウェイトに絞る。
- * 500/800/900指定の箇所は700に丸められるが、日本語では差はほぼ出ない。
+ * 日本語のWebフォント(Noto Sans JP)は読み込んでいない。
+ * unicode-range で124分割されるため @font-face だけで183KB（CSS全体の47%）、
+ * フォント本体も416KBあり、モバイルの初回描画を大きく遅らせていた。
+ * 端末標準の日本語フォント（globals.css の --font-jp-system）を使う。
  */
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-jp",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  display: "swap",
-});
-
 const greatVibes = Great_Vibes({
   variable: "--font-script",
   subsets: ["latin"],
@@ -86,7 +78,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${notoSansJP.variable} ${greatVibes.variable} ${playfairDisplay.variable} antialiased bg-gray-100`}
+        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${greatVibes.variable} ${playfairDisplay.variable} antialiased bg-gray-100`}
       >
         <TherapistAuthProvider>
           {children}
