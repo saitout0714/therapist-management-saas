@@ -99,17 +99,29 @@ export default async function RecruitPage({ params }: { params: Promise<{ shopSl
             )}
           </div>
 
-          <div className="text-center pt-4">
+          <div className={`flex flex-row gap-3 pt-4 ${store.lineUrl ? '' : 'justify-center'}`}>
             <a
               href={`tel:${rInfo?.phone || store.phoneNumber}`}
-              className={`inline-block px-8 py-3.5 text-white font-bold text-xs shadow-md tracking-widest transition-all ${
+              className={`${store.lineUrl ? 'w-1/2' : ''} inline-flex items-center justify-center px-4 sm:px-8 py-3.5 text-white font-bold text-xs shadow-md tracking-widest transition-all ${
                 isCyberTheme
                   ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                   : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
               }`}
             >
-              電話で今すぐ応募・体験入店申込 ({rInfo?.phone || store.phoneNumber}) 🐾
+              📞 電話で応募
             </a>
+            {store.lineUrl && (
+              <a
+                href={store.lineUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-1/2 inline-flex items-center justify-center px-4 sm:px-8 py-3.5 text-white font-bold text-xs shadow-md tracking-widest transition-all ${
+                  isCyberTheme ? 'rounded-full' : 'rounded-sm hover:brightness-105'
+                } bg-[#06C755]`}
+              >
+                💬 LINEで応募
+              </a>
+            )}
           </div>
         </div>
       </main>
