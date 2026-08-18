@@ -184,6 +184,7 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       noticeBanner: data.notice_banner || MOCK_STORE.noticeBanner,
       description: data.description || undefined,
       recruitInfo,
+      termsOfService: data.terms_of_service || undefined,
     };
   } catch {
     return MOCK_STORE;

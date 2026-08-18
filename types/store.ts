@@ -33,6 +33,7 @@ export interface StoreConfig {
   templateId?: 'luxury' | 'modern' | 'cute' | 'minimal';
   layoutSections?: StoreSectionType[]; // モジュールコンテンツの配置順＆表示ON/OFF設定
   recruitInfo?: RecruitInfo;
+  termsOfService?: string; // 利用規約・禁止事項（システム・料金ページ末尾に表示）
 }
 
 export interface RecruitInfo {

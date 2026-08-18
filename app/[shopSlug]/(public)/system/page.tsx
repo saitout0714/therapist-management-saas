@@ -1,5 +1,4 @@
 import React from 'react';
-import Link from 'next/link';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
@@ -44,6 +43,10 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
 
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
         <PageHeading title="System" subtitle="システム・料金案内" isCyber={isCyberTheme} className="mb-10" />
+
+          <p className={`text-[11px] mb-6 tracking-wide ${isCyberTheme ? 'text-[#ded1ee]/80' : 'text-stone-500'}`}>
+            ※料金は全て税込表記になります。コース時間にはお着替えやシャワーなどの時間も含まれます。
+          </p>
 
           <div className="space-y-8">
             {categories.map((cat, idx) => (
@@ -115,18 +118,24 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
           ))}
         </div>
 
-        <div className="mt-12 text-center">
-          <Link
-            href={`/reserve/${shopSlug}`}
-            className={`inline-block px-10 py-3.5 font-bold text-xs shadow-md transition-all tracking-widest ${
-              isCyberTheme
-                ? 'text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-                : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] text-white rounded-sm hover:brightness-105'
-            }`}
-          >
-            この料金でWEB予約する 🐾
-          </Link>
-        </div>
+        {store.termsOfService && (
+          <div className={`mt-12 p-6 space-y-3 ${
+            isCyberTheme
+              ? 'cyber-card rounded-xl border-[#ff6fb5]/40'
+              : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
+          }`}>
+            <h2 className={`text-base font-bold border-b pb-2 tracking-wider ${
+              isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : 'text-[#a39573] border-stone-200'
+            }`}>
+              利用規約・禁止事項
+            </h2>
+            <p className={`text-xs leading-relaxed tracking-wide whitespace-pre-wrap ${
+              isCyberTheme ? 'text-[#ded1ee]/90' : 'text-stone-600'
+            }`}>
+              {store.termsOfService}
+            </p>
+          </div>
+        )}
       </main>
 
       <Footer store={store} />
