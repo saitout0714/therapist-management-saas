@@ -40,6 +40,8 @@ export default function TherapistsPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const draggedIndexRef = useRef<number | null>(null);
   const therapistsRef = useRef<TherapistItem[]>([]);
+  // スマホのタッチ操作用（HTML5 Drag and Drop APIはタッチ端末では発火しないため別実装）
+  const [touchDragging, setTouchDragging] = useState(false);
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<TherapistItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -265,6 +267,56 @@ export default function TherapistsPage() {
     }
   };
 
+  // --- スマホ・タブレットのタッチ操作用の並び替え ---
+  // HTML5 Drag and Drop API (draggable/onDragStart等) はタッチ端末では発火しないため、
+  // ドラッグハンドルへのタッチを別途拾って同じ並び替えロジックを実行する。
+  const handleTouchStart = (index: number) => {
+    draggedIndexRef.current = index;
+    setDraggedIndex(index);
+    setTouchDragging(true);
+  };
+
+  useEffect(() => {
+    if (!touchDragging) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // ページ自体のスクロールより並び替え操作を優先する
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const li = target?.closest<HTMLElement>("[data-therapist-index]");
+      if (!li) return;
+      const overIndex = Number(li.dataset.therapistIndex);
+      if (Number.isNaN(overIndex) || draggedIndexRef.current === null || draggedIndexRef.current === overIndex) return;
+
+      const newTherapists = [...therapistsRef.current];
+      const draggedItem = newTherapists[draggedIndexRef.current];
+      newTherapists.splice(draggedIndexRef.current, 1);
+      newTherapists.splice(overIndex, 0, draggedItem);
+
+      draggedIndexRef.current = overIndex;
+      therapistsRef.current = newTherapists;
+      setDraggedIndex(overIndex);
+      setTherapists(newTherapists);
+    };
+
+    const handleTouchEnd = () => {
+      setTouchDragging(false);
+      void handleDragEnd();
+    };
+
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    document.addEventListener("touchend", handleTouchEnd);
+    document.addEventListener("touchcancel", handleTouchEnd);
+    return () => {
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener("touchcancel", handleTouchEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touchDragging]);
+
   const handleDeleteClick = async (therapist: TherapistItem) => {
     setDeleteTarget(therapist);
     setDeleteReservationCount(0);
@@ -340,6 +392,7 @@ export default function TherapistsPage() {
     return (
       <li
         key={therapist.id}
+        data-therapist-index={index}
         draggable={isActive}
         onDragStart={(e) => isActive && handleDragStart(e, index)}
         onDragEnd={handleDragEnd}
@@ -350,8 +403,12 @@ export default function TherapistsPage() {
             : "border-slate-100 bg-slate-50/50 opacity-70"
         }`}
       >
-        {/* ドラッグハンドル */}
-        <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center mt-1 transition-colors ${isActive ? "text-slate-300 group-hover:text-indigo-400 cursor-grab active:cursor-grabbing" : "text-slate-200"}`}>
+        {/* ドラッグハンドル（PC: マウスドラッグ / スマホ・タブレット: タッチドラッグ） */}
+        <div
+          onTouchStart={() => isActive && handleTouchStart(index)}
+          style={{ touchAction: isActive ? "none" : undefined }}
+          className={`w-8 h-8 flex-shrink-0 flex items-center justify-center mt-1 transition-colors ${isActive ? "text-slate-300 group-hover:text-indigo-400 cursor-grab active:cursor-grabbing" : "text-slate-200"}`}
+        >
           {isActive && (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
