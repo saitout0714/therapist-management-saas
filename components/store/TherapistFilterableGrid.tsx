@@ -10,6 +10,7 @@ interface TherapistFilterableGridProps {
   therapists: Therapist[];
   todayShifts: ConfirmedShift[];
   shopSlug: string;
+  basePath?: string;
   isCyber: boolean;
   primaryColor?: string;
 }
@@ -27,6 +28,7 @@ export const TherapistFilterableGrid: React.FC<TherapistFilterableGridProps> = (
   therapists,
   todayShifts,
   shopSlug,
+  basePath,
   isCyber,
   primaryColor,
 }) => {
@@ -59,6 +61,7 @@ export const TherapistFilterableGrid: React.FC<TherapistFilterableGridProps> = (
               key={therapist.id}
               therapist={therapist}
               storeSlug={shopSlug}
+              basePath={basePath}
               confirmedShiftTime={todayShift ? `${todayShift.startTime}~${todayShift.endTime}` : undefined}
               showTodayBadge={!!todayShift}
               primaryColor={primaryColor}

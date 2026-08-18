@@ -10,6 +10,7 @@ interface WeeklyScheduleProps {
   therapists: Therapist[];
   confirmedShifts?: ConfirmedShift[];
   storeSlug: string;
+  basePath?: string;
   /** 店舗の営業日切り替え時刻(JST)を考慮した「本日の営業日」文字列 (YYYY-MM-DD)。
    *  未指定の場合はブラウザのローカル日付にフォールバックする。 */
   businessTodayStr?: string;
@@ -19,6 +20,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   therapists,
   confirmedShifts = [],
   storeSlug,
+  basePath,
   businessTodayStr,
 }) => {
   const isCyber = storeSlug === 'onyankospa';
@@ -149,6 +151,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
               key={therapist.id}
               therapist={therapist}
               storeSlug={storeSlug}
+              basePath={basePath}
               confirmedShiftTime={shiftTime || undefined}
               index={idx}
             />

@@ -39,6 +39,7 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const basePath = store.basePath ?? `/${shopSlug}`;
 
   if (!therapist) {
     return (
@@ -256,7 +257,7 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
                     <>
                       <span className={`text-xs ${isCyberTheme ? 'text-[#ffa8d8]/70' : 'text-stone-500'}`}>本日はお休み、または調整中です</span>
                       <Link
-                        href={`/${shopSlug}/schedule`}
+                        href={`${basePath}/schedule`}
                         className={`text-xs font-bold underline ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}
                       >
                         他日程を見る
@@ -292,7 +293,7 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
                 {blogs.map((b) => (
                   <Link
                     key={b.id}
-                    href={`/${shopSlug}/diary/${b.id}`}
+                    href={`${basePath}/diary/${b.id}`}
                     className={`p-3.5 border transition-all flex gap-3 ${
                       isCyberTheme
                         ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/30 hover:border-[#ff6fb5]'

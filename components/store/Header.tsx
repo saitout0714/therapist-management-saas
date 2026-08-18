@@ -12,7 +12,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ store }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const basePath = `/${store.slug}`;
+  const basePath = store.basePath ?? `/${store.slug}`;
   const reservePath = `/reserve/${store.slug}`;
 
   useEffect(() => {

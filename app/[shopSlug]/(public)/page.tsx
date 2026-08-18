@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { headers } from 'next/headers';
 import { Header } from '../../../components/store/Header';
 import { Footer } from '../../../components/store/Footer';
 import { MobileFloatingBar } from '../../../components/store/MobileFloatingBar';
@@ -11,6 +12,7 @@ import { SectionHeading } from '../../../components/store/SectionHeading';
 import { ThemeProvider } from '../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchCampaigns, fetchTherapists, fetchNewsList, fetchConfirmedShifts, fetchBusinessDayCutoff, getJstBusinessDateStr } from '../../../lib/storeApi';
 import { DIARY_FEATURE_ENABLED } from '../../../lib/featureFlags';
+import { publicBasePath } from '../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 
@@ -25,7 +27,9 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
 
   // 深夜営業のシフトが日付を跨いでも「本日出勤」が正しく判定されるよう、
   // 店舗の営業日切り替え時刻を考慮したJST基準の営業日を使う（他ページと同じ方式）。
@@ -75,7 +79,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               {todayTherapists.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                   {todayTherapists.map((therapist, idx) => (
-                    <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} index={idx} />
+                    <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} basePath={basePath} index={idx} />
                   ))}
                 </div>
               ) : (
@@ -85,7 +89,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               )}
 
               <div className="text-center pt-4">
-                <Link href={`/${shopSlug}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
+                <Link href={`${basePath}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
                   セラピスト一覧を見る 🐾
                 </Link>
               </div>
@@ -133,7 +137,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </div>
 
               <div className="text-center pt-2">
-                <Link href={`/${shopSlug}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
+                <Link href={`${basePath}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
                   写メ日記 一覧はこちら
                 </Link>
               </div>

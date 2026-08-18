@@ -8,6 +8,8 @@ import { Therapist } from '../../types/store';
 interface TherapistCardProps {
   therapist: Therapist;
   storeSlug: string;
+  /** 内部リンクの先頭パス。独自ドメインでは ''、SaaS本体では `/${storeSlug}` （lib/shopDomains.ts 参照） */
+  basePath?: string;
   confirmedShiftTime?: string;
   showTodayBadge?: boolean;
   primaryColor?: string;
@@ -17,12 +19,13 @@ interface TherapistCardProps {
 export const TherapistCard: React.FC<TherapistCardProps> = ({
   therapist,
   storeSlug,
+  basePath,
   confirmedShiftTime,
   showTodayBadge = false,
   primaryColor = '#d1b464',
   index = 0,
 }) => {
-  const detailUrl = `/${storeSlug}/therapists/${therapist.id}`;
+  const detailUrl = `${basePath ?? `/${storeSlug}`}/therapists/${therapist.id}`;
   const reserveUrl = `/reserve/${storeSlug}?therapist_id=${therapist.id}`;
   const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff6fb5';
 

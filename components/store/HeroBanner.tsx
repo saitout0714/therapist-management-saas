@@ -70,6 +70,7 @@ interface HeroBannerProps {
 export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
+  const basePath = store.basePath ?? `/${store.slug}`;
 
   // ループの始まりはHERO画像（isRevealed=true）。しばらく表示した後、
   // 一瞬だけネオンサインのロゴ点灯演出を挟んでから、また画像に戻る。
@@ -191,7 +192,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
               <div className="cyber-card grid grid-cols-3 gap-1.5 sm:gap-2 p-1.5 rounded-2xl">
               {/* 1. セラピスト一覧 */}
               <a
-                href={`/${store.slug}/therapists`}
+                href={`${basePath}/therapists`}
                 className="flex flex-col items-center justify-center py-3 sm:py-4 px-2 rounded-xl bg-gradient-to-br from-[#ff6fb5] to-[#ff9fdd] text-white active:scale-95 neon-glow-btn group"
               >
                 <span className="text-xs sm:text-sm font-extrabold tracking-wider group-hover:scale-105 transition-transform">
@@ -204,7 +205,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
               {/* 2. 出勤スケジュール */}
               <a
-                href={`/${store.slug}/schedule`}
+                href={`${basePath}/schedule`}
                 className="flex flex-col items-center justify-center py-3 sm:py-4 px-2 rounded-xl bg-gradient-to-br from-[#ff6fb5] to-[#cf82d8] text-white active:scale-95 neon-glow-btn group"
               >
                 <span className="text-xs sm:text-sm font-extrabold tracking-wider group-hover:scale-105 transition-transform">

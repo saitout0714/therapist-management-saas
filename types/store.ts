@@ -10,6 +10,9 @@ export type StoreSectionType =
 export interface StoreConfig {
   id: string;
   slug: string;
+  /** 店舗ページ内部リンクの先頭パス。独自ドメインでは ''（店舗slugを付けない）、
+   *  SaaS本体(yoyakl.tokyo)では `/${slug}` になる。lib/shopDomains.ts の publicBasePath() が算出する。 */
+  basePath?: string;
   name: string;
   catchphrase: string;
   logoUrl?: string;

@@ -41,11 +41,18 @@ export function middleware(request: NextRequest) {
   const matchedSlug = SHOP_DOMAIN_MAP[hostname];
 
   // パスがルート `/` や特定のページで独自ドメインアクセスの場合、`/[shopSlug]` へリライト
+  //
+  // `/reserve/[code]` は [shopSlug] 配下ではなくアプリのルート直下に存在する
+  // 本番予約エンジンで、WEB予約ボタン等は全店舗共通で `/reserve/<slug>` に
+  // 直接リンクしている。ここを除外しないと独自ドメイン上で
+  // `/onyankospa/reserve/onyankospa` のように二重リライトされ、
+  // WEB予約ボタンを押すと必ず404になる。
   if (
     matchedSlug &&
     !url.pathname.startsWith(`/${matchedSlug}`) &&
     !url.pathname.startsWith('/api') &&
     !url.pathname.startsWith('/_next') &&
+    !url.pathname.startsWith('/reserve') &&
     !isRootAsset(url.pathname)
   ) {
     url.pathname = `/${matchedSlug}${url.pathname}`;

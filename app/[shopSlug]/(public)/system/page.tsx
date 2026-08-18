@@ -1,10 +1,12 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { ThemeProvider } from '../../../../components/store/ThemeProvider';
 import { fetchStoreConfig, fetchSystemCourses, fetchSystemExtras } from '../../../../lib/storeApi';
 import { SystemMenuCategory } from '../../../../types/store';
+import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -16,7 +18,9 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
   const [cList, extras] = await Promise.all([
     fetchSystemCourses(store.id),
     fetchSystemExtras(store.id),

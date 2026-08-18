@@ -1,8 +1,10 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { Header } from '../../../../components/store/Header';
 import { PageHeading } from '../../../../components/store/SectionHeading';
 import { Footer } from '../../../../components/store/Footer';
 import { fetchStoreConfig } from '../../../../lib/storeApi';
+import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 
@@ -11,7 +13,9 @@ export default async function RecruitPage({ params }: { params: Promise<{ shopSl
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
 
-  const store = await fetchStoreConfig(shopSlug);
+  const host = (await headers()).get('host');
+  const basePath = publicBasePath(host, shopSlug);
+  const store = { ...(await fetchStoreConfig(shopSlug)), basePath };
 
   const isCyberTheme = shopSlug === 'onyankospa';
 
