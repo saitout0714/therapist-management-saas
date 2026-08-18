@@ -10,6 +10,8 @@ interface SectionHeadingProps {
   subtitle: string;
   /** サイバーネオンテーマかどうか */
   isCyber?: boolean;
+  /** 大理石×ゴールドのラグジュアリーテーマ（SpecialGrade）かどうか */
+  isLuxury?: boolean;
   /** 見出しの寄せ。既定は中央 */
   align?: 'center' | 'left';
   /** 見出しの大きさ。サイドカラム用に小さくしたい時は sm */
@@ -37,11 +39,37 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
   title,
   subtitle,
   isCyber = false,
+  isLuxury = false,
   align = 'center',
   size = 'md',
   className = '',
 }) => {
   const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
+
+  if (isLuxury) {
+    return (
+      <div
+        ref={ref}
+        className={`flex flex-col ${align === 'center' ? 'items-center text-center' : 'items-start text-left'} ${className}`}
+      >
+        <span
+          className={`font-luxury-display italic text-[#a8874a] leading-tight ${size === 'md' ? 'text-lg sm:text-xl' : 'text-base'}`}
+        >
+          {title}
+        </span>
+        <h2
+          className={`font-luxury-display font-semibold text-[#2b2b2b] mt-1 tracking-wide ${
+            size === 'md' ? 'text-2xl sm:text-3xl' : 'text-xl'
+          }`}
+        >
+          {subtitle}
+        </h2>
+        <div
+          className={`luxury-gold-rule luxury-rule-draw mt-4 ${size === 'md' ? 'w-20' : 'w-14'} ${inView ? 'is-in' : ''}`}
+        />
+      </div>
+    );
+  }
 
   if (!isCyber) {
     return (
@@ -86,9 +114,22 @@ export const PageHeading: React.FC<Omit<SectionHeadingProps, 'align' | 'size'>> 
   title,
   subtitle,
   isCyber = false,
+  isLuxury = false,
   className = '',
 }) => {
   const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
+
+  if (isLuxury) {
+    return (
+      <div ref={ref} className={`flex flex-col items-center text-center ${className}`}>
+        <span className="font-luxury-display italic text-lg sm:text-xl text-[#a8874a] leading-tight">{title}</span>
+        <h1 className="font-luxury-display font-semibold text-2xl sm:text-3xl text-[#2b2b2b] mt-1 tracking-wide">
+          {subtitle}
+        </h1>
+        <div className={`luxury-gold-rule luxury-rule-draw mt-4 w-20 ${inView ? 'is-in' : ''}`} />
+      </div>
+    );
+  }
 
   if (!isCyber) {
     return (

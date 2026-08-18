@@ -32,11 +32,12 @@ export default async function TherapistsPage({ params }: { params: Promise<{ sho
   ]);
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const isLuxuryTheme = shopSlug === 'specialgrade';
 
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col relative ${
-        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
         <Header store={store} />
@@ -48,6 +49,7 @@ export default async function TherapistsPage({ params }: { params: Promise<{ sho
             shopSlug={shopSlug}
             basePath={basePath}
             isCyber={isCyberTheme}
+            isLuxury={isLuxuryTheme}
             primaryColor={store.themeColor?.primary}
           />
         </main>

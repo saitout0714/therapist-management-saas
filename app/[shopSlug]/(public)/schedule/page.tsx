@@ -37,11 +37,12 @@ export default async function SchedulePage({ params }: { params: Promise<{ shopS
   ]);
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const isLuxuryTheme = shopSlug === 'specialgrade';
 
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col relative ${
-        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="schedule" />}
         <Header store={store} />
@@ -51,6 +52,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ shopS
             title="Schedule"
             subtitle="週間出勤スケジュール (リアルタイム反映)"
             isCyber={isCyberTheme}
+            isLuxury={isLuxuryTheme}
             className="mb-8"
           />
 

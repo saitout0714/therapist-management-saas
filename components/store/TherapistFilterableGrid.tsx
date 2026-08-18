@@ -12,6 +12,7 @@ interface TherapistFilterableGridProps {
   shopSlug: string;
   basePath?: string;
   isCyber: boolean;
+  isLuxury?: boolean;
   primaryColor?: string;
 }
 
@@ -30,6 +31,7 @@ export const TherapistFilterableGrid: React.FC<TherapistFilterableGridProps> = (
   shopSlug,
   basePath,
   isCyber,
+  isLuxury = false,
   primaryColor,
 }) => {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export const TherapistFilterableGrid: React.FC<TherapistFilterableGridProps> = (
   return (
     <>
       <div className="text-center mb-8">
-        <PageHeading title="Therapist" subtitle="セラピスト一覧" isCyber={isCyber} />
+        <PageHeading title="Therapist" subtitle="セラピスト一覧" isCyber={isCyber} isLuxury={isLuxury} />
 
         <TherapistFilter
           tags={allTags}

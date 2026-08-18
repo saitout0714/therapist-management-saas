@@ -771,7 +771,127 @@ input[type="time"]::-webkit-datetime-edit {
   text-shadow: 0 0 10px rgba(255, 111, 181, 0.8);
 }
 
+/* ==========================================================================
+ * 🤍 Uncompromising Marble Luxury Theme for SpecialGrade
+ * 大理石の静けさに、シャンパンゴールドの細い光が差し込むイメージ。
+ * ベースはやわらかな生成り〜ライトグレー、アクセントはベージュとゴールド。
+ * onyankospa のネオンテーマと同様、この変数とクラス群だけで完結し、
+ * 他店舗の見た目には一切影響しない。
+ * ========================================================================== */
+:root {
+  --luxury-gold: #c9a869;
+  --luxury-gold-soft: #e4d3a8;
+  --luxury-gold-deep: #a8874a;
+  --luxury-beige: #f1e9db;
+  --luxury-beige-deep: #e9dcc4;
+  --luxury-ink: #2b2b2b;
+  --luxury-ink-soft: #6b6459;
+  --luxury-paper: #faf9f6;
+}
 
+.luxury-marble-bg {
+  background-color: var(--luxury-paper);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(201, 168, 105, 0.07) 0%, rgba(201, 168, 105, 0) 32%),
+    radial-gradient(circle at 88% 0%, rgba(107, 100, 89, 0.05) 0%, rgba(107, 100, 89, 0) 28%),
+    radial-gradient(circle at 50% 100%, rgba(201, 168, 105, 0.05) 0%, rgba(201, 168, 105, 0) 40%),
+    linear-gradient(180deg, #ffffff 0%, var(--luxury-paper) 100%);
+  background-attachment: fixed;
+  color: var(--luxury-ink);
+}
 
+.luxury-body {
+  font-family: var(--font-jp), "Noto Sans JP", sans-serif;
+}
+
+.font-luxury-display {
+  font-family: var(--font-luxury-serif), "Noto Serif JP", serif;
+  letter-spacing: 0.04em;
+}
+
+/* 極細のシャンパンゴールド・グラデーション枠線（二重レイヤー方式） */
+.luxury-gold-border {
+  position: relative;
+}
+
+.luxury-gold-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--luxury-gold-soft) 0%, var(--luxury-gold) 45%, var(--luxury-gold-deep) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.75;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.luxury-gold-border:hover::before {
+  opacity: 1;
+}
+
+.luxury-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 18px rgba(43, 43, 43, 0.06);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+.luxury-card:hover {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 14px 34px rgba(168, 135, 74, 0.18);
+}
+
+.luxury-gold-btn {
+  background: linear-gradient(90deg, var(--luxury-gold-deep) 0%, var(--luxury-gold) 50%, var(--luxury-gold-soft) 100%);
+  transition: filter 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.luxury-gold-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(168, 135, 74, 0.32);
+}
+
+.luxury-gold-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--luxury-gold), transparent);
+}
+
+/* スクロールで下からふわっと現れる（useInViewOnce のフックを流用） */
+.luxury-fade-up {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-fade-up.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.luxury-rule-draw {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
+}
+
+.luxury-rule-draw.is-in {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxury-fade-up,
+  .luxury-rule-draw {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
 
 

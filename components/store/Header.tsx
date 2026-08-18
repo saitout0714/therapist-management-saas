@@ -46,20 +46,25 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
+  const isLuxuryTheme = store.slug === 'specialgrade';
 
   return (
     <>
       <header className={`sticky top-0 z-40 backdrop-blur-xl border-b ${
         isCyberTheme
           ? 'bg-[#150e20]/85 border-[#ff6fb5]/35 text-[#f4eefa] shadow-[0_6px_28px_rgba(255,111,181,0.22)]'
+          : isLuxuryTheme
+          ? 'bg-white/95 border-[#e9dcc4] text-[#2b2b2b] luxury-body shadow-sm'
           : 'bg-white/95 border-stone-200 text-stone-800 font-serif shadow-sm'
       }`}>
         {store.noticeBanner && (
           <div
-            style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+            style={{ backgroundColor: isCyberTheme || isLuxuryTheme ? undefined : primaryColor }}
             className={`text-xs py-1.5 px-4 text-center font-bold tracking-widest shadow-md ${
               isCyberTheme
                 ? 'bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] neon-on-pink shadow-[0_0_18px_rgba(255,111,181,0.5)]'
+                : isLuxuryTheme
+                ? 'luxury-gold-btn text-white'
                 : 'text-white'
             }`}
           >
@@ -81,6 +86,15 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   className="object-contain object-left transition-transform group-hover:scale-102 rounded-md shadow-sm"
                   onError={() => setImageError(true)}
                 />
+              </div>
+            ) : isLuxuryTheme ? (
+              <div className="flex flex-col leading-none">
+                <span className="font-luxury-display italic text-2xl text-[#a8874a] group-hover:text-[#c9a869] transition-colors">
+                  Sg
+                </span>
+                <span className="text-[10px] font-semibold tracking-[0.25em] text-[#6b6459] mt-0.5">
+                  {store.name.toUpperCase()} | MENS ESTHETIC
+                </span>
               </div>
             ) : (
               <div className="flex flex-col">
@@ -107,6 +121,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                 className={`relative px-3 py-2 text-xs font-semibold tracking-widest transition-all duration-300 ${
                   isCyberTheme
                     ? 'text-[#ded1ee] hover:text-[#ffa8d8] after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-[#ff6fb5] after:to-[#cf82d8] after:shadow-[0_0_10px_rgba(255,111,181,0.7)] after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100'
+                    : isLuxuryTheme
+                    ? 'text-[#2b2b2b] hover:text-[#a8874a] after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-px after:bg-[#c9a869] after:scale-x-0 after:origin-left after:transition-transform after:duration-300 hover:after:scale-x-100'
                     : 'text-stone-700 hover:opacity-80'
                 }`}
               >
@@ -152,14 +168,16 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
             <Link
               href={reservePath}
-              style={{ backgroundColor: isCyberTheme ? undefined : primaryColor }}
+              style={{ backgroundColor: isCyberTheme || isLuxuryTheme ? undefined : primaryColor }}
               className={`ml-3 px-6 py-2.5 text-white text-xs font-bold tracking-widest transition-all ${
                 isCyberTheme
                   ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                  : isLuxuryTheme
+                  ? 'rounded-full luxury-gold-btn shadow-md'
                   : 'rounded-sm shadow-md hover:brightness-110'
               }`}
             >
-              WEB予約 🐾
+              {isLuxuryTheme ? 'RESERVE' : 'WEB予約 🐾'}
             </Link>
           </nav>
 
@@ -198,17 +216,21 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
       <div
         className={`fixed inset-y-0 right-0 z-[100] w-full max-w-xs sm:max-w-sm flex flex-col justify-between p-6 overflow-y-auto lg:hidden transition-transform duration-300 ease-out transform ${
           isOpen
-            ? 'translate-x-0 shadow-[-20px_0_60px_rgba(255,111,181,0.5)]'
+            ? `translate-x-0 ${isCyberTheme ? 'shadow-[-20px_0_60px_rgba(255,111,181,0.5)]' : 'shadow-[-12px_0_40px_rgba(0,0,0,0.12)]'}`
             : 'translate-x-full shadow-none'
         } ${
           isCyberTheme
             ? 'bg-[#0d061e]/45 backdrop-blur-2xl border-l-2 border-[#ff6fb5]/70 text-[#f4eefa]'
+            : isLuxuryTheme
+            ? 'bg-white border-l border-[#e9dcc4] text-[#2b2b2b] luxury-body'
             : 'bg-white/95 backdrop-blur-xl border-l border-[#d1b464]/30 text-stone-800 font-serif'
         }`}
       >
         {/* ドロワーヘッダー */}
         <div>
-          <div className="flex items-center justify-between pb-4 border-b border-[#ff6fb5]/40 mb-5">
+          <div className={`flex items-center justify-between pb-4 border-b mb-5 ${
+            isCyberTheme ? 'border-[#ff6fb5]/40' : isLuxuryTheme ? 'border-[#e9dcc4]' : 'border-stone-200'
+          }`}>
             {isCyberTheme ? (
               <>
                 <div className="flex items-center gap-2 text-[11px] font-mono text-[#ffa8d8] tracking-widest uppercase drop-shadow-[0_0_6px_#ff6fb5]">
@@ -225,10 +247,10 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               </>
             ) : (
               <>
-                <span className="text-xs font-bold tracking-widest text-stone-500">MENU</span>
+                <span className={`text-xs font-bold tracking-widest ${isLuxuryTheme ? 'text-[#a8874a]' : 'text-stone-500'}`}>MENU</span>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1 text-stone-600 hover:text-stone-900 text-lg font-bold"
+                  className={`p-1 text-lg font-bold ${isLuxuryTheme ? 'text-[#6b6459] hover:text-[#2b2b2b]' : 'text-stone-600 hover:text-stone-900'}`}
                   aria-label="閉じる"
                 >
                   ✕
@@ -248,6 +270,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                 className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-300 ${
                   isCyberTheme
                     ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
+                    : isLuxuryTheme
+                    ? 'border-[#f1e9db] hover:bg-[#f1e9db]/50 hover:text-[#a8874a]'
                     : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
                 } ${isOpen ? 'cyber-link-anim' : ''}`}
               >
@@ -280,7 +304,9 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         </div>
 
         {/* ドロワーフッターアクション */}
-        <div className="pt-5 border-t border-[#ff6fb5]/30 mt-6 space-y-3">
+        <div className={`pt-5 mt-6 space-y-3 border-t ${
+          isCyberTheme ? 'border-[#ff6fb5]/30' : isLuxuryTheme ? 'border-[#e9dcc4]' : 'border-stone-200'
+        }`}>
           {(store.xUrl || store.lineUrl) && (
             <div className="flex items-center justify-center gap-3 pb-1">
               {store.xUrl && (
@@ -292,6 +318,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   className={`w-11 h-11 flex items-center justify-center rounded-full border transition-all ${
                     isCyberTheme
                       ? 'border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-white hover:bg-[#ff6fb5]/20'
+                      : isLuxuryTheme
+                      ? 'border-[#e9dcc4] text-[#6b6459] hover:border-[#c9a869] hover:text-[#a8874a]'
                       : 'border-stone-300 text-stone-600 hover:border-stone-500 hover:bg-stone-50'
                   }`}
                 >
@@ -321,10 +349,12 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             className={`block w-full py-3 text-center text-white font-extrabold text-sm tracking-widest active:scale-95 transition-all duration-300 ${
               isCyberTheme
                 ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] shadow-[0_0_20px_rgba(255,111,181,0.6)]'
+                : isLuxuryTheme
+                ? 'rounded-full luxury-gold-btn shadow-md'
                 : 'rounded-xl shadow-md bg-gradient-to-r from-[#d1b464] to-[#a39573]'
             }`}
           >
-            🐾 24H WEB予約はこちら 🐾
+            {isLuxuryTheme ? 'ONLINE RESERVATION' : '🐾 24H WEB予約はこちら 🐾'}
           </Link>
 
           {isCyberTheme && (

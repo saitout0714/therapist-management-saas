@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Montserrat, Noto_Sans_JP, Great_Vibes } from "next/font/google";
+import { Geist, Geist_Mono, Montserrat, Noto_Sans_JP, Great_Vibes, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { TherapistAuthProvider } from "@/contexts/TherapistAuthContext";
 
@@ -38,6 +38,18 @@ const greatVibes = Great_Vibes({
   display: "swap",
 });
 
+/*
+ * SpecialGrade（ラグジュアリーテーマ）の見出し用セリフ体。
+ * 変数として配るだけなので、他店舗の見た目は変わらない。
+ */
+const playfairDisplay = Playfair_Display({
+  variable: "--font-luxury-serif",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -60,7 +72,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${notoSansJP.variable} ${greatVibes.variable} antialiased bg-gray-100`}
+        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${notoSansJP.variable} ${greatVibes.variable} ${playfairDisplay.variable} antialiased bg-gray-100`}
       >
         <TherapistAuthProvider>
           {children}
