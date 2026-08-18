@@ -615,7 +615,9 @@ export async function fetchSystemCourses(shopId?: string): Promise<SystemMenuCat
 
     const categoryMap: { [catName: string]: CourseOption[] } = {};
     for (const c of data) {
-      const catName = c.category_name || (isOnyanko ? 'Standard Onyanko Aroma (スタンダードアロマ)' : '基本アロマリフレッシュコース');
+      // カテゴリ名が未入力のコースは、以前のサンプルデータ由来の固定文言（例文と偶然一致し
+      // 「入力していないのに表示される」と誤解を招いていた）ではなく、中立な既定名でまとめる。
+      const catName = c.category_name || 'コース';
       if (!categoryMap[catName]) {
         categoryMap[catName] = [];
       }
