@@ -74,8 +74,8 @@ export default function OwnerStoreSettingPage() {
     content: '',
     category: 'お知らせ',
   })
-  // 編集中のトピックスID。null なら新規投稿モード。
-  const [editingNewsId, setEditingNewsId] = useState<string | null>(null)
+  // 編集ポップアップで表示中のトピックス。null なら閉じている。
+  const [editingNews, setEditingNews] = useState<NewsItemData | null>(null)
 
   // 求人情報入力
   const [recruitForm, setRecruitForm] = useState({
@@ -287,36 +287,10 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
-  // トピックス投稿・更新（editingNewsId が立っていれば更新、無ければ新規投稿）
-  const handleSaveNews = async () => {
+  // トピックス新規投稿
+  const handleAddNews = async () => {
     if (!newNews.title || !newNews.content || !shopId) {
       alert('トピックスのタイトルと本文を入力してください。')
-      return
-    }
-
-    if (editingNewsId) {
-      try {
-        const { data: updated, error: err } = await supabase
-          .from('news_items')
-          .update({
-            title: newNews.title,
-            content: newNews.content,
-            category: newNews.category || 'お知らせ',
-          })
-          .eq('id', editingNewsId)
-          .select()
-          .single()
-
-        if (err) throw err
-
-        if (updated) {
-          setNewsList((prev) => prev.map((n) => (n.id === editingNewsId ? updated : n)))
-          handleCancelEditNews()
-          alert('トピックスを更新しました！')
-        }
-      } catch (err: any) {
-        alert('トピックス更新失敗: ' + err.message)
-      }
       return
     }
 
@@ -347,19 +321,45 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
-  // トピックス編集開始（一覧の内容をフォームに読み込む）
+  // トピックス編集: ポップアップを開き、その項目の内容を読み込む
   const handleEditNewsClick = (n: NewsItemData) => {
-    setEditingNewsId(n.id || null)
-    setNewNews({ title: n.title, content: n.content, category: n.category || 'お知らせ' })
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    setEditingNews({ ...n })
   }
 
-  // トピックス編集キャンセル
+  // 編集ポップアップを閉じる
   const handleCancelEditNews = () => {
-    setEditingNewsId(null)
-    setNewNews({ title: '', content: '', category: 'お知らせ' })
+    setEditingNews(null)
+  }
+
+  // 編集ポップアップの保存
+  const handleUpdateNews = async () => {
+    if (!editingNews?.id || !editingNews.title || !editingNews.content) {
+      alert('トピックスのタイトルと本文を入力してください。')
+      return
+    }
+
+    try {
+      const { data: updated, error: err } = await supabase
+        .from('news_items')
+        .update({
+          title: editingNews.title,
+          content: editingNews.content,
+          category: editingNews.category || 'お知らせ',
+        })
+        .eq('id', editingNews.id)
+        .select()
+        .single()
+
+      if (err) throw err
+
+      if (updated) {
+        setNewsList((prev) => prev.map((n) => (n.id === editingNews.id ? updated : n)))
+        setEditingNews(null)
+        alert('トピックスを更新しました！')
+      }
+    } catch (err: any) {
+      alert('トピックス更新失敗: ' + err.message)
+    }
   }
 
   // トピックス削除
@@ -368,7 +368,7 @@ export default function OwnerStoreSettingPage() {
     const { error: err } = await supabase.from('news_items').delete().eq('id', newsId)
     if (!err) {
       setNewsList((prev) => prev.filter((n) => n.id !== newsId))
-      if (editingNewsId === newsId) handleCancelEditNews()
+      if (editingNews?.id === newsId) setEditingNews(null)
     } else {
       alert('削除失敗: ' + err.message)
     }
@@ -773,9 +773,7 @@ export default function OwnerStoreSettingPage() {
         <div className="space-y-6">
           {/* 新規投稿 */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">
-              {editingNewsId ? '✎ トピックスの編集' : '📝 新しいトピックス（お知らせ）の投稿'}
-            </h2>
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">📝 新しいトピックス（お知らせ）の投稿</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
@@ -811,24 +809,13 @@ export default function OwnerStoreSettingPage() {
               />
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSaveNews}
-                className="btn-primary flex-1 py-2.5"
-              >
-                {editingNewsId ? '✎ トピックスを更新' : '＋ トピックスを投稿してHPへ即時反映'}
-              </button>
-              {editingNewsId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEditNews}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all"
-                >
-                  キャンセル
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleAddNews}
+              className="btn-primary w-full py-2.5"
+            >
+              ＋ トピックスを投稿してHPへ即時反映
+            </button>
           </div>
 
           {/* 投稿済みトピックス一覧 */}
@@ -870,6 +857,69 @@ export default function OwnerStoreSettingPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* トピックス編集ポップアップ */}
+      {editingNews && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+          onClick={handleCancelEditNews}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">✎ トピックスの編集</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">タイトル</label>
+                <input
+                  type="text"
+                  value={editingNews.title}
+                  onChange={(e) => setEditingNews({ ...editingNews, title: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">カテゴリー</label>
+                <input
+                  type="text"
+                  value={editingNews.category}
+                  onChange={(e) => setEditingNews({ ...editingNews, category: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">本文内容</label>
+              <textarea
+                rows={4}
+                value={editingNews.content}
+                onChange={(e) => setEditingNews({ ...editingNews, content: e.target.value })}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed text-slate-800"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleUpdateNews}
+                className="btn-primary flex-1 py-2.5"
+              >
+                保存する
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEditNews}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all"
+              >
+                キャンセル
+              </button>
+            </div>
           </div>
         </div>
       )}
