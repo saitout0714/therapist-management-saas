@@ -597,53 +597,22 @@ export async function fetchTherapistsFromEstama(
       throw new Error(`エステ魂ログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(${errorMsg.trim()})`);
     }
 
-    // 本日のスケジュール / セラピスト一覧ページへ
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
+    // セラピスト一覧ページ (/admin/cast/) へ移動して全セラピストのIDと名前を取得
+    // ※通常のシフト同期(syncShiftsToEstama)で実績のあるURL・抽出方法と揃える。
+    //   以前は存在しない /admin/schedule/{日付}/ にアクセスして常に404・0件になっていた。
+    await page.goto('https://estama.jp/admin/cast/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
-    const scheduleUrl = `https://estama.jp/admin/schedule/${dateStr}/`;
-    await page.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
-
-    // ページ全体のリンクやセレクトボックスからセラピスト情報（IDと名前）を柔軟に抽出
     const therapists = await page.evaluate(() => {
       const list: { id: string; name: string }[] = [];
       const seen = new Set<string>();
 
-      // 1. /schedule/ID/ 形式のリンクから抽出
-      const links = document.querySelectorAll('a[href*="/schedule/"]');
-      links.forEach(a => {
+      document.querySelectorAll('a').forEach(a => {
         const href = a.getAttribute('href') || '';
-        const match = href.match(/\/schedule\/(\d+)\/?/);
+        const match = href.match(/\/cast_edit\/(\d+)\/?/) || href.match(/\/cast\/(\d+)\/?/);
         const name = a.textContent?.trim() || '';
-        if (match && match[1] && name && !seen.has(match[1])) {
+        if (match && match[1] && name && name !== '編集' && name !== '編 執' && !seen.has(match[1])) {
           seen.add(match[1]);
           list.push({ id: match[1], name });
-        }
-      });
-
-      // 2. セレクトボックスのoptionから抽出
-      const options = document.querySelectorAll('select option');
-      options.forEach(opt => {
-        const val = (opt as HTMLOptionElement).value;
-        const name = opt.textContent?.trim() || '';
-        if (val && /^\d+$/.test(val) && name && !seen.has(val)) {
-          seen.add(val);
-          list.push({ id: val, name });
-        }
-      });
-
-      // 3. テーブル行から抽出
-      const rows = document.querySelectorAll('tr');
-      rows.forEach(tr => {
-        const id = tr.getAttribute('data-girl-id') || (tr as any).querySelector?.('input[name*="id"]')?.value || '';
-        const nameEl = tr.querySelector('td:nth-child(2), .name');
-        const name = nameEl?.textContent?.trim() || '';
-        if (id && name && !seen.has(id)) {
-          seen.add(id);
-          list.push({ id, name });
         }
       });
 
