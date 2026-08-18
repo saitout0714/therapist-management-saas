@@ -57,31 +57,17 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     shiftMap.set(`${s.therapistId}_${s.date}`, s);
   });
 
-  const hasRealShifts = confirmedShifts.length > 0;
-
   // 選択された日付の出勤セラピストとシフト時間のリストを抽出
-  const selectedDayIndex = days.findIndex((d) => d.fullDate === selectedDate);
   const selectedDayObj = days.find((d) => d.fullDate === selectedDate) || days[0];
 
   const workingTherapistsWithShift = therapists
     .map((th) => {
       const shift = shiftMap.get(`${th.id}_${selectedDate}`);
-      const isWorkingFallback =
-        !hasRealShifts &&
-        ((th.id.charCodeAt(th.id.length - 1) + (selectedDayIndex >= 0 ? selectedDayIndex : 0)) % 2 === 0 ||
-          selectedDayObj.isToday);
-
-      const startTime = shift ? shift.startTime : isWorkingFallback ? '13:00' : null;
-      const shiftTime = shift
-        ? `${shift.startTime}~${shift.endTime}`
-        : isWorkingFallback
-        ? '13:00~22:00'
-        : null;
 
       return {
         therapist: th,
-        shiftTime,
-        startTime,
+        shiftTime: shift ? `${shift.startTime}~${shift.endTime}` : null,
+        startTime: shift ? shift.startTime : null,
       };
     })
     .filter((item) => item.shiftTime !== null)

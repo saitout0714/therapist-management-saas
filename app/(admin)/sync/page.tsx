@@ -190,7 +190,7 @@ export default function SyncPage() {
     const targetSite = activeTab === 'esthe_ranking' ? 'esthe_ranking' : 'estama';
     const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
 
-    if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期（新規登録または上書き更新）しますか？\n※人数が多い場合は数分かかることがあります。`)) return;
+    if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期します。\n${siteName}側に既に同名のプロフィールがあれば自動的に紐付けて更新し、なければ新規登録します（重複登録の心配はありません）。\n※人数が多い場合は数分かかることがあります。`)) return;
 
     setIsSyncing(true);
     setSyncProgressText('対象セラピストを取得中...');
@@ -224,38 +224,6 @@ export default function SyncPage() {
       alert(`バックグラウンドで全キャスト（${therapists.length}人）の${siteName}への同期を開始しました！\n完了状態は「同期履歴」から確認できます。`);
     } catch (err: any) {
       setSyncProgressText('');
-      alert(err.message);
-    } finally {
-      setIsSyncing(false);
-      setSyncProgressText('');
-    }
-  };
-
-  const handleMatchExistingTherapists = async () => {
-    if (!selectedShop) return;
-
-    const matchEndpoint = activeTab === 'esthe_ranking' ? '/api/sync/esthe-ranking-match' : '/api/sync/estama-match';
-    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
-
-    if (!confirm(`${siteName}側に既に登録済みのプロフィールを名前で検索し、yoyakl側のセラピストと自動で紐付けます（新規登録は行いません）。\n実行しますか？\n※ポータルサイトへのログインを伴うため、数十秒かかることがあります。`)) return;
-
-    setIsSyncing(true);
-    setSyncProgressText('ポータルサイト側のプロフィールを照合中...');
-
-    try {
-      const res = await fetch(matchEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopId: selectedShop.id }),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'リクエスト失敗');
-      }
-
-      alert(data?.message || '照合が完了しました。');
-    } catch (err: any) {
       alert(err.message);
     } finally {
       setIsSyncing(false);
@@ -425,21 +393,7 @@ export default function SyncPage() {
                   <li>一言コメント（自己紹介）</li>
                   <li>プロフィール写真（画像の自動アップロード）</li>
                 </ul>
-                <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は情報を上書き更新し、いない場合は新規登録として追加します。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">既存プロフィールと自動照合（連携が切れている場合）</h3>
-                  <p className="text-xs text-slate-500 mt-1">ポータル側に既にプロフィールが存在するのにyoyakl側で連携IDが未設定のキャストを、名前の一致で自動的に紐付け直します。新規登録は行わないため重複プロフィールは作られません。出勤が同期されない場合はまずこちらをお試しください。</p>
-                </div>
-                <button
-                  onClick={handleMatchExistingTherapists}
-                  disabled={isSyncing || !isCurrentTabConfigured}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-white border-2 border-slate-700 text-slate-700 rounded-lg hover:bg-slate-50 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
-                >
-                  {isSyncing ? (syncProgressText || '照合中...') : '既存プロフィールと自動照合'}
-                </button>
+                <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は自動で連携IDを紐付けて情報を上書き更新し、いない場合は新規登録として追加します（重複登録は作られません）。出勤・予約が同期されない場合、まずここで一括同期をお試しください。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
               </div>
             </div>
           </div>
