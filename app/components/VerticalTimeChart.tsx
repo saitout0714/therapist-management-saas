@@ -219,7 +219,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   // 深夜帯は 24:00〜29:55 の営業日表記で通す（0:00〜5:55 に折り返さない）
   const timeSlots = useMemo(() => {
     const slots: string[] = [];
-    for (let h = 10; h < 30; h++) {
+    for (let h = 9; h < 30; h++) {
       for (let m = 0; m < 60; m += 5) {
         slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
       }
@@ -229,7 +229,7 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
   const hourLabels = useMemo(() => {
     const labels: string[] = [];
-    for (let h = 10; h < 30; h++) {
+    for (let h = 9; h < 30; h++) {
       labels.push(`${String(h).padStart(2, '0')}:00`);
     }
     return labels;
@@ -237,10 +237,10 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
 
   const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
-    if (hours >= 10) {
-      return (hours - 10) * 60 + minutes;
+    if (hours >= 9) {
+      return (hours - 9) * 60 + minutes;
     } else {
-      return (24 - 10) * 60 + hours * 60 + minutes;
+      return (24 - 9) * 60 + hours * 60 + minutes;
     }
   };
 
@@ -297,9 +297,9 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             const sm = parseInt(parts[1], 10);
             if (!isNaN(sh) && !isNaN(sm)) {
               let adjustedHour = sh;
-              if (sh < 10) adjustedHour += 24;
-              if (adjustedHour >= 10 && adjustedHour <= 29) {
-                idx = (adjustedHour - 10) * 12 + Math.floor(sm / 5);
+              if (sh < 9) adjustedHour += 24;
+              if (adjustedHour >= 9 && adjustedHour <= 29) {
+                idx = (adjustedHour - 9) * 12 + Math.floor(sm / 5);
                 foundTime = true;
               }
             }
@@ -316,9 +316,9 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
             const h = now.getHours();
             const m = now.getMinutes();
             let adjustedHour = h;
-            if (h < 10) adjustedHour += 24;
-            if (adjustedHour >= 10 && adjustedHour <= 29) {
-              idx = (adjustedHour - 10) * 12 + Math.floor(m / 5);
+            if (h < 9) adjustedHour += 24;
+            if (adjustedHour >= 9 && adjustedHour <= 29) {
+              idx = (adjustedHour - 9) * 12 + Math.floor(m / 5);
               foundTime = true;
             }
           }
@@ -366,11 +366,11 @@ export const VerticalTimeChart: React.FC<VerticalTimeChartProps> = ({
   let seekIndex = 0;
 
   let adjustedNowHour = nowHour;
-  if (nowHour < 10) adjustedNowHour += 24;
+  if (nowHour < 9) adjustedNowHour += 24;
 
-  if (adjustedNowHour >= 10 && adjustedNowHour <= 29) {
+  if (adjustedNowHour >= 9 && adjustedNowHour <= 29) {
     showSeek = true;
-    seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
+    seekIndex = (adjustedNowHour - 9) * 12 + Math.floor(nowMin / 5);
   }
 
   // ルーム名の帯はどの並び順でも出す。ルーム順のときだけ連続する同じルームを1つにまとめる。

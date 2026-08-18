@@ -73,6 +73,9 @@ const dbToDisplay = (dbTime: string): string => {
   return dbTime.slice(0, 5)
 }
 
+// バカラグループ(周南下松/宇部/山口湯田/岩国)は新規シフトの初期開始時刻を9:00にする
+const BACCARAT_OWNER_ID = '016a4306-25d3-470b-8be4-11c4b01ef7b3'
+
 
 const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, onShiftUpdate, showOnlyWithShift = false }) => {
   const { selectedShop } = useShop()
@@ -91,6 +94,8 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
   const [searchQuery, setSearchQuery] = useState('')
 
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土']
+
+  const defaultStartTime = selectedShop?.owner_id === BACCARAT_OWNER_ID ? '09:00' : '10:00'
 
   const weekDates = useMemo(() => {
     const dates: Date[] = []
@@ -195,7 +200,7 @@ const WeeklyShiftCalendar: React.FC<WeeklyShiftCalendarProps> = ({ therapists, o
     setSelectedTherapistId(therapistId)
     setSelectedDate(date)
     setRoomId(existing?.room_id || '')
-    setStartTime(existing ? dbToDisplay(existing.start_time) : '10:00')
+    setStartTime(existing ? dbToDisplay(existing.start_time) : defaultStartTime)
     setEndTime(existing ? dbToDisplay(existing.end_time) : '18:00')
     setError('')
     setModalOpen(true)

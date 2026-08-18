@@ -202,7 +202,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
   const timeSlots = useMemo(() => {
     const slots = [];
-    for (let hour = 10; hour < 24; hour++) {
+    for (let hour = 9; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
       }
@@ -217,7 +217,7 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
   const hourLabels = useMemo(() => {
     const labels = [];
-    for (let hour = 10; hour < 24; hour++) {
+    for (let hour = 9; hour < 24; hour++) {
       labels.push(`${String(hour).padStart(2, '0')}時`);
     }
     for (let hour = 24; hour <= 29; hour++) {
@@ -228,10 +228,10 @@ const TimeChart: React.FC<TimeChartProps> = ({
 
   const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
-    if (hours >= 10) {
-      return (hours - 10) * 60 + minutes;
+    if (hours >= 9) {
+      return (hours - 9) * 60 + minutes;
     } else {
-      return (24 - 10) * 60 + hours * 60 + minutes;
+      return (24 - 9) * 60 + hours * 60 + minutes;
     }
   };
 
@@ -287,9 +287,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
             const sm = parseInt(parts[1], 10);
             if (!isNaN(sh) && !isNaN(sm)) {
               let adjustedHour = sh;
-              if (sh < 10) adjustedHour += 24;
-              if (adjustedHour >= 10 && adjustedHour <= 29) {
-                idx = (adjustedHour - 10) * 12 + Math.floor(sm / 5);
+              if (sh < 9) adjustedHour += 24;
+              if (adjustedHour >= 9 && adjustedHour <= 29) {
+                idx = (adjustedHour - 9) * 12 + Math.floor(sm / 5);
                 foundTime = true;
               }
             }
@@ -306,9 +306,9 @@ const TimeChart: React.FC<TimeChartProps> = ({
             const h = now.getHours();
             const m = now.getMinutes();
             let adjustedHour = h;
-            if (h < 10) adjustedHour += 24;
-            if (adjustedHour >= 10 && adjustedHour <= 29) {
-              idx = (adjustedHour - 10) * 12 + Math.floor(m / 5);
+            if (h < 9) adjustedHour += 24;
+            if (adjustedHour >= 9 && adjustedHour <= 29) {
+              idx = (adjustedHour - 9) * 12 + Math.floor(m / 5);
               foundTime = true;
             }
           }
@@ -362,11 +362,11 @@ const TimeChart: React.FC<TimeChartProps> = ({
   let seekIndex = 0;
 
   let adjustedNowHour = nowHour;
-  if (nowHour < 10) adjustedNowHour += 24;
+  if (nowHour < 9) adjustedNowHour += 24;
 
-  if (adjustedNowHour >= 10 && adjustedNowHour <= 29) {
+  if (adjustedNowHour >= 9 && adjustedNowHour <= 29) {
     showSeek = true;
-    seekIndex = (adjustedNowHour - 10) * 12 + Math.floor(nowMin / 5);
+    seekIndex = (adjustedNowHour - 9) * 12 + Math.floor(nowMin / 5);
   }
 
   // 表示・グループ判定ともにルーム名だけを使う（マンション名＝表示名は出さない）

@@ -191,6 +191,9 @@ interface Schedule {
 
 type ViewMode = 'day' | 'vertical' | 'week';
 
+// バカラグループ(周南下松/宇部/山口湯田/岩国)は新規シフトの初期開始時刻を9:00にする
+const BACCARAT_OWNER_ID = '016a4306-25d3-470b-8be4-11c4b01ef7b3';
+
 const getBusinessDate = () => {
   const now = new Date()
   if (now.getHours() < 6) now.setDate(now.getDate() - 1)
@@ -523,7 +526,9 @@ function ShiftsContent() {
       }
     }
 
-    const defaultStart = shift ? toDisplayTime(shift.start_time) : '10:00';
+    const defaultStart = shift
+      ? toDisplayTime(shift.start_time)
+      : (selectedShop.owner_id === BACCARAT_OWNER_ID ? '09:00' : '10:00');
     const defaultEnd = shift ? toDisplayTime(shift.end_time) : '18:00';
 
     const unresolvedMemos: TherapistMemo[] = (memosRes.data || []).map((m: any) => ({
