@@ -36,7 +36,35 @@ const nextConfig: any = {
         pathname: '/**',
       },
     ],
+    /*
+     * Vercelは /public のファイルを `max-age=0, must-revalidate` で配信する。
+     * 画像最適化APIは元画像のこのヘッダを引き継ぐため、/_next/image の結果が
+     * CDNに一切キャッシュされず（X-Vercel-Cache: MISS）、アクセスのたびに
+     * リサイズと再エンコードが走ってLCPを押し上げていた。
+     * アップロード画像のファイル名はタイムスタンプ（例 1787063135735.png）で、
+     * 差し替えるとURL自体が変わるため長期キャッシュしても古い画像は残らない。
+     */
+    minimumCacheTTL: 2592000, // 30日
     ...(isLocalDev ? { unoptimized: true } : {}),
+  },
+
+  /*
+   * /public 配下（背景・メインビジュアル等のテーマ画像）も既定では毎回
+   * 再取得になるため、明示的にキャッシュさせる。
+   * これらを差し替えるときはファイル名を変えること（ハッシュが付かないため）。
+   */
+  async headers() {
+    return [
+      {
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=604800, stale-while-revalidate=2592000',
+          },
+        ],
+      },
+    ];
   },
 };
 
