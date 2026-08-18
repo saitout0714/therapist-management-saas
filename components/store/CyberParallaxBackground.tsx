@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 interface CyberParallaxBackgroundProps {
   variant?: 'full' | 'medium' | 'mild';
@@ -13,6 +13,27 @@ export const CyberParallaxBackground: React.FC<CyberParallaxBackgroundProps> = (
 }) => {
   const [scrollY, setScrollY] = useState(0);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+
+  /*
+   * TOPページの背景は5層あるが、以前は全層をいきなりDOMに載せていたため、
+   * 表示していない3枚分の背景画像まで初期ロードで取りに行き、
+   * メインビジュアル(LCP画像)の帯域を奪ってLCPが20秒台まで悪化していた。
+   * 実際に到達した層と、その次の層だけを載せることで初期転送量を抑える。
+   * 「次の層」を先に載せるのは、切り替え時のフェードを維持するため。
+   */
+  const [loadedSections, setLoadedSections] = useState<number[]>([0]);
+  const activeSectionIndexRef = useRef(0);
+  // 次の層の先読みはページのロード完了後に解禁する（LCP画像の取得を邪魔しない）。
+  const canPrefetchNextRef = useRef(false);
+
+  const markLoaded = useCallback((index: number) => {
+    setLoadedSections((prev) => {
+      const next = new Set(prev);
+      next.add(index);
+      if (canPrefetchNextRef.current) next.add(index + 1);
+      return next.size === prev.length ? prev : Array.from(next);
+    });
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -27,11 +48,15 @@ export const CyberParallaxBackground: React.FC<CyberParallaxBackgroundProps> = (
             const pageHeight = document.documentElement.scrollHeight - window.innerHeight;
             if (pageHeight > 0) {
               const progress = currentY / pageHeight;
-              if (progress < 0.08) setActiveSectionIndex(0); // Main Visual (ピンク)
-              else if (progress < 0.35) setActiveSectionIndex(1); // Therapists (エレクトリックブルー)
-              else if (progress < 0.58) setActiveSectionIndex(2); // Diary (シャンパンゴールド)
-              else if (progress < 0.80) setActiveSectionIndex(3); // System / Topics (プラチナホワイト)
-              else setActiveSectionIndex(4); // Concept / Access (フルカラーオーロラ)
+              const index =
+                progress < 0.08 ? 0 // Main Visual (ピンク)
+                : progress < 0.35 ? 1 // Therapists (エレクトリックブルー)
+                : progress < 0.58 ? 2 // Diary (シャンパンゴールド)
+                : progress < 0.80 ? 3 // System / Topics (プラチナホワイト)
+                : 4; // Concept / Access (フルカラーオーロラ)
+              activeSectionIndexRef.current = index;
+              setActiveSectionIndex(index);
+              markLoaded(index);
             }
           }
           ticking = false;
@@ -44,14 +69,34 @@ export const CyberParallaxBackground: React.FC<CyberParallaxBackgroundProps> = (
     handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [variant]);
+  }, [variant, markLoaded]);
+
+  useEffect(() => {
+    if (variant !== 'full') return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const start = () => {
+      timeoutId = setTimeout(() => {
+        canPrefetchNextRef.current = true;
+        markLoaded(activeSectionIndexRef.current);
+      }, 300);
+    };
+    if (document.readyState === 'complete') {
+      start();
+    } else {
+      window.addEventListener('load', start, { once: true });
+    }
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('load', start);
+    };
+  }, [variant, markLoaded]);
 
   // 下層ページ用の背景画像決定
   const getSubpageBgImage = () => {
-    if (pageType === 'therapists') return '/images/onyanko_bg_therapist.jpg'; // エレクトリックブルー
-    if (pageType === 'diary') return '/images/onyanko_bg_diary.jpg'; // シャンパンゴールド
-    if (pageType === 'system' || pageType === 'schedule') return '/images/onyanko_bg_system.jpg'; // プラチナホワイト
-    return '/images/onyanko_bg_hero.jpg'; // ピンク・サイバー
+    if (pageType === 'therapists') return '/images/onyanko_bg_therapist.webp'; // エレクトリックブルー
+    if (pageType === 'diary') return '/images/onyanko_bg_diary.webp'; // シャンパンゴールド
+    if (pageType === 'system' || pageType === 'schedule') return '/images/onyanko_bg_system.webp'; // プラチナホワイト
+    return '/images/onyanko_bg_hero.webp'; // ピンク・サイバー
   };
 
   // 下層ページ用のテーマオーブカラー決定
@@ -85,68 +130,76 @@ export const CyberParallaxBackground: React.FC<CyberParallaxBackgroundProps> = (
       {variant === 'full' && (
         <>
           {/* Hero背景 (Index 0) */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              activeSectionIndex === 0 ? 'opacity-45' : 'opacity-0'
-            }`}
-          >
+          {loadedSections.includes(0) && (
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
-              style={{
-                backgroundImage: `url('/images/onyanko_bg_hero.jpg')`,
-                transform: `translate3d(0, ${scrollY * -0.06}px, 0) scale(1.05)`,
-                filter: 'brightness(0.72) contrast(1.15) saturate(1.25)',
-              }}
-            />
-          </div>
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                activeSectionIndex === 0 ? 'opacity-45' : 'opacity-0'
+              }`}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
+                style={{
+                  backgroundImage: `url('/images/onyanko_bg_hero.webp')`,
+                  transform: `translate3d(0, ${scrollY * -0.06}px, 0) scale(1.05)`,
+                  filter: 'brightness(0.72) contrast(1.15) saturate(1.25)',
+                }}
+              />
+            </div>
+          )}
 
           {/* セラピスト背景 (Index 1) */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              activeSectionIndex === 1 ? 'opacity-42' : 'opacity-0'
-            }`}
-          >
+          {loadedSections.includes(1) && (
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
-              style={{
-                backgroundImage: `url('/images/onyanko_bg_therapist.jpg')`,
-                transform: `translate3d(0, ${scrollY * -0.05}px, 0) scale(1.05)`,
-                filter: 'brightness(0.72) contrast(1.15) saturate(1.25)',
-              }}
-            />
-          </div>
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                activeSectionIndex === 1 ? 'opacity-42' : 'opacity-0'
+              }`}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
+                style={{
+                  backgroundImage: `url('/images/onyanko_bg_therapist.webp')`,
+                  transform: `translate3d(0, ${scrollY * -0.05}px, 0) scale(1.05)`,
+                  filter: 'brightness(0.72) contrast(1.15) saturate(1.25)',
+                }}
+              />
+            </div>
+          )}
 
           {/* 写メ日記背景 (Index 2) */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              activeSectionIndex === 2 ? 'opacity-45' : 'opacity-0'
-            }`}
-          >
+          {loadedSections.includes(2) && (
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
-              style={{
-                backgroundImage: `url('/images/onyanko_bg_diary.jpg')`,
-                transform: `translate3d(0, ${scrollY * -0.06}px, 0) scale(1.06)`,
-                filter: 'brightness(0.7) contrast(1.2) saturate(1.25)',
-              }}
-            />
-          </div>
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                activeSectionIndex === 2 ? 'opacity-45' : 'opacity-0'
+              }`}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
+                style={{
+                  backgroundImage: `url('/images/onyanko_bg_diary.webp')`,
+                  transform: `translate3d(0, ${scrollY * -0.06}px, 0) scale(1.06)`,
+                  filter: 'brightness(0.7) contrast(1.2) saturate(1.25)',
+                }}
+              />
+            </div>
+          )}
 
           {/* System背景 (Index 3) */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              activeSectionIndex === 3 ? 'opacity-40' : 'opacity-0'
-            }`}
-          >
+          {loadedSections.includes(3) && (
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
-              style={{
-                backgroundImage: `url('/images/onyanko_bg_system.jpg')`,
-                transform: `translate3d(0, ${scrollY * -0.05}px, 0) scale(1.05)`,
-                filter: 'brightness(0.72) contrast(1.15) saturate(1.15)',
-              }}
-            />
-          </div>
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                activeSectionIndex === 3 ? 'opacity-40' : 'opacity-0'
+              }`}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-200 ease-out"
+                style={{
+                  backgroundImage: `url('/images/onyanko_bg_system.webp')`,
+                  transform: `translate3d(0, ${scrollY * -0.05}px, 0) scale(1.05)`,
+                  filter: 'brightness(0.72) contrast(1.15) saturate(1.15)',
+                }}
+              />
+            </div>
+          )}
 
           {/* Access背景 (Index 4) */}
           <div

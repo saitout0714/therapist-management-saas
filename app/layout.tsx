@@ -11,6 +11,9 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // 等幅は一部の画面でしか使わないので、preload（先読み）はしない。
+  // CSSから参照された時点で読み込まれるため、見た目は変わらない。
+  preload: false,
 });
 
 /*
@@ -24,10 +27,17 @@ const montserrat = Montserrat({
   display: "swap",
 });
 
+/*
+ * 日本語フォントは unicode-range で124分割されて配信されるため、
+ * ウェイトを1つ増やすごとに @font-face が124個増え、
+ * レンダリングを妨げるCSSがそのぶん肥大する（4ウェイトで約370KB）。
+ * 実際に使っているのは通常と太字だけなので2ウェイトに絞る。
+ * 500/800/900指定の箇所は700に丸められるが、日本語では差はほぼ出ない。
+ */
 const notoSansJP = Noto_Sans_JP({
   variable: "--font-jp",
   subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -45,9 +55,13 @@ const greatVibes = Great_Vibes({
 const playfairDisplay = Playfair_Display({
   variable: "--font-luxury-serif",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  // 実際に使っているのは italic(400) と font-semibold(600) の2種だけ。
+  weight: ["400", "600"],
   style: ["normal", "italic"],
   display: "swap",
+  // SpecialGrade専用フォント。他店舗のページでは1文字も使わないので
+  // 先読みさせない（従来は未使用のまま75KB落ちていた）。
+  preload: false,
 });
 
 export const viewport: Viewport = {
