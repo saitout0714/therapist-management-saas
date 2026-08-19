@@ -89,7 +89,9 @@ export async function GET(req: Request) {
 
       // エステ魂の同期
       if (shop.estama_login_id && shop.estama_password) {
-        const shopUrl = shop.hp_url || 'https://estama.jp/admin/schedule/'; // Fallback
+        // 注意: 店舗HPのURL(hp_url)ではなくエステ魂のログインURLを渡すこと。
+        // 以前hp_urlを渡しており、自動同期だけが店舗HPを開いてしまい常に無反映だった。
+        const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
         try {
           estamaResult = await syncShiftsToEstama(
             shopUrl,
