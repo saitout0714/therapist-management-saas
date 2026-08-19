@@ -25,6 +25,9 @@ const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "600", "700", "800", "900"],
   display: "swap",
+  // おニャンこスパ専用フォント（.font-cyber-display）。他店舗のページでは1文字も
+  // 使わないので、Playfair Display（SpecialGrade専用）と同様に先読みさせない。
+  preload: false,
 });
 
 /*
@@ -38,6 +41,8 @@ const greatVibes = Great_Vibes({
   subsets: ["latin"],
   weight: ["400"],
   display: "swap",
+  // おニャンこスパ専用フォント（.neon-script）。他店舗では使わないため先読みしない。
+  preload: false,
 });
 
 /*
