@@ -1,5 +1,6 @@
 import { chromium as playwrightLocal, Page } from 'playwright';
 import { downloadImageToTemp } from './download-image';
+import { openEstheRankingLoginPage } from './esthe-ranking';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
@@ -66,12 +67,9 @@ export async function syncTherapistToEstheRanking(
     });
     const page = await context.newPage();
 
-    // 1. Login
-    const targetLoginUrl = shopUrl || 'https://www.esthe-ranking.jp/login/';
-    await page.goto(targetLoginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(async () => {
-      await page.goto('https://www.esthe-ranking.jp/login/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    });
-    
+    // 1. Login（403対策のリトライは openEstheRankingLoginPage 側で行う）
+    await openEstheRankingLoginPage(page, shopUrl);
+
     try {
       await uploadDebugScreenshot(page, 'er_after_login');
       await page.fill('input[name="loginname"]', loginId);

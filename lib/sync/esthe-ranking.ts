@@ -44,6 +44,54 @@ export interface SyncResult {
 }
 
 /**
+ * メンズエステランキングのログインページを開く。ログインフォームが現れるまでリトライする。
+ *
+ * このサイトはbot検知（WAF）により断続的に 403 Forbidden を返す。実測で約3回に1回。
+ * 従来はその場で page.fill がタイムアウトして同期全体が失敗していたため、
+ * 少し待って開き直すことで大半を救済する。
+ * 全ての呼び出し口（シフト同期・セラピスト一覧取得・プロフィール送信）はこの関数を使うこと。
+ */
+export async function openEstheRankingLoginPage(
+  page: any,
+  shopUrl: string,
+  maxAttempts = 3
+): Promise<void> {
+  const targetUrl = shopUrl || 'https://www.esthe-ranking.jp/login/';
+  let lastIssue = '不明';
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await page
+      .goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+      .catch((e: any) => {
+        lastIssue = e?.message || 'ページを開けませんでした';
+        return null;
+      });
+
+    // ログインフォームが描画されていれば成功
+    const loginInput = await page.$('input[name="loginname"]').catch(() => null);
+    if (loginInput) {
+      if (attempt > 1) console.log(`[EstheRankingSync] ログインページを${attempt}回目で開けました。`);
+      return;
+    }
+
+    const status = typeof response?.status === 'function' ? response.status() : null;
+    const title = await page.title().catch(() => 'unknown');
+    lastIssue = `HTTP ${status ?? '不明'} / 画面タイトル: ${title}`;
+
+    if (attempt < maxAttempts) {
+      const waitMs = 3000 * attempt; // 3秒 → 6秒 と待ち時間を延ばす
+      console.warn(`[EstheRankingSync] ログインページを開けず再試行します (${attempt}/${maxAttempts}): ${lastIssue}`);
+      await page.waitForTimeout(waitMs);
+    }
+  }
+
+  throw new Error(
+    `メンズエステランキングのログインページを開けませんでした（${maxAttempts}回試行）。` +
+    `サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue}`
+  );
+}
+
+/**
  * 出勤情報をメンズエステランキングへ同期する
  * @param shopUrl 管理画面URL
  * @param loginId ログインID
@@ -80,9 +128,9 @@ export async function syncShiftsToEstheRanking(
       }
     });
 
-    // 1. ログイン画面へのアクセス
-    await page.goto(shopUrl, { timeout: 10000 });
-    
+    // 1. ログイン画面へのアクセス（403対策のリトライ込み）
+    await openEstheRankingLoginPage(page, shopUrl);
+
     // 2. ログイン処理
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
@@ -263,7 +311,7 @@ export async function fetchTherapistsFromEstheRanking(
     console.log(`[EstheRankingSync] Fetching therapists...`);
     
     console.log(`[EstheRankingSync] Navigating to ${shopUrl}...`);
-    await page.goto(shopUrl, { timeout: 10000 });
+    await openEstheRankingLoginPage(page, shopUrl);
     console.log(`[EstheRankingSync] Filling login credentials...`);
     await page.fill('input[name="loginname"]', loginId);
     await page.fill('input[name="password"]', password);
