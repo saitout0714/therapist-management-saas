@@ -10,6 +10,7 @@ const AGENCY_PLANS = ['agency_only_plan', 'web_agency_plan', 'hp_web_agency_plan
 
 type Shop = {
   id: string
+  slug?: string | null
   owner_id?: string | null
   owner_name?: string | null
   name: string
@@ -123,6 +124,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         const isAgency = shop.has_agency ?? AGENCY_PLANS.includes(shop.plan || '')
         return {
           id: shop.id,
+          slug: shop.slug || null,
           owner_id: shop.owner_id || null,
           owner_name: shop.owners?.name || null,
           name: shop.name,

@@ -21,21 +21,24 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
   const rooms = await fetchStoreRooms(store.id);
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const isLuxuryTheme = shopSlug === 'specialgrade';
 
   return (
     <ThemeProvider store={store}>
       <div className={`min-h-screen flex flex-col relative ${
-        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
+        isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="access" />}
         <Header store={store} />
 
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
-        <PageHeading title="Access" subtitle="アクセス・店舗案内" isCyber={isCyberTheme} className="mb-8" />
+        <PageHeading title="Access" subtitle="アクセス・店舗案内" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className="mb-8" />
 
         <div className={`p-6 sm:p-8 space-y-6 ${
           isCyberTheme
             ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40'
+            : isLuxuryTheme
+            ? 'luxury-card luxury-gold-border rounded-lg'
             : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
         }`}>
 
@@ -43,7 +46,7 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
           {rooms.length > 0 ? (
             <div className="space-y-6">
               <h2 className={`font-bold text-sm border-b pb-2 tracking-wider flex items-center gap-2 ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : 'text-[#a39573] border-[#d1b464]/40'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a] border-[#e9dcc4]' : 'text-[#a39573] border-[#d1b464]/40'
               }`}>
                 <span>🏠</span> ルーム案内（全{rooms.length}拠点）
               </h2>
@@ -54,11 +57,13 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
                     className={`p-5 rounded-xl border space-y-3 ${
                       isCyberTheme
                         ? 'bg-white/10 border-[#ff6fb5]/30'
+                        : isLuxuryTheme
+                        ? 'bg-[#f1e9db]/50 border-[#e9dcc4]'
                         : 'bg-[#faf7f0] border-[#d1b464]/20'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <h3 className={`font-bold text-sm ${isCyberTheme ? 'neon-text-pink' : 'text-stone-800'}`}>
+                      <h3 className={`font-bold text-sm ${isCyberTheme ? 'neon-text-pink' : isLuxuryTheme ? 'text-[#2b2b2b]' : 'text-stone-800'}`}>
                         🏠 {room.name}
                       </h3>
                     </div>
@@ -93,6 +98,8 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
                           className={`inline-block px-4 py-2 font-bold text-xs shadow-sm tracking-widest transition-colors ${
                             isCyberTheme
                               ? 'text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                              : isLuxuryTheme
+                              ? 'text-white rounded-full luxury-gold-btn'
                               : 'bg-stone-900 text-white rounded-sm hover:bg-[#a39573]'
                           }`}
                         >
@@ -109,15 +116,17 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
             <div className={`aspect-[16/9] w-full rounded-xl border p-6 flex flex-col items-center justify-center text-xs relative group ${
               isCyberTheme
                 ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee]'
+                : isLuxuryTheme
+                ? 'bg-[#f1e9db]/50 border-[#e9dcc4] text-[#6b6459]'
                 : 'bg-[#faf7f0] border-[#d1b464]/30 text-stone-500'
             }`}>
               <div className="text-center space-y-3">
                 <div className={`font-bold text-lg tracking-wider flex items-center justify-center gap-2 ${
-                  isCyberTheme ? 'neon-text-pink' : 'text-[#a39573]'
+                  isCyberTheme ? 'neon-text-pink' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a]' : 'text-[#a39573]'
                 }`}>
                   <span>📍</span> Google Maps アクセス案内
                 </div>
-                <p className={`text-xs font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : 'text-stone-700'}`}>{store.address}</p>
+                <p className={`text-xs font-semibold ${isCyberTheme ? 'text-[#f4eefa]' : isLuxuryTheme ? 'text-[#2b2b2b]' : 'text-stone-700'}`}>{store.address}</p>
                 {store.googleMapUrl ? (
                   <a
                     href={store.googleMapUrl}
@@ -126,6 +135,8 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
                     className={`inline-block px-6 py-2.5 font-bold text-xs shadow-sm tracking-widest transition-colors ${
                       isCyberTheme
                         ? 'text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                        : isLuxuryTheme
+                        ? 'text-white rounded-full luxury-gold-btn'
                         : 'bg-stone-900 text-white rounded-sm hover:bg-[#a39573]'
                     }`}
                   >
@@ -141,7 +152,7 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 text-xs">
             <div className="space-y-3">
               <h3 className={`font-bold text-sm border-b pb-1 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a] border-[#e9dcc4]' : 'text-[#a39573] border-[#d1b464]/30'
               }`}>
                 店舗基本情報
               </h3>
@@ -153,7 +164,7 @@ export default async function AccessPage({ params }: { params: Promise<{ shopSlu
 
             <div className="space-y-3">
               <h3 className={`font-bold text-sm border-b pb-1 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : 'text-[#a39573] border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a] border-[#e9dcc4]' : 'text-[#a39573] border-[#d1b464]/30'
               }`}>
                 アクセス案内
               </h3>

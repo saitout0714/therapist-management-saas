@@ -28,16 +28,19 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
   const detailUrl = `${basePath ?? `/${storeSlug}`}/therapists/${therapist.id}`;
   const reserveUrl = `/reserve/${storeSlug}?therapist_id=${therapist.id}`;
   const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff6fb5';
+  const isLuxury = storeSlug === 'specialgrade';
 
   return (
     <div
       style={{
         animationDelay: `${index * 120}ms`,
-        borderColor: isCyber ? undefined : `${primaryColor}60`
+        borderColor: isCyber || isLuxury ? undefined : `${primaryColor}60`
       }}
       className={`group relative overflow-hidden flex flex-col rounded-2xl therapist-card-reveal therapist-card-hover ${
         isCyber
           ? 'cyber-card'
+          : isLuxury
+          ? 'luxury-card luxury-gold-border !rounded-lg luxury-body'
           : 'classic-card bg-white border font-serif shadow-md'
       }`}
     >
@@ -164,14 +167,16 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         <div className="pt-2">
           <Link
             href={reserveUrl}
-            style={{ backgroundColor: isCyber ? undefined : primaryColor }}
+            style={{ backgroundColor: isCyber || isLuxury ? undefined : primaryColor }}
             className={`block w-full py-2.5 sm:py-3 text-center text-xs sm:text-sm font-extrabold text-white tracking-widest active:scale-95 transition-all duration-300 ${
               isCyber
                 ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] hover:shadow-[0_0_20px_rgba(255,111,181,0.8)]'
+                : isLuxury
+                ? 'rounded-full luxury-gold-btn shadow-md'
                 : 'rounded-xl shadow-md hover:shadow-lg hover:brightness-110'
             }`}
           >
-            指名WEB予約 🐾
+            {isLuxury ? 'RESERVE' : '指名WEB予約 🐾'}
           </Link>
         </div>
       </div>

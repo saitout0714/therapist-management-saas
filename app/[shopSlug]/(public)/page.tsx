@@ -48,24 +48,34 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
   const todayTherapists = therapists.filter((t) => todayTherapistIds.has(t.id));
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const isLuxuryTheme = shopSlug === 'specialgrade';
   const sectionOrder = store.layoutSections || ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'];
 
   // ネオンテーマの共通ボタン（ピンク→マゼンタ→パープルのグラデーション＋発光）
   const neonBtn =
     'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]';
   const classicBtn = 'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-sm shadow-md transition-all bg-stone-900 hover:bg-[#a39573]';
+  const luxuryBtn = 'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-full luxury-gold-btn shadow-md';
+  const sectionBtn = isCyberTheme ? neonBtn : isLuxuryTheme ? luxuryBtn : classicBtn;
+
+  // ラグジュアリーヒーロー用ギャラリー画像（バナー実写真 + セラピスト実写真を合成、最大5枚）
+  const luxuryGalleryImages = isLuxuryTheme
+    ? [...campaigns.map((c) => c.imageUrl), ...therapists.slice(0, 5).map((t) => t.avatarUrl)]
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
 
   const renderSection = (sectionName: string) => {
     switch (sectionName) {
       case 'hero':
-        return <HeroBanner key="hero" campaigns={campaigns} store={store} />;
+        return <HeroBanner key="hero" campaigns={campaigns} store={store} galleryImages={luxuryGalleryImages} />;
 
       case 'today_shifts':
       case 'therapists':
         return (
           <section
             key="therapists"
-            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-white border-stone-200'}`}
+            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-white border-stone-200'}`}
           >
             {isCyberTheme && (
               <>
@@ -74,7 +84,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </>
             )}
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-              <SectionHeading title="Today's Shift" subtitle="本日の出勤" isCyber={isCyberTheme} />
+              <SectionHeading title="Today's Shift" subtitle="本日の出勤" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
 
               {todayTherapists.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -83,14 +93,14 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                   ))}
                 </div>
               ) : (
-                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : 'text-stone-500'}`}>
+                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#a8a196]' : 'text-stone-500'}`}>
                   本日出勤のセラピストは現在準備中です。出勤スケジュールをご確認ください。
                 </p>
               )}
 
               <div className="text-center pt-4">
-                <Link href={`${basePath}/therapists`} className={isCyberTheme ? neonBtn : classicBtn}>
-                  セラピスト一覧を見る 🐾
+                <Link href={`${basePath}/therapists`} className={sectionBtn}>
+                  {isLuxuryTheme ? 'セラピスト一覧を見る' : 'セラピスト一覧を見る 🐾'}
                 </Link>
               </div>
             </div>
@@ -149,7 +159,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
         return (
           <section
             key="news"
-            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}
+            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}
           >
             {isCyberTheme && (
               <div className="neon-orb neon-orb-purple animate-orb-slow w-[26rem] h-[26rem] top-0 -right-40" />
@@ -157,14 +167,16 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-5">
-                  <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} align="left" size="sm" />
+                  <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
                   <NewsList news={news} storeSlug={shopSlug} />
                 </div>
 
                 <div className="space-y-5">
-                  <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} align="left" size="sm" />
-                  <div className={`p-6 text-center space-y-4 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'}`}>
-                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : 'text-stone-600'}`}>
+                  <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
+                  <div className={`p-6 text-center space-y-4 ${
+                    isCyberTheme ? 'cyber-card reveal' : isLuxuryTheme ? 'luxury-card luxury-gold-border rounded-lg' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-600'}`}>
                       最新の出勤・空き枠情報をリアルタイムで配信中！
                     </p>
                     <a
@@ -174,6 +186,8 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                       className={
                         isCyberTheme
                           ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                          : isLuxuryTheme
+                          ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full luxury-gold-btn shadow-md'
                           : 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest bg-stone-900 text-white rounded-sm hover:bg-stone-800 transition-all'
                       }
                     >
@@ -190,7 +204,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
       case 'access':
       case 'system':
         return (
-          <section key="concept" className={`relative overflow-hidden py-16 text-center ${isCyberTheme ? '' : 'bg-white'}`}>
+          <section key="concept" className={`relative overflow-hidden py-16 text-center ${isCyberTheme ? '' : isLuxuryTheme ? 'luxury-marble-bg' : 'bg-white'}`}>
             {isCyberTheme && (
               <>
                 <div className="neon-orb neon-orb-pink animate-orb-slower w-[24rem] h-[24rem] top-10 -left-32" />
@@ -198,14 +212,18 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </>
             )}
             <div className="relative z-10 max-w-4xl mx-auto px-4">
-              <SectionHeading title="Concept" subtitle="当店のこだわり" isCyber={isCyberTheme} className="mb-8" />
+              <SectionHeading title="Concept" subtitle="当店のこだわり" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className="mb-8" />
 
               <div className={`p-6 sm:p-10 text-xs sm:text-sm leading-loose tracking-wider text-left space-y-4 ${
                 isCyberTheme
                   ? 'cyber-card reveal text-[#f4eefa]'
+                  : isLuxuryTheme
+                  ? 'luxury-card luxury-gold-border rounded-lg text-[#4a4540] luxury-body'
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
               }`}>
-                <p className={`font-bold text-center text-base mb-2 ${isCyberTheme ? 'neon-text-pink font-cyber-display' : 'text-stone-900'}`}>
+                <p className={`font-bold text-center text-base mb-2 ${
+                  isCyberTheme ? 'neon-text-pink font-cyber-display' : isLuxuryTheme ? 'font-luxury-display text-xl text-[#2b2b2b]' : 'text-stone-900'
+                }`}>
                   {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '極上のサイバーリラクゼーション' : '選ばれ続けるメンズエステへ')}
                 </p>
 
@@ -236,6 +254,19 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                   </>
                 )}
               </div>
+
+              {isLuxuryTheme && (
+                <div className="luxury-card luxury-gold-border rounded-lg mt-10 px-6 py-10 sm:px-12 luxury-body bg-[#f1e9db]/60">
+                  <p className="font-luxury-display italic text-lg sm:text-xl text-[#a8874a] mb-1">Online Reservation</p>
+                  <h3 className="font-luxury-display font-semibold text-xl sm:text-2xl text-[#2b2b2b] mb-4">24時間WEB予約</h3>
+                  <p className="text-xs sm:text-sm text-[#6b6459] mb-6 leading-relaxed">
+                    ご希望の日時・セラピストを選んで、いつでもオンラインでご予約いただけます。
+                  </p>
+                  <Link href={`/reserve/${shopSlug}`} className={luxuryBtn}>
+                    ONLINE RESERVATION
+                  </Link>
+                </div>
+              )}
             </div>
           </section>
         );
@@ -254,7 +285,13 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
 
   return (
     <ThemeProvider store={store}>
-      <div className={`min-h-screen flex flex-col selection:bg-[#ff6fb5] selection:text-white ${isCyberTheme ? 'cyber-bg text-[#f4eefa] relative' : 'bg-[#faf9f5] text-stone-800 font-serif'}`}>
+      <div className={`min-h-screen flex flex-col selection:bg-[#ff6fb5] selection:text-white ${
+        isCyberTheme
+          ? 'cyber-bg text-[#f4eefa] relative'
+          : isLuxuryTheme
+          ? 'luxury-marble-bg luxury-body'
+          : 'bg-[#faf9f5] text-stone-800 font-serif'
+      }`}>
         {isCyberTheme && <CyberParallaxBackground />}
         <Header store={store} />
 

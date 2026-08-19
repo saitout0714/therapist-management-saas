@@ -26,9 +26,13 @@ export const SAAS_ORIGIN = 'https://yoyakl.tokyo';
  * 到達できないドメインを canonical に指定すると、そのページは
  * インデックスされなくなる。
  * specialgrade.jp は現時点でDNS未設定のため、あえて載せていない。
+ *
+ * onyankospa は Vercel側のドメイン設定で apex(onyankospa.com) -> www.onyankospa.com
+ * へ308リダイレクトしているため、正規URLもリダイレクト先のwwwに合わせている
+ * （apexをcanonicalにすると「正規URLがそれ自身にリダイレクトする」矛盾が生じるため）。
  */
 export const SHOP_CANONICAL_ORIGIN: Record<string, string> = {
-  onyankospa: 'https://onyankospa.com',
+  onyankospa: 'https://www.onyankospa.com',
 };
 
 /**

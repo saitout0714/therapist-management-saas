@@ -73,20 +73,30 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({ campaigns, i
 
       {/* インジケータードット */}
       {campaigns.length > 1 && (
-        <div className={`absolute bottom-3 right-4 z-20 flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full border ${
+        <div className={`absolute bottom-3 right-4 z-20 flex items-center gap-0.5 backdrop-blur-sm px-1.5 py-0.5 rounded-full border ${
           isCyber ? 'bg-white/10 border-[#ff6fb5]/40' : 'bg-stone-950/60 border-white/10'
         }`}>
           {campaigns.map((_, idx) => (
+            /*
+             * ドット自体は8pxのままだが、それだと指で押せる大きさに足りない
+             * （Lighthouseのタップターゲット指摘）。ボタンを24x24pxにして
+             * 中のドットだけを小さく見せることで、見た目を変えずに当たり判定を確保する。
+             */
             <button
               key={idx}
               onClick={() => setCurrentIndex(idx)}
-              className={`h-2 rounded-full transition-all ${
-                idx === currentIndex
-                  ? isCyber ? 'w-6 bg-[#ff6fb5] shadow-[0_0_8px_#ff6fb5]' : 'w-6 bg-[#d1b464]'
-                  : 'w-2 bg-stone-500 hover:bg-stone-300'
-              }`}
-              aria-label={`Slide ${idx + 1}`}
-            />
+              className="flex h-6 w-6 items-center justify-center"
+              aria-label={`スライド ${idx + 1} を表示`}
+              aria-current={idx === currentIndex ? 'true' : undefined}
+            >
+              <span
+                className={`h-2 rounded-full transition-all ${
+                  idx === currentIndex
+                    ? isCyber ? 'w-6 bg-[#ff6fb5] shadow-[0_0_8px_#ff6fb5]' : 'w-6 bg-[#d1b464]'
+                    : 'w-2 bg-stone-500 hover:bg-stone-300'
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 import { useShop } from "@/app/contexts/ShopContext";
+import { SHOP_GA_DASHBOARD_URL } from "@/lib/analytics";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ type NavItem = {
   label: string;
   icon: keyof typeof ICONS;
   requires?: Capability[];
+  /** true の場合は新規タブで開く外部リンクとして扱う（現在地判定の対象外） */
+  external?: boolean;
 };
 
 type NavGroup = {
@@ -180,10 +183,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     developer: isDeveloper,
   };
 
-  const groups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => (item.requires ?? []).every((c) => caps[c])),
-  })).filter((group) => group.items.length > 0);
+  // GA4ダッシュボードURLは店舗ごとに個別設定するため、静的な NAV_GROUPS ではなく
+  // 選択中店舗のslugから都度組み立てる（未設定の店舗には出さない）。
+  const analyticsUrl = selectedShop?.slug ? SHOP_GA_DASHBOARD_URL[selectedShop.slug] : undefined;
+
+  const groups = NAV_GROUPS.map((group) => {
+    let items = group.items.filter((item) => (item.requires ?? []).every((c) => caps[c]));
+    if (group.id === "web" && caps.hp && analyticsUrl) {
+      items = [...items, { href: analyticsUrl, label: "アクセス解析", icon: "chart" as const, external: true }];
+    }
+    return { ...group, items };
+  }).filter((group) => group.items.length > 0);
 
   // 現在地は「最も長く一致する項目」ひとつだけ。
   // 単純な startsWith だと /shifts と /shifts/register が同時に光ってしまう。
@@ -256,22 +266,44 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         ? "hover:text-rose-600"
                         : "hover:text-primary-600";
 
+                    const linkClassName = `flex items-center rounded-xl transition-all duration-200 ${
+                      collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2.5"
+                    } text-[13px] ${
+                      isActive
+                        ? `${activeClass} font-semibold shadow-sm`
+                        : `text-slate-600 font-medium hover:bg-slate-50 ${hoverClass}`
+                    }`;
+                    const content = (
+                      <>
+                        <span className="shrink-0">{ICONS[item.icon]}</span>
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </>
+                    );
+
+                    if (item.external) {
+                      return (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={item.label}
+                          className={linkClassName}
+                        >
+                          {content}
+                        </a>
+                      );
+                    }
+
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         title={item.label}
                         aria-current={isActive ? "page" : undefined}
-                        className={`flex items-center rounded-xl transition-all duration-200 ${
-                          collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2.5"
-                        } text-[13px] ${
-                          isActive
-                            ? `${activeClass} font-semibold shadow-sm`
-                            : `text-slate-600 font-medium hover:bg-slate-50 ${hoverClass}`
-                        }`}
+                        className={linkClassName}
                       >
-                        <span className="shrink-0">{ICONS[item.icon]}</span>
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {content}
                       </Link>
                     );
                   })}

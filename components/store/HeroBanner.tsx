@@ -10,11 +10,38 @@ import { useInViewOnce } from './useInViewOnce';
 interface SmartInfoCardProps {
   store: StoreConfig;
   isCyberTheme: boolean;
+  isLuxuryTheme?: boolean;
   primaryColor: string;
 }
 
-const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, primaryColor }) => {
+const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, isLuxuryTheme = false, primaryColor }) => {
   const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
+
+  if (isLuxuryTheme) {
+    return (
+      <div ref={ref} className={`luxury-fade-up ${inView ? 'is-in' : ''} relative z-10 max-w-2xl mx-auto space-y-2`}>
+        <div className="text-xs sm:text-sm font-semibold tracking-widest text-[#6b6459]">
+          {store.catchphrase || '赤羽・川口 メンズエステ'}
+          <br />
+          <span className="inline-block font-luxury-display text-2xl sm:text-3xl font-semibold tracking-wide leading-relaxed text-[#2b2b2b] mt-1">
+            {store.name}
+          </span>
+        </div>
+        <div className="luxury-gold-rule w-24 mx-auto" />
+        <div className="text-xs tracking-widest text-[#6b6459]">📍 {store.accessInfo}</div>
+        <div className="text-xs font-bold tracking-wider text-[#a8874a]">⏰ {store.businessHours}</div>
+
+        <div className="pt-2">
+          <a
+            href={`tel:${store.phoneNumber}`}
+            className="luxury-gold-btn inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 text-xs sm:text-sm font-bold text-white tracking-widest rounded-full shadow-md group"
+          >
+            <span className="group-hover:scale-110 transition-transform">📞</span> お店に電話する ({store.phoneNumber})
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -65,11 +92,14 @@ const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, prim
 interface HeroBannerProps {
   campaigns: Campaign[];
   store: StoreConfig;
+  /** ラグジュアリーテーマのヒーローギャラリーに使う実写真URL（SpecialGrade専用。任意） */
+  galleryImages?: string[];
 }
 
-export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
+export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galleryImages = [] }) => {
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
+  const isLuxuryTheme = store.slug === 'specialgrade';
   const basePath = store.basePath ?? `/${store.slug}`;
 
   // ループの始まりはHERO画像（isRevealed=true）。しばらく表示した後、
@@ -108,7 +138,37 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
   }, [isCyberTheme]);
 
   return (
-    <div className={isCyberTheme ? 'text-[#f4eefa] relative overflow-hidden' : 'font-serif bg-[#faf9f5]'}>
+    <div className={isCyberTheme ? 'text-[#f4eefa] relative overflow-hidden' : isLuxuryTheme ? 'luxury-body luxury-marble-bg' : 'font-serif bg-[#faf9f5]'}>
+      {/* 0-L. SpecialGrade用 大理石×ゴールドの縦長ギャラリーヒーロー */}
+      {isLuxuryTheme && galleryImages.length > 0 && (
+        <section className="relative w-full overflow-hidden border-b border-[#e9dcc4]">
+          <div className="grid grid-cols-3 sm:grid-cols-5 h-[52vh] sm:h-[62vh] w-full">
+            {galleryImages.slice(0, 5).map((src, idx) => (
+              <div key={idx} className="relative overflow-hidden border-x border-[#c9a869]/25 first:border-l-0 last:border-r-0 group">
+                <Image
+                  src={src}
+                  alt={`${store.name} ギャラリー ${idx + 1}`}
+                  fill
+                  priority={idx < 2}
+                  sizes="(min-width: 640px) 20vw, 33vw"
+                  className="object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-110"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
+            <div className="text-center bg-black/10 backdrop-blur-[1px] px-6 py-4 sm:px-10 sm:py-6 rounded-lg">
+              <p className="font-luxury-display italic text-white/95 text-2xl sm:text-4xl lg:text-5xl leading-tight tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+                {store.catchphrase ? store.catchphrase.split(/[|｜]/)[0].trim() : 'UNCOMPROMISING'}
+              </p>
+              <p className="font-luxury-display italic text-white/95 text-2xl sm:text-4xl lg:text-5xl leading-tight tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+                LUXURY FOR MEN.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 0. おニャンこスパ用 公式メインビジュアル 1枚限定・フレームなし画面全幅表示 */}
       {isCyberTheme && (
         <section className="relative w-full overflow-hidden border-b border-[#ff6fb5]/25 py-0">
@@ -241,12 +301,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
 
       {/* 1. smart-info (店舗概要・お電話案内) */}
       <section className={`relative overflow-hidden py-8 px-4 border-b text-center ${
-        isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-white/95 border-stone-200 shadow-xs'
+        isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'bg-white border-[#e9dcc4]' : 'bg-white/95 border-stone-200 shadow-xs'
       }`}>
         {isCyberTheme && (
           <div className="neon-orb neon-orb-magenta animate-orb-slow w-[22rem] h-[22rem] -top-32 left-1/2 -translate-x-1/2" />
         )}
-        <SmartInfoCard store={store} isCyberTheme={isCyberTheme} primaryColor={primaryColor} />
+        <SmartInfoCard store={store} isCyberTheme={isCyberTheme} isLuxuryTheme={isLuxuryTheme} primaryColor={primaryColor} />
       </section>
 
 
@@ -254,13 +314,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store }) => {
       {/* 3. Information (イベント・キャンペーン極上スライダー) */}
       {campaigns && campaigns.length > 0 && (
         <section className={`relative overflow-hidden py-14 border-b ${
-          isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-white border-stone-200'
+          isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-white border-stone-200'
         }`}>
           {isCyberTheme && (
             <div className="neon-orb neon-orb-purple animate-orb-slower w-[26rem] h-[26rem] -bottom-40 -left-28" />
           )}
           <div className="relative z-10 max-w-4xl mx-auto px-4 space-y-8">
-            <SectionHeading title="Information" subtitle="インフォメーション" isCyber={isCyberTheme} />
+            <SectionHeading title="Information" subtitle="インフォメーション" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
 
             {/* 極上フェードスライダー */}
             <HeroBannerSlider campaigns={campaigns} isCyber={isCyberTheme} />

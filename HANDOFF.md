@@ -138,15 +138,26 @@ ImageLightboxModal / DiarySection / TherapistDetailView / TOPページ / 日記�
 
 ### 本番検証結果
 
-title / meta description / meta robots(`index, follow`) / canonical(`https://onyankospa.com`) /
-OGP一式 / JSON-LD(`HealthAndBeautyBusiness`) / robots.txt / sitemap.xml、すべて意図通り出力
-されていることを確認済み。
+title / meta description / meta robots(`index, follow`) / canonical / OGP一式 /
+JSON-LD(`HealthAndBeautyBusiness`) / robots.txt / sitemap.xml、すべて意図通り出力されて
+いることを確認済み。
 
-### Search Console登録（未実施・ユーザー操作待ち）
+**2026-08-18追記:** Vercel側でapex(`onyankospa.com`)からwww(`www.onyankospa.com`)への
+308リダイレクトが常時有効になっていることが判明（SSL証明書の時間差の話とは別に、恒常的な
+ドメイン設定）。apexをcanonicalにすると「正規URLがそれ自身にリダイレクトする」矛盾になるため、
+`lib/shopDomains.ts` の `SHOP_CANONICAL_ORIGIN.onyankospa` を `https://www.onyankospa.com`
+に変更し、canonical/OGP/sitemap/robots.txtすべてwww基準に統一した。
 
-手順は案内済み。URLプレフィックスで `https://onyankospa.com` を登録し、サイトマップに
-`https://onyankospa.com/sitemap.xml` を登録する。所有権確認はHTMLタグ方式が簡単
-（発行されたmetaタグを`app/[shopSlug]/(public)/layout.tsx`あたりに埋め込んで再デプロイが必要）。
+GA4測定ID(`G-QSPY9RTNZ6`)は `lib/analytics.ts` に、Search Console確認タグ
+(`w8P60bwofIXrWSNhKuV5cQmLhi6gCF52syAy8aFaBMM`)は `lib/seo.ts` の
+`SHOP_GOOGLE_SITE_VERIFICATION` に設定済み・本番デプロイ済み。
+
+### Search Console登録（ユーザー操作待ち）
+
+URLプレフィックスで `https://onyankospa.com` を登録（apexでもwwwへのリダイレクトを
+Googleが辿って確認できる）。確認後、サイトマップとして `https://www.onyankospa.com/sitemap.xml`
+を登録する。所有権確認はHTMLタグ方式（`app/[shopSlug]/(public)/layout.tsx`経由で
+`lib/seo.ts`の`verification.google`から出力済み・再デプロイ不要）。
 
 ---
 
