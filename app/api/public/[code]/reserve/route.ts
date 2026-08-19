@@ -274,6 +274,11 @@ async function sendConfirmationEmail({
         .replace(/\[合計料金\]/g, totalVal)
         .replace(/\[道案内\]/g, directionsText)
 
+      // 会員番号タグの置換・除去
+      bodyText = bodyText
+        .replace(/^[^\S\r\n]*\[会員番号\][^\S\r\n]*\n?/gm, '')
+        .replace(/\[会員番号\]\s?/g, '')
+
       // クレジット決済情報がない場合は、[決済情報]タグが含まれる行全体を削除する
       if (!creditInfoText) {
         bodyText = bodyText.replace(/^[^\n]*\[決済情報\][^\n]*\n?/gm, '')

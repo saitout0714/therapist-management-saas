@@ -103,7 +103,13 @@ type Reservation = {
   credit_fee_amount: number
   paypay_fee_amount: number
   extension_count: number
-  customers: { name: string; phone: string | null; email: string | null } | null
+  customers: {
+    name: string
+    phone: string | null
+    email: string | null
+    member_number?: string | null
+    customer_shops?: { shop_id: string; member_number: string | null }[]
+  } | null
   courses: { name: string; duration: number; base_price: number } | null
   therapists: { name: string } | null
   reservation_options: CustomOption[]
@@ -167,7 +173,7 @@ export default function ReservationPreviewPage() {
           *,
           is_handled,
           source,
-          customers(name, phone, email),
+          customers(name, phone, email, member_number, customer_shops(shop_id, member_number)),
           courses(name, duration, base_price),
           therapists!reservations_therapist_id_fkey(name),
           reservation_options(
@@ -488,6 +494,7 @@ export default function ReservationPreviewPage() {
     const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
     const himeVal = reservation.is_hime ? '姫予約' : ''
+    const memberNumber = reservation.customers?.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number || reservation.customers?.member_number || ''
 
     if (customerTemplate) {
       let finalTemplate = customerTemplate
@@ -508,6 +515,14 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      if (!memberNumber) {
+        finalTemplate = finalTemplate
+          .replace(/^[^\S\r\n]*\[会員番号\][^\S\r\n]*\n?/gm, '')
+          .replace(/\[会員番号\]\s?/g, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[会員番号\]/g, memberNumber)
+      }
 
       // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
       if (!himeVal) {
@@ -697,6 +712,7 @@ export default function ReservationPreviewPage() {
     const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
     const himeVal = reservation.is_hime ? '姫予約' : ''
+    const memberNumber = reservation.customers?.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number || reservation.customers?.member_number || ''
 
     // カスタムテンプレートが設定されている場合、置換ロジックを使用
     if (therapistTemplate && therapistTemplate.trim() !== '') {
@@ -781,6 +797,14 @@ export default function ReservationPreviewPage() {
         .replace(/\[指名料金\]/g, nominationFeeVal)
         .replace(/\[支払方法\]/g, paymentText)
         .replace(/\[合計料金\]/g, totalVal)
+
+      if (!memberNumber) {
+        finalTemplate = finalTemplate
+          .replace(/^[^\S\r\n]*\[会員番号\][^\S\r\n]*\n?/gm, '')
+          .replace(/\[会員番号\]\s?/g, '')
+      } else {
+        finalTemplate = finalTemplate.replace(/\[会員番号\]/g, memberNumber)
+      }
 
       if (!addressVal) {
         finalTemplate = finalTemplate.replace(/^[^\n]*\[住所\][^\n]*\n?/gm, '')
@@ -903,8 +927,9 @@ export default function ReservationPreviewPage() {
       text += `\n`
     }
 
-    // お客様（新規/会員 + 氏名）
-    text += `■ お客様\n${customerPrefix} ${reservation.customers?.name || '未設定'} 様`
+    // お客様（新規/会員 + 会員番号 + 氏名）
+    const memberNumText = memberNumber ? `${memberNumber} ` : ''
+    text += `■ お客様\n${customerPrefix} ${memberNumText}${reservation.customers?.name || '未設定'} 様`
     if (reservation.is_hime) {
       text += ` 【姫予約】`
     }
@@ -1184,6 +1209,7 @@ export default function ReservationPreviewPage() {
     const extMinutesVal = reservation.extension_count > 0 ? `延長+${reservation.extension_count * extensionUnitMinutes}分` : ''
     const extPriceVal = extensionPrice > 0 ? `${extensionPrice.toLocaleString()}円` : ''
     const himeVal = reservation.is_hime ? '姫予約' : ''
+    const memberNumber = reservation.customers?.customer_shops?.find(cs => cs.shop_id === selectedShop?.id)?.member_number || reservation.customers?.member_number || ''
 
     let finalTemplate = templateContent
       .replace(/\[日付\]/g, dateVal)
@@ -1204,6 +1230,14 @@ export default function ReservationPreviewPage() {
       .replace(/\[支払方法\]/g, paymentText)
       .replace(/\[合計料金\]/g, totalVal)
       .replace(/\[道案内\]/g, directionsText)
+
+    if (!memberNumber) {
+      finalTemplate = finalTemplate
+        .replace(/^[^\S\r\n]*\[会員番号\][^\S\r\n]*\n?/gm, '')
+        .replace(/\[会員番号\]\s?/g, '')
+    } else {
+      finalTemplate = finalTemplate.replace(/\[会員番号\]/g, memberNumber)
+    }
 
     // 姫予約がない場合は、[姫予約]タグが含まれる行全体を削除する
     if (!himeVal) {
