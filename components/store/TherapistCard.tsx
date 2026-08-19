@@ -44,6 +44,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           : 'classic-card bg-white border font-serif shadow-md therapist-card-hover'
       }`}
     >
+      <div className="relative">
       <Link href={detailUrl} className="block group/photo">
         {/* 写真領域 (写真クリックで個人詳細ページへ移動) */}
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-stone-900">
@@ -145,7 +146,26 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             )}
           </div>
         </div>
+      </Link>
 
+      {/* 公式Xリンク（写真右下にオーバーレイ表示。Linkと入れ子にできないので兄弟要素にする） */}
+      {therapist.twitterUrl && (
+        <a
+          href={therapist.twitterUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${therapist.name}さんの公式X`}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-stone-950/80 backdrop-blur-md border border-white/25 text-white shadow-md transition-all hover:scale-110 hover:bg-black"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </a>
+      )}
+      </div>
+
+      <Link href={detailUrl} className="block">
         {/* カードボディ */}
         <div className={`p-4 flex-1 flex flex-col justify-between space-y-3 ${
           isCyber
