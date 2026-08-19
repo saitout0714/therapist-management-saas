@@ -29,6 +29,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
   const reserveUrl = `/reserve/${storeSlug}?therapist_id=${therapist.id}`;
   const isCyber = storeSlug === 'onyankospa' || primaryColor === '#ff6fb5';
   const isLuxury = storeSlug === 'specialgrade';
+  const hasRankBadge = Boolean(therapist.rankName || therapist.grade);
 
   return (
     <div
@@ -148,7 +149,8 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         </div>
       </Link>
 
-      {/* 公式Xリンク（写真右下にオーバーレイ表示。Linkと入れ子にできないので兄弟要素にする） */}
+      {/* 公式Xリンク（写真右上にオーバーレイ表示。ランク/グレードバッジがある場合はその下に。
+          Linkと入れ子にできないので兄弟要素にする） */}
       {therapist.twitterUrl && (
         <a
           href={therapist.twitterUrl}
@@ -156,9 +158,11 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           rel="noopener noreferrer"
           aria-label={`${therapist.name}さんの公式X`}
           onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-stone-950/80 backdrop-blur-md border border-white/25 text-white shadow-md transition-all hover:scale-110 hover:bg-black"
+          className={`absolute right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-stone-950/80 backdrop-blur-md border border-white/25 text-white shadow-md transition-all hover:scale-110 hover:bg-black ${
+            hasRankBadge ? 'top-12' : 'top-3'
+          }`}
         >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>
         </a>
