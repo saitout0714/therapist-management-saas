@@ -36,12 +36,12 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         animationDelay: `${index * 120}ms`,
         borderColor: isCyber || isLuxury ? undefined : `${primaryColor}60`
       }}
-      className={`group relative overflow-hidden flex flex-col rounded-2xl therapist-card-reveal therapist-card-hover ${
+      className={`group relative overflow-hidden flex flex-col rounded-2xl sm:rounded-3xl therapist-card-reveal ${
         isCyber
-          ? 'cyber-card'
+          ? 'cyber-card therapist-card-hover'
           : isLuxury
-          ? 'luxury-card luxury-gold-border !rounded-lg luxury-body'
-          : 'classic-card bg-white border font-serif shadow-md'
+          ? 'luxury-photo-card !rounded-2xl sm:!rounded-3xl luxury-body'
+          : 'classic-card bg-white border font-serif shadow-md therapist-card-hover'
       }`}
     >
       <Link href={detailUrl} className="block group/photo">
@@ -52,28 +52,42 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             alt={therapist.name}
             fill
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            className="object-cover group-hover/photo:scale-110 transition-transform duration-700 ease-out"
+            className={`object-cover transition-transform duration-700 ease-out ${isLuxury ? 'group-hover/photo:scale-105' : 'group-hover/photo:scale-110'}`}
           />
-          
+
           {/* ホバー時のShimmer光沢ビーム光彩エフェクト */}
           <div className="shimmer-light-beam" />
 
           {/* グラデーションシャドウ */}
-          <div className={`absolute inset-0 ${isCyber ? 'bg-gradient-to-t from-[#190a20]/95 via-[#190a20]/25 to-transparent' : 'bg-gradient-to-t from-stone-950/95 via-stone-950/20 to-transparent'}`} />
+          <div className={`absolute inset-0 ${
+            isCyber
+              ? 'bg-gradient-to-t from-[#190a20]/95 via-[#190a20]/25 to-transparent'
+              : isLuxury
+              ? 'bg-gradient-to-t from-stone-950/80 via-stone-950/15 to-transparent'
+              : 'bg-gradient-to-t from-stone-950/95 via-stone-950/20 to-transparent'
+          }`} />
 
           {/* 左上バッジ群（新人リボンとカスタムバッジは独立して両方表示できる） */}
           {(therapist.isRookie || therapist.badge) && (
             <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
               {therapist.isRookie && (
-                <span className="text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest badge-float bg-gradient-to-r from-pink-500 to-rose-500">
-                  ♥ 新人
+                <span className={`text-[11px] px-3 py-0.5 rounded-full tracking-widest ${
+                  isLuxury
+                    ? 'text-[#c5a059] bg-[#fdf8f5] border border-[#e2b3b1]/50 font-medium font-luxury-display shadow-xs'
+                    : 'text-white font-extrabold shadow-lg badge-float bg-gradient-to-r from-pink-500 to-rose-500'
+                }`}>
+                  {isLuxury ? '新人' : '♥ 新人'}
                 </span>
               )}
               {therapist.badge && (
                 <span
-                  style={{ backgroundColor: isCyber ? undefined : primaryColor }}
-                  className={`text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-lg tracking-widest badge-float ${
-                    isCyber ? 'neon-badge-pink' : ''
+                  style={{ backgroundColor: isCyber || isLuxury ? undefined : primaryColor }}
+                  className={`text-[11px] px-3 py-0.5 rounded-full tracking-widest ${
+                    isCyber
+                      ? 'text-white font-extrabold shadow-lg badge-float neon-badge-pink'
+                      : isLuxury
+                      ? 'text-[#c5a059] font-medium font-luxury-display bg-[#fdf8f5] border border-[#e2b3b1]/50 shadow-xs'
+                      : 'text-white font-extrabold shadow-lg badge-float'
                   }`}
                 >
                   {therapist.badge}
@@ -85,25 +99,31 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {/* 右上ランク・グレード */}
           {(therapist.rankName || therapist.grade) && (
             <div
-              style={{ color: isCyber ? '#ffa8d8' : primaryColor, borderColor: isCyber ? '#ff6fb5' : `${primaryColor}80` }}
-              className="absolute top-3 right-3 bg-stone-950/80 backdrop-blur-md border font-bold text-[10px] px-2.5 py-1 rounded-full tracking-wider shadow-md"
+              style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#c5a059' : primaryColor, borderColor: isCyber ? '#ff6fb5' : isLuxury ? 'rgba(226,179,177,0.5)' : `${primaryColor}80` }}
+              className={`absolute top-3 right-3 backdrop-blur-md border text-[10px] px-2.5 py-0.5 rounded-full tracking-wider ${
+                isLuxury ? 'bg-[#fdf8f5]/95 font-medium shadow-xs' : 'bg-stone-950/80 font-bold shadow-md'
+              }`}
             >
               {therapist.rankName || therapist.grade}
             </div>
           )}
 
           {/* 写真下部の情報レイヤー */}
-          <div className="absolute bottom-3 left-3.5 right-3.5 text-stone-100 space-y-1 group-hover/photo:translate-y-[-2px] transition-transform duration-300">
+          <div className={`absolute bottom-3 left-3.5 right-3.5 text-stone-100 space-y-1 transition-transform duration-300 ${isLuxury ? '' : 'group-hover/photo:translate-y-[-2px]'}`}>
             <div className="flex items-baseline gap-2">
-              <h3 className={`text-xl font-bold tracking-wider drop-shadow-md transition-colors ${
-                isCyber ? 'neon-text-white' : 'text-stone-100 group-hover/photo:text-white'
+              <h3 className={`tracking-wider drop-shadow-md transition-colors ${
+                isCyber
+                  ? 'text-xl font-bold neon-text-white'
+                  : isLuxury
+                  ? 'text-lg font-luxury-display font-medium text-white'
+                  : 'text-xl font-bold text-stone-100 group-hover/photo:text-white'
               }`}>
                 {therapist.name}
               </h3>
-              <span style={{ color: isCyber ? '#ffa8d8' : primaryColor }} className="text-xs font-semibold drop-shadow">({therapist.age}歳)</span>
+              <span style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#e5c989' : primaryColor }} className="text-xs font-medium drop-shadow">({therapist.age}歳)</span>
             </div>
 
-            <p className="text-xs text-stone-200 font-sans tracking-wide drop-shadow">
+            <p className={`text-stone-200 font-sans drop-shadow ${isLuxury ? 'text-[11px] tracking-wider' : 'text-xs tracking-wide'}`}>
               T{therapist.height} ({therapist.bustCup}cup) {therapist.threeSize ? `• ${therapist.threeSize}` : (therapist.bust && `• B${therapist.bust} W${therapist.waist || ''} H${therapist.hip || ''}`)}
             </p>
 
@@ -111,14 +131,14 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             {confirmedShiftTime && (
               <div className="pt-1 flex items-center gap-1.5">
                 {showTodayBadge && (
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-white font-bold text-[10px] rounded-md shadow-sm ${
-                    isCyber ? 'bg-[#ff6fb5] neon-on-pink' : 'bg-emerald-500/90'
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-white text-[10px] rounded-md shadow-sm ${
+                    isCyber ? 'font-bold bg-[#ff6fb5] neon-on-pink' : isLuxury ? 'font-medium bg-[#c5a059]' : 'font-bold bg-emerald-500/90'
                   }`}>
                     <span className="w-2 h-2 rounded-full bg-white animate-pulse-dot shadow-[0_0_8px_#fff]" />
                     本日出勤
                   </span>
                 )}
-                <span style={{ color: isCyber ? '#ffa8d8' : primaryColor }} className="text-xs font-mono font-bold drop-shadow">
+                <span style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#e5c989' : primaryColor }} className={`text-xs font-mono drop-shadow ${isLuxury ? 'font-medium' : 'font-bold'}`}>
                   ⏰ {confirmedShiftTime}
                 </span>
               </div>
@@ -130,6 +150,8 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         <div className={`p-4 flex-1 flex flex-col justify-between space-y-3 ${
           isCyber
             ? 'bg-gradient-to-b from-white/12 to-[#150e20]/60 text-[#f4eefa]'
+            : isLuxury
+            ? 'bg-white'
             : 'bg-gradient-to-b from-[#faf9f5] to-[#f4f2e9]'
         }`}>
           {/* 特徴タグバッジ */}
@@ -137,9 +159,9 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
             {therapist.tags.map((tag) => (
               <span
                 key={tag}
-                style={{ color: isCyber ? '#ffa8d8' : primaryColor, borderColor: isCyber ? 'rgba(255,111,181,0.35)' : `${primaryColor}40` }}
-                className={`text-[10px] font-bold px-2 py-0.5 border rounded-md shadow-2xs transition-all duration-300 hover:scale-105 ${
-                  isCyber ? 'bg-white/12 hover:bg-white/20' : 'bg-white hover:bg-stone-50'
+                style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#c5a059' : primaryColor, borderColor: isCyber ? 'rgba(255,111,181,0.35)' : isLuxury ? 'rgba(226,179,177,0.45)' : `${primaryColor}40` }}
+                className={`text-[10px] px-2.5 py-0.5 border rounded-full shadow-2xs transition-all duration-300 hover:scale-105 ${
+                  isCyber ? 'font-bold bg-white/12 hover:bg-white/20' : isLuxury ? 'font-medium bg-[#fdf8f5] hover:bg-white' : 'font-bold bg-white hover:bg-stone-50'
                 }`}
               >
                 #{tag}
@@ -150,7 +172,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {/* PRコメント */}
           {therapist.comment && (
             <p className={`text-xs line-clamp-2 italic tracking-wide leading-relaxed transition-opacity duration-300 ${
-              isCyber ? 'text-[#ded1ee]' : 'text-stone-700'
+              isCyber ? 'text-[#ded1ee]' : isLuxury ? 'text-[#5c5250]' : 'text-stone-700'
             }`}>
               "{therapist.comment}"
             </p>
@@ -162,13 +184,17 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
       <div className={`p-4 pt-0 ${
         isCyber
           ? 'bg-[#150e20]/70'
+          : isLuxury
+          ? 'bg-white'
           : 'bg-gradient-to-b from-[#faf9f5] to-[#f4f2e9]'
       }`}>
         <div className="pt-2">
           <Link
             href={reserveUrl}
             style={{ backgroundColor: isCyber || isLuxury ? undefined : primaryColor }}
-            className={`block w-full py-2.5 sm:py-3 text-center text-xs sm:text-sm font-extrabold text-white tracking-widest active:scale-95 transition-all duration-300 ${
+            className={`block w-full py-2.5 sm:py-3 text-center text-xs sm:text-sm tracking-widest active:scale-95 transition-all duration-300 ${
+              isLuxury ? 'font-medium' : 'font-extrabold'
+            } text-white ${
               isCyber
                 ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] hover:shadow-[0_0_20px_rgba(255,111,181,0.8)]'
                 : isLuxury

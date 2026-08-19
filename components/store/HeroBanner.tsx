@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Campaign, StoreConfig } from '../../types/store';
 import { HeroBannerSlider } from './HeroBannerSlider';
 import { SectionHeading } from './SectionHeading';
@@ -12,29 +13,42 @@ interface SmartInfoCardProps {
   isCyberTheme: boolean;
   isLuxuryTheme?: boolean;
   primaryColor: string;
+  /** ラグジュアリー時、ヒーロー画像に食い込ませて「重なり」を作るか（ギャラリーがある時だけ） */
+  overlapHero?: boolean;
 }
 
-const SmartInfoCard: React.FC<SmartInfoCardProps> = ({ store, isCyberTheme, isLuxuryTheme = false, primaryColor }) => {
+const SmartInfoCard: React.FC<SmartInfoCardProps> = ({
+  store,
+  isCyberTheme,
+  isLuxuryTheme = false,
+  primaryColor,
+  overlapHero = false,
+}) => {
   const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
 
   if (isLuxuryTheme) {
     return (
-      <div ref={ref} className={`luxury-fade-up ${inView ? 'is-in' : ''} relative z-10 max-w-2xl mx-auto space-y-2`}>
-        <div className="text-xs sm:text-sm font-semibold tracking-widest text-[#6b6459]">
+      <div
+        ref={ref}
+        className={`luxury-fade-up ${inView ? 'is-in' : ''} luxury-card luxury-card-static relative z-20 max-w-2xl mx-auto space-y-4 px-6 py-9 sm:px-12 sm:py-11 ${
+          overlapHero ? '-mt-12 sm:-mt-16' : ''
+        }`}
+      >
+        <div className="text-xs sm:text-sm font-medium tracking-[0.2em] text-[#5c5250] leading-relaxed">
           {store.catchphrase || '赤羽・川口 メンズエステ'}
           <br />
-          <span className="inline-block font-luxury-display text-2xl sm:text-3xl font-semibold tracking-wide leading-relaxed text-[#2b2b2b] mt-1">
+          <span className="inline-block font-luxury-display text-2xl sm:text-3xl font-medium tracking-[0.16em] leading-relaxed text-[#2b2827] mt-3">
             {store.name}
           </span>
         </div>
         <div className="luxury-gold-rule w-24 mx-auto" />
-        <div className="text-xs tracking-widest text-[#6b6459]">📍 {store.accessInfo}</div>
-        <div className="text-xs font-bold tracking-wider text-[#a8874a]">⏰ {store.businessHours}</div>
+        <div className="text-xs tracking-[0.16em] text-[#3a3335] leading-relaxed">📍 {store.accessInfo}</div>
+        <div className="text-xs font-medium tracking-[0.16em] text-[#c5a059]">⏰ {store.businessHours}</div>
 
         <div className="pt-2">
           <a
             href={`tel:${store.phoneNumber}`}
-            className="luxury-gold-btn inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 text-xs sm:text-sm font-bold text-white tracking-widest rounded-full shadow-md group"
+            className="luxury-gold-btn inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 text-xs sm:text-sm font-medium text-white tracking-[0.18em] rounded-full group shadow-md"
           >
             <span className="group-hover:scale-110 transition-transform">📞</span> お店に電話する ({store.phoneNumber})
           </a>
@@ -139,31 +153,126 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
 
   return (
     <div className={isCyberTheme ? 'text-[#f4eefa] relative overflow-hidden' : isLuxuryTheme ? 'luxury-body luxury-marble-bg' : 'font-serif bg-[#faf9f5]'}>
-      {/* 0-L. SpecialGrade用 大理石×ゴールドの縦長ギャラリーヒーロー */}
-      {isLuxuryTheme && galleryImages.length > 0 && (
-        <section className="relative w-full overflow-hidden border-b border-[#e9dcc4]">
-          <div className="grid grid-cols-3 sm:grid-cols-5 h-[52vh] sm:h-[62vh] w-full">
-            {galleryImages.slice(0, 5).map((src, idx) => (
-              <div key={idx} className="relative overflow-hidden border-x border-[#c9a869]/25 first:border-l-0 last:border-r-0 group">
-                <Image
-                  src={src}
-                  alt={`${store.name} ギャラリー ${idx + 1}`}
-                  fill
-                  priority={idx < 2}
-                  sizes="(min-width: 640px) 20vw, 33vw"
-                  className="object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-110"
-                />
+      {/* 0-L. SpecialGrade用 極上シネマティック・ヒーロー (misshelly.com 完全オマージュ)
+          misshelly signature pink (#EFD8D5) の縁取りフレーム + 角丸大画面ビジュアル + 左下Graceful and Nobleエディトリアルロックアップ */}
+      {isLuxuryTheme && (
+        <section className="relative w-full bg-[#efd8d5] px-3 sm:px-5 lg:px-7 pt-3 sm:pt-4 pb-4 sm:pb-6 overflow-hidden">
+          {/* 光のボカシ・アンビエントオーブ（外側フレームの淡い光彩） */}
+          <div className="luxury-orb luxury-orb-rose w-[36rem] h-[36rem] -top-20 -left-28 animate-orb-slow opacity-60 z-0" />
+          <div className="luxury-orb luxury-orb-gold w-[32rem] h-[32rem] top-1/4 -right-24 animate-orb-slower opacity-50 z-0" />
+
+          {/* 角丸ヒーローコンテナ (misshelly のような美しいピンク縁取りの中の大画面ビジュアルフレーム) */}
+          <div className="relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#2b2827] shadow-[0_12px_45px_rgba(198,149,162,0.35)] border border-[#d8b3bd]/60 z-10">
+            {/* 1. 大迫力のシネマティック・メインビジュアル（動画のように滑らかにズーム＆パン） */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+              <Image
+                src="/images/specialgrade_hero_cinematic.jpg"
+                alt={`${store.name} シネマティックビジュアル`}
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
+              />
+            </div>
+
+            {/* 2. misshelly風 シネマティック・カラーグレーディング＆ソフトオーバーレイ */}
+            <div className="absolute inset-0 bg-gradient-to-b from-stone-950/40 via-transparent to-stone-950/75 pointer-events-none z-10" />
+            <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-stone-950/35 pointer-events-none z-10" />
+
+            {/* 3. シャンパンダスト粒子（画面下から上へ優雅に浮遊する金粉エフェクト） */}
+            <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden" aria-hidden="true">
+              <span className="absolute bottom-[-10px] left-[8%] w-1.5 h-1.5 rounded-full bg-[#d4af37]/80 shadow-[0_0_10px_#d4af37] animate-dust-1" />
+              <span className="absolute bottom-[-10px] left-[18%] w-2 h-2 rounded-full bg-[#e2b3b1]/90 shadow-[0_0_12px_#e2b3b1] animate-dust-2" />
+              <span className="absolute bottom-[-10px] left-[28%] w-1 h-1 rounded-full bg-[#c5a059]/70 shadow-[0_0_8px_#c5a059] animate-dust-3" />
+              <span className="absolute bottom-[-10px] left-[42%] w-2.5 h-2.5 rounded-full bg-[#d4af37]/80 shadow-[0_0_12px_#d4af37] animate-dust-1" />
+              <span className="absolute bottom-[-10px] left-[55%] w-1.5 h-1.5 rounded-full bg-[#e2b3b1]/90 shadow-[0_0_10px_#e2b3b1] animate-dust-2" />
+              <span className="absolute bottom-[-10px] left-[68%] w-2 h-2 rounded-full bg-[#c5a059]/80 shadow-[0_0_10px_#c5a059] animate-dust-3" />
+              <span className="absolute bottom-[-10px] left-[82%] w-1.5 h-1.5 rounded-full bg-[#d4af37]/90 shadow-[0_0_10px_#d4af37] animate-dust-1" />
+              <span className="absolute bottom-[-10px] left-[92%] w-2 h-2 rounded-full bg-[#e2b3b1]/80 shadow-[0_0_12px_#e2b3b1] animate-dust-2" />
+            </div>
+
+            {/* 4. 回転エンブレムスタンプ（右上） */}
+            <div className="absolute top-24 right-6 sm:top-28 sm:right-10 z-20 pointer-events-none hidden sm:block">
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center p-2 rounded-full bg-stone-950/40 backdrop-blur-md border border-white/25 shadow-lg">
+                {/* 自転する円形テキスト */}
+                <svg className="w-full h-full animate-spin-slow" viewBox="0 0 100 100">
+                  <path
+                    id="emblemCirclePath"
+                    d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0"
+                    fill="none"
+                  />
+                  <text className="text-[8.2px] font-luxury-display tracking-[0.22em] fill-[#fdf8f5] uppercase font-medium">
+                    <textPath href="#emblemCirclePath" startOffset="0%">
+                      ★ SPECIAL GRADE TOKYO ★ LUXURY SPA & BEAUTY
+                    </textPath>
+                  </text>
+                </svg>
+                {/* 中央の固定モノグラム */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="font-luxury-display italic font-semibold text-xs text-[#c5a059] tracking-widest drop-shadow-sm">
+                    SG
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
-            <div className="text-center bg-black/10 backdrop-blur-[1px] px-6 py-4 sm:px-10 sm:py-6 rounded-lg">
-              <p className="font-luxury-display italic text-white/95 text-2xl sm:text-4xl lg:text-5xl leading-tight tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-                {store.catchphrase ? store.catchphrase.split(/[|｜]/)[0].trim() : 'UNCOMPROMISING'}
+            </div>
+
+            {/* 5. 浮遊サブカード (右下: 個室サロン空間 - Desktop限定) */}
+            <div className="hidden xl:flex flex-col absolute bottom-12 right-12 z-20 animate-float-card-1">
+              <div className="luxury-glass-card rounded-2xl p-2.5 w-56 group cursor-default !bg-stone-950/65 !border-white/25 shadow-2xl backdrop-blur-xl">
+                <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-stone-900 mb-2">
+                  <Image
+                    src="/images/specialgrade_interior.jpg"
+                    alt="プライベートサロン空間"
+                    fill
+                    sizes="220px"
+                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <span className="absolute bottom-2 left-2 text-[10px] text-white font-medium px-2 py-0.5 rounded-md bg-stone-950/70 backdrop-blur-xs">
+                    Private Room
+                  </span>
+                </div>
+                <div className="px-1.5 py-0.5">
+                  <span className="font-luxury-display italic text-[10px] text-[#c5a059] tracking-wider block">
+                    PRIVATE SANCTUARY
+                  </span>
+                  <p className="text-[11px] font-medium text-white/95 mt-0.5">
+                    都会の喧騒を離れる上質な完全個室
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. misshelly風 左下エディトリアル・ロックアップ */}
+            <div className="relative z-20 max-w-2xl text-left text-white">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/30 text-white text-[10px] sm:text-xs font-luxury-display italic tracking-[0.25em] uppercase mb-3 sm:mb-4 shadow-sm">
+                ★ PRIVATE MEN'S SPA & BEAUTY ★
+              </span>
+
+              <h1 className="font-luxury-display font-light text-3xl sm:text-5xl lg:text-6xl leading-[1.2] tracking-[0.06em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
+                Graceful and Noble
+                <br />
+                <span className="italic font-light text-[#fdf8f5]">like a sanctuary.</span>
+              </h1>
+
+              <p className="text-xs sm:text-sm text-stone-200 tracking-[0.2em] font-light mt-3 max-w-md drop-shadow">
+                {store.catchphrase ? store.catchphrase.split(/[|｜]/)[0].trim() : '洗練された至高のプライベートリラクゼーション'}
               </p>
-              <p className="font-luxury-display italic text-white/95 text-2xl sm:text-4xl lg:text-5xl leading-tight tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-                LUXURY FOR MEN.
-              </p>
+
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-6 sm:mt-8">
+                <Link
+                  href={`/reserve/${store.slug}`}
+                  className="luxury-gold-btn inline-flex items-center justify-center gap-2 px-7 sm:px-9 py-3 sm:py-3.5 text-xs sm:text-sm font-medium tracking-[0.2em] rounded-full shadow-[0_8px_25px_rgba(197,160,89,0.5)] active:scale-95 transition-all"
+                >
+                  <span>24時間 WEB予約</span>
+                  <span className="text-xs">→</span>
+                </Link>
+                <Link
+                  href={`${basePath}/therapists`}
+                  className="bg-white/20 hover:bg-white/35 backdrop-blur-md border border-white/50 text-white inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-medium tracking-[0.2em] rounded-full active:scale-95 shadow-md transition-all"
+                >
+                  <span>セラピスト一覧</span>
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -300,30 +409,38 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
       )}
 
       {/* 1. smart-info (店舗概要・お電話案内) */}
-      <section className={`relative overflow-hidden py-8 px-4 border-b text-center ${
-        isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'bg-white border-[#e9dcc4]' : 'bg-white/95 border-stone-200 shadow-xs'
+      <section className={`relative px-4 text-center ${
+        isCyberTheme
+          ? 'overflow-hidden py-8 border-b border-[#ff6fb5]/20'
+          : isLuxuryTheme
+          ? 'pt-8 pb-16 sm:pb-20'
+          : 'overflow-hidden py-8 bg-white/95 border-b border-stone-200 shadow-xs'
       }`}>
         {isCyberTheme && (
           <div className="neon-orb neon-orb-magenta animate-orb-slow w-[22rem] h-[22rem] -top-32 left-1/2 -translate-x-1/2" />
         )}
-        <SmartInfoCard store={store} isCyberTheme={isCyberTheme} isLuxuryTheme={isLuxuryTheme} primaryColor={primaryColor} />
+        <SmartInfoCard
+          store={store}
+          isCyberTheme={isCyberTheme}
+          isLuxuryTheme={isLuxuryTheme}
+          primaryColor={primaryColor}
+          overlapHero={false}
+        />
       </section>
-
-
 
       {/* 3. Information (イベント・キャンペーン極上スライダー) */}
       {campaigns && campaigns.length > 0 && (
-        <section className={`relative overflow-hidden py-14 border-b ${
-          isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-white border-stone-200'
+        <section className={`relative overflow-hidden border-b ${
+          isCyberTheme ? 'py-14 border-[#ff6fb5]/20' : isLuxuryTheme ? 'py-20 sm:py-24 luxury-beige-bg border-[#e2b3b1]/30' : 'py-14 bg-white border-stone-200'
         }`}>
           {isCyberTheme && (
             <div className="neon-orb neon-orb-purple animate-orb-slower w-[26rem] h-[26rem] -bottom-40 -left-28" />
           )}
-          <div className="relative z-10 max-w-4xl mx-auto px-4 space-y-8">
+          <div className="relative z-10 max-w-4xl mx-auto px-4 space-y-10">
             <SectionHeading title="Information" subtitle="インフォメーション" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
 
             {/* 極上フェードスライダー */}
-            <HeroBannerSlider campaigns={campaigns} isCyber={isCyberTheme} />
+            <HeroBannerSlider campaigns={campaigns} isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
           </div>
         </section>
       )}

@@ -2513,6 +2513,154 @@ function ShiftsContent() {
             </div>
 
             <div className="px-6 py-3 space-y-3.5">
+              {/* 0. メモ */}
+              <div>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">メモ</h4>
+                <textarea
+                  value={shiftEditModal.memo}
+                  onChange={e => setShiftEditModal(m => m ? { ...m, memo: e.target.value } : null)}
+                  rows={2}
+                  placeholder="備考・連絡事項など"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
+                />
+              </div>
+
+              {/* 0b. 引き継ぎメモ */}
+              <section>
+                <div className="flex items-center justify-between mb-1.5">
+                  <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                    引き継ぎメモ
+                    {shiftEditModal.unresolvedMemos.length > 0 && (
+                      <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{shiftEditModal.unresolvedMemos.length}</span>
+                    )}
+                  </h4>
+                  <button
+                    onClick={() => setMemoForm(f => f ? null : { content: '', amount: '' })}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    {memoForm ? 'キャンセル' : '＋ 追加'}
+                  </button>
+                </div>
+
+                {/* 追加フォーム */}
+                {memoForm && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 space-y-2">
+                    <textarea
+                      value={memoForm.content}
+                      onChange={e => setMemoForm(f => f ? { ...f, content: e.target.value } : null)}
+                      rows={2}
+                      placeholder="内容（例：精算時に店落ち不足）"
+                      className="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                    />
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 flex-1">
+                        <input
+                          type="number"
+                          value={memoForm.amount}
+                          onChange={e => setMemoForm(f => f ? { ...f, amount: e.target.value } : null)}
+                          placeholder="金額"
+                          className="w-24 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
+                        />
+                        <span className="text-xs text-slate-500">円　正=余剰 / 負=不足</span>
+                      </div>
+                      <button
+                        onClick={() => handleAddMemo(shiftEditModal.therapistId)}
+                        disabled={!memoForm.content.trim()}
+                        className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-40"
+                      >
+                        追加
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 未解決メモ一覧 */}
+                {shiftEditModal.unresolvedMemos.length === 0 && !memoForm && (
+                  <p className="text-xs text-slate-400 text-center py-2">未解決のメモはありません</p>
+                )}
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {shiftEditModal.unresolvedMemos.map(memo => {
+                    const isEditing = editingMemoId === memo.id;
+                    if (isEditing) {
+                      return (
+                        <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+                          <textarea
+                            value={editMemoForm.content}
+                            onChange={e => setEditMemoForm(f => ({ ...f, content: e.target.value }))}
+                            rows={1}
+                            className="w-full px-2 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                            placeholder="内容"
+                          />
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={editMemoForm.amount}
+                                onChange={e => setEditMemoForm(f => ({ ...f, amount: e.target.value }))}
+                                className="w-20 px-1.5 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none"
+                                placeholder="金額"
+                              />
+                              <span className="text-[10px] text-slate-500">円</span>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMemoId(null)}
+                                className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 rounded transition-all"
+                              >
+                                キャンセル
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateMemo(memo.id)}
+                                disabled={!editMemoForm.content.trim()}
+                                className="px-2.5 py-1 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded transition-all"
+                              >
+                                保存
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
+                            {memo.amount !== 0 && (
+                              <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleEditMemoStart(memo)}
+                            className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 border border-slate-200 hover:border-indigo-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                          >
+                            編集
+                          </button>
+                          <button
+                            onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
+                            className="text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
+                          >
+                            解決済み
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <div className="border-t border-slate-100 -mx-6" />
+
               {/* 1. 勤務時間・ルーム */}
               <section>
                 <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">勤務</h4>
@@ -2723,155 +2871,9 @@ function ShiftsContent() {
                 </button>
               </div>
 
-              {/* 5. メモ */}
-              <div>
-                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">メモ</h4>
-                <textarea
-                  value={shiftEditModal.memo}
-                  onChange={e => setShiftEditModal(m => m ? { ...m, memo: e.target.value } : null)}
-                  rows={2}
-                  placeholder="備考・連絡事項など"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
-                />
-              </div>
-
               {shiftEditModal.error && (
                 <p className="text-xs text-red-600 font-medium">{shiftEditModal.error}</p>
               )}
-            </div>
-
-            {/* 引き継ぎメモセクション */}
-            <div className="px-6 pb-3 border-t border-slate-100">
-              <div className="flex items-center justify-between mt-3 mb-1.5">
-                <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                  引き継ぎメモ
-                  {shiftEditModal.unresolvedMemos.length > 0 && (
-                    <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{shiftEditModal.unresolvedMemos.length}</span>
-                  )}
-                </h4>
-                <button
-                  onClick={() => setMemoForm(f => f ? null : { content: '', amount: '' })}
-                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                >
-                  {memoForm ? 'キャンセル' : '＋ 追加'}
-                </button>
-              </div>
-
-              {/* 追加フォーム */}
-              {memoForm && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 space-y-2">
-                  <textarea
-                    value={memoForm.content}
-                    onChange={e => setMemoForm(f => f ? { ...f, content: e.target.value } : null)}
-                    rows={2}
-                    placeholder="内容（例：精算時に店落ち不足）"
-                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 flex-1">
-                      <input
-                        type="number"
-                        value={memoForm.amount}
-                        onChange={e => setMemoForm(f => f ? { ...f, amount: e.target.value } : null)}
-                        placeholder="金額"
-                        className="w-24 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
-                      />
-                      <span className="text-xs text-slate-500">円　正=余剰 / 負=不足</span>
-                    </div>
-                    <button
-                      onClick={() => handleAddMemo(shiftEditModal.therapistId)}
-                      disabled={!memoForm.content.trim()}
-                      className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-40"
-                    >
-                      追加
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 未解決メモ一覧 */}
-              {shiftEditModal.unresolvedMemos.length === 0 && !memoForm && (
-                <p className="text-xs text-slate-400 text-center py-2">未解決のメモはありません</p>
-              )}
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {shiftEditModal.unresolvedMemos.map(memo => {
-                  const isEditing = editingMemoId === memo.id;
-                  if (isEditing) {
-                    return (
-                      <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
-                        <textarea
-                          value={editMemoForm.content}
-                          onChange={e => setEditMemoForm(f => ({ ...f, content: e.target.value }))}
-                          rows={1}
-                          className="w-full px-2 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
-                          placeholder="内容"
-                        />
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              value={editMemoForm.amount}
-                              onChange={e => setEditMemoForm(f => ({ ...f, amount: e.target.value }))}
-                              className="w-20 px-1.5 py-1 bg-white border border-amber-200 rounded-md text-xs focus:ring-2 focus:ring-amber-400/50 outline-none"
-                              placeholder="金額"
-                            />
-                            <span className="text-[10px] text-slate-500">円</span>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setEditingMemoId(null)}
-                              className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 rounded transition-all"
-                            >
-                              キャンセル
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateMemo(memo.id)}
-                              disabled={!editMemoForm.content.trim()}
-                              className="px-2.5 py-1 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded transition-all"
-                            >
-                              保存
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={memo.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] text-amber-700 font-bold">{memo.date}</span>
-                          {memo.amount !== 0 && (
-                            <span className={`text-[10px] font-bold px-1.5 rounded ${memo.amount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                              {memo.amount > 0 ? `+${memo.amount.toLocaleString()}` : memo.amount.toLocaleString()}円
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-700 leading-snug">{memo.content}</p>
-                      </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleEditMemoStart(memo)}
-                          className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 border border-slate-200 hover:border-indigo-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
-                        >
-                          編集
-                        </button>
-                        <button
-                          onClick={() => handleResolveMemo(memo.id, shiftEditModal.therapistId)}
-                          className="text-[9px] font-bold text-slate-400 hover:text-emerald-600 border border-slate-200 hover:border-emerald-300 px-1.5 py-1 rounded transition-colors whitespace-nowrap"
-                        >
-                          解決済み
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
             {/* フッター */}

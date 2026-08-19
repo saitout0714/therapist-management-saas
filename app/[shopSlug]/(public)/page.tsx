@@ -55,10 +55,15 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
   const neonBtn =
     'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]';
   const classicBtn = 'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-sm shadow-md transition-all bg-stone-900 hover:bg-[#a39573]';
-  const luxuryBtn = 'inline-block px-8 py-3 font-bold text-xs tracking-widest text-white rounded-full luxury-gold-btn shadow-md';
-  const sectionBtn = isCyberTheme ? neonBtn : isLuxuryTheme ? luxuryBtn : classicBtn;
+  // ラグジュアリーテーマ：主要CTA（予約）はゴールドのグラデーション塗り、それ以外の
+  // 「一覧を見る」等の副次的な導線は細いゴールド枠のアウトラインボタンにして主張を抑える。
+  const luxuryPrimaryBtn = 'inline-block px-8 py-3 font-medium text-xs tracking-[0.18em] text-white rounded-full luxury-gold-btn shadow-sm';
+  const luxuryOutlineBtn = 'inline-block px-8 py-3 font-medium text-xs tracking-[0.18em] rounded-full luxury-outline-btn';
+  const sectionBtn = isCyberTheme ? neonBtn : isLuxuryTheme ? luxuryOutlineBtn : classicBtn;
 
-  // ラグジュアリーヒーロー用ギャラリー画像（バナー実写真 + セラピスト実写真を合成、最大5枚）
+  // ラグジュアリーヒーローのメインビジュアル。
+  // 横長1枚を主役にするので実際に使うのは先頭の1枚だけだが、
+  // バナー未登録の店舗でもヒーローが空にならないようセラピスト写真をフォールバックに繋いでいる。
   const luxuryGalleryImages = isLuxuryTheme
     ? [...campaigns.map((c) => c.imageUrl), ...therapists.slice(0, 5).map((t) => t.avatarUrl)]
         .filter(Boolean)
@@ -75,7 +80,13 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
         return (
           <section
             key="therapists"
-            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-white border-stone-200'}`}
+            className={`relative overflow-hidden ${
+              isCyberTheme
+                ? 'py-16 border-b border-[#ff6fb5]/20'
+                : isLuxuryTheme
+                ? 'py-20 sm:py-28 luxury-pink-bg border-b border-[#c695a2]/25'
+                : 'py-16 bg-white border-b border-stone-200'
+            }`}
           >
             {isCyberTheme && (
               <>
@@ -83,17 +94,23 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                 <div className="neon-orb neon-orb-purple animate-orb-slower w-[24rem] h-[24rem] top-1/3 -right-32" />
               </>
             )}
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+            {isLuxuryTheme && (
+              <>
+                <div className="luxury-orb luxury-orb-rose w-[30rem] h-[30rem] -top-20 -left-24 animate-orb-slow" />
+                <div className="luxury-orb luxury-orb-gold w-[26rem] h-[26rem] top-1/2 -right-24 animate-orb-slower" />
+              </>
+            )}
+            <div className={`relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isLuxuryTheme ? 'space-y-14 sm:space-y-18' : 'space-y-10'}`}>
               <SectionHeading title="Today's Shift" subtitle="本日の出勤" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
 
               {todayTherapists.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${isLuxuryTheme ? 'gap-5 sm:gap-7' : 'gap-4 sm:gap-6'}`}>
                   {todayTherapists.map((therapist, idx) => (
                     <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} basePath={basePath} index={idx} />
                   ))}
                 </div>
               ) : (
-                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#a8a196]' : 'text-stone-500'}`}>
+                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#786f6d]' : 'text-stone-500'}`}>
                   本日出勤のセラピストは現在準備中です。出勤スケジュールをご確認ください。
                 </p>
               )}
@@ -112,34 +129,47 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
         return (
           <section
             key="diary"
-            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : 'bg-[#faf9f5] border-stone-200'}`}
+            className={`relative overflow-hidden border-b ${isCyberTheme ? 'py-16 border-[#ff6fb5]/20' : isLuxuryTheme ? 'py-20 sm:py-28 luxury-ivory-bg border-[#d8b3bd]/30' : 'py-16 bg-[#faf9f5] border-stone-200'}`}
           >
             {isCyberTheme && (
               <div className="neon-orb neon-orb-magenta animate-orb-slower w-[30rem] h-[30rem] -bottom-48 left-1/4" />
             )}
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-              <SectionHeading title="Diary" subtitle="写メ日記" isCyber={isCyberTheme} />
+            {isLuxuryTheme && (
+              <div className="luxury-orb luxury-orb-rose w-[28rem] h-[28rem] -bottom-32 left-1/4 animate-orb-slow" />
+            )}
+            <div className={`relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isLuxuryTheme ? 'space-y-12 sm:space-y-16' : 'space-y-10'}`}>
+              <SectionHeading title="Diary" subtitle="写メ日記" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isLuxuryTheme ? 'gap-6 sm:gap-8' : 'gap-6'}`}>
                 {therapists.slice(0, 3).map((therapist) => (
                   <div
                     key={therapist.id}
-                    className={`p-5 space-y-3 ${isCyberTheme ? 'cyber-card reveal' : 'rounded-xl border bg-white border-[#d1b464]/30'}`}
+                    className={`p-6 space-y-3.5 ${
+                      isCyberTheme
+                        ? 'cyber-card reveal'
+                        : isLuxuryTheme
+                        ? 'luxury-card !rounded-2xl sm:!rounded-3xl luxury-body'
+                        : 'rounded-xl border bg-white border-[#d1b464]/30'
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3.5">
                       <Image
                         src={therapist.avatarUrl}
                         alt={therapist.name}
-                        width={44}
-                        height={44}
-                        className="w-11 h-11 rounded-full object-cover border border-[#ff6fb5] shadow-[0_0_12px_rgba(255,111,181,0.5)]"
+                        width={46}
+                        height={46}
+                        className={`w-11 h-11 rounded-full object-cover border ${
+                          isCyberTheme ? 'border-[#ff6fb5] shadow-[0_0_12px_rgba(255,111,181,0.5)]' : isLuxuryTheme ? 'border-[#e2b3b1]/60' : 'border-stone-200'
+                        }`}
                       />
                       <div>
-                        <div className="font-bold text-xs text-white tracking-wider">{therapist.name}</div>
-                        <div className="text-[10px] text-[#ffa8d8] tracking-widest">2026.08.10</div>
+                        <div className={`text-xs tracking-wider ${
+                          isCyberTheme ? 'font-bold text-white' : isLuxuryTheme ? 'font-medium text-[#2b2827] font-luxury-display' : 'font-bold text-stone-800'
+                        }`}>{therapist.name}</div>
+                        <div className={`text-[10px] tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : isLuxuryTheme ? 'text-[#c5a059]' : 'text-stone-400'}`}>2026.08.10</div>
                       </div>
                     </div>
-                    <p className="text-xs text-[#ded1ee]/90 line-clamp-2 leading-relaxed">
+                    <p className={`text-xs line-clamp-2 leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#464141]' : 'text-stone-600'}`}>
                       {therapist.comment || '本日もたくさんのご来店お待ちしております♪'}
                     </p>
                   </div>
@@ -147,7 +177,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </div>
 
               <div className="text-center pt-2">
-                <Link href={`${basePath}/diary`} className={isCyberTheme ? neonBtn : classicBtn}>
+                <Link href={`${basePath}/diary`} className={isCyberTheme ? neonBtn : isLuxuryTheme ? luxuryOutlineBtn : classicBtn}>
                   写メ日記 一覧はこちら
                 </Link>
               </div>
@@ -159,13 +189,16 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
         return (
           <section
             key="news"
-            className={`relative overflow-hidden py-16 border-b ${isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'luxury-marble-bg border-[#e9dcc4]' : 'bg-[#faf7f0] border-[#d1b464]/20'}`}
+            className={`relative overflow-hidden border-b ${isCyberTheme ? 'py-16 border-[#ff6fb5]/20' : isLuxuryTheme ? 'py-20 sm:py-28 luxury-blush-bg border-[#c695a2]/25' : 'py-16 bg-[#faf7f0] border-[#d1b464]/20'}`}
           >
             {isCyberTheme && (
               <div className="neon-orb neon-orb-purple animate-orb-slow w-[26rem] h-[26rem] top-0 -right-40" />
             )}
+            {isLuxuryTheme && (
+              <div className="luxury-orb luxury-orb-gold w-[26rem] h-[26rem] top-0 -right-32 animate-orb-slower" />
+            )}
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className={`grid grid-cols-1 lg:grid-cols-3 ${isLuxuryTheme ? 'gap-10 sm:gap-14' : 'gap-8'}`}>
                 <div className="lg:col-span-2 space-y-5">
                   <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
                   <NewsList news={news} storeSlug={shopSlug} />
@@ -174,9 +207,9 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                 <div className="space-y-5">
                   <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
                   <div className={`p-6 text-center space-y-4 ${
-                    isCyberTheme ? 'cyber-card reveal' : isLuxuryTheme ? 'luxury-card luxury-gold-border rounded-lg' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'
+                    isCyberTheme ? 'cyber-card reveal' : isLuxuryTheme ? 'luxury-card !rounded-2xl sm:!rounded-3xl p-8' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'
                   }`}>
-                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-600'}`}>
+                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#464141]' : 'text-stone-600'}`}>
                       最新の出勤・空き枠情報をリアルタイムで配信中！
                     </p>
                     <a
@@ -187,7 +220,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                         isCyberTheme
                           ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                           : isLuxuryTheme
-                          ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full luxury-gold-btn shadow-md'
+                          ? 'inline-block px-6 py-2.5 font-medium text-xs tracking-[0.18em] rounded-full luxury-outline-btn'
                           : 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest bg-stone-900 text-white rounded-sm hover:bg-stone-800 transition-all'
                       }
                     >
@@ -204,25 +237,31 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
       case 'access':
       case 'system':
         return (
-          <section key="concept" className={`relative overflow-hidden py-16 text-center ${isCyberTheme ? '' : isLuxuryTheme ? 'luxury-marble-bg' : 'bg-white'}`}>
+          <section key="concept" className={`relative overflow-hidden text-center ${isCyberTheme ? 'py-16' : isLuxuryTheme ? 'py-20 sm:py-28 luxury-pink-bg border-b border-[#c695a2]/25' : 'py-16 bg-white'}`}>
             {isCyberTheme && (
               <>
                 <div className="neon-orb neon-orb-pink animate-orb-slower w-[24rem] h-[24rem] top-10 -left-32" />
                 <div className="neon-orb neon-orb-purple animate-orb-slow w-[22rem] h-[22rem] -bottom-32 right-0" />
               </>
             )}
+            {isLuxuryTheme && (
+              <>
+                <div className="luxury-orb luxury-orb-rose w-[26rem] h-[26rem] top-10 -left-28 animate-orb-slow" />
+                <div className="luxury-orb luxury-orb-gold w-[24rem] h-[24rem] -bottom-24 right-0 animate-orb-slower" />
+              </>
+            )}
             <div className="relative z-10 max-w-4xl mx-auto px-4">
-              <SectionHeading title="Concept" subtitle="当店のこだわり" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className="mb-8" />
+              <SectionHeading title="Concept" subtitle="当店のこだわり" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className={isLuxuryTheme ? 'mb-12' : 'mb-8'} />
 
               <div className={`p-6 sm:p-10 text-xs sm:text-sm leading-loose tracking-wider text-left space-y-4 ${
                 isCyberTheme
                   ? 'cyber-card reveal text-[#f4eefa]'
                   : isLuxuryTheme
-                  ? 'luxury-card luxury-gold-border rounded-lg text-[#4a4540] luxury-body'
+                  ? 'luxury-card luxury-card-static !rounded-2xl sm:!rounded-3xl text-[#4a3e3d] luxury-body sm:p-14'
                   : 'bg-[#faf9f5] border border-[#d1b464]/30 rounded-sm text-stone-700'
               }`}>
-                <p className={`font-bold text-center text-base mb-2 ${
-                  isCyberTheme ? 'neon-text-pink font-cyber-display' : isLuxuryTheme ? 'font-luxury-display text-xl text-[#2b2b2b]' : 'text-stone-900'
+                <p className={`text-center mb-2 ${
+                  isCyberTheme ? 'font-bold neon-text-pink font-cyber-display text-base' : isLuxuryTheme ? 'font-luxury-display font-medium text-lg text-[#2b2827] tracking-[0.16em] leading-loose' : 'font-bold text-base text-stone-900'
                 }`}>
                   {store.name} {store.catchphrase ? `〜 ${store.catchphrase} 〜` : (isCyberTheme ? '極上のサイバーリラクゼーション' : '選ばれ続けるメンズエステへ')}
                 </p>
@@ -248,7 +287,7 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
                         ? '厳選されたルックスと愛嬌満点のセラピストが、至福のひとときをご提供。24時間いつでもオンラインWEB予約が可能です。'
                         : 'また、セラピストの採用にあたっては「顔やスタイルだけではなく内面も重視して採用をしてます」。そのため、技術だけでなく心遣いにもご満足いただけると自負しております。'}
                     </p>
-                    <p className={`text-center font-semibold pt-2 ${isCyberTheme ? 'text-[#ffa8d8]' : 'text-[#a39573]'}`}>
+                    <p className={`text-center font-medium pt-2 ${isCyberTheme ? 'text-[#ffa8d8]' : isLuxuryTheme ? 'text-[#c5a059]' : 'text-[#a39573]'}`}>
                       {isCyberTheme ? '非日常の最高級空間で、特別な密着タイムをお過ごしください。' : '赤羽・川口で特別な時間を、ぜひ当店でご体感ください。'}
                     </p>
                   </>
@@ -256,15 +295,41 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
               </div>
 
               {isLuxuryTheme && (
-                <div className="luxury-card luxury-gold-border rounded-lg mt-10 px-6 py-10 sm:px-12 luxury-body bg-[#f1e9db]/60">
-                  <p className="font-luxury-display italic text-lg sm:text-xl text-[#a8874a] mb-1">Online Reservation</p>
-                  <h3 className="font-luxury-display font-semibold text-xl sm:text-2xl text-[#2b2b2b] mb-4">24時間WEB予約</h3>
-                  <p className="text-xs sm:text-sm text-[#6b6459] mb-6 leading-relaxed">
-                    ご希望の日時・セラピストを選んで、いつでもオンラインでご予約いただけます。
-                  </p>
-                  <Link href={`/reserve/${shopSlug}`} className={luxuryBtn}>
-                    ONLINE RESERVATION
-                  </Link>
+                <div className="mt-16 sm:mt-24 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center text-left luxury-body rounded-2xl sm:rounded-3xl border border-[#e2b3b1]/35 bg-[#fdf8f5] shadow-[0_10px_30px_rgba(226,179,177,0.12)] px-6 py-12 sm:px-12 sm:py-16">
+                  <div>
+                    <p className="font-luxury-display italic text-lg sm:text-xl text-[#c5a059] mb-2 tracking-wider">Online Reservation</p>
+                    <h3 className="font-luxury-display font-medium text-xl sm:text-2xl text-[#2b2827] tracking-[0.16em] mb-5">
+                      24時間WEB予約
+                    </h3>
+                    <div className="luxury-gold-rule w-16 mb-6" />
+                    <p className="text-xs sm:text-sm text-[#5c5250] leading-loose">
+                      ご希望の日時・セラピストを選んで、いつでもオンラインでご予約いただけます。
+                      お電話でのご予約も承っております。
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { label: '受付時間', value: store.businessHours },
+                      { label: 'お電話でのご予約', value: store.phoneNumber, href: `tel:${store.phoneNumber}` },
+                      { label: 'ご指名セラピスト', value: '予約フォームでお選びいただけます' },
+                    ].map((row) => (
+                      <div key={row.label} className="luxury-field px-4 py-3">
+                        <div className="text-[10px] tracking-[0.2em] text-[#c5a059] mb-1 font-medium">{row.label}</div>
+                        {row.href ? (
+                          <a href={row.href} className="text-xs sm:text-sm text-[#2b2827] hover:text-[#c5a059] transition-colors">
+                            {row.value}
+                          </a>
+                        ) : (
+                          <div className="text-xs sm:text-sm text-[#2b2827]">{row.value}</div>
+                        )}
+                      </div>
+                    ))}
+
+                    <Link href={`/reserve/${shopSlug}`} className={`${luxuryPrimaryBtn} block w-full text-center !mt-6`}>
+                      ONLINE RESERVATION
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

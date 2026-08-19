@@ -335,8 +335,13 @@ input[type="time"]::-webkit-datetime-edit {
 .cyber-card {
   position: relative;
   background: rgba(10, 5, 20, 0.68);
+  /*
+   * -webkit- 付きを手書きで併記しないこと。
+   * Lightning CSS（Tailwind v4）が「同じ意味の宣言」とみなして標準プロパティ側を
+   * 落とし、-webkit- だけが残った結果、Chromium でぼかしが完全に効かなくなる。
+   * 標準プロパティだけ書けば、必要なプレフィックスはビルド時に付与される。
+   */
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 111, 181, 0.4);
   border-radius: 20px;
   box-shadow:
@@ -591,7 +596,16 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 .therapist-card-reveal {
-  animation: therapist-card-stagger-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /*
+   * fill-mode は backwards。both（＝forwards込み）にすると、アニメーション終了後も
+   * 最終キーフレームの transform が要素に残り続ける。CSSのカスケードでは
+   * アニメーション由来の値が author の通常宣言より強いため、その状態だと
+   * .therapist-card-hover:hover / .luxury-photo-card:hover の transform が
+   * 一切効かなくなる（カードが浮き上がらない）。
+   * backwards なら遅延中は from の位置に留まり、終了後は素の状態へ戻るので、
+   * 見た目は同じままホバーの浮遊が効くようになる。
+   */
+  animation: therapist-card-stagger-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   backface-visibility: hidden;
 }
 
@@ -783,31 +797,121 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 /* ==========================================================================
- * 🤍 Uncompromising Marble Luxury Theme for SpecialGrade
- * 大理石の静けさに、シャンパンゴールドの細い光が差し込むイメージ。
- * ベースはやわらかな生成り〜ライトグレー、アクセントはベージュとゴールド。
- * onyankospa のネオンテーマと同様、この変数とクラス群だけで完結し、
- * 他店舗の見た目には一切影響しない。
+/* ==========================================================================
+ * 🌸 Cosmetics Luxury Theme for SpecialGrade (misshelly.com Homage)
+ * 洗練された高級コスメティクスブランドのような透明感と柔らかなエレガンス。
+ * メイン背景: 淡いピンクベージュ〜ウォームアイボリーのニュアンスグラデーション
+ * アクセント: 上品なシャンパンゴールド & くすみローズピンク
+ * テキスト: 上品なダークチャコール & 深みのあるブロンズブラウン
  * ========================================================================== */
 :root {
-  --luxury-gold: #c9a869;
-  --luxury-gold-soft: #e4d3a8;
+  /* コスメティクス・ラグジュアリー カラーパレット */
+  --luxury-gold: #c5a059;
+  --luxury-gold-soft: #e5c989;
   --luxury-gold-deep: #a8874a;
-  --luxury-beige: #f1e9db;
-  --luxury-beige-deep: #e9dcc4;
-  --luxury-ink: #2b2b2b;
-  --luxury-ink-soft: #6b6459;
-  --luxury-paper: #faf9f6;
+  --luxury-gold-bright: #d4af37;
+  --luxury-rose: #e2b3b1;
+  --luxury-rose-soft: #f4d9d7;
+  --luxury-rose-deep: #c98b89;
+
+  /* 背景用ニュアンスカラー（淡いピンクベージュ〜ウォームアイボリー） */
+  --luxury-pink-beige: #fdf8f5;
+  --luxury-warm-ivory: #faf2ed;
+  /* misshelly.com オマージュ・カラーパレット（はっきりとしたセクション色分け） */
+  --luxury-rose: #c695a2;
+  --luxury-rose-light: #d8b3bd;
+  --luxury-rose-soft: #efd8d5; /* misshelly signature dusty rose */
+  --luxury-pink-beige: #efd8d5;
+  --luxury-warm-ivory: #f5efe8; /* misshelly warm cream ivory */
+  --luxury-blush-bg: #f5ede9;  /* misshelly blush cream */
+  --luxury-gold: #c5a059;
+  --luxury-gold-soft: #e5c989;
+  --luxury-gold-bright: #d4af37;
+  --luxury-paper: #ffffff;
+
+  /* テキスト用洗練ブロンズブラウン・ダークチャコール */
+  --luxury-ink: #2b2827;
+  --luxury-ink-soft: #464141;
+  --luxury-ink-muted: #786f6d;
+  --luxury-bronze: #4a3e3d;
+
+  /* 繊細な粒子ノイズ（透明度を落としてシルキーな質感に） */
+  --luxury-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
 }
 
-.luxury-marble-bg {
-  background-color: var(--luxury-paper);
+/* ==========================================================================
+   misshelly.com はっきりとしたセクション背景色ブロック
+   ========================================================================== */
+
+/* 1. ダスティローズピンク面 (misshelly の代表的なピンクトーン #EFD8D5) */
+.luxury-pink-bg {
+  background-color: #efd8d5;
   background-image:
-    radial-gradient(circle at 12% 8%, rgba(201, 168, 105, 0.07) 0%, rgba(201, 168, 105, 0) 32%),
-    radial-gradient(circle at 88% 0%, rgba(107, 100, 89, 0.05) 0%, rgba(107, 100, 89, 0) 28%),
-    radial-gradient(circle at 50% 100%, rgba(201, 168, 105, 0.05) 0%, rgba(201, 168, 105, 0) 40%),
-    linear-gradient(180deg, #ffffff 0%, var(--luxury-paper) 100%);
-  background-attachment: fixed;
+    var(--luxury-noise),
+    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.7) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(198, 149, 162, 0.28) 0%, transparent 45%),
+    linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
+  background-size: 180px 180px, auto, auto, auto;
+  color: var(--luxury-ink);
+}
+
+/* 2. ウォームクリーム・アイボリー面 (misshelly の淡く上品な象牙色 #F5EFE8) */
+.luxury-ivory-bg {
+  background-color: #f5efe8;
+  background-image:
+    var(--luxury-noise),
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.85) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(226, 179, 177, 0.18) 0%, transparent 40%),
+    linear-gradient(180deg, #f7f2ec 0%, #f5efe8 50%, #f2ebe3 100%);
+  background-size: 180px 180px, auto, auto, auto;
+  color: var(--luxury-ink);
+}
+
+/* 3. ブラッシュクリーム面 (misshelly の優しいブラッシュトーン #F5EDE9) */
+.luxury-blush-bg {
+  background-color: #f5ede9;
+  background-image:
+    var(--luxury-noise),
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.8) 0%, transparent 45%),
+    radial-gradient(circle at 80% 85%, rgba(198, 149, 162, 0.2) 0%, transparent 45%),
+    linear-gradient(180deg, #f7f0ec 0%, #f5ede9 50%, #f2e8e4 100%);
+  background-size: 180px 180px, auto, auto, auto;
+  color: var(--luxury-ink);
+}
+
+/* 4. フッター・深みのあるローズベージュ面 (#EAE0DC) */
+.luxury-footer-bg {
+  background-color: #eae0dc;
+  background-image:
+    var(--luxury-noise),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 50%),
+    linear-gradient(180deg, #ede4e0 0%, #eae0dc 50%, #e5d9d4 100%);
+  background-size: 180px 180px, auto, auto;
+  color: var(--luxury-ink);
+}
+
+/* 互換用クラス */
+.luxury-marble-bg {
+  background-color: #f5efe8;
+  background-image:
+    var(--luxury-noise),
+    linear-gradient(180deg, #f7f2ec 0%, #f5efe8 50%, #f2ebe3 100%);
+  color: var(--luxury-ink);
+}
+
+.luxury-beige-bg {
+  background-color: #efd8d5;
+  background-image:
+    var(--luxury-noise),
+    linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
+  color: var(--luxury-ink);
+}
+
+.luxury-dark-bg {
+  background-color: #efd8d5;
+  background-image:
+    var(--luxury-noise),
+    linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
   color: var(--luxury-ink);
 }
 
@@ -817,10 +921,36 @@ input[type="time"]::-webkit-datetime-edit {
 
 .font-luxury-display {
   font-family: var(--font-luxury-serif), "Noto Serif JP", serif;
-  letter-spacing: 0.04em;
 }
 
-/* 極細のシャンパンゴールド・グラデーション枠線（二重レイヤー方式） */
+@layer components {
+  .font-luxury-display {
+    letter-spacing: 0.06em;
+  }
+}
+
+.luxury-tracking-wide {
+  letter-spacing: 0.18em;
+}
+
+/* 光のボカシ・アンビエントオーブ（misshelly風の幻想的な光彩） */
+.luxury-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.luxury-orb-rose {
+  background: radial-gradient(circle, rgba(226, 179, 177, 0.38) 0%, rgba(226, 179, 177, 0) 70%);
+}
+
+.luxury-orb-gold {
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.22) 0%, rgba(212, 175, 55, 0) 70%);
+}
+
+/* 極細のローズゴールド・グラデーション枠線 */
 .luxury-gold-border {
   position: relative;
 }
@@ -831,13 +961,13 @@ input[type="time"]::-webkit-datetime-edit {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--luxury-gold-soft) 0%, var(--luxury-gold) 45%, var(--luxury-gold-deep) 100%);
+  background: linear-gradient(135deg, var(--luxury-rose) 0%, var(--luxury-gold) 50%, var(--luxury-gold-soft) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
-  opacity: 0.75;
-  transition: opacity 0.35s ease;
+  opacity: 0.65;
+  transition: opacity 0.4s ease;
   pointer-events: none;
 }
 
@@ -845,36 +975,106 @@ input[type="time"]::-webkit-datetime-edit {
   opacity: 1;
 }
 
+/* シンプルな1pxの極細ピンクゴールド枠 */
+.luxury-thin-border {
+  border: 1px solid rgba(226, 179, 177, 0.35);
+}
+
+/*
+ * 白背景 + 角丸（20px〜24px） + 極細ピンクゴールド枠 + やわらかなドロップシャドウのコスメ風カード
+ */
 .luxury-card {
   position: relative;
   background: #ffffff;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 18px rgba(43, 43, 43, 0.06);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  border-radius: 1.25rem; /* 20px */
+  border: 1px solid rgba(226, 179, 177, 0.3);
+  box-shadow: 0 10px 30px rgba(226, 179, 177, 0.12), 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
 }
 
 .luxury-card:hover {
-  transform: translateY(-2px) scale(1.015);
-  box-shadow: 0 14px 34px rgba(168, 135, 74, 0.18);
+  transform: translateY(-5px);
+  border-color: rgba(212, 175, 55, 0.55);
+  box-shadow:
+    0 18px 45px rgba(226, 179, 177, 0.22),
+    0 0 20px rgba(212, 175, 55, 0.18);
 }
 
+.luxury-card-static:hover {
+  transform: none;
+  box-shadow: 0 10px 30px rgba(226, 179, 177, 0.12), 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+/* セラピストカード：角丸 24px + 極細ローズゴールドフレーム */
+.luxury-photo-card {
+  position: relative;
+  border-radius: 1.35rem; /* ~22px */
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(226, 179, 177, 0.35);
+  box-shadow: 0 10px 30px rgba(226, 179, 177, 0.12), 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.luxury-photo-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--luxury-gold-bright);
+  box-shadow:
+    0 22px 50px rgba(226, 179, 177, 0.24),
+    0 0 24px rgba(212, 175, 55, 0.22);
+  z-index: 2;
+}
+
+/* 主要CTA：ダスティローズ〜シャンパンゴールドの上品なグラデーション（サイト全体の落ち着いたローズ基調に統一） */
 .luxury-gold-btn {
-  background: linear-gradient(90deg, var(--luxury-gold-deep) 0%, var(--luxury-gold) 50%, var(--luxury-gold-soft) 100%);
-  transition: filter 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  background: linear-gradient(135deg, var(--luxury-rose-deep) 0%, var(--luxury-gold) 55%, var(--luxury-gold-soft) 100%);
+  color: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(197, 139, 137, 0.32);
+  transition: filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
 }
 
 .luxury-gold-btn:hover {
   filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(168, 135, 74, 0.32);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(197, 160, 89, 0.4), 0 0 20px rgba(198, 149, 162, 0.35);
 }
 
+/* 副次的なボタン：細いゴールド/ローズ枠 + 上品なアウトラインボタン */
+.luxury-outline-btn {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  color: #926d2e;
+  border: 1px solid rgba(197, 160, 89, 0.45);
+  box-shadow: 0 4px 14px rgba(226, 179, 177, 0.12);
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s ease;
+}
+
+.luxury-outline-btn:hover {
+  background: linear-gradient(135deg, #d4af37 0%, #c5a059 45%, #e2b3b1 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(197, 160, 89, 0.4);
+}
+
+.luxury-dark-bg .luxury-outline-btn {
+  background: rgba(255, 255, 255, 0.85);
+  color: #8c6729;
+  border-color: rgba(197, 160, 89, 0.45);
+}
+
+.luxury-dark-bg .luxury-outline-btn:hover {
+  color: #ffffff;
+}
+
+/* 見出し下のグラデーション罫線 */
 .luxury-gold-rule {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--luxury-gold), transparent);
+  height: 1.5px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--luxury-rose), var(--luxury-gold), transparent);
 }
 
-/* スクロールで下からふわっと現れる（useInViewOnce のフックを流用） */
+/* スクロール登場エフェクト */
 .luxury-fade-up {
   opacity: 0;
   transform: translateY(18px);
@@ -888,12 +1088,188 @@ input[type="time"]::-webkit-datetime-edit {
 
 .luxury-rule-draw {
   transform: scaleX(0);
-  transform-origin: left center;
+  transform-origin: center;
   transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
 }
 
 .luxury-rule-draw.is-in {
   transform: scaleX(1);
+}
+
+/* ヒーロー写真ズーム演出 */
+@keyframes luxury-hero-zoom {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.luxury-hero-zoom {
+  animation: luxury-hero-zoom 14s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform;
+}
+
+/* コスメ風入力フィールド（予約セクション） */
+.luxury-field {
+  background: #ffffff;
+  border: 1px solid rgba(226, 179, 177, 0.35);
+  border-radius: 0.75rem;
+  color: var(--luxury-ink);
+  box-shadow: 0 2px 8px rgba(226, 179, 177, 0.08);
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.luxury-field:hover,
+.luxury-field:focus-within {
+  border-color: var(--luxury-gold-bright);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.25), 0 4px 12px rgba(226, 179, 177, 0.15);
+}
+
+/* Googleマップ */
+.luxury-map {
+  filter: saturate(0.85) contrast(0.96) brightness(1.02);
+  transition: filter 0.5s ease;
+}
+
+.luxury-map:hover {
+  filter: saturate(1) contrast(1) brightness(1);
+}
+
+/* ==========================================================================
+   極上コスメティック・ヒーロー用 アニメーション＆エフェクト
+   ========================================================================== */
+
+/* 1. シャンパンダスト（金粉・光の微粒子）浮遊アニメーション */
+@keyframes floatUpDust {
+  0% {
+    transform: translateY(100%) scale(0.6);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-120%) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-dust-1 {
+  animation: floatUpDust 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.animate-dust-2 {
+  animation: floatUpDust 12s cubic-bezier(0.4, 0, 0.2, 1) infinite 2.5s;
+}
+.animate-dust-3 {
+  animation: floatUpDust 15s cubic-bezier(0.4, 0, 0.2, 1) infinite 5s;
+}
+
+/* 2. 浮遊カードのナチュラルな物理モーション（上下動 + 微細な傾き） */
+@keyframes floatCard1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(0.5deg);
+  }
+}
+
+@keyframes floatCard2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(-0.8deg);
+  }
+}
+
+.animate-float-card-1 {
+  animation: floatCard1 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-float-card-2 {
+  animation: floatCard2 8.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 3. 回転エンブレムスタンプ（25秒で滑らかに時計回り自転） */
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 25s linear infinite;
+  will-change: transform;
+}
+
+/* 4. キネティック・タイポグラフィ（背景奥の超スロースクロール） */
+@keyframes marqueeSlow {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marqueeSlow 40s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
+
+/* 繊細なセリフ体のアウトライン文字 */
+.stroke-text-luxury {
+  -webkit-text-stroke: 1px rgba(197, 160, 89, 0.22);
+  color: transparent;
+  text-shadow: 0 0 20px rgba(226, 179, 177, 0.15);
+}
+
+/* グラスモーフィズム浮遊カード */
+.luxury-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 179, 177, 0.45);
+  box-shadow:
+    0 16px 40px rgba(226, 179, 177, 0.18),
+    0 2px 10px rgba(197, 160, 89, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+/* 5. シネマティック・動画風アンビエントズーム＆パン（misshelly.comのような大画面動画演出） */
+@keyframes luxuryHeroCinematic {
+  0% {
+    transform: scale(1.02) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.14) translate(-2.5%, -1.5%);
+  }
+  100% {
+    transform: scale(1.08) translate(2.5%, 1.8%);
+  }
+}
+
+.luxury-hero-cinematic {
+  animation: luxuryHeroCinematic 14s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -903,6 +1279,20 @@ input[type="time"]::-webkit-datetime-edit {
     transform: none !important;
     transition: none !important;
   }
+
+  .luxury-hero-zoom,
+  .animate-float-card-1,
+  .animate-float-card-2,
+  .animate-spin-slow,
+  .animate-marquee-slow,
+  .animate-dust-1,
+  .animate-dust-2,
+  .animate-dust-3 {
+    animation: none !important;
+  }
 }
+
+
+
 
 

@@ -52,6 +52,7 @@ export const TherapistFilterableGrid: React.FC<TherapistFilterableGridProps> = (
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}
           isCyber={isCyber}
+          isLuxury={isLuxury}
         />
       </div>
 

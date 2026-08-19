@@ -12,6 +12,8 @@ interface SectionHeadingProps {
   isCyber?: boolean;
   /** 大理石×ゴールドのラグジュアリーテーマ（SpecialGrade）かどうか */
   isLuxury?: boolean;
+  /** ラグジュアリーテーマで、深いチャコールの面の上に置く見出しか（文字色を明るい側へ反転する） */
+  onDark?: boolean;
   /** 見出しの寄せ。既定は中央 */
   align?: 'center' | 'left';
   /** 見出しの大きさ。サイドカラム用に小さくしたい時は sm */
@@ -40,6 +42,7 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
   subtitle,
   isCyber = false,
   isLuxury = false,
+  onDark = false,
   align = 'center',
   size = 'md',
   className = '',
@@ -53,19 +56,21 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
         className={`flex flex-col ${align === 'center' ? 'items-center text-center' : 'items-start text-left'} ${className}`}
       >
         <span
-          className={`font-luxury-display italic text-[#a8874a] leading-tight ${size === 'md' ? 'text-lg sm:text-xl' : 'text-base'}`}
+          className={`font-luxury-display italic leading-tight text-[#c5a059] tracking-[0.25em] ${
+            size === 'md' ? 'text-lg sm:text-xl' : 'text-base'
+          }`}
         >
           {title}
         </span>
         <h2
-          className={`font-luxury-display font-semibold text-[#2b2b2b] mt-1 tracking-wide ${
+          className={`font-luxury-display font-medium mt-1.5 tracking-[0.16em] text-[#2b2827] ${
             size === 'md' ? 'text-2xl sm:text-3xl' : 'text-xl'
           }`}
         >
           {subtitle}
         </h2>
         <div
-          className={`luxury-gold-rule luxury-rule-draw mt-4 ${size === 'md' ? 'w-20' : 'w-14'} ${inView ? 'is-in' : ''}`}
+          className={`luxury-gold-rule luxury-rule-draw mt-4 ${size === 'md' ? 'w-24' : 'w-16'} ${inView ? 'is-in' : ''}`}
         />
       </div>
     );
@@ -115,6 +120,7 @@ export const PageHeading: React.FC<Omit<SectionHeadingProps, 'align' | 'size'>> 
   subtitle,
   isCyber = false,
   isLuxury = false,
+  onDark = false,
   className = '',
 }) => {
   const { ref, inView, mounted } = useInViewOnce<HTMLDivElement>();
@@ -122,11 +128,13 @@ export const PageHeading: React.FC<Omit<SectionHeadingProps, 'align' | 'size'>> 
   if (isLuxury) {
     return (
       <div ref={ref} className={`flex flex-col items-center text-center ${className}`}>
-        <span className="font-luxury-display italic text-lg sm:text-xl text-[#a8874a] leading-tight">{title}</span>
-        <h1 className="font-luxury-display font-semibold text-2xl sm:text-3xl text-[#2b2b2b] mt-1 tracking-wide">
+        <span className="font-luxury-display italic text-lg sm:text-xl leading-tight text-[#c5a059] tracking-[0.25em]">
+          {title}
+        </span>
+        <h1 className="font-luxury-display font-medium text-2xl sm:text-3xl mt-1.5 tracking-[0.16em] text-[#2b2827]">
           {subtitle}
         </h1>
-        <div className={`luxury-gold-rule luxury-rule-draw mt-4 w-20 ${inView ? 'is-in' : ''}`} />
+        <div className={`luxury-gold-rule luxury-rule-draw mt-4 w-24 ${inView ? 'is-in' : ''}`} />
       </div>
     );
   }

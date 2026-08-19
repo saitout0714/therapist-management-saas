@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { StoreConfig } from '../../types/store';
 import { DIARY_FEATURE_ENABLED } from '../../lib/featureFlags';
+import { SpecialGradeLogo } from './SpecialGradeLogo';
 
 interface FooterProps {
   store: StoreConfig;
@@ -16,29 +17,35 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
   const isLuxuryTheme = store.slug === 'specialgrade';
 
   return (
-    <footer className={`border-t pt-12 pb-8 backdrop-blur-xl ${
+    <footer className={`border-t backdrop-blur-xl ${
       isCyberTheme
-        ? 'bg-[#0d0914]/85 text-[#ded1ee] border-[#ff6fb5]/35 shadow-[0_-6px_28px_rgba(255,111,181,0.2)]'
+        ? 'pt-12 pb-8 bg-[#0d0914]/85 text-[#ded1ee] border-[#ff6fb5]/35 shadow-[0_-6px_28px_rgba(255,111,181,0.2)]'
         : isLuxuryTheme
-        ? 'luxury-marble-bg luxury-body text-[#6b6459] border-[#e9dcc4]'
-        : 'bg-[#1f1d1a] text-stone-300 border-[#d1b464]/30 font-serif'
+        ? 'pt-16 sm:pt-24 pb-12 luxury-footer-bg text-[#2b2827] border-t border-[#c695a2]/25 luxury-body shadow-[0_-8px_30px_rgba(198,149,162,0.1)]'
+        : 'pt-12 pb-8 bg-[#1f1d1a] text-stone-300 border-[#d1b464]/30 font-serif'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 ${isLuxuryTheme ? 'mb-14' : 'mb-8'}`}>
           {/* 店舗情報 */}
           <div>
-            <h3
-              className={`${isLuxuryTheme ? 'font-luxury-display text-2xl' : 'text-xl'} font-bold mb-3 tracking-wider ${isCyberTheme ? 'neon-text-pink' : ''}`}
-              style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#a8874a' : primaryColor }}
-            >
-              {store.name}
-            </h3>
-            <p className={`text-xs mb-4 tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-400'}`}>{store.catchphrase}</p>
-            <div className="space-y-2 text-xs">
-              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#a8874a' : accentColor }}>住所：</span>{store.address}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#a8874a' : accentColor }}>アクセス：</span>{store.accessInfo}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#a8874a' : accentColor }}>営業時間：</span>{store.businessHours}</p>
-              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#a8874a' : accentColor }}>電話番号：</span>{store.phoneNumber}</p>
+            {isLuxuryTheme ? (
+              <div className="mb-4">
+                <SpecialGradeLogo size="md" />
+              </div>
+            ) : (
+              <h3
+                className={`${isLuxuryTheme ? 'font-luxury-display text-2xl font-semibold tracking-[0.16em]' : 'text-xl font-bold tracking-wider'} mb-3 ${isCyberTheme ? 'neon-text-pink' : ''}`}
+                style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#2b2827' : primaryColor }}
+              >
+                {store.name}
+              </h3>
+            )}
+            <p className={`text-xs mb-4 tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : isLuxuryTheme ? 'text-[#8a7e7c]' : 'text-stone-400'}`}>{store.catchphrase}</p>
+            <div className="space-y-2 text-xs leading-relaxed text-[#5c5250]">
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#c5a059' : accentColor }} className="font-medium">住所：</span>{store.address}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#c5a059' : accentColor }} className="font-medium">アクセス：</span>{store.accessInfo}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#c5a059' : accentColor }} className="font-medium">営業時間：</span>{store.businessHours}</p>
+              <p><span style={{ color: isCyberTheme ? '#ffa8d8' : isLuxuryTheme ? '#c5a059' : accentColor }} className="font-medium">電話番号：</span>{store.phoneNumber}</p>
             </div>
           </div>
 
@@ -46,23 +53,23 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
           <div className="space-y-2 text-xs">
             <h4
               className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : isLuxuryTheme ? 'border-[#c9a869]/50' : 'border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : isLuxuryTheme ? 'font-luxury-display italic tracking-[0.2em] border-[#e2b3b1]/40' : 'border-[#d1b464]/30'
               }`}
-              style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#a8874a' : primaryColor }}
+              style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#c5a059' : primaryColor }}
             >
               CONTENTS
             </h4>
-            <div className="grid grid-cols-2 gap-2">
-              <Link href={basePath || '/'} className="hover:opacity-80 transition-colors">TOP</Link>
-              <Link href={`${basePath}/system`} className="hover:opacity-80 transition-colors">システム・料金</Link>
-              <Link href={`${basePath}/therapists`} className="hover:opacity-80 transition-colors">セラピスト一覧</Link>
-              <Link href={`${basePath}/schedule`} className="hover:opacity-80 transition-colors">出勤スケジュール</Link>
+            <div className={`grid grid-cols-2 gap-2 ${isLuxuryTheme ? 'text-[#5c5250]' : ''}`}>
+              <Link href={basePath || '/'} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">TOP</Link>
+              <Link href={`${basePath}/system`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">システム・料金</Link>
+              <Link href={`${basePath}/therapists`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">セラピスト一覧</Link>
+              <Link href={`${basePath}/schedule`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">出勤スケジュール</Link>
               {DIARY_FEATURE_ENABLED && (
-                <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors">セラピスト日記</Link>
+                <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">セラピスト日記</Link>
               )}
-              <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors">アクセス</Link>
-              <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors">求人情報</Link>
-              <Link href={reservePath} className="hover:opacity-80 transition-colors">WEB予約</Link>
+              <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">アクセス</Link>
+              <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">求人情報</Link>
+              <Link href={reservePath} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">WEB予約</Link>
             </div>
           </div>
 
@@ -70,9 +77,9 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
           <div>
             <h4
               className={`text-sm font-semibold mb-3 border-b pb-1 inline-block tracking-widest ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : isLuxuryTheme ? 'border-[#c9a869]/50' : 'border-[#d1b464]/30'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/40' : isLuxuryTheme ? 'font-luxury-display italic tracking-[0.2em] border-[#e2b3b1]/40' : 'border-[#d1b464]/30'
               }`}
-              style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#a8874a' : primaryColor }}
+              style={{ color: isCyberTheme ? undefined : isLuxuryTheme ? '#c5a059' : primaryColor }}
             >
               CONTACT & ACCESS
             </h4>
@@ -82,11 +89,11 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.xUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                  className={`px-3.5 py-1.5 border text-[11px] rounded-full transition-colors ${
                     isCyberTheme
                       ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : isLuxuryTheme
-                      ? 'bg-white border-[#e9dcc4] hover:border-[#c9a869] text-[#2b2b2b]'
+                      ? 'bg-white/80 border-[#e2b3b1]/45 hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.3)] text-[#4a3e3d]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -98,11 +105,11 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.lineUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] rounded-full transition-colors ${
                     isCyberTheme
                       ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : isLuxuryTheme
-                      ? 'bg-white border-[#e9dcc4] hover:border-[#c9a869] text-[#2b2b2b]'
+                      ? 'bg-white/80 border-[#e2b3b1]/45 hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.3)] text-[#4a3e3d]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -117,11 +124,11 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                   href={store.googleMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`px-3.5 py-1.5 border text-[11px] rounded transition-colors ${
+                  className={`px-3.5 py-1.5 border text-[11px] rounded-full transition-colors ${
                     isCyberTheme
                       ? 'bg-white/10 border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-[#ffa8d8] hover:shadow-[0_0_12px_rgba(255,111,181,0.3)]'
                       : isLuxuryTheme
-                      ? 'bg-white border-[#e9dcc4] hover:border-[#c9a869] text-[#2b2b2b]'
+                      ? 'bg-white/80 border-[#e2b3b1]/45 hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.3)] text-[#4a3e3d]'
                       : 'bg-stone-900 border-[#d1b464]/40 hover:border-[#d1b464] text-stone-200'
                   }`}
                 >
@@ -131,12 +138,12 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
             </div>
             <Link
               href={reservePath}
-              className={`inline-block w-full py-3 text-center text-white font-bold text-xs tracking-widest shadow-md transition-all ${
+              className={`inline-block w-full py-3.5 text-center text-white text-xs tracking-widest transition-all ${
                 isCyberTheme
-                  ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                  ? 'font-bold shadow-md rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
                   : isLuxuryTheme
-                  ? 'rounded-full luxury-gold-btn'
-                  : 'bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
+                  ? 'font-medium tracking-[0.18em] shadow-md rounded-full luxury-gold-btn'
+                  : 'font-bold shadow-md bg-gradient-to-r from-[#d1b464] to-[#a39573] rounded-sm hover:brightness-105'
               }`}
             >
               {isLuxuryTheme ? 'ONLINE RESERVATION' : '24時間 WEB予約 🐾'}
@@ -145,7 +152,7 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
         </div>
 
         <div className={`border-t pt-6 text-center text-[11px] tracking-widest ${
-          isCyberTheme ? 'border-[#ff6fb5]/20 text-[#ffa8d8]' : isLuxuryTheme ? 'border-[#e9dcc4] text-[#a8a196]' : 'border-stone-800 text-stone-500'
+          isCyberTheme ? 'border-[#ff6fb5]/20 text-[#ffa8d8]' : isLuxuryTheme ? 'border-[#e2b3b1]/20 text-[#8a7e7c]' : 'border-stone-800 text-stone-500'
         }`}>
           © {new Date().getFullYear()} {store.name}. All Rights Reserved.
         </div>

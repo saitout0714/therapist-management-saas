@@ -24,6 +24,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   businessTodayStr,
 }) => {
   const isCyber = storeSlug === 'onyankospa';
+  const isLuxury = storeSlug === 'specialgrade';
 
   // 起点日（店舗の営業日切り替え時刻を考慮した「本日」）
   const startDate = businessTodayStr ? new Date(`${businessTodayStr}T00:00:00`) : new Date();
@@ -48,9 +49,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     };
   });
 
-  // businessTodayStr は呼び出し元（サーバーコンポーネント）が初回描画時点で渡すため、
-  // days[0].fullDate は既に正しい営業日になっている。
-  // 以前は取得が非同期だったので effect で選択日を後から合わせ直していたが、その必要はなくなった。
   const [selectedDate, setSelectedDate] = useState<string>(days[0].fullDate);
 
   // (therapistId, fullDate) => ConfirmedShift Map
@@ -73,7 +71,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       };
     })
     .filter((item) => item.shiftTime !== null)
-    // 出勤時間順（早い時間から）に表示する
     .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
 
   return (
@@ -90,13 +87,17 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
               <button
                 key={day.fullDate}
                 onClick={() => setSelectedDate(day.fullDate)}
-                className={`flex flex-col items-center justify-center py-2 px-0.5 sm:px-2 rounded-lg sm:rounded-xl text-center transition-all border w-full min-w-0 ${
+                className={`flex flex-col items-center justify-center py-2 px-0.5 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-all border w-full min-w-0 ${
                   isSelected
                     ? isCyber
                       ? 'bg-gradient-to-b from-[#ff6fb5] to-[#e04899] text-white border-[#ff6fb5] shadow-[0_0_14px_rgba(255,111,181,0.7)] scale-[1.02] z-10'
+                      : isLuxury
+                      ? 'bg-gradient-to-r from-[#d4af37] to-[#e2b3b1] text-white border-transparent shadow-md scale-[1.02] z-10'
                       : 'bg-[#a39573] text-white border-[#a39573] shadow-md scale-[1.02] z-10'
                     : isCyber
                     ? 'bg-white/90 backdrop-blur-md text-slate-900 border-[#ff6fb5]/40 hover:border-[#ff6fb5] hover:bg-white shadow-sm'
+                    : isLuxury
+                    ? 'bg-[#fdf8f5]/95 backdrop-blur-md text-[#2b2827] border-[#e2b3b1]/40 hover:border-[#c5a059] hover:bg-white shadow-2xs'
                     : 'bg-white/90 backdrop-blur-md text-stone-800 border-stone-200 hover:bg-white'
                 }`}
               >
@@ -105,19 +106,19 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                     isSelected
                       ? 'text-white'
                       : day.isToday
-                      ? 'text-[#ff4fa3]'
+                      ? isCyber ? 'text-[#ff4fa3]' : isLuxury ? 'text-[#c5a059]' : 'text-[#a39573]'
                       : isSun
-                      ? 'text-red-500'
+                      ? 'text-rose-500'
                       : isSat
-                      ? 'text-blue-500'
-                      : 'text-slate-600'
+                      ? 'text-sky-500'
+                      : isLuxury ? 'text-[#5c5250]' : 'text-slate-600'
                   }`}
                 >
                   {day.isToday ? '本日' : `(${day.dayOfWeek})`}
                 </span>
                 <span
                   className={`text-xs sm:text-base font-extrabold tracking-tight leading-tight mt-0.5 whitespace-nowrap ${
-                    isSelected ? 'text-white' : 'text-slate-900'
+                    isSelected ? 'text-white' : isLuxury ? 'text-[#2b2827]' : 'text-slate-900'
                   }`}
                 >
                   {day.dateNum}日
@@ -129,15 +130,23 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       </div>
 
       {/* 選択日付タイトル */}
-      <div className="flex items-center justify-between border-b pb-3 border-[#ff6fb5]/30 px-1">
+      <div className={`flex items-center justify-between border-b pb-3 px-1 ${
+        isCyber ? 'border-[#ff6fb5]/30' : isLuxury ? 'border-[#e2b3b1]/35' : 'border-stone-200'
+      }`}>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#ff6fb5] animate-ping" />
-          <h3 className={`text-base sm:text-lg font-bold tracking-wider ${isCyber ? 'neon-text-pink' : 'text-stone-800'}`}>
+          <span className={`w-2 h-2 rounded-full ${isCyber ? 'bg-[#ff6fb5] animate-ping' : isLuxury ? 'bg-[#c5a059]' : 'bg-[#a39573]'}`} />
+          <h3 className={`text-base sm:text-lg tracking-wider ${
+            isCyber ? 'neon-text-pink font-bold' : isLuxury ? 'font-luxury-display font-medium text-[#2b2827]' : 'text-stone-800 font-bold'
+          }`}>
             {selectedDayObj.label} の出勤セラピスト
           </h3>
         </div>
         <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-          isCyber ? 'bg-[#ff6fb5]/20 text-[#c4b2dc] border border-[#ff6fb5]/40' : 'bg-stone-100 text-stone-600'
+          isCyber
+            ? 'bg-[#ff6fb5]/20 text-[#c4b2dc] border border-[#ff6fb5]/40'
+            : isLuxury
+            ? 'bg-[#fdf8f5] text-[#c5a059] border border-[#e2b3b1]/40 font-luxury-display'
+            : 'bg-stone-100 text-stone-600'
         }`}>
           計 {workingTherapistsWithShift.length} 名出勤
         </span>
@@ -158,9 +167,15 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 bg-white/8 rounded-2xl border border-[#ff6fb5]/20">
-          <p className="text-sm text-[#ffa8d8] font-semibold">
-            指定のお日付の出勤スケジュールは準備中です 🐾
+        <div className={`text-center py-16 rounded-2xl border ${
+          isCyber
+            ? 'bg-white/8 border-[#ff6fb5]/20 text-[#ffa8d8]'
+            : isLuxury
+            ? 'bg-white/80 border-[#e2b3b1]/30 text-[#8a7e7c]'
+            : 'bg-white border-stone-200 text-stone-500'
+        }`}>
+          <p className="text-sm font-semibold">
+            {isLuxury ? 'ご指定の日時の出勤スケジュールは現在調整中です' : '指定のお日付の出勤スケジュールは準備中です 🐾'}
           </p>
         </div>
       )}

@@ -43,16 +43,17 @@ export default function DiaryPage({ params }: { params: Promise<{ shopSlug: stri
   if (!DIARY_FEATURE_ENABLED) return null;
 
   const isCyberTheme = shopSlug === 'onyankospa';
+  const isLuxuryTheme = shopSlug === 'specialgrade';
 
   return (
     <div className={`min-h-screen flex flex-col relative ${
-      isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-[#faf9f5] text-stone-800 font-serif'
+      isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
     }`}>
       {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="diary" />}
       <Header store={store} />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full relative z-10">
-        <PageHeading title="Diary" subtitle="写メ日記 一覧" isCyber={isCyberTheme} className="mb-8" />
+        <PageHeading title="Diary" subtitle="写メ日記 一覧" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className="mb-8" />
 
         <DiarySection articles={articles} storeSlug={shopSlug} />
       </main>

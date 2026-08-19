@@ -16,38 +16,38 @@ export const NewsList: React.FC<NewsListProps> = ({ news, storeSlug }) => {
         isCyber
           ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40 font-sans'
           : isLuxury
-          ? 'luxury-card luxury-gold-border rounded-lg luxury-body'
+          ? 'luxury-card rounded-2xl border border-[#e2b3b1]/35 luxury-body'
           : 'bg-white rounded-sm border border-[#d1b464]/30 font-serif shadow-sm'
       }`}>
-        <p className={`text-xs ${isCyber ? 'text-[#ded1ee]/60' : isLuxury ? 'text-[#a8a196]' : 'text-stone-400'}`}>現在お知らせはありません。</p>
+        <p className={`text-xs ${isCyber ? 'text-[#ded1ee]/60' : isLuxury ? 'text-[#8a7e7c]' : 'text-stone-400'}`}>現在お知らせはありません。</p>
       </div>
     );
   }
 
   return (
-    <div className={`p-4 sm:p-6 divide-y ${
+    <div className={`p-5 sm:p-7 divide-y ${
       isCyber
         ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40 divide-[#ff6fb5]/20 font-sans'
         : isLuxury
-        ? 'luxury-card luxury-gold-border rounded-lg divide-[#e9dcc4] luxury-body'
+        ? 'luxury-card rounded-2xl sm:rounded-3xl border border-[#e2b3b1]/35 divide-[#e2b3b1]/25 luxury-body'
         : 'bg-white rounded-sm border border-[#d1b464]/30 divide-stone-100 font-serif shadow-sm'
     }`}>
       {news.map((item) => (
-        <div key={item.id} className="py-3 first:pt-0 last:pb-0">
-          <div className="flex items-center gap-3 mb-1">
-            <span className={`text-[10px] font-bold px-2 py-0.5 border ${
+        <div key={item.id} className="py-3.5 first:pt-0 last:pb-0">
+          <div className="flex items-center gap-3 mb-1.5">
+            <span className={`text-[10px] font-medium px-2.5 py-0.5 border ${
               isCyber
-                ? 'bg-[#ff6fb5]/20 text-[#ffa8d8] border-[#ff6fb5]/40 rounded-full'
+                ? 'bg-[#ff6fb5]/20 text-[#ffa8d8] border-[#ff6fb5]/40 rounded-full font-bold'
                 : isLuxury
-                ? 'bg-[#f1e9db] text-[#a8874a] border-[#c9a869]/40 rounded-full'
-                : 'bg-[#faf7f0] text-[#a39573] border-[#d1b464]/30 rounded-sm'
+                ? 'bg-[#fdf8f5] text-[#c5a059] border-[#e2b3b1]/50 rounded-full font-luxury-display'
+                : 'bg-[#faf7f0] text-[#a39573] border-[#d1b464]/30 rounded-sm font-bold'
             }`}>
               {item.category || 'お知らせ'}
             </span>
-            <span className={`text-[11px] ${isCyber ? 'text-[#ffa8d8]' : isLuxury ? 'text-[#a8a196]' : 'text-stone-400'}`}>{item.date}</span>
+            <span className={`text-[11px] ${isCyber ? 'text-[#ffa8d8]' : isLuxury ? 'text-[#8a7e7c]' : 'text-stone-400'}`}>{item.date}</span>
           </div>
-          <h4 className={`text-xs font-bold mb-1 ${isCyber ? 'neon-text-pink' : isLuxury ? 'text-[#2b2b2b]' : 'text-stone-800'}`}>{item.title}</h4>
-          <p className={`text-[11px] leading-relaxed ${isCyber ? 'text-[#ded1ee]' : isLuxury ? 'text-[#6b6459]' : 'text-stone-600'}`}>{item.content}</p>
+          <h4 className={`text-xs font-semibold mb-1 ${isCyber ? 'neon-text-pink' : isLuxury ? 'text-[#2b2827]' : 'text-stone-800'}`}>{item.title}</h4>
+          <p className={`text-[11px] leading-relaxed ${isCyber ? 'text-[#ded1ee]' : isLuxury ? 'text-[#5c5250]' : 'text-stone-600'}`}>{item.content}</p>
         </div>
       ))}
     </div>

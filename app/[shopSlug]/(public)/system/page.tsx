@@ -49,7 +49,7 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">
         <PageHeading title="System" subtitle="システム・料金案内" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} className="mb-10" />
 
-          <p className={`text-[11px] mb-6 tracking-wide text-center ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#a8a196]' : 'text-stone-500'}`}>
+          <p className={`text-[11px] mb-6 tracking-wide text-center ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#8a7e7c]' : 'text-stone-500'}`}>
             ※料金は全て税込表記になります。コース時間にはお着替えやシャワーなどの時間も含まれます。
           </p>
 
@@ -57,21 +57,21 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
             {categories.map((cat, idx) => (
             <div
               key={idx}
-              className={`p-6 space-y-4 ${
+              className={`p-6 sm:p-8 space-y-5 ${
                 isCyberTheme
                   ? 'cyber-card reveal rounded-xl border-[#ff6fb5]/40'
                   : isLuxuryTheme
-                  ? 'luxury-card luxury-gold-border rounded-lg'
+                  ? 'luxury-card rounded-2xl sm:rounded-3xl border border-[#e2b3b1]/35 shadow-[0_10px_30px_rgba(226,179,177,0.08)]'
                   : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
               }`}
             >
               <h2 className={`text-base font-bold border-b pb-2 tracking-wider ${
-                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a] border-[#e9dcc4]' : 'text-[#a39573] border-stone-200'
+                isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display italic text-[#c5a059] border-[#e2b3b1]/30 text-lg' : 'text-[#a39573] border-stone-200'
               }`}>
                 {isLuxuryTheme ? cat.categoryName : `🐾 ${cat.categoryName}`}
               </h2>
               {cat.description && (
-                <p className={`text-xs tracking-wide ${isCyberTheme ? 'text-[#ded1ee]' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-600'}`}>
+                <p className={`text-xs tracking-wide ${isCyberTheme ? 'text-[#ded1ee]' : isLuxuryTheme ? 'text-[#5c5250]' : 'text-stone-600'}`}>
                   {cat.description}
                 </p>
               )}
@@ -80,28 +80,28 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
                 {cat.courses.map((course) => (
                   <div
                     key={course.id}
-                    className={`flex flex-row items-center justify-between p-4 border gap-3 transition-colors ${
+                    className={`flex flex-row items-center justify-between p-4 sm:p-5 border gap-3 transition-colors ${
                       isCyberTheme
                         ? 'bg-white/10 border-[#ff6fb5]/30 hover:border-[#ff6fb5] rounded-xl'
                         : isLuxuryTheme
-                        ? 'bg-[#f1e9db]/50 border-[#e9dcc4] hover:border-[#c9a869] rounded-lg'
+                        ? 'bg-[#fdf8f5] border-[#e2b3b1]/35 hover:border-[#c5a059] rounded-2xl'
                         : 'bg-[#faf7f0] border-[#d1b464]/20 hover:border-[#d1b464] rounded-sm'
                     }`}
                   >
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className={`font-bold text-sm sm:text-base tracking-wider ${
-                          isCyberTheme ? 'text-[#f4eefa]' : isLuxuryTheme ? 'text-[#2b2b2b]' : 'text-stone-800'
+                          isCyberTheme ? 'text-[#f4eefa]' : isLuxuryTheme ? 'text-[#2b2827] font-medium' : 'text-stone-800'
                         }`}>
                           {course.name}
                         </h3>
                         {course.durationMinutes > 0 && (
-                          <span className={`text-[11px] font-bold px-2 py-0.5 border ${
+                          <span className={`text-[11px] px-2.5 py-0.5 border ${
                             isCyberTheme
-                              ? 'bg-[#ff6fb5]/20 text-[#ffa8d8] border-[#ff6fb5]/50 rounded-full'
+                              ? 'bg-[#ff6fb5]/20 text-[#ffa8d8] border-[#ff6fb5]/50 rounded-full font-bold'
                               : isLuxuryTheme
-                              ? 'bg-white text-[#a8874a] border-[#c9a869]/40 rounded-full'
-                              : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/40 rounded-sm'
+                              ? 'bg-[#fdf8f5] text-[#c5a059] border-[#e2b3b1]/50 rounded-full font-luxury-display'
+                              : 'bg-[#d1b464]/20 text-[#a39573] border-[#d1b464]/40 rounded-sm font-bold'
                           }`}>
                             {course.durationMinutes}分
                           </span>
@@ -109,15 +109,15 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
                       </div>
                       {course.description && (
                         <p className={`text-xs leading-relaxed tracking-wide ${
-                          isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-600'
+                          isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#5c5250]' : 'text-stone-600'
                         }`}>
                           {course.description}
                         </p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <span className={`text-lg sm:text-xl font-extrabold tracking-wider ${
-                        isCyberTheme ? 'neon-text-pink' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a]' : 'text-stone-900'
+                      <span className={`text-lg sm:text-xl tracking-wider ${
+                        isCyberTheme ? 'neon-text-pink font-extrabold' : isLuxuryTheme ? 'font-luxury-display font-medium text-[#c5a059]' : 'text-stone-900 font-extrabold'
                       }`}>
                         ¥{course.price.toLocaleString()}{isStartingPrice(cat, course) ? '〜' : ''}
                       </span>
@@ -130,20 +130,20 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
         </div>
 
         {store.termsOfService && (
-          <div className={`mt-12 p-6 space-y-3 ${
+          <div className={`mt-12 p-6 sm:p-8 space-y-3 ${
             isCyberTheme
               ? 'cyber-card rounded-xl border-[#ff6fb5]/40'
               : isLuxuryTheme
-              ? 'luxury-card luxury-gold-border rounded-lg'
+              ? 'luxury-card rounded-2xl sm:rounded-3xl border border-[#e2b3b1]/35'
               : 'bg-white rounded-sm border border-[#d1b464]/30 shadow-sm'
           }`}>
             <h2 className={`text-base font-bold border-b pb-2 tracking-wider ${
-              isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display text-[#a8874a] border-[#e9dcc4]' : 'text-[#a39573] border-stone-200'
+              isCyberTheme ? 'neon-text-pink border-[#ff6fb5]/30' : isLuxuryTheme ? 'font-luxury-display italic text-[#c5a059] border-[#e2b3b1]/30 text-lg' : 'text-[#a39573] border-stone-200'
             }`}>
               利用規約・禁止事項
             </h2>
             <p className={`text-xs leading-relaxed tracking-wide whitespace-pre-wrap ${
-              isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#6b6459]' : 'text-stone-600'
+              isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#5c5250]' : 'text-stone-600'
             }`}>
               {store.termsOfService}
             </p>

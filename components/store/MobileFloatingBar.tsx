@@ -13,22 +13,29 @@ export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) =
   const reservePath = `/reserve/${store.slug}`;
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyber = store.slug === 'onyankospa' || primaryColor === '#ff6fb5';
+  const isLuxury = store.slug === 'specialgrade';
 
   return (
     <div
-      style={{ borderColor: isCyber ? 'rgba(255,111,181,0.4)' : `${primaryColor}60` }}
+      style={{ borderColor: isCyber ? 'rgba(255,111,181,0.4)' : isLuxury ? undefined : `${primaryColor}60` }}
       className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 p-2.5 transition-all ${
         isCyber
           ? 'bg-[#0d0914]/90 backdrop-blur-xl border-t border-[#ff6fb5]/45 shadow-[0_-6px_28px_rgba(255,111,181,0.28)]'
+          : isLuxury
+          ? 'bg-[#fdf8f5]/92 backdrop-blur-xl border-t border-[#e2b3b1]/35 shadow-[0_-8px_30px_rgba(226,179,177,0.18)] luxury-body'
           : 'bg-stone-950/95 backdrop-blur-md border-t font-serif shadow-2xl'
       }`}
     >
       <div className="max-w-md mx-auto grid grid-cols-2 gap-2">
         <a
           href={`tel:${store.phoneNumber.replace(/[^0-9]/g, '')}`}
-          style={{ color: isCyber ? '#ffa8d8' : primaryColor, borderColor: isCyber ? 'rgba(255,111,181,0.5)' : `${primaryColor}60` }}
-          className={`flex items-center justify-center gap-1.5 py-3 px-3 border rounded-full font-bold text-xs shadow-md transition-all active:scale-95 ${
-            isCyber ? 'bg-white/10 hover:bg-white/20 hover:shadow-[0_0_16px_rgba(255,111,181,0.45)]' : 'bg-stone-900 hover:bg-stone-800'
+          style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#c5a059' : primaryColor, borderColor: isCyber ? 'rgba(255,111,181,0.5)' : isLuxury ? 'rgba(226,179,177,0.55)' : `${primaryColor}60` }}
+          className={`flex items-center justify-center gap-1.5 py-3 px-3 border rounded-full text-xs transition-all duration-400 active:scale-95 ${
+            isCyber
+              ? 'font-bold shadow-md bg-white/10 hover:bg-white/20 hover:shadow-[0_0_16px_rgba(255,111,181,0.45)]'
+              : isLuxury
+              ? 'font-medium tracking-wider bg-white/90 hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.25)]'
+              : 'font-bold shadow-md bg-stone-900 hover:bg-stone-800'
           }`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -39,11 +46,13 @@ export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) =
 
         <Link
           href={reservePath}
-          style={{ backgroundColor: isCyber ? undefined : primaryColor }}
-          className={`flex items-center justify-center gap-1.5 py-3 px-3 text-white font-bold text-xs transition-all active:scale-95 ${
+          style={{ backgroundColor: isCyber || isLuxury ? undefined : primaryColor }}
+          className={`flex items-center justify-center gap-1.5 py-3 px-3 text-white text-xs transition-all active:scale-95 ${
             isCyber
-              ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-              : 'rounded-xl shadow-lg hover:brightness-110'
+              ? 'font-bold rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+              : isLuxury
+              ? 'font-medium tracking-wider rounded-full luxury-gold-btn shadow-md'
+              : 'font-bold rounded-xl shadow-lg hover:brightness-110'
           }`}
         >
           <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
