@@ -64,8 +64,8 @@ const playfairDisplay = Playfair_Display({
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // ピンチズームを禁止しない（Lighthouseのアクセシビリティ減点対象だったmaximumScale/
+  // userScalable:falseを撤去）。低視力ユーザーが拡大できないのはWCAG違反にあたる。
   // ライト固定。OS/ブラウザのダークモードで文字色だけ反転して見えなくなるのを防ぐ。
   colorScheme: 'only light',
 };
