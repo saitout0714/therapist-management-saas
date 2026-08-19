@@ -9,7 +9,9 @@ export { SHOP_DOMAIN_MAP, SAAS_ORIGIN, SHOP_CANONICAL_ORIGIN };
 
 /** OGP画像（1200x630推奨）。logo_url が未設定の店舗向けの指定。 */
 const SHOP_OG_IMAGE: Record<string, string> = {
-  onyankospa: '/images/onyanko_mainvisual.jpg',
+  // onyanko_mainvisual.jpg（1264x843）は1.91:1でないためSNSシェア時に上下が
+  // 切れていた。1200x630にクロップ済みの専用画像に差し替え。
+  onyankospa: '/images/onyanko_og_image.jpg',
 };
 
 /** Google Search Console のHTMLタグ確認用コード（content属性の値のみ）。 */
