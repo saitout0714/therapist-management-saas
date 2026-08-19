@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstama } from '@/lib/sync/estama-therapist';
 import { findExistingEstamaIdByName } from '@/lib/sync/estama';
+import { getEstamaCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300;
@@ -25,11 +26,12 @@ export async function POST(req: NextRequest) {
       try {
         const { data: shop, error: shopError } = await supabase
           .from('shops')
-          .select('estama_login_id, estama_password')
+          .select(PORTAL_CREDENTIAL_COLUMNS)
           .eq('id', shopId)
           .single();
 
-        if (shopError || !shop || !shop.estama_login_id || !shop.estama_password) {
+        const estamaCreds = shopError ? null : getEstamaCredentials(shop);
+        if (!estamaCreds) {
           await completeSyncJob(jobId, 'failed', { error: 'エステ魂のログイン情報が設定されていません。' });
           return;
         }
@@ -65,9 +67,9 @@ export async function POST(req: NextRequest) {
         let estamaId = therapist.estama_therapist_id;
         if (!estamaId) {
           estamaId = await findExistingEstamaIdByName(
-            'https://estama.jp/',
-            shop.estama_login_id,
-            shop.estama_password,
+            estamaCreds.loginUrl,
+            estamaCreds.loginId,
+            estamaCreds.password,
             therapist.name
           );
           if (estamaId) {
@@ -76,9 +78,9 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await syncTherapistToEstama(
-          'https://estama.jp/',
-          shop.estama_login_id,
-          shop.estama_password,
+          estamaCreds.loginUrl,
+          estamaCreds.loginId,
+          estamaCreds.password,
           therapistWithPhotos,
           estamaId
         );

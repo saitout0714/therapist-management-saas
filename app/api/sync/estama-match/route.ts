@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { fetchTherapistsFromEstama } from '@/lib/sync/estama';
+import { getEstamaCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 
 export const maxDuration = 300; // Vercel Pro timeout (max 300s)
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     // 1. 店舗のログイン情報を取得
     const { data: shop, error: shopError } = await supabase
       .from('shops')
-      .select('estama_login_id, estama_password, estama_shop_url')
+      .select(PORTAL_CREDENTIAL_COLUMNS)
       .eq('id', shopId)
       .single();
 
@@ -24,11 +25,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
     }
 
-    if (!shop.estama_login_id || !shop.estama_password) {
+    const estamaCreds = getEstamaCredentials(shop);
+    if (!estamaCreds) {
       return NextResponse.json({ error: '店舗設定画面でエステ魂のログイン情報を設定してください' }, { status: 400 });
     }
-
-    const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
 
     // 2. ローカルのセラピスト一覧を取得
     const { data: localTherapists, error: therapistsError } = await supabase
@@ -43,9 +43,9 @@ export async function POST(req: Request) {
 
     // 3. エステ魂からセラピスト一覧を取得
     const portalTherapists = await fetchTherapistsFromEstama(
-      shopUrl,
-      shop.estama_login_id,
-      shop.estama_password
+      estamaCreds.loginUrl,
+      estamaCreds.loginId,
+      estamaCreds.password
     );
 
     // 4. 名前でマッチング

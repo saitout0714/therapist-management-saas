@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { fetchTherapistsFromEstheRanking } from '@/lib/sync/esthe-ranking';
+import { getEstheRankingCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 
 export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     // 1. 店舗のログイン情報を取得
     const { data: shop, error: shopError } = await supabase
       .from('shops')
-      .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+      .select(PORTAL_CREDENTIAL_COLUMNS)
       .eq('id', shopId)
       .single();
 
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
     }
 
-    if (!shop.esthe_ranking_shop_url || !shop.esthe_ranking_login_id || !shop.esthe_ranking_password) {
+    const erCreds = getEstheRankingCredentials(shop);
+    if (!erCreds) {
       return NextResponse.json({ error: '店舗設定画面でメンズエステランキングのログイン情報を設定してください' }, { status: 400 });
     }
 
@@ -41,9 +43,9 @@ export async function POST(req: Request) {
 
     // 3. ランキングサイトからセラピスト一覧を取得
     const portalTherapists = await fetchTherapistsFromEstheRanking(
-      shop.esthe_ranking_shop_url,
-      shop.esthe_ranking_login_id,
-      shop.esthe_ranking_password
+      erCreds.loginUrl,
+      erCreds.loginId,
+      erCreds.password
     );
 
     // 4. 名前でマッチング

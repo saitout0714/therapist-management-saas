@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
+import { getEstamaCredentials, getEstheRankingCredentials } from '@/lib/sync/portal-credentials';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro limit
@@ -20,9 +21,8 @@ export async function GET(req: Request) {
     }
 
     // 認証情報が設定されている店舗のみフィルタリング
-    const targetShops = shops.filter(shop => 
-      (shop.estama_login_id && shop.estama_password) || 
-      (shop.esthe_ranking_login_id && shop.esthe_ranking_password)
+    const targetShops = shops.filter(shop =>
+      getEstamaCredentials(shop) || getEstheRankingCredentials(shop)
     );
 
     console.log(`Found ${targetShops.length} shops for daily full sync.`);
@@ -86,15 +86,13 @@ export async function GET(req: Request) {
         .not('estama_therapist_id', 'is', null);
 
       // エステ魂の同期
-      if (shop.estama_login_id && shop.estama_password) {
-        // 注意: 店舗HPのURL(hp_url)ではなくエステ魂のログインURLを渡すこと。
-        // 以前hp_urlを渡しており、自動同期だけが店舗HPを開いてしまい常に無反映だった。
-        const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
+      const estamaCreds = getEstamaCredentials(shop);
+      if (estamaCreds) {
         try {
           estamaResult = await syncShiftsToEstama(
-            shopUrl,
-            shop.estama_login_id,
-            shop.estama_password,
+            estamaCreds.loginUrl,
+            estamaCreds.loginId,
+            estamaCreds.password,
             startDate,
             endDate,
             shifts || [],
@@ -108,13 +106,13 @@ export async function GET(req: Request) {
       }
 
       // メンズエステランキングの同期
-      if (shop.esthe_ranking_login_id && shop.esthe_ranking_password) {
-        const erShopUrl = shop.esthe_ranking_shop_url || 'https://es-ranking.jp/agency/login/';
+      const erCreds = getEstheRankingCredentials(shop);
+      if (erCreds) {
         try {
           estheRankingResult = await syncShiftsToEstheRanking(
-            erShopUrl,
-            shop.esthe_ranking_login_id,
-            shop.esthe_ranking_password,
+            erCreds.loginUrl,
+            erCreds.loginId,
+            erCreds.password,
             startDate,
             endDate,
             shifts || []

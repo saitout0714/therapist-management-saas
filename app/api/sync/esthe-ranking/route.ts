@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
+import { getEstheRankingCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 
 export const maxDuration = 300; // Vercel Pro timeout対策 (最大300秒)
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       try {
         const { data: shop, error: shopError } = await supabase
           .from('shops')
-          .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+          .select(PORTAL_CREDENTIAL_COLUMNS)
           .eq('id', shopId)
           .single();
 
@@ -46,7 +47,8 @@ export async function POST(req: Request) {
           return;
         }
 
-        if (!shop.esthe_ranking_shop_url || !shop.esthe_ranking_login_id || !shop.esthe_ranking_password) {
+        const erCreds = getEstheRankingCredentials(shop);
+        if (!erCreds) {
           await completeSyncJob(jobId, 'failed', { error: '店舗設定画面でメンズエステランキングのログイン情報（URL, ID, パスワード）を設定してください' });
           return;
         }
@@ -73,9 +75,9 @@ export async function POST(req: Request) {
         }
 
         const result = await syncShiftsToEstheRanking(
-          shop.esthe_ranking_shop_url,
-          shop.esthe_ranking_login_id,
-          shop.esthe_ranking_password,
+          erCreds.loginUrl,
+          erCreds.loginId,
+          erCreds.password,
           startDate,
           endDate,
           shifts || []

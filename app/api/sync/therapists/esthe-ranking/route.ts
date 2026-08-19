@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstheRanking } from '@/lib/sync/esthe-ranking-therapist';
 import { findExistingRankingIdByName } from '@/lib/sync/esthe-ranking';
+import { getEstheRankingCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 
 export const maxDuration = 300;
@@ -25,11 +26,12 @@ export async function POST(req: NextRequest) {
       try {
         const { data: shop, error: shopError } = await supabase
           .from('shops')
-          .select('esthe_ranking_shop_url, esthe_ranking_login_id, esthe_ranking_password')
+          .select(PORTAL_CREDENTIAL_COLUMNS)
           .eq('id', shopId)
           .single();
 
-        if (shopError || !shop || !shop.esthe_ranking_login_id || !shop.esthe_ranking_password) {
+        const erCreds = shopError ? null : getEstheRankingCredentials(shop);
+        if (!erCreds) {
           await completeSyncJob(jobId, 'failed', { error: 'メンズエステランキングのログイン情報が設定されていません。' });
           return;
         }
@@ -65,9 +67,9 @@ export async function POST(req: NextRequest) {
         let rankingId = therapist.esthe_ranking_therapist_id;
         if (!rankingId) {
           rankingId = await findExistingRankingIdByName(
-            shop.esthe_ranking_shop_url || '',
-            shop.esthe_ranking_login_id,
-            shop.esthe_ranking_password,
+            erCreds.loginUrl,
+            erCreds.loginId,
+            erCreds.password,
             therapist.name
           );
           if (rankingId) {
@@ -76,9 +78,9 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await syncTherapistToEstheRanking(
-          shop.esthe_ranking_shop_url || '',
-          shop.esthe_ranking_login_id,
-          shop.esthe_ranking_password,
+          erCreds.loginUrl,
+          erCreds.loginId,
+          erCreds.password,
           therapistWithPhotos,
           rankingId
         );

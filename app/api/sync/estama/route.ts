@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
+import { getEstamaCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
 
 export const maxDuration = 300; // Vercel Pro timeout (max 300s)
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       try {
         const { data: shop, error: shopError } = await supabase
           .from('shops')
-          .select('estama_login_id, estama_password, estama_shop_url')
+          .select(PORTAL_CREDENTIAL_COLUMNS)
           .eq('id', shopId)
           .single();
 
@@ -46,12 +47,11 @@ export async function POST(req: Request) {
           return;
         }
 
-        if (!shop.estama_login_id || !shop.estama_password) {
+        const estamaCreds = getEstamaCredentials(shop);
+        if (!estamaCreds) {
           await completeSyncJob(jobId, 'failed', { error: '店舗設定画面でエステ魂のログイン情報（ID, パスワード）を設定してください' });
           return;
         }
-
-        const shopUrl = shop.estama_shop_url || 'https://estama.jp/login/?r=/admin/';
 
         const { data: shifts, error: shiftsError } = await supabase
           .from('shifts')
@@ -95,9 +95,9 @@ export async function POST(req: Request) {
           .not('estama_therapist_id', 'is', null);
 
         const result = await syncShiftsToEstama(
-          shopUrl,
-          shop.estama_login_id,
-          shop.estama_password,
+          estamaCreds.loginUrl,
+          estamaCreds.loginId,
+          estamaCreds.password,
           startDate,
           endDate,
           shifts || [],
