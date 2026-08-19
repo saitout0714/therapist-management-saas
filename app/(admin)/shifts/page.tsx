@@ -2498,7 +2498,7 @@ function ShiftsContent() {
       {/* シフト編集モーダル */}
       {shiftEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShiftEditModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
             {/* ヘッダー */}
             <div className="px-6 pt-4 pb-3 border-b border-slate-100">
               <div className="flex items-center justify-between">
@@ -2517,22 +2517,22 @@ function ShiftsContent() {
               <section>
                 <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">勤務</h4>
                 <div className="rounded-xl border border-slate-200 flex items-stretch divide-x divide-slate-100">
-                  <div className="flex-shrink-0 px-3 py-2">
+                  <div className="flex-shrink-0 px-2.5 py-2">
                     <p className="text-[10px] font-semibold text-slate-500 mb-1">出勤</p>
                     <TimeSelectHM
                       value={shiftEditModal.startTime}
                       onChange={v => setShiftEditModal(m => m ? { ...m, startTime: v } : null)}
                       disabled={shiftEditModal.isOff}
-                      selectClassName="w-[60px] px-1 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                      selectClassName="w-[74px] px-1.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                     />
                   </div>
-                  <div className="flex-shrink-0 px-3 py-2">
+                  <div className="flex-shrink-0 px-2.5 py-2">
                     <p className="text-[10px] font-semibold text-slate-500 mb-1">退勤</p>
                     <TimeSelectHM
                       value={shiftEditModal.endTime}
                       onChange={v => setShiftEditModal(m => m ? { ...m, endTime: v } : null)}
                       disabled={shiftEditModal.isOff}
-                      selectClassName="w-[60px] px-1 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                      selectClassName="w-[74px] px-1.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                     />
                   </div>
                   <div className="flex-1 min-w-0 px-3 py-2">
@@ -2563,16 +2563,17 @@ function ShiftsContent() {
                     { key: 'off' as const, label: '休み', tone: 'rose' },
                   ];
                   const activeClass = (tone: string) =>
-                    tone === 'emerald' ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
-                      : tone === 'amber' ? 'border-amber-400 bg-amber-50 text-amber-800'
-                        : 'border-rose-400 bg-rose-50 text-rose-800';
-                  const dotClass = (tone: string) =>
-                    tone === 'emerald' ? 'bg-emerald-500'
-                      : tone === 'amber' ? 'bg-amber-500'
-                        : 'bg-rose-500';
+                    tone === 'emerald' ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm'
+                      : tone === 'amber' ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                        : 'border-rose-500 bg-rose-500 text-white shadow-sm';
+                  const dotClass = (tone: string, selected: boolean) =>
+                    selected ? 'bg-white' :
+                      tone === 'emerald' ? 'bg-emerald-500'
+                        : tone === 'amber' ? 'bg-amber-500'
+                          : 'bg-rose-500';
                   return (
                     <>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-3 gap-2">
                         {opts.map(opt => {
                           const selected = current === opt.key;
                           return (
@@ -2589,9 +2590,9 @@ function ShiftsContent() {
                                   receptionCutoff: m.receptionCutoff ?? clampToShift(getNowExtendedTime(), m.startTime, m.endTime),
                                 };
                               })}
-                              className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-bold transition-colors select-none ${selected ? activeClass(opt.tone) : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                              className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border-2 text-xs font-bold transition-colors select-none ${selected ? activeClass(opt.tone) : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'}`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass(opt.tone)}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass(opt.tone, selected)}`} />
                               {opt.label}
                             </button>
                           );
