@@ -2495,7 +2495,7 @@ function ShiftsContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShiftEditModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
             {/* ヘッダー */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+            <div className="px-6 pt-4 pb-3 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-slate-800">{shiftEditModal.therapistName}</h3>
@@ -2507,36 +2507,36 @@ function ShiftsContent() {
               </div>
             </div>
 
-            <div className="px-6 py-4 space-y-5">
+            <div className="px-6 py-3 space-y-3.5">
               {/* 1. 勤務時間・ルーム */}
               <section>
-                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">勤務</h4>
-                <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
-                  <div className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">出勤</span>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">勤務</h4>
+                <div className="rounded-xl border border-slate-200 flex items-stretch divide-x divide-slate-100">
+                  <div className="flex-shrink-0 px-3 py-2">
+                    <p className="text-[10px] font-semibold text-slate-500 mb-1">出勤</p>
                     <TimeSelectHM
                       value={shiftEditModal.startTime}
                       onChange={v => setShiftEditModal(m => m ? { ...m, startTime: v } : null)}
                       disabled={shiftEditModal.isOff}
-                      selectClassName="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                      selectClassName="w-[60px] px-1 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                     />
                   </div>
-                  <div className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">退勤</span>
+                  <div className="flex-shrink-0 px-3 py-2">
+                    <p className="text-[10px] font-semibold text-slate-500 mb-1">退勤</p>
                     <TimeSelectHM
                       value={shiftEditModal.endTime}
                       onChange={v => setShiftEditModal(m => m ? { ...m, endTime: v } : null)}
                       disabled={shiftEditModal.isOff}
-                      selectClassName="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                      selectClassName="w-[60px] px-1 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                     />
                   </div>
-                  <div className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="w-16 flex-shrink-0 text-xs font-semibold text-slate-600">ルーム</span>
+                  <div className="flex-1 min-w-0 px-3 py-2">
+                    <p className="text-[10px] font-semibold text-slate-500 mb-1">ルーム</p>
                     <select
                       value={shiftEditModal.roomId}
                       onChange={e => setShiftEditModal(m => m ? { ...m, roomId: e.target.value } : null)}
                       disabled={shiftEditModal.isOff}
-                      className="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
+                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none disabled:opacity-40"
                     >
                       <option value="">未設定</option>
                       {rooms.map(r => (
@@ -2549,74 +2549,70 @@ function ShiftsContent() {
 
               {/* 2. 受付ステータス — 通常 / 受付終了 / 休み の3択 */}
               <section>
-                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">受付ステータス</h4>
-                <div className="space-y-2">
-                  {([
-                    { key: 'open', label: '受付中', desc: '通常どおり予約を受け付けます', tone: 'emerald' },
-                    { key: 'closed', label: '受付終了', desc: '指定した時刻から退勤まで新規予約を止めます', tone: 'amber' },
-                    { key: 'off', label: '休み', desc: 'シフト全時間帯を受付不可にします', tone: 'rose' },
-                  ] as const).map(opt => {
-                    const current = shiftEditModal.isOff ? 'off' : shiftEditModal.receptionCutoff ? 'closed' : 'open';
-                    const selected = current === opt.key;
-                    const ring =
-                      opt.tone === 'emerald' ? 'border-emerald-400 bg-emerald-50'
-                        : opt.tone === 'amber' ? 'border-amber-400 bg-amber-50'
-                          : 'border-rose-400 bg-rose-50';
-                    const dot =
-                      opt.tone === 'emerald' ? 'bg-emerald-500'
-                        : opt.tone === 'amber' ? 'bg-amber-500'
-                          : 'bg-rose-500';
-                    return (
-                      <label
-                        key={opt.key}
-                        className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors select-none ${selected ? ring : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                      >
-                        <input
-                          type="radio"
-                          name="reception-status"
-                          checked={selected}
-                          onChange={() => setShiftEditModal(m => {
-                            if (!m) return m;
-                            if (opt.key === 'off') return { ...m, isOff: true, receptionCutoff: null };
-                            if (opt.key === 'open') return { ...m, isOff: false, receptionCutoff: null };
-                            return {
-                              ...m,
-                              isOff: false,
-                              receptionCutoff: m.receptionCutoff ?? clampToShift(getNowExtendedTime(), m.startTime, m.endTime),
-                            };
-                          })}
-                          className="mt-0.5 w-4 h-4 flex-shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                            {opt.label}
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</p>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">受付ステータス</h4>
+                {(() => {
+                  const current = shiftEditModal.isOff ? 'off' : shiftEditModal.receptionCutoff ? 'closed' : 'open';
+                  const opts = [
+                    { key: 'open' as const, label: '受付中', tone: 'emerald' },
+                    { key: 'closed' as const, label: '受付終了', tone: 'amber' },
+                    { key: 'off' as const, label: '休み', tone: 'rose' },
+                  ];
+                  const activeClass = (tone: string) =>
+                    tone === 'emerald' ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                      : tone === 'amber' ? 'border-amber-400 bg-amber-50 text-amber-800'
+                        : 'border-rose-400 bg-rose-50 text-rose-800';
+                  const dotClass = (tone: string) =>
+                    tone === 'emerald' ? 'bg-emerald-500'
+                      : tone === 'amber' ? 'bg-amber-500'
+                        : 'bg-rose-500';
+                  return (
+                    <>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {opts.map(opt => {
+                          const selected = current === opt.key;
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() => setShiftEditModal(m => {
+                                if (!m) return m;
+                                if (opt.key === 'off') return { ...m, isOff: true, receptionCutoff: null };
+                                if (opt.key === 'open') return { ...m, isOff: false, receptionCutoff: null };
+                                return {
+                                  ...m,
+                                  isOff: false,
+                                  receptionCutoff: m.receptionCutoff ?? clampToShift(getNowExtendedTime(), m.startTime, m.endTime),
+                                };
+                              })}
+                              className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-bold transition-colors select-none ${selected ? activeClass(opt.tone) : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass(opt.tone)}`} />
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                          {/* 受付終了を選んだときだけ締切時刻を出す。
-                              label の中なので、時刻セレクトのクリックがラジオに伝わらないよう止める。 */}
-                          {opt.key === 'closed' && selected && (
-                            <div className="mt-2.5 pt-2.5 border-t border-amber-200" onClick={e => e.stopPropagation()}>
-                              <p className="text-[10px] font-semibold text-slate-600 mb-1.5">締切時刻（この時刻から {shiftEditModal.endTime} まで停止）</p>
-                              <TimeSelectHM
-                                value={shiftEditModal.receptionCutoff ?? shiftEditModal.startTime}
-                                onChange={v => setShiftEditModal(m => m ? { ...m, receptionCutoff: v } : null)}
-                                selectClassName="flex-1 px-2.5 py-2 bg-white border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
-                              />
-                            </div>
-                          )}
+                      {/* 受付終了を選んだときだけ締切時刻を出す */}
+                      {current === 'closed' && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold text-slate-500 flex-shrink-0">締切時刻〜{shiftEditModal.endTime}</span>
+                          <TimeSelectHM
+                            value={shiftEditModal.receptionCutoff ?? shiftEditModal.startTime}
+                            onChange={v => setShiftEditModal(m => m ? { ...m, receptionCutoff: v } : null)}
+                            selectClassName="flex-1 min-w-0 px-1.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg text-xs focus:ring-2 focus:ring-amber-400/50 outline-none"
+                          />
                         </div>
-                      </label>
-                    );
-                  })}
-                </div>
+                      )}
+                    </>
+                  );
+                })()}
               </section>
 
               {/* 3. 予約不可時間帯 */}
               {!shiftEditModal.isOff && (
                 <section>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <h4 className="text-[11px] font-bold text-slate-400 tracking-wider">
                       予約不可時間帯（休憩・私用など）
                     </h4>
@@ -2706,19 +2702,16 @@ function ShiftsContent() {
               )}
 
               {/* 4. 精算 */}
-              <h4 className="text-[11px] font-bold text-slate-400 tracking-wider !mb-2">精算</h4>
-              <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors !mt-0 ${shiftEditModal.isSettled ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
-                <div>
-                  <p className={`text-sm font-bold ${shiftEditModal.isSettled ? 'text-red-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">セラピストへ本日分の精算を送ったかどうかの状態です</p>
-                </div>
+              <h4 className="text-[11px] font-bold text-slate-400 tracking-wider !mb-1.5">精算</h4>
+              <div className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border transition-colors !mt-0 ${shiftEditModal.isSettled ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
+                <p className={`text-xs font-bold ${shiftEditModal.isSettled ? 'text-red-700' : 'text-slate-700'}`}>精算{shiftEditModal.isSettled ? '済み' : '未送信'}</p>
                 <button
                   type="button"
                   onClick={async () => {
                     const ok = await handleToggleSettlement(shiftEditModal.therapistId, shiftEditModal.date, shiftEditModal.isSettled);
                     if (ok) setShiftEditModal(m => m ? { ...m, isSettled: !m.isSettled } : null);
                   }}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${shiftEditModal.isSettled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                  className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${shiftEditModal.isSettled ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-red-600 text-white hover:bg-red-700'}`}
                 >
                   {shiftEditModal.isSettled ? '未精算に戻す' : '精算済みにする'}
                 </button>
@@ -2726,13 +2719,13 @@ function ShiftsContent() {
 
               {/* 5. メモ */}
               <div>
-                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-2">メモ</h4>
+                <h4 className="text-[11px] font-bold text-slate-400 tracking-wider mb-1.5">メモ</h4>
                 <textarea
                   value={shiftEditModal.memo}
                   onChange={e => setShiftEditModal(m => m ? { ...m, memo: e.target.value } : null)}
                   rows={2}
                   placeholder="備考・連絡事項など"
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
                 />
               </div>
 
@@ -2742,8 +2735,8 @@ function ShiftsContent() {
             </div>
 
             {/* 引き継ぎメモセクション */}
-            <div className="px-6 pb-4 border-t border-slate-100">
-              <div className="flex items-center justify-between mt-4 mb-2">
+            <div className="px-6 pb-3 border-t border-slate-100">
+              <div className="flex items-center justify-between mt-3 mb-1.5">
                 <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                   引き継ぎメモ
