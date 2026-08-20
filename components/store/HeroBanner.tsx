@@ -249,7 +249,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
             {/* 6. misshelly風 左下エディトリアル・ロックアップ */}
             <div className="relative z-20 max-w-2xl text-left text-white">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/30 text-white text-[10px] sm:text-xs font-luxury-display italic tracking-[0.25em] uppercase mb-3 sm:mb-4 shadow-sm">
-                ★ PRIVATE MEN'S SPA & BEAUTY ★
+                ★ PRIVATE MEN'S SPA ★
               </span>
 
               <h1 className="font-luxury-display font-light text-3xl sm:text-5xl lg:text-6xl leading-[1.2] tracking-[0.06em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
