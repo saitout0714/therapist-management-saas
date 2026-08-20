@@ -103,10 +103,10 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
             {/* 中央: misshelly風 センター配置 SpecialGradeLogo */}
             <div className="w-1/3 flex justify-center items-center">
-              <Link href={basePath || '/'} className="flex items-center justify-center mt-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+              <Link href={basePath || '/'} className="flex items-center justify-center mt-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
                 <SpecialGradeLogo
                   variant="misshelly"
-                  size="sm"
+                  size="md"
                   markSize="lg"
                   theme="light"
                 />
