@@ -253,9 +253,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
               </span>
 
               <h1 className="font-luxury-display font-light text-3xl sm:text-5xl lg:text-6xl leading-[1.2] tracking-[0.06em] text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
-                Graceful and Noble
+                Refined and Serene
                 <br />
-                <span className="italic font-light text-[#fdf8f5]">like a sanctuary.</span>
+                <span className="italic font-light text-[#fdf8f5]">like a private retreat.</span>
               </h1>
 
               <p className="text-xs sm:text-sm text-stone-200 tracking-[0.2em] font-light mt-3 max-w-md drop-shadow">
