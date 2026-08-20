@@ -120,6 +120,18 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
   // 一瞬だけネオンサインのロゴ点灯演出を挟んでから、また画像に戻る。
   const [isRevealed, setIsRevealed] = React.useState(true);
 
+  // SpecialGrade用HERO画像のクロスフェード・スライドショー（ズーム/パンは廃止し、複数枚を順番に切り替える）
+  const heroSlideImages = ['/images/specialgrade_hero.jpg', '/images/specialgrade_hero_2.jpg', '/images/specialgrade_hero_3.jpg'];
+  const [activeHeroSlide, setActiveHeroSlide] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!isLuxuryTheme) return;
+    const intervalId = setInterval(() => {
+      setActiveHeroSlide((prev) => (prev + 1) % heroSlideImages.length);
+    }, 6000);
+    return () => clearInterval(intervalId);
+  }, [isLuxuryTheme]);
+
   React.useEffect(() => {
     if (!isCyberTheme) return;
 
@@ -159,24 +171,21 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
         <section className="relative w-full bg-[#efd8d5] px-3 sm:px-5 lg:px-7 pt-3 sm:pt-4 pb-4 sm:pb-6 overflow-hidden">
           {/* 角丸ヒーローコンテナ (misshelly のような美しいピンク縁取りの中の大画面ビジュアルフレーム) */}
           <div className="luxury-hero-pink-veil relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#efd8d5] shadow-[0_12px_45px_rgba(198,149,162,0.35)] z-10">
-            {/* 1. 大迫力のシネマティック・メインビジュアル（デスクトップ/スマホでアートディレクション別画像、動画のように滑らかにズーム＆パン） */}
+            {/* 1. 大迫力のシネマティック・メインビジュアル（複数枚を6秒ごとにクロスフェード切り替え） */}
             <div className="absolute inset-0 z-0 overflow-hidden">
-              <Image
-                src="/images/specialgrade_hero.jpg"
-                alt={`${store.name} シネマティックビジュアル`}
-                fill
-                priority
-                sizes="100vw"
-                className="hidden sm:block absolute inset-0 object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
-              />
-              <Image
-                src="/images/specialgrade_hero_s.jpg"
-                alt={`${store.name} シネマティックビジュアル`}
-                fill
-                priority
-                sizes="100vw"
-                className="block sm:hidden absolute inset-0 object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
-              />
+              {heroSlideImages.map((src, idx) => (
+                <Image
+                  key={src}
+                  src={src}
+                  alt={`${store.name} シネマティックビジュアル`}
+                  fill
+                  priority={idx === 0}
+                  sizes="100vw"
+                  className={`absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${
+                    idx === activeHeroSlide ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+              ))}
             </div>
 
             {/* 2. misshelly風 シネマティック・カラーグレーディング＆ソフトオーバーレイ */}
