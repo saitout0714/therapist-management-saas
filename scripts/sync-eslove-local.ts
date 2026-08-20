@@ -13,6 +13,8 @@
  *   npx tsx scripts/sync-eslove-local.ts              # キャスト情報 + 出勤情報の両方
  *   npx tsx scripts/sync-eslove-local.ts therapists   # キャスト情報のみ
  *   npx tsx scripts/sync-eslove-local.ts shifts       # 出勤情報のみ（今日から14日間）
+ *   npx tsx scripts/sync-eslove-local.ts shifts 2026-08-20 2026-09-02
+ *                                                     # 期間を指定して出勤情報を同期
  */
 import * as dotenv from 'dotenv';
 
@@ -147,11 +149,19 @@ async function main() {
     if (mode === 'all' || mode === 'shifts') {
       const jobId = await createSyncJob(shop.id, 'shift_manual');
 
-      const today = new Date();
-      const startDate = today.toISOString().split('T')[0];
-      const future = new Date(today);
-      future.setDate(future.getDate() + 13);
-      const endDate = future.toISOString().split('T')[0];
+      // 第2・第3引数で期間を指定できる。省略時は今日から14日間。
+      const argDates = process.argv.slice(3).filter(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
+      let startDate: string;
+      let endDate: string;
+      if (argDates.length === 2) {
+        [startDate, endDate] = argDates;
+      } else {
+        const today = new Date();
+        startDate = today.toISOString().split('T')[0];
+        const future = new Date(today);
+        future.setDate(future.getDate() + 13);
+        endDate = future.toISOString().split('T')[0];
+      }
 
       const { data: shifts } = await supabase
         .from('shifts')

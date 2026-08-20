@@ -147,9 +147,13 @@ function toEsloveTimeValue(timeStr: string | null | undefined): string {
 
 /**
  * 対象日付（YYYY-MM-DD, JST基準の暦日）が「今日」から何日後かを計算する。
- * エステラブの出勤情報ページは day=0（今日）を基準にした相対オフセットで日付を指定する。
+ * エステラブの出勤情報ページは day=0（今日）を基準にした相対オフセットで日付を指定するため、
+ * この値は「最初の推測値」として使う。
+ *
+ * ※エステラブ側の「今日」は暦日ではなく営業日基準で切り替わるらしく、深夜帯に実行すると
+ *   前日扱いになって1日ずれる。そのため必ず resolveDayOffset() で実際の日付を確認すること。
  */
-function dateOffsetFromToday(dateStr: string): number {
+function guessDayOffset(dateStr: string): number {
   const [y, m, d] = dateStr.split('-').map(Number);
   const target = Date.UTC(y, m - 1, d);
 
@@ -159,6 +163,57 @@ function dateOffsetFromToday(dateStr: string): number {
   const todayUTC = Date.UTC(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate());
 
   return Math.round((target - todayUTC) / 86400000);
+}
+
+/** "2026-08-21" → "20260821"（ページ内の day 隠しフィールドと同じ形式） */
+function toCompactDate(dateStr: string): string {
+  return dateStr.replace(/-/g, '');
+}
+
+/** "20260821" と "20260820" の日数差を返す */
+function diffDays(fromCompact: string, toCompact: string): number {
+  const parse = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+  return Math.round((parse(toCompact) - parse(fromCompact)) / 86400000);
+}
+
+const SCHEDULE_BASE_URL = 'https://eslove.jp/admin/shop/therapist_schedule/daily';
+
+function scheduleUrl(offset: number, pageNum = 1): string {
+  return `${SCHEDULE_BASE_URL}?day=${offset}` + (pageNum > 1 ? `&page=${pageNum}` : '');
+}
+
+/** 開いている出勤情報ページが実際に何日のものかを、隠しフィールドから読み取る */
+async function readShownDate(page: any): Promise<string | null> {
+  await page.waitForSelector('input[name^="TherapistSchedules"][name$="[day]"]', { timeout: 15000 }).catch(() => {});
+  return await page.evaluate(() => {
+    const el = document.querySelector('input[name^="TherapistSchedules"][name$="[day]"]') as HTMLInputElement | null;
+    return el?.value || null;
+  });
+}
+
+/**
+ * 目的の日付のページを開き、そのとき使えた day オフセットを返す。
+ *
+ * エステラブの day は「今日」からの相対指定だが、その「今日」がいつ切り替わるかは
+ * 営業日設定に依存し、こちらの暦計算とずれることがある（深夜実行だと1日前になる）。
+ * 実際にページに書かれている日付を読んで、ずれていれば補正して開き直す。
+ */
+async function resolveDayOffset(page: any, dateStr: string): Promise<number | null> {
+  const wanted = toCompactDate(dateStr);
+  let offset = guessDayOffset(dateStr);
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await page.goto(scheduleUrl(offset), { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+    const shown = await readShownDate(page);
+    if (!shown) return null;
+    if (shown === wanted) return offset;
+
+    const correction = diffDays(shown, wanted);
+    if (correction === 0) return null;
+    console.log(`[EsloveSync] ${dateStr}: day=${offset} は ${shown} だったため ${correction} 日ぶん補正します`);
+    offset += correction;
+  }
+  return null;
 }
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -297,7 +352,12 @@ export async function syncShiftsToEslove(
     const details: any[] = [];
 
     for (const dateStr of dates) {
-      const offset = dateOffsetFromToday(dateStr);
+      // 実際にその日付が表示されるオフセットを特定する（暦計算だけに頼らない）
+      const offset = await resolveDayOffset(page, dateStr);
+      if (offset === null) {
+        details.push({ date: dateStr, error: '出勤情報ページで対象日を開けませんでした' });
+        continue;
+      }
 
       const dayShifts = shifts.filter((s: any) => String(s.date).slice(0, 10) === dateStr);
 
@@ -311,8 +371,7 @@ export async function syncShiftsToEslove(
       const MAX_PAGES = 20;
 
       for (let pageNum = 1; pageNum <= MAX_PAGES && remaining.size > 0; pageNum++) {
-        const url = `https://eslove.jp/admin/shop/therapist_schedule/daily?day=${offset}` +
-          (pageNum > 1 ? `&page=${pageNum}` : '');
+        const url = scheduleUrl(offset, pageNum);
 
         let navigated = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
@@ -331,6 +390,14 @@ export async function syncShiftsToEslove(
         }
         // Vue側のハイドレーション待ち（隠しフィールドが描画されるまで）
         await page.waitForSelector('input[name^="TherapistSchedules"][name$="[therapist_id]"]', { timeout: 15000 }).catch(() => {});
+
+        // 書き込む直前に、開いているページが本当に対象日かを毎回確認する。
+        // 違う日に書き込むと、他の日の出勤情報を壊してしまうため。
+        const shownDate = await readShownDate(page);
+        if (shownDate !== toCompactDate(dateStr)) {
+          details.push({ date: dateStr, page: pageNum, error: `日付が一致しないため書き込みを中止しました（ページの日付: ${shownDate || '不明'}）` });
+          break;
+        }
 
         const rowMap: Record<string, number> = await page.evaluate(() => {
           const map: Record<string, number> = {};
