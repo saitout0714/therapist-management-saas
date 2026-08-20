@@ -40,11 +40,10 @@ export interface StoreConfig {
   adBanners?: AdBanner[]; // 広告バナー（エステラブ等の相互リンク）。TOPページ末尾に表示
 }
 
-/** 広告バナー（エステラブ等の相互リンクバナー）。TOPページ末尾に表示 */
+/** 広告掲載サイトへのリンク（エステラブ等の相互リンク）。TOPページ末尾に表示 */
 export interface AdBanner {
-  imageUrl: string;
+  siteName: string;
   linkUrl: string;
-  alt: string;
 }
 
 export interface RecruitInfo {
