@@ -29,13 +29,13 @@ export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) =
       <div className="max-w-md mx-auto grid grid-cols-2 gap-2">
         <a
           href={`tel:${store.phoneNumber.replace(/[^0-9]/g, '')}`}
-          style={{ color: isCyber ? '#ffa8d8' : isLuxury ? '#c5a059' : primaryColor, borderColor: isCyber ? 'rgba(255,111,181,0.5)' : isLuxury ? 'rgba(226,179,177,0.55)' : `${primaryColor}60` }}
-          className={`flex items-center justify-center gap-1.5 py-3 px-3 border rounded-full text-xs transition-all duration-400 active:scale-95 ${
+          style={{ color: isCyber ? '#ffa8d8' : undefined, borderColor: isCyber ? 'rgba(255,111,181,0.5)' : isLuxury ? undefined : `${primaryColor}60` }}
+          className={`flex items-center justify-center gap-1.5 py-3 px-3 rounded-full text-xs transition-all duration-400 active:scale-95 ${
             isCyber
-              ? 'font-bold shadow-md bg-white/10 hover:bg-white/20 hover:shadow-[0_0_16px_rgba(255,111,181,0.45)]'
+              ? 'font-bold border shadow-md bg-white/10 hover:bg-white/20 hover:shadow-[0_0_16px_rgba(255,111,181,0.45)]'
               : isLuxury
-              ? 'font-medium tracking-wider bg-white/90 hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.25)]'
-              : 'font-bold shadow-md bg-stone-900 hover:bg-stone-800'
+              ? 'font-medium tracking-wider luxury-gold-btn shadow-md'
+              : 'font-bold border shadow-md bg-stone-900 hover:bg-stone-800'
           }`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -47,15 +47,15 @@ export const MobileFloatingBar: React.FC<MobileFloatingBarProps> = ({ store }) =
         <Link
           href={reservePath}
           style={{ backgroundColor: isCyber || isLuxury ? undefined : primaryColor }}
-          className={`flex items-center justify-center gap-1.5 py-3 px-3 text-white text-xs transition-all active:scale-95 ${
+          className={`flex items-center justify-center gap-1.5 py-3 px-3 text-xs transition-all active:scale-95 ${
             isCyber
-              ? 'font-bold rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+              ? 'font-bold text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
               : isLuxury
               ? 'font-medium tracking-wider rounded-full luxury-gold-btn shadow-md'
-              : 'font-bold rounded-xl shadow-lg hover:brightness-110'
+              : 'font-bold text-white rounded-xl shadow-lg hover:brightness-110'
           }`}
         >
-          <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className={`w-4 h-4 shrink-0 ${isLuxury ? '' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <span>24時間 WEB予約</span>
