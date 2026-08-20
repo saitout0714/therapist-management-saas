@@ -183,7 +183,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
             {/* 1. 大迫力のシネマティック・メインビジュアル（複数枚を6秒ごとにクロスフェード切り替え、PC/スマホでアートディレクション別クロップ） */}
             <div className="absolute inset-0 z-0 overflow-hidden">
               {heroSlideImages.map((slide, idx) => {
-                const opacityClass = idx === activeHeroSlide ? 'opacity-100' : 'opacity-0';
+                const isActive = idx === activeHeroSlide;
+                const opacityClass = isActive ? 'opacity-100' : 'opacity-0';
+                const kenBurnsClass = isActive ? 'hero-slide-active' : 'hero-slide-idle';
                 return (
                   <React.Fragment key={slide.desktop}>
                     <Image
@@ -192,7 +194,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
                       fill
                       priority={idx === 0}
                       sizes="100vw"
-                      className={`hidden sm:block absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass}`}
+                      className={`hidden sm:block absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
                     />
                     <Image
                       src={slide.mobile}
@@ -200,7 +202,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
                       fill
                       priority={idx === 0}
                       sizes="100vw"
-                      className={`block sm:hidden absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass}`}
+                      className={`block sm:hidden absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
                     />
                   </React.Fragment>
                 );

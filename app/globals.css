@@ -1263,22 +1263,27 @@ input[type="time"]::-webkit-datetime-edit {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
 }
 
-/* 5. シネマティック・動画風アンビエントズーム＆パン（misshelly.comのような大画面動画演出） */
-@keyframes luxuryHeroCinematic {
+/* 5. HEROスライドショー: 切り替わり時にスッと落ち着き(settle)、そのままゆっくり一方向にズーム。
+   往復(alternate)はしない — 表示中の6秒をまるごと使って自然に育つように見せる。 */
+@keyframes heroSlideKenBurns {
   0% {
-    transform: scale(1.02) translate(0, 0);
+    transform: scale(1.05);
   }
-  50% {
-    transform: scale(1.14) translate(-2.5%, -1.5%);
+  8% {
+    transform: scale(1);
   }
   100% {
-    transform: scale(1.08) translate(2.5%, 1.8%);
+    transform: scale(1.08);
   }
 }
 
-.luxury-hero-cinematic {
-  animation: luxuryHeroCinematic 14s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+.hero-slide-active {
+  animation: heroSlideKenBurns 6000ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   will-change: transform;
+}
+
+.hero-slide-idle {
+  transform: scale(1.05);
 }
 
 /* misshelly.com オマージュ: ヒーロー写真に透けたピンクのフィルターを重ねる
