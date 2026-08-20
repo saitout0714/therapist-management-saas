@@ -1,4 +1,18 @@
 import { chromium as playwrightLocal } from 'playwright';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+
+async function uploadDebugScreenshot(page: any, name: string): Promise<string | null> {
+  try {
+    const buffer = await page.screenshot({ type: 'jpeg', quality: 70, fullPage: true });
+    const path = `debug/${name}_${Date.now()}.jpg`;
+    await supabaseAdmin.storage.from('therapist-photos').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+    const { data } = supabaseAdmin.storage.from('therapist-photos').getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e) {
+    console.error('[EsloveSync] Screenshot failed:', e);
+    return null;
+  }
+}
 
 const CHROMIUM_ARGS = [
   '--no-sandbox',
@@ -51,17 +65,20 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   page.on('dialog', (d: any) => d.accept().catch(() => {}));
 
   const targetUrl = shopUrl || ESLOVE_LOGIN_URL;
-  await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(async () => {
-    await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-  });
+  let response: any = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+  if (!response) {
+    response = await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+  }
 
-  // エステラブの管理画面はVue製のSPAで、domcontentloaded時点ではまだログインフォームが
-  // マウントされていない。JSによる描画完了を待ってから要素を探す必要がある。
-  const idInput = await page.waitForSelector('input[type="text"], input[name="id"], input[name="login_id"]', { timeout: 15000 }).catch(() => null);
+  const idInput = await page.waitForSelector('input[type="text"], input[name="login_id"]', { timeout: 15000 }).catch(() => null);
   const passInput = await page.waitForSelector('input[type="password"]', { timeout: 15000 }).catch(() => null);
 
   if (!idInput || !passInput) {
-    throw new Error('エステラブのログイン入力項目が見つかりませんでした。');
+    const status = typeof response?.status === 'function' ? response.status() : '不明';
+    const title = await page.title().catch(() => 'unknown');
+    const url = page.url();
+    const screenshotUrl = await uploadDebugScreenshot(page, 'eslove_login_form_not_found');
+    throw new Error(`エステラブのログイン入力項目が見つかりませんでした。(HTTP: ${status}, 画面タイトル: ${title}, URL: ${url}, スクリーンショット: ${screenshotUrl || 'なし'})`);
   }
 
   await idInput.fill(loginId);
@@ -82,7 +99,9 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
 
   const currentUrl = page.url();
   if (currentUrl.includes('/login')) {
-    throw new Error('エステラブログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。');
+    const title = await page.title().catch(() => 'unknown');
+    const screenshotUrl = await uploadDebugScreenshot(page, 'eslove_login_failed');
+    throw new Error(`エステラブログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(画面タイトル: ${title}, URL: ${currentUrl}, スクリーンショット: ${screenshotUrl || 'なし'})`);
   }
 }
 
