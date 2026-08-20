@@ -183,8 +183,14 @@ async function main() {
       );
 
       if (result.success) {
-        console.log('出勤情報の同期完了:', result.message);
-        if (jobId) await completeSyncJob(jobId, 'completed', { message: result.message, target: 'eslove', details: result.details });
+        const d = result.details || [];
+        const saved = d.filter((x: any) => x.saved);
+        const unchanged = d.filter((x: any) => x.unchanged);
+        const errors = d.filter((x: any) => x.error);
+        console.log(`出勤情報の同期完了: 更新${saved.length}件 / 変更なし${unchanged.length}件 / 失敗${errors.length}件`);
+        for (const x of saved) console.log(`  更新 ${x.date} ${x.esloveId} ${x.start || '(休み)'}-${x.end || ''}`);
+        for (const x of errors.slice(0, 20)) console.log(`  失敗 ${x.date} ${x.esloveId || ''} ${x.error}`);
+        if (jobId) await completeSyncJob(jobId, errors.length ? 'failed' : 'completed', { message: result.message, target: 'eslove', details: result.details });
       } else {
         console.error('出勤情報の同期失敗:', result.error);
         if (jobId) await completeSyncJob(jobId, 'failed', { error: `同期エラー: ${result.error}` });

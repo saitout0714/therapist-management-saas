@@ -164,7 +164,8 @@ export async function syncTherapistToEslove(
       const tmpPaths: string[] = [];
       try {
         await page.goto(`https://eslove.jp/admin/shop/therapist_image/${newId}`, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-        await page.waitForSelector('#therapistImageUpload, input[type="file"]', { timeout: 15000 }).catch(() => {});
+        // ファイル選択欄はCSSで隠されているため state:'attached' で待つ（既定の可視待ちだと必ずタイムアウトする）
+        await page.waitForSelector('#therapistImageUpload, input[type="file"]', { state: 'attached', timeout: 15000 }).catch(() => {});
 
         for (let i = 0; i < Math.min(photoUrls.length, 5); i++) {
           const url = photoUrls[i];

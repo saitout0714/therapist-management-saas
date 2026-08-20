@@ -182,13 +182,45 @@ function scheduleUrl(offset: number, pageNum = 1): string {
   return `${SCHEDULE_BASE_URL}?day=${offset}` + (pageNum > 1 ? `&page=${pageNum}` : '');
 }
 
+/**
+ * 出勤情報の表が描画されるまで待つ。
+ * ※この表の各フィールドは type="hidden" なので、既定の「表示されるまで待つ」では
+ *   永久に条件を満たさずタイムアウトしてしまう。必ず state:'attached' を使うこと。
+ */
+async function waitForScheduleTable(page: any): Promise<void> {
+  await page
+    .waitForSelector('input[name^="TherapistSchedules"][name$="[day]"]', { state: 'attached', timeout: 20000 })
+    .catch(() => {});
+}
+
 /** 開いている出勤情報ページが実際に何日のものかを、隠しフィールドから読み取る */
 async function readShownDate(page: any): Promise<string | null> {
-  await page.waitForSelector('input[name^="TherapistSchedules"][name$="[day]"]', { timeout: 15000 }).catch(() => {});
+  await waitForScheduleTable(page);
   return await page.evaluate(() => {
     const el = document.querySelector('input[name^="TherapistSchedules"][name$="[day]"]') as HTMLInputElement | null;
     return el?.value || null;
   });
+}
+
+/** 現在ページ上の「エステラブのセラピストID → 行番号」対応を読み取る */
+async function readRowMap(page: any): Promise<Record<string, number>> {
+  return await page.evaluate(() => {
+    const map: Record<string, number> = {};
+    document.querySelectorAll('input[name^="TherapistSchedules"][name$="[therapist_id]"]').forEach((el: any) => {
+      const m = (el.getAttribute('name') || '').match(/TherapistSchedules\[(\d+)\]/);
+      if (m && el.value) map[el.value] = parseInt(m[1], 10);
+    });
+    return map;
+  });
+}
+
+/** 指定行に現在設定されている出退勤時刻を読み取る */
+async function readRowTimes(page: any, rowIdx: number): Promise<{ start: string; end: string }> {
+  return await page.evaluate((i: number) => {
+    const s = document.querySelector(`select[name="TherapistSchedules[${i}][start_time]"]`) as HTMLSelectElement | null;
+    const e = document.querySelector(`select[name="TherapistSchedules[${i}][end_time]"]`) as HTMLSelectElement | null;
+    return { start: s?.value || '', end: e?.value || '' };
+  }, rowIdx);
 }
 
 /**
@@ -388,8 +420,7 @@ export async function syncShiftsToEslove(
           details.push({ date: dateStr, page: pageNum, error: '出勤情報ページを開けませんでした' });
           break;
         }
-        // Vue側のハイドレーション待ち（隠しフィールドが描画されるまで）
-        await page.waitForSelector('input[name^="TherapistSchedules"][name$="[therapist_id]"]', { timeout: 15000 }).catch(() => {});
+        await waitForScheduleTable(page);
 
         // 書き込む直前に、開いているページが本当に対象日かを毎回確認する。
         // 違う日に書き込むと、他の日の出勤情報を壊してしまうため。
@@ -399,21 +430,14 @@ export async function syncShiftsToEslove(
           break;
         }
 
-        const rowMap: Record<string, number> = await page.evaluate(() => {
-          const map: Record<string, number> = {};
-          document.querySelectorAll('input[name^="TherapistSchedules"][name$="[therapist_id]"]').forEach((el: any) => {
-            const m = (el.getAttribute('name') || '').match(/TherapistSchedules\[(\d+)\]/);
-            if (m && el.value) map[el.value] = parseInt(m[1], 10);
-          });
-          return map;
-        });
+        let rowMap = await readRowMap(page);
 
         // このページに行が1つも無ければ、これ以上ページは存在しない
         if (Object.keys(rowMap).length === 0) break;
 
         for (const esloveId of [...remaining]) {
+          if (rowMap[esloveId] === undefined) continue; // 別のページにいる可能性があるので残しておく
           const rowIdx = rowMap[esloveId];
-          if (rowIdx === undefined) continue; // 別のページにいる可能性があるので残しておく
           remaining.delete(esloveId);
 
           const shift = dayShifts.find((s: any) => s.therapists?.eslove_therapist_id === esloveId);
@@ -421,19 +445,44 @@ export async function syncShiftsToEslove(
           const endVal = shift ? toEsloveTimeValue(shift.end_time) : '';
 
           try {
-            const startSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][start_time]"]`);
-            const endSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][end_time]"]`);
-
-            if (await startSelect.count() > 0) await startSelect.selectOption(startVal).catch(() => {});
-            if (await endSelect.count() > 0) await endSelect.selectOption(endVal).catch(() => {});
-
-            const saveBtn = page.locator('.js-regist').nth(rowIdx);
-            if (await saveBtn.count() > 0) {
-              await saveBtn.click({ timeout: 5000 }).catch(() => {});
-              await page.waitForTimeout(500);
+            // 既に同じ値なら保存しない。大半の行は「休み（空欄）」のまま変わらないため、
+            // これだけで書き込み回数が数百回から数回に減り、相手サイトの負荷も抑えられる。
+            const before = await readRowTimes(page, rowIdx);
+            if (before.start === startVal && before.end === endVal) {
+              details.push({ esloveId, date: dateStr, start: startVal, end: endVal, unchanged: true });
+              continue;
             }
 
-            details.push({ esloveId, date: dateStr, start: startVal, end: endVal, saved: true });
+            await page.selectOption(`select[name="TherapistSchedules[${rowIdx}][start_time]"]`, startVal, { timeout: 10000 });
+            await page.selectOption(`select[name="TherapistSchedules[${rowIdx}][end_time]"]`, endVal, { timeout: 10000 });
+
+            // 保存ボタンを押すとページ全体が再読み込みされる。
+            // 完了を待たずに次の行へ進むと、読み込み中のページを操作することになり
+            // 値がセットされないまま保存だけが走ってしまうため、必ず待つこと。
+            await Promise.all([
+              page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {}),
+              page.locator('.js-regist').nth(rowIdx).click({ timeout: 10000 }),
+            ]);
+            await waitForScheduleTable(page);
+
+            // 再読み込み後のページで、本当に保存されたかを読み戻して確認する
+            const reloadedDate = await readShownDate(page);
+            if (reloadedDate !== toCompactDate(dateStr)) {
+              details.push({ esloveId, date: dateStr, error: `保存後に別の日付のページ(${reloadedDate || '不明'})へ遷移したため中止しました` });
+              break;
+            }
+
+            rowMap = await readRowMap(page);
+            const after = await readRowTimes(page, rowMap[esloveId] ?? rowIdx);
+            if (after.start === startVal && after.end === endVal) {
+              details.push({ esloveId, date: dateStr, start: startVal, end: endVal, saved: true });
+            } else {
+              details.push({
+                esloveId,
+                date: dateStr,
+                error: `保存が反映されませんでした（期待 ${startVal || '空'}-${endVal || '空'} / 実際 ${after.start || '空'}-${after.end || '空'}）`,
+              });
+            }
           } catch (e: any) {
             details.push({ esloveId, date: dateStr, error: e.message });
           }
