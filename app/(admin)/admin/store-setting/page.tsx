@@ -24,10 +24,11 @@ interface NewsItemData {
   published_at?: string
 }
 
-/** 広告掲載サイトへのリンク（エステラブ等の相互リンク）。shops.ad_banners にJSON配列で保存 */
+/** 広告掲載サイトのバナー（エステラブ等の相互リンク）。shops.ad_banners にJSON配列で保存 */
 interface AdBannerItem {
-  siteName: string
+  imageUrl: string
   linkUrl: string
+  alt: string
 }
 
 export default function OwnerStoreSettingPage() {
@@ -75,7 +76,8 @@ export default function OwnerStoreSettingPage() {
 
   // 広告掲載サイトのバナー（エステラブ等の相互リンク）
   const [adBanners, setAdBanners] = useState<AdBannerItem[]>([])
-  const [newAdBanner, setNewAdBanner] = useState<AdBannerItem>({ siteName: '', linkUrl: '' })
+  // 掲載元からもらったバナーコード（<a href="..."><img src="..." alt="..."/></a>）をそのまま貼り付ける欄
+  const [bannerCodeInput, setBannerCodeInput] = useState('')
   const [savingAdBanners, setSavingAdBanners] = useState(false)
 
   // トピックス/ニュース一覧＆入力
@@ -300,21 +302,25 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
-  // 広告掲載サイトから配布されるバナータグ（<a href="..."><img .../></a>）をそのまま
-  // 貼り付けられても、hrefの値だけを取り出す。素のURLが入力された場合はそのまま使う。
-  const extractHrefUrl = (input: string): string => {
-    const match = input.match(/href\s*=\s*["']([^"']+)["']/i)
-    return (match ? match[1] : input).trim()
+  // 広告掲載サイトから配布されるバナーコード（<a href="..."><img src="..." alt="..."/></a>）
+  // をそのまま貼り付けてもらい、href / src / alt をここで抜き出す。
+  const parseBannerCode = (html: string): AdBannerItem | null => {
+    const hrefMatch = html.match(/<a[^>]*\shref\s*=\s*["']([^"']+)["']/i)
+    const srcMatch = html.match(/<img[^>]*\ssrc\s*=\s*["']([^"']+)["']/i)
+    const altMatch = html.match(/<img[^>]*\salt\s*=\s*["']([^"']*)["']/i)
+    if (!hrefMatch || !srcMatch) return null
+    return { linkUrl: hrefMatch[1].trim(), imageUrl: srcMatch[1].trim(), alt: (altMatch?.[1] || '').trim() }
   }
 
-  // 広告リンク追加（配列全体をshops.ad_bannersに書き戻す）
+  // 広告バナー追加（配列全体をshops.ad_bannersに書き戻す）
   const handleAddAdBanner = async () => {
-    if (!newAdBanner.siteName.trim() || !newAdBanner.linkUrl.trim() || !shopId) {
-      alert('サイト名とリンク先URLを入力してください。')
+    const parsed = parseBannerCode(bannerCodeInput)
+    if (!parsed || !shopId) {
+      alert('バナーコードから画像URL(img src)とリンク先URL(a href)を読み取れませんでした。掲載元からもらった <a href="..."><img src="..."/></a> の形のコードをそのまま貼り付けてください。')
       return
     }
 
-    const updated = [...adBanners, { siteName: newAdBanner.siteName.trim(), linkUrl: extractHrefUrl(newAdBanner.linkUrl) }]
+    const updated = [...adBanners, parsed]
     setSavingAdBanners(true)
     try {
       const { error: err } = await supabase
@@ -324,18 +330,18 @@ export default function OwnerStoreSettingPage() {
 
       if (err) throw err
       setAdBanners(updated)
-      setNewAdBanner({ siteName: '', linkUrl: '' })
-      alert('広告リンクを追加・HPへ反映しました！')
+      setBannerCodeInput('')
+      alert('広告バナーを追加・HPへ反映しました！')
     } catch (err: any) {
-      alert('広告リンク追加失敗: ' + err.message)
+      alert('広告バナー追加失敗: ' + err.message)
     } finally {
       setSavingAdBanners(false)
     }
   }
 
-  // 広告リンク削除
+  // 広告バナー削除
   const handleDeleteAdBanner = async (index: number) => {
-    if (!shopId || !confirm('この広告リンクを削除してもよろしいですか？')) return
+    if (!shopId || !confirm('この広告バナーを削除してもよろしいですか？')) return
     const updated = adBanners.filter((_, i) => i !== index)
     setSavingAdBanners(true)
     try {
@@ -832,35 +838,24 @@ export default function OwnerStoreSettingPage() {
             )}
           </div>
 
-          {/* 広告掲載サイトへのリンク（エステラブ等の相互リンク） */}
+          {/* 広告掲載サイトのバナー（エステラブ等の相互リンク） */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">🔗 広告掲載サイトへのリンク</h2>
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">🔗 広告掲載サイトのバナー</h2>
             <p className="text-[11px] text-slate-500">
-              上のメインバナーとは別枠です。TOPページの一番下（フッター直前）にサイト名のリンクとして並べて表示されます。
-              リンク先URLは掲載元からもらった `&lt;a href=&quot;...&quot;&gt;` タグをそのまま貼り付けてもOKです（自動でURLだけ取り出します）。
+              上のメインバナーとは別枠です。TOPページの一番下（フッター直前）に画像バナーとして並べて表示されます。
+              掲載元サイトからもらったバナーコード（<code className="bg-slate-100 px-1 rounded">&lt;a href=&quot;...&quot;&gt;&lt;img src=&quot;...&quot;/&gt;&lt;/a&gt;</code> の形）を
+              そのまま下の欄に貼り付けてください。画像URL・リンク先URLを自動で読み取ります。
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">サイト名</label>
-                <input
-                  type="text"
-                  value={newAdBanner.siteName}
-                  onChange={(e) => setNewAdBanner({ ...newAdBanner, siteName: e.target.value })}
-                  placeholder="エステラブ"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">リンク先URL</label>
-                <input
-                  type="text"
-                  value={newAdBanner.linkUrl}
-                  onChange={(e) => setNewAdBanner({ ...newAdBanner, linkUrl: e.target.value })}
-                  placeholder="https://eslove.jp/kanto/tokyo/shoplist/"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">バナーコード</label>
+              <textarea
+                rows={3}
+                value={bannerCodeInput}
+                onChange={(e) => setBannerCodeInput(e.target.value)}
+                placeholder={'<a href="https://eslove.jp/kanto/tokyo/shoplist/" target="_blank"><img src="https://eslove.jp/eslove_front_theme/banner/banner_200x40.gif" alt="エステラブ"/></a>'}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+              />
             </div>
 
             <button
@@ -869,18 +864,19 @@ export default function OwnerStoreSettingPage() {
               disabled={savingAdBanners}
               className="btn-primary w-full py-2.5 disabled:opacity-50"
             >
-              ＋ このリンクを追加
+              ＋ この広告バナーを追加
             </button>
 
             {adBanners.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
                 {adBanners.map((b, idx) => (
-                  <div key={idx} className="flex items-center gap-2 border border-slate-200 rounded-full pl-3 pr-1.5 py-1.5 bg-slate-50">
-                    <span className="text-xs font-medium text-slate-700">{b.siteName}</span>
+                  <div key={idx} className="flex items-center gap-2 border border-slate-200 rounded-lg p-2 bg-slate-50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={b.imageUrl} alt={b.alt} className="h-8" />
                     <button
                       onClick={() => handleDeleteAdBanner(idx)}
                       disabled={savingAdBanners}
-                      className="px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold rounded-full transition-all disabled:opacity-50"
+                      className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50"
                     >
                       削除 ✕
                     </button>

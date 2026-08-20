@@ -363,27 +363,17 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
         <main className="flex-1 relative z-10">
           {uniqueSections.map((sec) => renderSection(sec))}
 
-          {/* 広告掲載サイトへのリンク（エステラブ等の相互リンク） */}
+          {/* 広告バナー（エステラブ等の相互リンク）。外部サイトの静的バナー画像なので
+              next/imageは使わず素のimgで表示する（最適化APIの対象外ドメインのため）。 */}
           {store.adBanners && store.adBanners.length > 0 && (
             <section className={`relative py-8 border-t ${
               isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
             }`}>
-              <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-3">
+              <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-4">
                 {store.adBanners.map((banner, idx) => (
-                  <a
-                    key={idx}
-                    href={banner.linkUrl}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow sponsored"
-                    className={`px-4 py-1.5 text-xs font-medium border rounded-full transition-colors ${
-                      isCyberTheme
-                        ? 'text-[#ded1ee] border-[#ff6fb5]/30 hover:border-[#ff6fb5] hover:text-[#ffa8d8]'
-                        : isLuxuryTheme
-                        ? 'text-[#5c5250] border-[#e2b3b1]/40 hover:border-[#c5a059] hover:text-[#c5a059]'
-                        : 'text-stone-500 border-stone-300 hover:border-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    {banner.siteName}
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <a key={idx} href={banner.linkUrl} target="_blank" rel="noopener noreferrer nofollow sponsored">
+                    <img src={banner.imageUrl} alt={banner.alt} width={200} height={40} />
                   </a>
                 ))}
               </div>

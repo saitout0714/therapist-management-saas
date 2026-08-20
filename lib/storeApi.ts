@@ -168,8 +168,8 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
     const rawBanners = data.ad_banners;
     const adBanners = Array.isArray(rawBanners)
       ? rawBanners
-          .filter((b: any) => b && typeof b === 'object' && b.siteName && b.linkUrl)
-          .map((b: any) => ({ siteName: b.siteName, linkUrl: b.linkUrl }))
+          .filter((b: any) => b && typeof b === 'object' && b.imageUrl && b.linkUrl)
+          .map((b: any) => ({ imageUrl: b.imageUrl, linkUrl: b.linkUrl, alt: b.alt || '' }))
       : undefined;
 
     return {
