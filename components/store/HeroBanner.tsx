@@ -162,16 +162,24 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
           <div className="luxury-orb luxury-orb-gold w-[32rem] h-[32rem] top-1/4 -right-24 animate-orb-slower opacity-50 z-0" />
 
           {/* 角丸ヒーローコンテナ (misshelly のような美しいピンク縁取りの中の大画面ビジュアルフレーム) */}
-          <div className="relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#2b2827] shadow-[0_12px_45px_rgba(198,149,162,0.35)] border border-[#d8b3bd]/60 z-10">
-            {/* 1. 大迫力のシネマティック・メインビジュアル（動画のように滑らかにズーム＆パン） */}
+          <div className="luxury-hero-pink-veil relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#efd8d5] shadow-[0_12px_45px_rgba(198,149,162,0.35)] z-10">
+            {/* 1. 大迫力のシネマティック・メインビジュアル（デスクトップ/スマホでアートディレクション別画像、動画のように滑らかにズーム＆パン） */}
             <div className="absolute inset-0 z-0 overflow-hidden">
               <Image
-                src="/images/specialgrade_hero_cinematic.jpg"
+                src="/images/specialgrade_hero.jpg"
                 alt={`${store.name} シネマティックビジュアル`}
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
+                className="hidden sm:block absolute inset-0 object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
+              />
+              <Image
+                src="/images/specialgrade_hero_s.jpg"
+                alt={`${store.name} シネマティックビジュアル`}
+                fill
+                priority
+                sizes="100vw"
+                className="block sm:hidden absolute inset-0 object-cover object-center luxury-hero-cinematic brightness-[0.92] contrast-[1.04]"
               />
             </div>
 

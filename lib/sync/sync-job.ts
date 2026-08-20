@@ -1,7 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 
 export type SyncJobStatus = 'processing' | 'completed' | 'failed';
-export type SyncJobType = 'therapist_single' | 'therapist_batch' | 'shift_manual' | 'cron_urgent_reserve' | 'cron_daily_shift';
+export type SyncJobType = 'therapist_single' | 'therapist_batch' | 'shift_manual' | 'cron_urgent_reserve' | 'cron_daily_shift' | 'news_post';
 
 /**
  * 新しい同期ジョブを作成する

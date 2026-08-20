@@ -4,12 +4,17 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import SyncHistory from './SyncHistory'
+import NewsPost from './NewsPost'
+import NewsSchedule from './NewsSchedule'
+import NewsRecurring from './NewsRecurring'
 
-type SyncTab = 'esthe_ranking' | 'estama' | 'history'
+type SyncTab = 'esthe_ranking' | 'estama' | 'news' | 'history'
+type NewsSubTab = 'schedule' | 'recurring' | 'now'
 
 export default function SyncPage() {
   const { selectedShop } = useShop()
   const [activeTab, setActiveTab] = useState<SyncTab>('esthe_ranking')
+  const [newsSubTab, setNewsSubTab] = useState<NewsSubTab>('schedule')
   
   // Date selection for sync
   const [syncStartDate, setSyncStartDate] = useState(() => {
@@ -242,6 +247,7 @@ export default function SyncPage() {
   const tabs: { key: SyncTab; label: string }[] = [
     { key: 'esthe_ranking', label: 'メンズエステランキング' },
     { key: 'estama', label: 'エステ魂' },
+    { key: 'news', label: 'ニュース投稿' },
     { key: 'history', label: '同期履歴' },
   ]
 
@@ -283,6 +289,30 @@ export default function SyncPage() {
         <div className="space-y-6">
           {activeTab === 'history' ? (
             <SyncHistory shopId={selectedShop?.id || ''} />
+          ) : activeTab === 'news' ? (
+            <div className="space-y-4">
+              <div className="flex gap-2 overflow-x-auto">
+                {([
+                  { key: 'schedule', label: '予約投稿' },
+                  { key: 'recurring', label: '定期投稿（繰り返し）' },
+                  { key: 'now', label: '今すぐ投稿' },
+                ] as { key: NewsSubTab; label: string }[]).map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setNewsSubTab(t.key)}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
+                      newsSubTab === t.key ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {newsSubTab === 'schedule' && <NewsSchedule shopId={selectedShop?.id || ''} />}
+              {newsSubTab === 'recurring' && <NewsRecurring shopId={selectedShop?.id || ''} />}
+              {newsSubTab === 'now' && <NewsPost shopId={selectedShop?.id || ''} />}
+            </div>
           ) : (
             <>
               {/* 同期実行カード */}

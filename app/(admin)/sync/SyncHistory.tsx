@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type SyncJobStatus = 'processing' | 'completed' | 'failed'
-type SyncJobType = 'therapist_single' | 'therapist_batch' | 'shift_manual' | 'cron_urgent_reserve' | 'cron_daily_shift'
+type SyncJobType = 'therapist_single' | 'therapist_batch' | 'shift_manual' | 'cron_urgent_reserve' | 'cron_daily_shift' | 'news_post'
 
 interface SyncJob {
   id: string
@@ -124,6 +124,7 @@ export default function SyncHistory({ shopId }: { shopId: string }) {
       case 'shift_manual': return 'シフト同期 (手動)'
       case 'cron_urgent_reserve': return '自動同期 (直近予約)'
       case 'cron_daily_shift': return '自動同期 (1日1回全体)'
+      case 'news_post': return 'ニュース投稿'
       default: return type
     }
   }
