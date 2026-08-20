@@ -262,51 +262,39 @@ export default function ImportTherapistsPage() {
     setSaving(true)
     setSaveError(null)
 
-    const { data: minOrderData } = await supabase
-      .from('therapists').select('order').eq('shop_id', selectedShop.id)
-      .order('order', { ascending: true }).limit(1)
-
     const toSave = [...selected].sort((a, b) => a - b).map(i => therapists[i])
-    let nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null
-      ? minOrderData[0].order - toSave.length : 0
 
-    const rows = toSave.map(t => {
-      const row: Record<string, unknown> = { name: t.name, shop_id: selectedShop.id, owner_id: selectedShop.owner_id || null, order: nextOrder++ }
-      if (t.age != null) row.age = t.age
-      if (t.height != null) row.height = t.height
-      if (t.bust != null) row.bust = t.bust
-      if (t.bust_cup != null) row.bust_cup = t.bust_cup
-      if (t.waist != null) row.waist = t.waist
-      if (t.hip != null) row.hip = t.hip
-      if (t.comment != null) row.comment = t.comment
-      if (t.rank_id) row.rank_id = t.rank_id
-      if (t.profile_url) row.hp_url = t.profile_url
-      return row
-    })
-
-    const { data: inserted, error } = await supabase.from('therapists').insert(rows).select('id, name')
-    if (error) { setSaveError('登録に失敗しました: ' + error.message); setSaving(false); return }
-
-    // 在籍行（therapist_shops）も必ず作る。セラピスト一覧やシフト画面は shop_id ではなく
-    // 在籍行を見ているため、これが無いと取り込んだのに一覧にもシフトにも出てこない。
-    if (inserted && inserted.length > 0) {
-      let rosterShopIds = [selectedShop.id]
-      if (selectedShop.owner_id) {
-        const { data: ownerRow } = await supabase
-          .from('owners').select('therapist_scope').eq('id', selectedShop.owner_id).maybeSingle()
-        if (ownerRow?.therapist_scope === 'all_shops') {
-          rosterShopIds = await getGroupShopIds(selectedShop.id, selectedShop.owner_id)
-        }
-      }
-      const rosterRows = inserted.flatMap((th: { id: string }) =>
-        rosterShopIds.map(shopId => ({ therapist_id: th.id, shop_id: shopId, is_active: true }))
-      )
-      const { error: rosterError } = await supabase.from('therapist_shops').insert(rosterRows)
-      if (rosterError) {
-        setSaveError('在籍店舗の登録に失敗しました: ' + rosterError.message)
-        setSaving(false)
-        return
-      }
+    // 本体と在籍行（therapist_shops）はサーバー側でまとめて作る。
+    // therapist_shops は RLS で SELECT しか許可していないため、ブラウザから
+    // 直接 INSERT すると必ず失敗し、在籍行のない幽霊セラピストだけが残る。
+    let inserted: { id: string; name: string }[] = []
+    try {
+      const res = await fetch('/api/admin/therapists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: selectedShop.id,
+          therapists: toSave.map(t => ({
+            name: t.name,
+            age: t.age,
+            height: t.height,
+            bust: t.bust,
+            bust_cup: t.bust_cup,
+            waist: t.waist,
+            hip: t.hip,
+            comment: t.comment,
+            rank_id: t.rank_id || null,
+            hp_url: t.profile_url || null,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSaveError(data.error || '登録に失敗しました'); setSaving(false); return }
+      inserted = data.inserted || []
+    } catch (e: unknown) {
+      setSaveError('登録に失敗しました: ' + (e instanceof Error ? e.message : String(e)))
+      setSaving(false)
+      return
     }
 
     // 写真をアップロード（photo_urls または photo_url があるセラピストのみ）
@@ -329,7 +317,7 @@ export default function ImportTherapistsPage() {
               await fetch('/api/save-photo-from-url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ therapist_id: job.therapist_id, photo_url: u }),
+                body: JSON.stringify({ therapist_id: job.therapist_id, photo_url: u, shop_id: selectedShop.id }),
               })
             } catch { /* 個別失敗は無視 */ }
           }
@@ -471,7 +459,7 @@ export default function ImportTherapistsPage() {
           const saveRes = await fetch('/api/save-photo-from-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photo_url: u, therapist_id: therapistId }),
+            body: JSON.stringify({ photo_url: u, therapist_id: therapistId, shop_id: selectedShop?.id }),
           })
           const saveData = await saveRes.json()
 

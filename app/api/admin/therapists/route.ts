@@ -52,12 +52,107 @@ async function assertSameOwner(shopId: string, targetShopIds: string[]) {
   return { ownerId: baseShop.owner_id as string | null }
 }
 
+type ImportInput = {
+  name: string
+  age?: number | null
+  height?: number | null
+  bust?: number | null
+  bust_cup?: string | null
+  waist?: number | null
+  hip?: number | null
+  comment?: string | null
+  rank_id?: string | null
+  hp_url?: string | null
+}
+
+// HP取り込み（一括登録）。本体と在籍行をサーバー側でまとめて作り、
+// 在籍行が作れなければ本体も消してから失敗を返す。
+async function importTherapists(shopId: string, therapists: ImportInput[]) {
+  const { data: shop, error: shopError } = await supabaseAdmin
+    .from('shops')
+    .select('id, owner_id')
+    .eq('id', shopId)
+    .maybeSingle()
+  if (shopError) return { error: `店舗の確認に失敗しました: ${shopError.message}`, status: 500 }
+  if (!shop) return { error: '店舗が見つかりません', status: 400 }
+
+  // 在籍させる店舗は、オーナーの運用（全店共通／店舗ごと）に合わせる
+  let rosterShopIds = [shopId]
+  if (shop.owner_id) {
+    const { data: ownerRow } = await supabaseAdmin
+      .from('owners')
+      .select('therapist_scope')
+      .eq('id', shop.owner_id)
+      .maybeSingle()
+    if (ownerRow?.therapist_scope === 'all_shops') {
+      const { data: groupShops } = await supabaseAdmin
+        .from('shops')
+        .select('id')
+        .eq('owner_id', shop.owner_id)
+      if (groupShops && groupShops.length > 0) rosterShopIds = groupShops.map(s => s.id)
+    }
+  }
+
+  const { data: minOrderData } = await supabaseAdmin
+    .from('therapists')
+    .select('order')
+    .eq('shop_id', shopId)
+    .order('order', { ascending: true })
+    .limit(1)
+  let nextOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].order !== null
+    ? minOrderData[0].order - therapists.length
+    : 0
+
+  const rows = therapists.map(t => {
+    const row: Record<string, unknown> = {
+      name: t.name,
+      shop_id: shopId,
+      owner_id: shop.owner_id || null,
+      order: nextOrder++,
+    }
+    for (const key of ['age', 'height', 'bust', 'bust_cup', 'waist', 'hip', 'comment', 'rank_id', 'hp_url'] as const) {
+      const value = t[key]
+      if (value !== undefined && value !== null && value !== '') row[key] = value
+    }
+    return row
+  })
+
+  const { data: inserted, error: insertError } = await supabaseAdmin
+    .from('therapists')
+    .insert(rows)
+    .select('id, name')
+  if (insertError || !inserted) {
+    return { error: `登録に失敗しました: ${insertError?.message || '不明なエラー'}`, status: 500 }
+  }
+
+  const rosterRows = inserted.flatMap(th => rosterShopIds.map(id => ({ therapist_id: th.id, shop_id: id, is_active: true })))
+  const { error: rosterError } = await supabaseAdmin.from('therapist_shops').insert(rosterRows)
+  if (rosterError) {
+    await supabaseAdmin.from('therapists').delete().in('id', inserted.map(th => th.id))
+    return { error: `在籍店舗の登録に失敗しました: ${rosterError.message}`, status: 500 }
+  }
+
+  return { inserted }
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { name?: string; shopId?: string; targetShopIds?: string[] }
+    const body = await req.json() as {
+      name?: string; shopId?: string; targetShopIds?: string[]; therapists?: ImportInput[]
+    }
     const name = (body.name || '').trim()
     const shopId = body.shopId
     const targetShopIds = [...new Set(body.targetShopIds || [])]
+
+    // HP取り込みからの一括登録
+    if (body.therapists) {
+      if (!shopId) return NextResponse.json({ error: '店舗を選択してください' }, { status: 400 })
+      const list = body.therapists.filter(t => (t.name || '').trim())
+      if (list.length === 0) return NextResponse.json({ error: '登録するセラピストがありません' }, { status: 400 })
+      const result = await importTherapists(shopId, list.map(t => ({ ...t, name: t.name.trim() })))
+      if (result.error) return NextResponse.json({ error: result.error }, { status: result.status })
+      return NextResponse.json({ inserted: result.inserted })
+    }
 
     if (!name) return NextResponse.json({ error: '名前は必須です' }, { status: 400 })
     if (!shopId) return NextResponse.json({ error: '店舗を選択してください' }, { status: 400 })

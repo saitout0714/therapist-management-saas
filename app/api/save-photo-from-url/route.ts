@@ -12,7 +12,7 @@ const MAX_BYTES = 8 * 1024 * 1024 // 8MB
 
 export async function POST(req: NextRequest) {
   try {
-    const { photo_url, therapist_id } = await req.json()
+    const { photo_url, therapist_id, shop_id } = await req.json()
 
     if (!photo_url || !therapist_id) {
       return NextResponse.json({ error: 'photo_url と therapist_id は必須です' }, { status: 400 })
@@ -67,9 +67,21 @@ export async function POST(req: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .eq('therapist_id', therapist_id)
 
+    // shop_id を空のまま入れると、店舗ごと運用の店では写真が
+    // 一覧にもシフト画面にも出てこない（どちらも shop_id で絞っている）。
+    let photoShopId: string | null = shop_id || null
+    if (!photoShopId) {
+      const { data: therapist } = await supabase
+        .from('therapists')
+        .select('shop_id')
+        .eq('id', therapist_id)
+        .maybeSingle()
+      photoShopId = therapist?.shop_id || null
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from('therapist_photos')
-      .insert({ therapist_id, photo_url: urlData.publicUrl, display_order: count || 0 })
+      .insert({ therapist_id, photo_url: urlData.publicUrl, display_order: count || 0, shop_id: photoShopId })
       .select('id, photo_url, display_order')
       .single()
 

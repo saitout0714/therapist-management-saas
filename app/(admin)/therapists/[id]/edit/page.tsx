@@ -672,7 +672,9 @@ export default function EditTherapistPage() {
       .filter(r => r.existed || r.is_active) // 元々在籍していなかった店舗を「退店」のまま保存しない
       .map(r => ({
         shop_id: r.shop_id,
-        is_active: r.is_active,
+        // 全体を「退店」にしたら在籍行も必ず退店にする。ここがズレると、
+        // 一覧・シフト表には在籍中のまま出続けて重複登録の原因になる。
+        is_active: profile.is_active ? r.is_active : false,
         alias_name: r.alias_name.trim() || null,
         age: numOrNull(r.age),
         height: numOrNull(r.height),
@@ -1282,7 +1284,7 @@ export default function EditTherapistPage() {
                 </div>
                 {!profile.is_active && (
                   <p className="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-                    退店に設定すると、シフト登録画面に表示されなくなります。
+                    退店に設定すると、在籍している全店舗が退店扱いになり、一覧・シフト・HPから外れます。
                   </p>
                 )}
               </div>

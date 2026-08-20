@@ -49,8 +49,20 @@ export default function RegisterShift() {
     if (!selectedShop) return;
     setLoading(true);
     try {
-      let shopIds = [selectedShop.id];
+      // 誰を出すかは在籍行（therapist_shops）で決める。shop_id を併用すると、
+      // 在籍行の作成に失敗したセラピストがこの画面にだけ出る幽霊になる。
+      let scope: 'all_shops' | 'per_shop' = 'per_shop';
       if (selectedShop.owner_id) {
+        const { data: ownerRow } = await supabase
+          .from('owners')
+          .select('therapist_scope')
+          .eq('id', selectedShop.owner_id)
+          .maybeSingle();
+        scope = (ownerRow?.therapist_scope as 'all_shops' | 'per_shop' | undefined) ?? 'per_shop';
+      }
+
+      let shopIds = [selectedShop.id];
+      if (scope === 'all_shops' && selectedShop.owner_id) {
         const { data: groupShops } = await supabase
           .from('shops')
           .select('id')
@@ -62,9 +74,9 @@ export default function RegisterShift() {
 
       const { data: tsData } = await supabase
         .from('therapist_shops')
-        .select('therapist_id, alias_name')
+        .select('therapist_id, alias_name, is_active')
         .eq('shop_id', selectedShop.id);
-      const tsTherapistIds = (tsData || []).map(ts => ts.therapist_id);
+      const activeTherapistIds = (tsData || []).filter(ts => ts.is_active).map(ts => ts.therapist_id);
       const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]));
 
       let query = supabase
@@ -72,11 +84,9 @@ export default function RegisterShift() {
         .select('id, name, order')
         .eq('is_active', true);
 
-      if (tsTherapistIds.length > 0) {
-        query = query.or(`shop_id.in.(${shopIds.join(',')}),id.in.(${tsTherapistIds.join(',')})`);
-      } else {
-        query = query.in('shop_id', shopIds);
-      }
+      query = scope === 'all_shops'
+        ? query.in('shop_id', shopIds)
+        : query.in('id', activeTherapistIds.length > 0 ? activeTherapistIds : ['00000000-0000-0000-0000-000000000000']);
 
       const { data, error } = await query.order('order', { ascending: true, nullsFirst: false }).order('name', { ascending: true });
 
