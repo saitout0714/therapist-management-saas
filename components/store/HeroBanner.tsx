@@ -157,10 +157,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
           misshelly signature pink (#EFD8D5) の縁取りフレーム + 角丸大画面ビジュアル + 左下Graceful and Nobleエディトリアルロックアップ */}
       {isLuxuryTheme && (
         <section className="relative w-full bg-[#efd8d5] px-3 sm:px-5 lg:px-7 pt-3 sm:pt-4 pb-4 sm:pb-6 overflow-hidden">
-          {/* 光のボカシ・アンビエントオーブ（外側フレームの淡い光彩） */}
-          <div className="luxury-orb luxury-orb-rose w-[36rem] h-[36rem] -top-20 -left-28 animate-orb-slow opacity-60 z-0" />
-          <div className="luxury-orb luxury-orb-gold w-[32rem] h-[32rem] top-1/4 -right-24 animate-orb-slower opacity-50 z-0" />
-
           {/* 角丸ヒーローコンテナ (misshelly のような美しいピンク縁取りの中の大画面ビジュアルフレーム) */}
           <div className="luxury-hero-pink-veil relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#efd8d5] shadow-[0_12px_45px_rgba(198,149,162,0.35)] z-10">
             {/* 1. 大迫力のシネマティック・メインビジュアル（デスクトップ/スマホでアートディレクション別画像、動画のように滑らかにズーム＆パン） */}
