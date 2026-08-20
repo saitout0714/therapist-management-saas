@@ -195,57 +195,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
               <span className="absolute bottom-[-10px] left-[92%] w-2 h-2 rounded-full bg-[#e2b3b1]/80 shadow-[0_0_12px_#e2b3b1] animate-dust-2" />
             </div>
 
-            {/* 4. 回転エンブレムスタンプ（右上） */}
-            <div className="absolute top-24 right-6 sm:top-28 sm:right-10 z-20 pointer-events-none hidden sm:block">
-              <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center p-2 rounded-full bg-stone-950/40 backdrop-blur-md border border-white/25 shadow-lg">
-                {/* 自転する円形テキスト */}
-                <svg className="w-full h-full animate-spin-slow" viewBox="0 0 100 100">
-                  <path
-                    id="emblemCirclePath"
-                    d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0"
-                    fill="none"
-                  />
-                  <text className="text-[8.2px] font-luxury-display tracking-[0.22em] fill-[#fdf8f5] uppercase font-medium">
-                    <textPath href="#emblemCirclePath" startOffset="0%">
-                      ★ SPECIAL GRADE TOKYO ★ LUXURY SPA
-                    </textPath>
-                  </text>
-                </svg>
-                {/* 中央の固定モノグラム */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-luxury-display italic font-semibold text-xs text-[#c5a059] tracking-widest drop-shadow-sm">
-                    SG
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 5. 浮遊サブカード (右下: 個室サロン空間 - Desktop限定) */}
-            <div className="hidden xl:flex flex-col absolute bottom-12 right-12 z-20 animate-float-card-1">
-              <div className="luxury-glass-card rounded-2xl p-2.5 w-56 group cursor-default !bg-stone-950/65 !border-white/25 shadow-2xl backdrop-blur-xl">
-                <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-stone-900 mb-2">
-                  <Image
-                    src="/images/specialgrade_interior.jpg"
-                    alt="プライベートサロン空間"
-                    fill
-                    sizes="220px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <span className="absolute bottom-2 left-2 text-[10px] text-white font-medium px-2 py-0.5 rounded-md bg-stone-950/70 backdrop-blur-xs">
-                    Private Room
-                  </span>
-                </div>
-                <div className="px-1.5 py-0.5">
-                  <span className="font-luxury-display italic text-[10px] text-[#c5a059] tracking-wider block">
-                    PRIVATE SANCTUARY
-                  </span>
-                  <p className="text-[11px] font-medium text-white/95 mt-0.5">
-                    都会の喧騒を離れる上質な完全個室
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* 6. misshelly風 左下エディトリアル・ロックアップ */}
             <div className="relative z-20 max-w-2xl text-left text-white">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/30 text-white text-[10px] sm:text-xs font-luxury-display italic tracking-[0.25em] uppercase mb-3 sm:mb-4 shadow-sm">

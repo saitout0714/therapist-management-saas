@@ -296,7 +296,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
       {/* バックドロップオーバーレイ (常に描画し、opacity と pointer-events でなめらかにフェードイン/アウト) */}
       <div
-        className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-[99] lg:hidden transition-opacity duration-300 ease-in-out ${
+        className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-[99] ${isLuxuryTheme ? '' : 'lg:hidden'} transition-opacity duration-300 ease-in-out ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setIsOpen(false)}
@@ -304,7 +304,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
       {/* ドロワーメニュー (透明感のあるシースルーガラス) */}
       <div
-        className={`fixed inset-y-0 right-0 z-[100] w-full max-w-xs sm:max-w-sm flex flex-col justify-between p-6 overflow-y-auto lg:hidden transition-transform duration-300 ease-out transform ${
+        className={`fixed inset-y-0 right-0 z-[100] w-full max-w-xs sm:max-w-sm ${isLuxuryTheme ? 'lg:max-w-md' : 'lg:hidden'} flex flex-col justify-between p-6 overflow-y-auto transition-transform duration-300 ease-out transform ${
           isOpen
             ? `translate-x-0 ${isCyberTheme ? 'shadow-[-20px_0_60px_rgba(255,111,181,0.5)]' : 'shadow-[-12px_0_40px_rgba(226,179,177,0.18)]'}`
             : 'translate-x-full shadow-none'
