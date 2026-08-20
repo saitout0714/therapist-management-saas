@@ -65,20 +65,44 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   page.on('dialog', (d: any) => d.accept().catch(() => {}));
 
   const targetUrl = shopUrl || ESLOVE_LOGIN_URL;
-  let response: any = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
-  if (!response) {
-    response = await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+
+  // エステラブは本番サーバーのIPに対して断続的に403を返す（メンズエステランキングと同様のWAFと推測される）。
+  // 一度で諦めず、間隔を空けて開き直すことで大半は救済できる。
+  const maxAttempts = 3;
+  let idInput: any = null;
+  let passInput: any = null;
+  let lastIssue = '不明';
+  let lastResponse: any = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    lastResponse = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+    if (!lastResponse) {
+      lastResponse = await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+    }
+
+    idInput = await page.waitForSelector('input[type="text"], input[name="login_id"]', { timeout: 8000 }).catch(() => null);
+    passInput = await page.waitForSelector('input[type="password"]', { timeout: 8000 }).catch(() => null);
+
+    if (idInput && passInput) {
+      if (attempt > 1) console.log(`[EsloveSync] ログインページを${attempt}回目で開けました。`);
+      break;
+    }
+
+    const status = typeof lastResponse?.status === 'function' ? lastResponse.status() : '不明';
+    const title = await page.title().catch(() => 'unknown');
+    lastIssue = `HTTP ${status} / 画面タイトル: ${title}`;
+
+    if (attempt < maxAttempts) {
+      const waitMs = 3000 * attempt; // 3秒 → 6秒 と待ち時間を延ばす
+      console.warn(`[EsloveSync] ログインページを開けず再試行します (${attempt}/${maxAttempts}): ${lastIssue}`);
+      await page.waitForTimeout(waitMs);
+    }
   }
 
-  const idInput = await page.waitForSelector('input[type="text"], input[name="login_id"]', { timeout: 15000 }).catch(() => null);
-  const passInput = await page.waitForSelector('input[type="password"]', { timeout: 15000 }).catch(() => null);
-
   if (!idInput || !passInput) {
-    const status = typeof response?.status === 'function' ? response.status() : '不明';
-    const title = await page.title().catch(() => 'unknown');
     const url = page.url();
     const screenshotUrl = await uploadDebugScreenshot(page, 'eslove_login_form_not_found');
-    throw new Error(`エステラブのログイン入力項目が見つかりませんでした。(HTTP: ${status}, 画面タイトル: ${title}, URL: ${url}, スクリーンショット: ${screenshotUrl || 'なし'})`);
+    throw new Error(`エステラブのログインページを開けませんでした（${maxAttempts}回試行）。サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue} (URL: ${url}, スクリーンショット: ${screenshotUrl || 'なし'})`);
   }
 
   await idInput.fill(loginId);
