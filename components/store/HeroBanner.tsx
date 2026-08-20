@@ -264,13 +264,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
 
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-6 sm:mt-8">
                 <Link
-                  href={`/reserve/${store.slug}`}
-                  className="luxury-gold-btn inline-flex items-center justify-center gap-2 px-7 sm:px-9 py-3 sm:py-3.5 text-xs sm:text-sm font-medium tracking-[0.2em] rounded-full shadow-[0_8px_25px_rgba(197,160,89,0.5)] active:scale-95 transition-all"
-                >
-                  <span>24時間 WEB予約</span>
-                  <span className="text-xs">→</span>
-                </Link>
-                <Link
                   href={`${basePath}/therapists`}
                   className="bg-white/20 hover:bg-white/35 backdrop-blur-md border border-white/50 text-white inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-medium tracking-[0.2em] rounded-full active:scale-95 shadow-md transition-all"
                 >
