@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           : 'sticky top-0 bg-white/95 border-b border-stone-200 text-stone-800 font-serif shadow-sm'
       }`}>
         {isLuxuryTheme ? (
-          <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 pt-2 flex items-center justify-between">
             {/* 左側: Menu (misshelly風: 2本線 + Menuテキスト、常時表示) */}
             <div className="w-1/3 flex justify-start items-center">
               <button
@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               <Link href={basePath || '/'} className="flex items-center justify-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
                 <SpecialGradeLogo
                   variant="misshelly"
-                  size="sm"
+                  size="lg"
                   theme="light"
                 />
               </Link>
