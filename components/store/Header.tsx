@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { StoreConfig } from '../../types/store';
 import { DIARY_FEATURE_ENABLED } from '../../lib/featureFlags';
 import { SpecialGradeLogo } from './SpecialGradeLogo';
@@ -17,6 +18,10 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const basePath = store.basePath ?? `/${store.slug}`;
   const reservePath = `/reserve/${store.slug}`;
+  const pathname = usePathname();
+  // TOPページだけ、HERO写真に重ねる透過ヘッダーを使う。他のページはHERO写真が無く
+  // 透過ヘッダーが本文と重なって読めなくなるため、常時ピンクの固定ヘッダーを表示する。
+  const isTopPage = pathname === (basePath || '/');
 
   useEffect(() => {
     setImageError(false);
@@ -84,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           ? `absolute ${store.noticeBanner ? 'top-8' : 'top-0'} inset-x-0 bg-transparent border-none text-white shadow-none pointer-events-auto`
           : 'sticky top-0 bg-white/95 border-b border-stone-200 text-stone-800 font-serif shadow-sm'
       }`}>
-        {isLuxuryTheme ? (
+        {isLuxuryTheme ? (isTopPage &&
           <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 pt-2 flex items-center justify-between">
             {/* 左側: Menu (misshelly風: 2本線 + Menuテキスト、常時表示) */}
             <div className="w-1/3 flex justify-start items-center">
@@ -244,15 +249,16 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         )}
       </header>
 
-      {/* 3. スクロールして初期ヘッダーが消えた際に出現する固定ヘッダー (Sticky Floating Header) */}
+      {/* 3. スクロールして初期ヘッダーが消えた際に出現する固定ヘッダー (Sticky Floating Header)。
+          TOPページ以外はHERO写真が無く透過ヘッダーが本文と重なってしまうため、常時表示する。 */}
       {isLuxuryTheme && (
         <aside
           className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ease-out transform ${
-            isScrolled
+            !isTopPage || isScrolled
               ? 'translate-y-0 opacity-100 bg-[#efd8d5]/95 backdrop-blur-md border-b border-[#d8b3bd]/40 shadow-sm'
               : '-translate-y-full opacity-0 pointer-events-none'
           }`}
-          aria-hidden={!isScrolled}
+          aria-hidden={isTopPage && !isScrolled}
         >
           <div className="max-w-7xl mx-auto px-5 sm:px-8 h-14 flex items-center justify-between">
             {/* 左側: ハンバーガーメニュー */}
@@ -293,6 +299,9 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           </div>
         </aside>
       )}
+
+      {/* TOPページ以外は上のピンク固定ヘッダーが常時表示されるため、本文が隠れないよう高さ分の余白を確保する */}
+      {isLuxuryTheme && !isTopPage && <div className="h-14" aria-hidden="true" />}
 
       {/* バックドロップオーバーレイ (常に描画し、opacity と pointer-events でなめらかにフェードイン/アウト) */}
       <div
