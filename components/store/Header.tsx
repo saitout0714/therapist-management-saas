@@ -368,11 +368,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   href={link.href}
                   style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
                   onClick={() => setIsOpen(false)}
-                  className={`group relative flex items-center justify-center gap-3 py-4 font-luxury-display italic text-base tracking-[0.12em] text-[#2b2827] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
+                  className={`group relative flex items-center justify-center py-4 font-luxury-display italic font-semibold text-lg tracking-[0.1em] text-[#241f1e] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
                 >
-                  <span className="text-[10px] not-italic font-sans font-medium tracking-widest text-[#c5a059]/70 group-hover:text-[#c5a059] transition-colors duration-400">
-                    {link.code}
-                  </span>
                   <span>{link.label}</span>
                   <span className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-px bg-[#c5a059] transition-all duration-500 group-hover:w-8" />
                 </Link>
