@@ -369,11 +369,11 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
             <section className={`relative py-8 border-t ${
               isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
             }`}>
-              <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-4">
+              <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 items-center justify-items-center">
                 {store.adBanners.map((banner, idx) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <a key={idx} href={banner.linkUrl} target="_blank" rel="noopener noreferrer nofollow sponsored">
-                    <img src={banner.imageUrl} alt={banner.alt} width={200} height={40} />
+                    <img src={banner.imageUrl} alt={banner.alt} width={200} height={40} className="max-w-full h-auto" />
                   </a>
                 ))}
               </div>
