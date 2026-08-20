@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
-import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
-import { syncShiftsToEslove } from '@/lib/sync/eslove';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
-import { getEstamaCredentials, getEstheRankingCredentials, getEsloveCredentials } from '@/lib/sync/portal-credentials';
+import { getEstamaCredentials } from '@/lib/sync/portal-credentials';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro limit
@@ -41,9 +39,7 @@ export async function GET(req: Request) {
     // 4. 各店舗ごとに同期処理を直列で実行（メモリ不足・並列実行エラーを防ぐため）
     const results = [];
     for (const shop of shops) {
-      let estamaResult = null;
-      let estheRankingResult = null;
-      let esloveResult = null;
+      let estamaResult: { success: boolean; error?: string; message?: string } | null = null;
 
       // ジョブを作成
       const jobId = await createSyncJob(shop.id, 'cron_urgent_reserve');
@@ -60,9 +56,7 @@ export async function GET(req: Request) {
           therapists!inner (
             id,
             name,
-            estama_therapist_id,
-            esthe_ranking_therapist_id,
-            eslove_therapist_id
+            estama_therapist_id
           )
         `)
         .eq('shop_id', shop.id)
@@ -111,59 +105,25 @@ export async function GET(req: Request) {
         }
       }
 
-      // メンズエステランキングの同期
-      const erCreds = getEstheRankingCredentials(shop);
-      if (erCreds) {
-        try {
-          estheRankingResult = await syncShiftsToEstheRanking(
-            erCreds.loginUrl,
-            erCreds.loginId,
-            erCreds.password,
-            startDate,
-            endDate,
-            shifts || []
-          );
-        } catch (e: any) {
-          console.error(`EstheRanking Sync Error for shop ${shop.id}:`, e);
-          estheRankingResult = { success: false, error: e.message };
-        }
-      }
-
-      // エステラブの同期
-      const esloveCreds = getEsloveCredentials(shop);
-      if (esloveCreds) {
-        const { data: esloveActiveTherapists } = await supabase
-          .from('therapists')
-          .select('id, name, eslove_therapist_id')
-          .eq('shop_id', shop.id)
-          .not('eslove_therapist_id', 'is', null);
-
-        try {
-          esloveResult = await syncShiftsToEslove(
-            esloveCreds.loginUrl,
-            esloveCreds.loginId,
-            esloveCreds.password,
-            startDate,
-            endDate,
-            shifts || [],
-            esloveActiveTherapists || []
-          );
-        } catch (e: any) {
-          console.error(`Eslove Sync Error for shop ${shop.id}:`, e);
-          esloveResult = { success: false, error: e.message };
-        }
-      }
+      // メンズエステランキングとエステラブは、この5分毎の緊急同期では同期しない。
+      //
+      // 【理由】
+      // この処理の目的は「予約が入った直後に案内状況(×)をポータルへ反映する」ことだが、
+      // その受け皿があるのはエステ魂だけで、両サイトにはセラピスト個別の予約状況を
+      // 登録する仕組みがない（送っているのは出勤情報のみ）。
+      // つまり5分毎に叩いても得られるものが無い一方、日中はサイト側のアクセス制限に
+      // 頻繁に阻まれており（実測でランキングの成功率は15時台で30%）、
+      // 失敗ログを量産するだけになっていた。
+      // 出勤情報は cron/sync-daily の深夜1回（JST 3:00）にまとめて同期する。
 
       if (jobId) {
-        const isSuccess = (!estamaResult || estamaResult.success) && (!estheRankingResult || estheRankingResult.success) && (!esloveResult || esloveResult.success);
+        const isSuccess = !estamaResult || estamaResult.success;
         await completeSyncJob(jobId, isSuccess ? 'completed' : 'failed', {
           estama: estamaResult,
-          estheRanking: estheRankingResult,
-          eslove: esloveResult
         });
       }
 
-      results.push({ shopId: shop.id, estamaResult, estheRankingResult, esloveResult });
+      results.push({ shopId: shop.id, estamaResult });
     }
 
     return NextResponse.json({ success: true, results });
