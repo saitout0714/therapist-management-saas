@@ -1082,12 +1082,6 @@ input[type="time"]::-webkit-datetime-edit {
   background-size: 180px 180px;
 }
 
-/* モバイルドロワー用(ダーク版): 白文字・白ロゴが映えるインク色の背景 */
-.luxury-drawer-bg-dark {
-  background-color: rgba(33, 28, 27, 0.96);
-  background-image: var(--luxury-noise);
-  background-size: 180px 180px;
-}
 
 /* スクロール登場エフェクト */
 .luxury-fade-up {
