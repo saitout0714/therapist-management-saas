@@ -88,11 +88,10 @@ export const SpecialGradeLogo: React.FC<SpecialGradeLogoProps> = ({
     return <div className={`inline-flex items-center ${className}`}>{MonogramMark}</div>;
   }
 
-  // misshelly 完全準拠 (中央揃え: 上にSGエンブレム、下にエレガントなセリフロゴ)
+  // misshelly 完全準拠 (中央揃え: 上にエレガントなセリフロゴ、下にSGエンブレム)
   if (variant === 'misshelly' || variant === 'vertical') {
     return (
       <div className={`flex flex-col items-center justify-center text-center group cursor-pointer leading-none gap-0.5 ${className}`}>
-        {MonogramMark}
         <span
           className={`font-luxury-display italic tracking-[0.14em] transition-colors whitespace-nowrap ${
             size === 'sm' ? 'text-sm sm:text-base' : size === 'lg' ? 'text-2xl sm:text-3xl' : 'text-base sm:text-lg'
@@ -101,6 +100,7 @@ export const SpecialGradeLogo: React.FC<SpecialGradeLogoProps> = ({
         >
           Special Grade
         </span>
+        {MonogramMark}
       </div>
     );
   }
