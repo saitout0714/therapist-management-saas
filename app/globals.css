@@ -1024,17 +1024,20 @@ input[type="time"]::-webkit-datetime-edit {
 }
 
 /* 主要CTA：ダスティローズ〜シャンパンゴールドの上品なグラデーション（サイト全体の落ち着いたローズ基調に統一） */
+/* 色なしトライアル中: グラデーション背景を外し、白地+濃いインク色の枠線で視認性を確保 */
 .luxury-gold-btn {
-  background: linear-gradient(135deg, var(--luxury-rose-deep) 0%, var(--luxury-gold) 55%, var(--luxury-gold-soft) 100%);
-  color: #ffffff !important;
-  box-shadow: 0 6px 20px rgba(197, 139, 137, 0.32);
-  transition: filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+  background: #ffffff;
+  color: var(--luxury-ink) !important;
+  border: 1.5px solid var(--luxury-ink);
+  box-shadow: 0 4px 14px rgba(43, 40, 39, 0.12);
+  transition: background 0.4s ease, color 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
 }
 
 .luxury-gold-btn:hover {
-  filter: brightness(1.06);
+  background: var(--luxury-ink);
+  color: #ffffff !important;
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(197, 160, 89, 0.4), 0 0 20px rgba(198, 149, 162, 0.35);
+  box-shadow: 0 8px 22px rgba(43, 40, 39, 0.22);
 }
 
 /* 副次的なボタン：細いゴールド/ローズ枠 + 上品なアウトラインボタン */
