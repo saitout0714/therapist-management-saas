@@ -1,0 +1,107 @@
+import { NextResponse } from 'next/server';
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
+import { fetchTherapistsFromEslove } from '@/lib/sync/eslove';
+import { getEsloveCredentials, PORTAL_CREDENTIAL_COLUMNS } from '@/lib/sync/portal-credentials';
+
+export const maxDuration = 300; // Vercel Pro timeout (max 300s)
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { shopId } = body;
+
+    if (!shopId) {
+      return NextResponse.json({ error: 'shopId は必須です' }, { status: 400 });
+    }
+
+    // 1. 店舗のログイン情報を取得
+    const { data: shop, error: shopError } = await supabase
+      .from('shops')
+      .select(PORTAL_CREDENTIAL_COLUMNS)
+      .eq('id', shopId)
+      .single();
+
+    if (shopError || !shop) {
+      return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
+    }
+
+    const esloveCreds = getEsloveCredentials(shop);
+    if (!esloveCreds) {
+      return NextResponse.json({ error: '店舗設定画面でエステラブのログイン情報を設定してください' }, { status: 400 });
+    }
+
+    // 2. ローカルのセラピスト一覧を取得
+    const { data: localTherapists, error: therapistsError } = await supabase
+      .from('therapists')
+      .select('id, name, eslove_therapist_id')
+      .eq('shop_id', shopId)
+      .eq('is_active', true);
+
+    if (therapistsError) {
+      return NextResponse.json({ error: 'セラピスト情報の取得に失敗しました' }, { status: 500 });
+    }
+
+    // 3. エステラブからセラピスト一覧を取得
+    const portalTherapists = await fetchTherapistsFromEslove(
+      esloveCreds.loginUrl,
+      esloveCreds.loginId,
+      esloveCreds.password
+    );
+
+    // 4. 名前でマッチング
+    let matchedCount = 0;
+    const updates: { id: string; eslove_therapist_id: string }[] = [];
+
+    for (const portalT of portalTherapists) {
+      const normalizedPortalName = portalT.name.replace(/\s+/g, '').toLowerCase();
+
+      const matchedLocal = localTherapists?.find(localT => {
+        const normalizedLocalName = localT.name.replace(/\s+/g, '').toLowerCase();
+        return normalizedLocalName === normalizedPortalName;
+      });
+
+      if (matchedLocal) {
+        if (matchedLocal.eslove_therapist_id !== portalT.id) {
+          updates.push({
+            id: matchedLocal.id,
+            eslove_therapist_id: portalT.id,
+          });
+        }
+      }
+    }
+
+    // 5. DBを更新
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('therapists')
+        .update({ eslove_therapist_id: update.eslove_therapist_id })
+        .eq('id', update.id);
+
+      if (!error) {
+        matchedCount++;
+      } else {
+        console.error('Failed to update therapist', update.id, error);
+      }
+    }
+
+    const stillUnmatchedLocalNames = (localTherapists || [])
+      .filter(t => !t.eslove_therapist_id && !updates.some(u => u.id === t.id))
+      .map(t => t.name);
+
+    const msg = matchedCount > 0
+      ? `エステラブのセラピスト${portalTherapists.length}人中、${matchedCount}人のセラピストIDを新しく自動設定しました！`
+      : `エステラブから${portalTherapists.length}人のセラピストを取得しました。既に全員の連携IDが設定済みであるか、名前が一致する未設定のセラピストがいなかったため、更新対象は0件でした。\n\n[ポータル側の名前一覧]\n${portalTherapists.map(t => t.name).join(', ')}\n\n[yoyakl側の未連携キャスト]\n${stillUnmatchedLocalNames.join(', ')}`;
+
+    return NextResponse.json({
+      message: msg,
+      matchedCount,
+      totalPortalCount: portalTherapists.length,
+      portalTherapists,
+      stillUnmatchedLocalNames,
+    });
+
+  } catch (error: any) {
+    console.error('Eslove Match API Error:', error);
+    return NextResponse.json({ error: error.message || 'サーバーエラーが発生しました' }, { status: 500 });
+  }
+}

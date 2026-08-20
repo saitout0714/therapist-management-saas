@@ -71,7 +71,7 @@ export default function EditTherapistPage() {
   const [syncingPortals, setSyncingPortals] = useState(false);
 
   const handleSyncToPortals = async () => {
-    if (!confirm('このセラピストの情報をエステ魂およびメンズエステランキングに送信（新規登録または上書き更新）しますか？\n※現在のyoyakl上の情報が送信されます。先に「更新する」ボタンで保存してから実行してください。')) return;
+    if (!confirm('このセラピストの情報をエステ魂・メンズエステランキング・エステラブに送信（新規登録または上書き更新）しますか？\n※現在のyoyakl上の情報が送信されます。先に「更新する」ボタンで保存してから実行してください。')) return;
     setSyncingPortals(true);
 
     // バックグラウンド同期APIを呼び出し、レスポンスを待たずに即時完了とする
@@ -82,6 +82,11 @@ export default function EditTherapistPage() {
         body: JSON.stringify({ shopId: therapistShopId, therapistId })
       });
       fetch('/api/sync/therapists/esthe-ranking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: therapistShopId, therapistId })
+      });
+      fetch('/api/sync/therapists/eslove', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shopId: therapistShopId, therapistId })

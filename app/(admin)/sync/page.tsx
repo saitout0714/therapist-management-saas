@@ -8,8 +8,14 @@ import NewsPost from './NewsPost'
 import NewsSchedule from './NewsSchedule'
 import NewsRecurring from './NewsRecurring'
 
-type SyncTab = 'esthe_ranking' | 'estama' | 'news' | 'history'
+type SyncTab = 'esthe_ranking' | 'estama' | 'eslove' | 'news' | 'history'
 type NewsSubTab = 'schedule' | 'recurring' | 'now'
+
+const SITE_NAMES: Record<'esthe_ranking' | 'estama' | 'eslove', string> = {
+  esthe_ranking: 'メンズエステランキング',
+  estama: 'エステ魂',
+  eslove: 'エステラブ',
+}
 
 export default function SyncPage() {
   const { selectedShop } = useShop()
@@ -37,6 +43,9 @@ export default function SyncPage() {
     estama_login_id: '',
     estama_password: '',
     estama_shop_url: 'https://estama.jp/login/?r=/admin/',
+    eslove_login_id: '',
+    eslove_password: '',
+    eslove_shop_url: 'https://eslove.jp/admin/login',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -51,21 +60,33 @@ export default function SyncPage() {
       setLoading(true)
       let { data, error } = await supabase
         .from('shops')
-        .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, estama_login_id, estama_password, estama_shop_url')
+        .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, estama_login_id, estama_password, estama_shop_url, eslove_login_id, eslove_password, eslove_shop_url')
         .eq('id', selectedShop.id)
         .single()
-      
+
       if (error) {
-        // Fallback: If estama columns do not exist in DB yet, query esthe_ranking columns only
-        const fallback = await supabase
+        // Fallback: If eslove columns do not exist in DB yet, query esthe_ranking + estama columns only
+        const fallback1 = await supabase
           .from('shops')
-          .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+          .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, estama_login_id, estama_password, estama_shop_url')
           .eq('id', selectedShop.id)
           .single()
-        
-        if (!fallback.error && fallback.data) {
-          data = fallback.data as any
+
+        if (!fallback1.error && fallback1.data) {
+          data = fallback1.data as any
           error = null
+        } else {
+          // Further fallback: If estama columns do not exist in DB yet, query esthe_ranking columns only
+          const fallback2 = await supabase
+            .from('shops')
+            .select('esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url')
+            .eq('id', selectedShop.id)
+            .single()
+
+          if (!fallback2.error && fallback2.data) {
+            data = fallback2.data as any
+            error = null
+          }
         }
       }
 
@@ -77,6 +98,9 @@ export default function SyncPage() {
           estama_login_id: (data as any).estama_login_id || '',
           estama_password: (data as any).estama_password || '',
           estama_shop_url: (data as any).estama_shop_url || 'https://estama.jp/login/?r=/admin/',
+          eslove_login_id: (data as any).eslove_login_id || '',
+          eslove_password: (data as any).eslove_password || '',
+          eslove_shop_url: (data as any).eslove_shop_url || 'https://eslove.jp/admin/login',
         })
       }
       setLoading(false)
@@ -101,6 +125,10 @@ export default function SyncPage() {
       updatePayload.estama_login_id = form.estama_login_id || null
       updatePayload.estama_password = form.estama_password || null
       updatePayload.estama_shop_url = form.estama_shop_url || 'https://estama.jp/login/?r=/admin/'
+    } else if (activeTab === 'eslove') {
+      updatePayload.eslove_login_id = form.eslove_login_id || null
+      updatePayload.eslove_password = form.eslove_password || null
+      updatePayload.eslove_shop_url = form.eslove_shop_url || 'https://eslove.jp/admin/login'
     }
 
     const { error } = await supabase
@@ -110,7 +138,9 @@ export default function SyncPage() {
 
     if (error) {
       console.error('Save config error:', error)
-      if (error.message?.includes('estama') || error.code === '42703') {
+      if (error.message?.includes('eslove') || (activeTab === 'eslove' && error.code === '42703')) {
+        alert('設定の保存に失敗しました。\nSupabaseデータベースにエステラブ用のカラムが追加されていません。SQL Editorで add-eslove-sync.sql を実行してください。')
+      } else if (error.message?.includes('estama') || error.code === '42703') {
         alert('設定の保存に失敗しました。\nSupabaseデータベースにエステ魂用のカラムが追加されていません。SQL Editorで add-estama-sync.sql を実行してください。')
       } else {
         alert(`設定の保存に失敗しました: ${error.message || '通信エラー'}`)
@@ -125,8 +155,8 @@ export default function SyncPage() {
   const handleSyncShifts = async (isAll = false) => {
     if (!selectedShop) return;
     
-    const apiEndpoint = activeTab === 'esthe_ranking' ? '/api/sync/esthe-ranking' : '/api/sync/estama'
-    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'
+    const apiEndpoint = activeTab === 'esthe_ranking' ? '/api/sync/esthe-ranking' : activeTab === 'eslove' ? '/api/sync/eslove' : '/api/sync/estama'
+    const siteName = SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove']
 
     let start = syncStartDate;
     let end = syncEndDate;
@@ -192,8 +222,8 @@ export default function SyncPage() {
   const handleBatchSyncTherapists = async () => {
     if (!selectedShop) return;
     
-    const targetSite = activeTab === 'esthe_ranking' ? 'esthe_ranking' : 'estama';
-    const siteName = activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂';
+    const targetSite = activeTab === 'esthe_ranking' ? 'esthe_ranking' : activeTab === 'eslove' ? 'eslove' : 'estama';
+    const siteName = SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove'];
 
     if (!confirm(`yoyaklに登録されている全セラピストの情報を${siteName}に一括同期します。\n${siteName}側に既に同名のプロフィールがあれば自動的に紐付けて更新し、なければ新規登録します（重複登録の心配はありません）。\n※人数が多い場合は数分かかることがあります。`)) return;
 
@@ -247,12 +277,15 @@ export default function SyncPage() {
   const tabs: { key: SyncTab; label: string }[] = [
     { key: 'esthe_ranking', label: 'メンズエステランキング' },
     { key: 'estama', label: 'エステ魂' },
+    { key: 'eslove', label: 'エステラブ' },
     { key: 'news', label: 'ニュース投稿' },
     { key: 'history', label: '同期履歴' },
   ]
 
-  const isCurrentTabConfigured = activeTab === 'esthe_ranking' 
+  const isCurrentTabConfigured = activeTab === 'esthe_ranking'
     ? !!(form.esthe_ranking_shop_url && form.esthe_ranking_login_id && form.esthe_ranking_password)
+    : activeTab === 'eslove'
+    ? !!(form.eslove_login_id && form.eslove_password)
     : !!(form.estama_login_id && form.estama_password)
 
   return (
@@ -264,7 +297,7 @@ export default function SyncPage() {
             サイト同期
           </h1>
           <p className="text-sm text-slate-500 mt-2">
-            外部のランキングサイトやポータルサイト（メンズエステランキング、エステ魂等）と、yoyaklの出勤スケジュール情報を同期します。
+            外部のランキングサイトやポータルサイト（メンズエステランキング、エステ魂、エステラブ等）と、yoyaklの出勤スケジュール情報を同期します。
           </p>
         </div>
 
@@ -323,7 +356,7 @@ export default function SyncPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-800">
-                  出勤スケジュールの同期（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}）
+                  出勤スケジュールの同期（{SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove']}）
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">指定した日付のシフト情報を対象ポータルサイトに自動反映します</p>
               </div>
@@ -395,7 +428,7 @@ export default function SyncPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-800">
-                  セラピスト情報の同期（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}）
+                  セラピスト情報の同期（{SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove']}）
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">yoyaklに登録されているキャスト情報を対象ポータルサイトに自動反映（新規登録・上書き）します</p>
               </div>
@@ -419,9 +452,19 @@ export default function SyncPage() {
               <div className="text-xs text-slate-500 bg-white p-3 rounded-lg border border-slate-200">
                 <p className="font-bold mb-1">【同期される項目】</p>
                 <ul className="list-disc list-inside space-y-1 ml-1 text-[11px]">
-                  <li>名前・年齢・T/B/W/H・カップ数</li>
-                  <li>一言コメント（自己紹介）</li>
-                  <li>プロフィール写真（画像の自動アップロード）</li>
+                  {activeTab === 'eslove' ? (
+                    <>
+                      <li>名前・年齢・身長</li>
+                      <li>お店からのひとこと（自己紹介）</li>
+                      <li>プロフィール写真（画像の自動アップロード）</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>名前・年齢・T/B/W/H・カップ数</li>
+                      <li>一言コメント（自己紹介）</li>
+                      <li>プロフィール写真（画像の自動アップロード）</li>
+                    </>
+                  )}
                 </ul>
                 <p className="mt-2 text-[10px] text-slate-400">※ポータルサイトに同名のキャストが既にいる場合は自動で連携IDを紐付けて情報を上書き更新し、いない場合は新規登録として追加します（重複登録は作られません）。出勤・予約が同期されない場合、まずここで一括同期をお試しください。個別の同期は「キャスト管理 ＞ キャスト編集」画面からも実行可能です。</p>
               </div>
@@ -432,7 +475,7 @@ export default function SyncPage() {
           <form onSubmit={handleSaveConfig} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6 space-y-6">
             <div>
               <h2 className="text-base font-bold text-slate-800 mb-1">
-                アカウント設定（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}）
+                アカウント設定（{SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove']}）
               </h2>
               <p className="text-xs text-slate-500">店舗管理画面のログイン情報を入力してください。同期機能を使用するために必須となります。</p>
             </div>
@@ -442,7 +485,7 @@ export default function SyncPage() {
               <p className="text-xs text-amber-800 leading-relaxed">
                 <span className="font-bold">新規店舗で初めて設定する場合は必ずお読みください：</span>
                 ID・パスワードを保存しただけでは自動同期は始まりません。保存後に、上の「セラピスト情報の同期」欄にある
-                <span className="font-bold">「全キャストを一括同期」</span>（{activeTab === 'esthe_ranking' ? 'メンズエステランキング' : 'エステ魂'}側にまだキャストが登録されていない場合）
+                <span className="font-bold">「全キャストを一括同期」</span>（{SITE_NAMES[activeTab as 'esthe_ranking' | 'estama' | 'eslove']}側にまだキャストが登録されていない場合）
                 または<span className="font-bold">「既存プロフィールと自動照合」</span>（既に向こうにキャスト登録済みの場合）を<span className="font-bold">一度だけ手動で実行</span>してください。これを行わないと、キャストごとの連携IDが設定されず、出勤・予約情報が同期されません（ジョブ自体は「成功」と表示されるため気づきにくい不具合です）。
               </p>
             </div>
@@ -476,6 +519,39 @@ export default function SyncPage() {
                     placeholder="パスワード"
                     value={form.esthe_ranking_password}
                     onChange={(e) => setForm({ ...form, esthe_ranking_password: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+            ) : activeTab === 'eslove' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">エステラブ 管理画面URL（ログインページ）</label>
+                  <input
+                    type="text"
+                    placeholder="https://eslove.jp/admin/login"
+                    value={form.eslove_shop_url}
+                    onChange={(e) => setForm({ ...form, eslove_shop_url: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">ログインID</label>
+                  <input
+                    type="text"
+                    placeholder="ログインID"
+                    value={form.eslove_login_id}
+                    onChange={(e) => setForm({ ...form, eslove_login_id: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">パスワード</label>
+                  <input
+                    type="password"
+                    placeholder="パスワード"
+                    value={form.eslove_password}
+                    onChange={(e) => setForm({ ...form, eslove_password: e.target.value })}
                     className="w-full border border-slate-200 rounded-xl bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                 </div>
