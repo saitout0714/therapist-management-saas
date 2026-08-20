@@ -120,13 +120,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
   // 一瞬だけネオンサインのロゴ点灯演出を挟んでから、また画像に戻る。
   const [isRevealed, setIsRevealed] = React.useState(true);
 
-  // SpecialGrade用HERO画像のクロスフェード・スライドショー（ズーム/パンは廃止し、複数枚を順番に切り替える）
+  // SpecialGrade用HERO画像のクロスフェード・スライドショー（ズーム/パンは廃止し、複数枚を順番に切り替える）。
+  // 元写真の構図（横向きの寝転びカット／縦向きの立ちカット）に応じて、PC・スマホそれぞれに
+  // ちょうど良い向きのクロップを用意している（横向きカットはPCでそのまま・スマホは縦クロップを別途作成、
+  // 縦向きカットはスマホでそのまま・PCは横クロップを別途作成）。
   const heroSlideImages = [
-    '/images/specialgrade_hero.jpg',
-    '/images/specialgrade_hero_2.jpg',
-    '/images/specialgrade_hero_3.jpg',
-    '/images/specialgrade_hero_4.jpg',
-    '/images/specialgrade_hero_5.jpg',
+    { desktop: '/images/specialgrade_hero.jpg', mobile: '/images/specialgrade_hero_sp.jpg' },
+    { desktop: '/images/specialgrade_hero_2.jpg', mobile: '/images/specialgrade_hero_2_sp.jpg' },
+    { desktop: '/images/specialgrade_hero_3.jpg', mobile: '/images/specialgrade_hero_3_sp.jpg' },
+    { desktop: '/images/specialgrade_hero_4_pc.jpg', mobile: '/images/specialgrade_hero_4.jpg' },
+    { desktop: '/images/specialgrade_hero_5_pc.jpg', mobile: '/images/specialgrade_hero_5.jpg' },
   ];
   const [activeHeroSlide, setActiveHeroSlide] = React.useState(0);
 
@@ -177,21 +180,31 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
         <section className="relative w-full bg-[#efd8d5] px-3 sm:px-5 lg:px-7 pt-3 sm:pt-4 pb-4 sm:pb-6 overflow-hidden">
           {/* 角丸ヒーローコンテナ (misshelly のような美しいピンク縁取りの中の大画面ビジュアルフレーム) */}
           <div className="luxury-hero-pink-veil relative w-full h-[84dvh] sm:h-[90dvh] lg:h-[92dvh] rounded-[24px] sm:rounded-[32px] lg:rounded-[36px] overflow-hidden flex flex-col justify-end p-6 sm:p-12 lg:p-16 bg-[#efd8d5] shadow-[0_12px_45px_rgba(198,149,162,0.35)] z-10">
-            {/* 1. 大迫力のシネマティック・メインビジュアル（複数枚を6秒ごとにクロスフェード切り替え） */}
+            {/* 1. 大迫力のシネマティック・メインビジュアル（複数枚を6秒ごとにクロスフェード切り替え、PC/スマホでアートディレクション別クロップ） */}
             <div className="absolute inset-0 z-0 overflow-hidden">
-              {heroSlideImages.map((src, idx) => (
-                <Image
-                  key={src}
-                  src={src}
-                  alt={`${store.name} シネマティックビジュアル`}
-                  fill
-                  priority={idx === 0}
-                  sizes="100vw"
-                  className={`absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${
-                    idx === activeHeroSlide ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-              ))}
+              {heroSlideImages.map((slide, idx) => {
+                const opacityClass = idx === activeHeroSlide ? 'opacity-100' : 'opacity-0';
+                return (
+                  <React.Fragment key={slide.desktop}>
+                    <Image
+                      src={slide.desktop}
+                      alt={`${store.name} シネマティックビジュアル`}
+                      fill
+                      priority={idx === 0}
+                      sizes="100vw"
+                      className={`hidden sm:block absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass}`}
+                    />
+                    <Image
+                      src={slide.mobile}
+                      alt={`${store.name} シネマティックビジュアル`}
+                      fill
+                      priority={idx === 0}
+                      sizes="100vw"
+                      className={`block sm:hidden absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass}`}
+                    />
+                  </React.Fragment>
+                );
+              })}
             </div>
 
             {/* 2. misshelly風 シネマティック・カラーグレーディング＆ソフトオーバーレイ */}
