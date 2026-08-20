@@ -1028,8 +1028,8 @@ input[type="time"]::-webkit-datetime-edit {
 .luxury-gold-btn {
   background: #ffffff;
   color: var(--luxury-ink) !important;
-  border: 1.5px solid var(--luxury-ink);
-  box-shadow: 0 4px 14px rgba(43, 40, 39, 0.12);
+  border: none;
+  box-shadow: 0 4px 16px rgba(43, 40, 39, 0.18);
   transition: background 0.4s ease, color 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
 }
 
