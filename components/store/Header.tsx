@@ -94,8 +94,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                 aria-label="メニュー開閉"
               >
                 <div className={`cyber-hamburger-icon flex flex-col justify-between w-[18px] h-[10px] ${isOpen ? 'is-open' : ''}`}>
-                  <span className="!bg-white shadow-[0_1px_4px_rgba(0,0,0,0.6)]" />
-                  <span className="!bg-white shadow-[0_1px_4px_rgba(0,0,0,0.6)]" />
+                  <span className="!bg-white" />
+                  <span className="!bg-white" />
                 </div>
                 <span>Menu</span>
               </button>
