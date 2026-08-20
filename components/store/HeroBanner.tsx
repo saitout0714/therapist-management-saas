@@ -136,7 +136,15 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
   React.useEffect(() => {
     if (!isLuxuryTheme) return;
     const intervalId = setInterval(() => {
-      setActiveHeroSlide((prev) => (prev + 1) % heroSlideImages.length);
+      // ランダムに切り替える（直前と同じ枚に連続で戻らないようにする）
+      setActiveHeroSlide((prev) => {
+        if (heroSlideImages.length <= 1) return prev;
+        let next = prev;
+        while (next === prev) {
+          next = Math.floor(Math.random() * heroSlideImages.length);
+        }
+        return next;
+      });
     }, 6000);
     return () => clearInterval(intervalId);
   }, [isLuxuryTheme]);
@@ -184,7 +192,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
             <div className="absolute inset-0 z-0 overflow-hidden">
               {heroSlideImages.map((slide, idx) => {
                 const isActive = idx === activeHeroSlide;
-                const opacityClass = isActive ? 'opacity-100' : 'opacity-0';
+                const opacityClass = isActive ? 'opacity-100 blur-none' : 'opacity-0 blur-md';
                 const kenBurnsClass = isActive ? 'hero-slide-active' : 'hero-slide-idle';
                 return (
                   <React.Fragment key={slide.desktop}>
@@ -194,7 +202,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
                       fill
                       priority={idx === 0}
                       sizes="100vw"
-                      className={`hidden sm:block absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
+                      className={`hidden sm:block absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-[opacity,filter] duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
                     />
                     <Image
                       src={slide.mobile}
@@ -202,7 +210,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
                       fill
                       priority={idx === 0}
                       sizes="100vw"
-                      className={`block sm:hidden absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-opacity duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
+                      className={`block sm:hidden absolute inset-0 object-cover object-center brightness-[0.92] contrast-[1.04] transition-[opacity,filter] duration-[1500ms] ease-in-out ${opacityClass} ${kenBurnsClass}`}
                     />
                   </React.Fragment>
                 );
