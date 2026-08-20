@@ -312,7 +312,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           isCyberTheme
             ? 'bg-[#0d061e]/45 backdrop-blur-2xl border-l-2 border-[#ff6fb5]/70 text-[#f4eefa]'
             : isLuxuryTheme
-            ? 'luxury-drawer-bg backdrop-blur-2xl border-l border-[#e2b3b1]/35 text-[#2b2827] luxury-body'
+            ? 'luxury-drawer-bg-dark backdrop-blur-2xl border-l border-[#c5a059]/25 text-white luxury-body'
             : 'bg-white/95 backdrop-blur-xl border-l border-[#d1b464]/30 text-stone-800 font-serif'
         }`}
       >
@@ -320,12 +320,12 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
         <div>
           {isLuxuryTheme && (
             <div className="flex flex-col items-center gap-3 pt-1 pb-5">
-              <SpecialGradeLogo variant="mark-only" size="md" theme="gold" />
+              <SpecialGradeLogo variant="mark-only" size="lg" theme="light" />
               <div className="luxury-gold-rule w-14" />
             </div>
           )}
-          <div className={`flex items-center justify-between pb-4 border-b mb-5 ${
-            isCyberTheme ? 'border-[#ff6fb5]/40' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
+          <div className={`flex items-center pb-4 border-b mb-5 ${
+            isLuxuryTheme ? 'justify-end border-[#e2b3b1]/30' : `justify-between ${isCyberTheme ? 'border-[#ff6fb5]/40' : 'border-stone-200'}`
           }`}>
             {isCyberTheme ? (
               <>
@@ -341,16 +341,20 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   ✕
                 </button>
               </>
+            ) : isLuxuryTheme ? (
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1 text-xl font-luxury-display font-light text-white/80 hover:text-white transition-colors duration-300"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
             ) : (
               <>
-                <span className={`text-xs tracking-[0.25em] ${isLuxuryTheme ? 'font-medium font-luxury-display italic text-[#c5a059]' : 'font-bold text-stone-500'}`}>MENU</span>
+                <span className="text-xs tracking-[0.25em] font-bold text-stone-500">MENU</span>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className={`p-1 transition-colors duration-300 ${
-                    isLuxuryTheme
-                      ? 'text-xl font-luxury-display font-light text-[#8a7e7c] hover:text-[#c5a059]'
-                      : 'text-lg font-bold text-stone-600 hover:text-stone-900'
-                  }`}
+                  className="p-1 text-lg font-bold text-stone-600 hover:text-stone-900 transition-colors duration-300"
                   aria-label="閉じる"
                 >
                   ×
@@ -361,14 +365,14 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
           {/* ナビゲーションリンク一覧 */}
           {isLuxuryTheme ? (
-            <div className="flex flex-col divide-y divide-[#e2b3b1]/25">
+            <div className="flex flex-col divide-y divide-[#c5a059]/20">
               {navLinks.map((link, idx) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
                   onClick={() => setIsOpen(false)}
-                  className={`group relative flex items-center justify-center py-4 font-luxury-display italic font-semibold text-lg tracking-[0.1em] text-[#241f1e] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
+                  className={`group relative flex items-center justify-center py-4 font-luxury-display italic font-semibold text-lg tracking-[0.1em] text-white transition-colors duration-400 hover:text-[#f5e6c8] ${isOpen ? 'cyber-link-anim' : ''}`}
                 >
                   <span>{link.label}</span>
                   <span className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-px bg-[#c5a059] transition-all duration-500 group-hover:w-8" />
@@ -420,7 +424,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
         {/* ドロワーフッターアクション */}
         <div className={`pt-5 mt-6 space-y-3 border-t ${
-          isCyberTheme ? 'border-[#ff6fb5]/30' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
+          isCyberTheme ? 'border-[#ff6fb5]/30' : isLuxuryTheme ? 'border-[#c5a059]/20' : 'border-stone-200'
         }`}>
           {(store.xUrl || store.lineUrl) && (
             <div className="flex items-center justify-center gap-3 pb-1">
@@ -434,7 +438,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                     isCyberTheme
                       ? 'border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-white hover:bg-[#ff6fb5]/20'
                       : isLuxuryTheme
-                      ? 'border-[#e2b3b1]/45 text-[#4a3e3d] hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.3)]'
+                      ? 'border-white/25 text-white/80 hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white/10'
                       : 'border-stone-300 text-stone-600 hover:border-stone-500 hover:bg-stone-50'
                   }`}
                 >
