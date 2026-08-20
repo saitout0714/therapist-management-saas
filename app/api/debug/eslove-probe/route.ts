@@ -12,8 +12,15 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const TARGET = 'https://eslove.jp/admin/login';
 const TOKEN = 'probe-3f9c1a7d';
+
+/** 調査対象は固定。任意のURLは指定できないようにしている */
+const TARGETS: Record<string, string> = {
+  eslove: 'https://eslove.jp/admin/login',
+  ranking: 'https://www.esthe-ranking.jp/login/',
+  estama: 'https://estama.jp/login/?r=/admin/',
+};
+const TARGET = TARGETS.eslove;
 
 const BROWSER_HEADERS: Record<string, string> = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -31,10 +38,10 @@ function looksLikeLoginPage(html: string): boolean {
   return html.includes('login_password') || html.includes('LoginForm');
 }
 
-async function probeFetch(label: string, headers: Record<string, string>) {
+async function probeFetch(label: string, headers: Record<string, string>, url: string = TARGET) {
   const started = Date.now();
   try {
-    const res = await fetch(TARGET, { headers, redirect: 'manual' });
+    const res = await fetch(url, { headers, redirect: 'manual' });
     const body = await res.text().catch(() => '');
     return {
       label,
@@ -102,10 +109,18 @@ export async function GET(req: Request) {
     .catch(() => 'unknown');
 
   const results = [];
-  results.push(await probeFetch('fetch: ブラウザ相当のヘッダあり', BROWSER_HEADERS));
-  results.push(await probeFetch('fetch: ヘッダなし(既定)', {}));
-  results.push(await probeFetch('fetch: UAのみ', { 'User-Agent': BROWSER_HEADERS['User-Agent'] }));
-  results.push(await probeBrowser());
+
+  if (searchParams.get('mode') === 'sites') {
+    // 3ポータルを同じ場所から比較する
+    for (const [name, url] of Object.entries(TARGETS)) {
+      results.push(await probeFetch(name, BROWSER_HEADERS, url));
+    }
+  } else {
+    results.push(await probeFetch('fetch: ブラウザ相当のヘッダあり', BROWSER_HEADERS));
+    results.push(await probeFetch('fetch: ヘッダなし(既定)', {}));
+    results.push(await probeFetch('fetch: UAのみ', { 'User-Agent': BROWSER_HEADERS['User-Agent'] }));
+    results.push(await probeBrowser());
+  }
 
   return NextResponse.json({
     outboundIp,
