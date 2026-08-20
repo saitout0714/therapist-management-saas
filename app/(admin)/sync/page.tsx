@@ -242,21 +242,74 @@ export default function SyncPage() {
         throw new Error('同期するセラピストが見つかりませんでした。');
       }
 
-      const therapistIds = therapists.map(t => t.id);
+      const allTherapistIds = therapists.map(t => t.id);
 
-      const res = await fetch('/api/sync/therapists/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopId: selectedShop.id, targetSite, therapistIds }),
-      });
+      // サーバーの実行時間上限（約300秒）を超えないよう、少人数ずつのグループに分けて
+      // 順番に処理する（1グループ完了を待ってから次を送信する）。
+      // 特にエステラブは写真アップロードのタブ遷移が入るため1人あたりの処理が重い。
+      const CHUNK_SIZE = 6;
+      const chunks: string[][] = [];
+      for (let i = 0; i < allTherapistIds.length; i += CHUNK_SIZE) {
+        chunks.push(allTherapistIds.slice(i, i + CHUNK_SIZE));
+      }
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new Error(errData?.error || 'リクエスト失敗');
+      let totalSuccess = 0;
+      let totalError = 0;
+      let processedCount = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        setSyncProgressText(`${i + 1}/${chunks.length}グループ処理中 (${processedCount}/${allTherapistIds.length}人)...`);
+
+        const res = await fetch('/api/sync/therapists/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shopId: selectedShop.id, targetSite, therapistIds: chunk }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          totalError += chunk.length;
+          processedCount += chunk.length;
+          console.error('Chunk request failed', errData);
+          continue;
+        }
+
+        const { jobId } = await res.json();
+
+        // このグループの完了（または失敗）をポーリングで待つ。最大4分。
+        const deadline = Date.now() + 4 * 60 * 1000;
+        let finalStatus: string | null = null;
+        let resultDetails: any = null;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 3000));
+          const { data: job } = await supabase
+            .from('sync_jobs')
+            .select('status, result_details')
+            .eq('id', jobId)
+            .single();
+          if (job && job.status !== 'processing') {
+            finalStatus = job.status;
+            resultDetails = job.result_details;
+            break;
+          }
+        }
+
+        if (resultDetails && typeof resultDetails.successCount === 'number') {
+          totalSuccess += resultDetails.successCount;
+          totalError += resultDetails.errorCount || 0;
+        } else if (finalStatus === 'completed') {
+          totalSuccess += chunk.length;
+        } else {
+          // タイムアウトまたは失敗：このグループは不明/失敗扱い
+          totalError += chunk.length;
+        }
+
+        processedCount += chunk.length;
       }
 
       setSyncProgressText('');
-      alert(`バックグラウンドで全キャスト（${therapists.length}人）の${siteName}への同期を開始しました！\n完了状態は「同期履歴」から確認できます。`);
+      alert(`${siteName}への同期が完了しました。\n成功 ${totalSuccess}人 / 失敗 ${totalError}人（全${allTherapistIds.length}人）\n詳細は「同期履歴」から確認できます。`);
     } catch (err: any) {
       setSyncProgressText('');
       alert(err.message);
