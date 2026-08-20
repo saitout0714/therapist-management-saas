@@ -312,12 +312,18 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           isCyberTheme
             ? 'bg-[#0d061e]/45 backdrop-blur-2xl border-l-2 border-[#ff6fb5]/70 text-[#f4eefa]'
             : isLuxuryTheme
-            ? 'bg-[#efd8d5]/95 backdrop-blur-2xl border-l border-[#e2b3b1]/35 text-[#2b2827] luxury-body'
+            ? 'luxury-drawer-bg backdrop-blur-2xl border-l border-[#e2b3b1]/35 text-[#2b2827] luxury-body'
             : 'bg-white/95 backdrop-blur-xl border-l border-[#d1b464]/30 text-stone-800 font-serif'
         }`}
       >
         {/* ドロワーヘッダー */}
         <div>
+          {isLuxuryTheme && (
+            <div className="flex flex-col items-center gap-3 pt-1 pb-5">
+              <SpecialGradeLogo variant="mark-only" size="md" theme="gold" />
+              <div className="luxury-gold-rule w-14" />
+            </div>
+          )}
           <div className={`flex items-center justify-between pb-4 border-b mb-5 ${
             isCyberTheme ? 'border-[#ff6fb5]/40' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
           }`}>
@@ -362,9 +368,13 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                   href={link.href}
                   style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
                   onClick={() => setIsOpen(false)}
-                  className={`group py-4 text-center font-luxury-display italic text-base tracking-[0.12em] text-[#2b2827] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
+                  className={`group relative flex items-center justify-center gap-3 py-4 font-luxury-display italic text-base tracking-[0.12em] text-[#2b2827] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
                 >
-                  {link.label}
+                  <span className="text-[10px] not-italic font-sans font-medium tracking-widest text-[#c5a059]/70 group-hover:text-[#c5a059] transition-colors duration-400">
+                    {link.code}
+                  </span>
+                  <span>{link.label}</span>
+                  <span className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-px bg-[#c5a059] transition-all duration-500 group-hover:w-8" />
                 </Link>
               ))}
             </div>

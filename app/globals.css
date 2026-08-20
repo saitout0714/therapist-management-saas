@@ -1075,6 +1075,13 @@ input[type="time"]::-webkit-datetime-edit {
   background: linear-gradient(90deg, transparent, var(--luxury-rose), var(--luxury-gold), transparent);
 }
 
+/* モバイルドロワー用: 半透明ダスティローズ+微細ノイズで奥行きを出す */
+.luxury-drawer-bg {
+  background-color: rgba(239, 216, 213, 0.95);
+  background-image: var(--luxury-noise);
+  background-size: 180px 180px;
+}
+
 /* スクロール登場エフェクト */
 .luxury-fade-up {
   opacity: 0;
@@ -1310,7 +1317,6 @@ input[type="time"]::-webkit-datetime-edit {
     animation: none !important;
   }
 }
-
 
 
 
