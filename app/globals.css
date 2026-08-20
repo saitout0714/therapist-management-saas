@@ -1040,6 +1040,21 @@ input[type="time"]::-webkit-datetime-edit {
   box-shadow: 0 8px 22px rgba(43, 40, 39, 0.22);
 }
 
+/* モバイルドロワー最下部専用: ゴールド/ブラウン系グラデーションの視認性重視ボタン
+   (.luxury-gold-btnは色なしトライアル中のため、ここだけ独立したクラスにする) */
+.luxury-gold-gradient-btn {
+  background: linear-gradient(135deg, var(--luxury-gold-soft) 0%, var(--luxury-gold) 45%, var(--luxury-bronze) 100%);
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(197, 160, 89, 0.4);
+  transition: filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.luxury-gold-gradient-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(197, 160, 89, 0.5);
+}
+
 /* 副次的なボタン：細いゴールド/ローズ枠 + 上品なアウトラインボタン */
 .luxury-outline-btn {
   background: rgba(255, 255, 255, 0.7);
@@ -1075,11 +1090,13 @@ input[type="time"]::-webkit-datetime-edit {
   background: linear-gradient(90deg, transparent, var(--luxury-rose), var(--luxury-gold), transparent);
 }
 
-/* モバイルドロワー用: 半透明ダスティローズ+微細ノイズで奥行きを出す */
+/* モバイルドロワー用: 薄いピンク〜ベージュのグラデーション+微細ノイズ(和紙・リネン調)で奥行きを出す */
 .luxury-drawer-bg {
   background-color: rgba(239, 216, 213, 0.95);
-  background-image: var(--luxury-noise);
-  background-size: 180px 180px;
+  background-image:
+    var(--luxury-noise),
+    linear-gradient(165deg, rgba(253, 248, 245, 0.95) 0%, rgba(239, 216, 213, 0.95) 55%, rgba(226, 179, 177, 0.9) 100%);
+  background-size: 180px 180px, auto;
 }
 
 

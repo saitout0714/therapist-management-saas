@@ -59,6 +59,64 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
     { label: '求人情報', subLabel: 'セラピスト募集・採用', href: `${basePath}/recruit`, code: '07' },
   ];
 
+  // luxuryテーマ専用: 英語メイン+日本語サブ表記、左に金の線画アイコン
+  const luxuryNavLinks = [
+    {
+      en: 'TOP', ja: 'トップページ', href: basePath || '/',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 11.5 12 4l9 7.5" />
+          <path d="M5.5 10v9a1 1 0 0 0 1 1H10v-5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V20h3.5a1 1 0 0 0 1-1v-9" />
+        </svg>
+      ),
+    },
+    {
+      en: 'System & Price', ja: 'システム・料金', href: `${basePath}/system`,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12.5 3.5H20a.5.5 0 0 1 .5.5v7.5a1 1 0 0 1-.3.7l-8.5 8.5a1 1 0 0 1-1.4 0l-7.5-7.5a1 1 0 0 1 0-1.4l8.5-8.5a1 1 0 0 1 .7-.3Z" />
+          <circle cx="16" cy="8" r="1.4" />
+        </svg>
+      ),
+    },
+    {
+      en: 'Therapist', ja: 'セラピスト一覧', href: `${basePath}/therapists`,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" />
+        </svg>
+      ),
+    },
+    {
+      en: 'Schedule', ja: '出勤スケジュール', href: `${basePath}/schedule`,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3.5" y="5" width="17" height="15" rx="1.5" />
+          <path d="M3.5 9.5h17M8 3v4M16 3v4" />
+        </svg>
+      ),
+    },
+    {
+      en: 'Access', ja: 'アクセス', href: `${basePath}/access`,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 21.5s7-6.6 7-12A7 7 0 0 0 5 9.5c0 5.4 7 12 7 12Z" />
+          <circle cx="12" cy="9.5" r="2.3" />
+        </svg>
+      ),
+    },
+    {
+      en: 'Recruitment Info', ja: '求人情報', href: `${basePath}/recruit`,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3.5" y="7.5" width="17" height="12" rx="1.5" />
+          <path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3.5 13h17" />
+        </svg>
+      ),
+    },
+  ];
+
   const primaryColor = store.themeColor?.primary || '#d1b464';
   const isCyberTheme = store.slug === 'onyankospa';
   const isLuxuryTheme = store.slug === 'specialgrade';
@@ -313,7 +371,9 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
       {/* ドロワーメニュー (透明感のあるシースルーガラス) */}
       <div
-        className={`fixed inset-y-0 right-0 z-[100] w-full max-w-xs sm:max-w-sm ${isLuxuryTheme ? 'lg:max-w-md' : 'lg:hidden'} flex flex-col justify-between p-6 overflow-y-auto transition-transform duration-300 ease-out transform ${
+        className={`fixed inset-y-0 right-0 z-[100] flex flex-col justify-between p-6 overflow-y-auto transition-transform duration-300 ease-out transform ${
+          isLuxuryTheme ? 'w-[82%] sm:max-w-sm lg:max-w-md' : 'w-full max-w-xs sm:max-w-sm lg:hidden'
+        } ${
           isOpen
             ? `translate-x-0 ${isCyberTheme ? 'shadow-[-20px_0_60px_rgba(255,111,181,0.5)]' : 'shadow-[-12px_0_40px_rgba(226,179,177,0.18)]'}`
             : 'translate-x-full shadow-none'
@@ -353,7 +413,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             ) : isLuxuryTheme ? (
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-4xl leading-none font-luxury-display font-light text-[#8a7e7c] hover:text-[#c5a059] transition-colors duration-300"
+                className="w-9 h-9 flex items-center justify-center rounded-full border border-[#c5a059]/35 text-2xl leading-none font-luxury-display font-light text-[#8a7e7c] hover:text-[#c5a059] hover:border-[#c5a059] hover:bg-white/50 transition-all duration-300"
                 aria-label="閉じる"
               >
                 ×
@@ -374,17 +434,26 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
           {/* ナビゲーションリンク一覧 */}
           {isLuxuryTheme ? (
-            <div className="flex flex-col divide-y divide-[#e2b3b1]/25">
-              {navLinks.map((link, idx) => (
+            <div className="flex flex-col divide-y divide-dashed divide-[#c5a059]/35">
+              {luxuryNavLinks.map((link, idx) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
                   onClick={() => setIsOpen(false)}
-                  className={`group relative flex items-center justify-center py-4 font-luxury-display italic font-semibold text-lg tracking-[0.1em] text-[#241f1e] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
+                  className={`group relative flex items-center gap-3.5 py-3.5 transition-colors duration-400 ${isOpen ? 'cyber-link-anim' : ''}`}
                 >
-                  <span>{link.label}</span>
-                  <span className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-px bg-[#c5a059] transition-all duration-500 group-hover:w-8" />
+                  <span className="w-5 h-5 shrink-0 text-[#c5a059] transition-transform duration-400 group-hover:scale-110">
+                    {link.icon}
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="font-luxury-display italic font-semibold text-base tracking-[0.06em] text-[#241f1e] group-hover:text-[#c5a059] transition-colors duration-400">
+                      {link.en}
+                    </span>
+                    <span className="text-[10px] text-[#8a7e7c] tracking-[0.1em] mt-0.5">
+                      {link.ja}
+                    </span>
+                  </span>
                 </Link>
               ))}
             </div>
@@ -447,7 +516,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                     isCyberTheme
                       ? 'border-[#ff6fb5]/40 text-[#ded1ee] hover:border-[#ff6fb5] hover:text-white hover:bg-[#ff6fb5]/20'
                       : isLuxuryTheme
-                      ? 'border-[#e2b3b1]/45 text-[#4a3e3d] hover:border-[#c5a059] hover:text-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(226,179,177,0.3)]'
+                      ? 'border-[#c5a059]/50 text-[#c5a059] hover:border-[#c5a059] hover:bg-white hover:shadow-[0_0_15px_rgba(197,160,89,0.3)]'
                       : 'border-stone-300 text-stone-600 hover:border-stone-500 hover:bg-stone-50'
                   }`}
                 >
@@ -478,7 +547,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               isCyberTheme
                 ? 'font-extrabold rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] shadow-[0_0_20px_rgba(255,111,181,0.6)]'
                 : isLuxuryTheme
-                ? 'font-medium tracking-[0.15em] rounded-full luxury-gold-btn shadow-md'
+                ? 'font-medium tracking-[0.15em] rounded-full luxury-gold-gradient-btn'
                 : 'font-extrabold rounded-xl shadow-md bg-gradient-to-r from-[#d1b464] to-[#a39573]'
             }`}
           >
