@@ -207,7 +207,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
                   />
                   <text className="text-[8.2px] font-luxury-display tracking-[0.22em] fill-[#fdf8f5] uppercase font-medium">
                     <textPath href="#emblemCirclePath" startOffset="0%">
-                      ★ SPECIAL GRADE TOKYO ★ LUXURY SPA & BEAUTY
+                      ★ SPECIAL GRADE TOKYO ★ LUXURY SPA
                     </textPath>
                   </text>
                 </svg>
