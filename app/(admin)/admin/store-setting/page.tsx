@@ -24,6 +24,13 @@ interface NewsItemData {
   published_at?: string
 }
 
+/** 広告掲載サイトのバナー（エステラブ等の相互リンク）。shops.ad_banners にJSON配列で保存 */
+interface AdBannerItem {
+  imageUrl: string
+  linkUrl: string
+  alt: string
+}
+
 export default function OwnerStoreSettingPage() {
   const { user } = useAuth()
   const { selectedShop } = useShop()
@@ -67,6 +74,11 @@ export default function OwnerStoreSettingPage() {
   })
   const [uploadingBanner, setUploadingBanner] = useState(false)
 
+  // 広告掲載サイトのバナー（エステラブ等の相互リンク）
+  const [adBanners, setAdBanners] = useState<AdBannerItem[]>([])
+  const [newAdBanner, setNewAdBanner] = useState<AdBannerItem>({ imageUrl: '', linkUrl: '', alt: '' })
+  const [savingAdBanners, setSavingAdBanners] = useState(false)
+
   // トピックス/ニュース一覧＆入力
   const [newsList, setNewsList] = useState<NewsItemData[]>([])
   const [newNews, setNewNews] = useState<NewsItemData>({
@@ -99,7 +111,7 @@ export default function OwnerStoreSettingPage() {
         // 選択中店舗の最新プロファイルを取得
         const { data: shopData, error: fetchErr } = await supabase
           .from('shops')
-          .select('id, name, slug, short_name, phone, hp_url, business_hours, address, access_info, google_map_url, catchphrase, description, notice_banner, line_url, x_url, litlink_url, terms_of_service, recruit_info')
+          .select('id, name, slug, short_name, phone, hp_url, business_hours, address, access_info, google_map_url, catchphrase, description, notice_banner, line_url, x_url, litlink_url, terms_of_service, recruit_info, ad_banners')
           .eq('id', selectedShop.id)
           .single()
 
@@ -127,6 +139,8 @@ export default function OwnerStoreSettingPage() {
             litlink_url: shopData.litlink_url || '',
             terms_of_service: (shopData as any).terms_of_service || '',
           })
+
+          setAdBanners(Array.isArray((shopData as any).ad_banners) ? (shopData as any).ad_banners : [])
 
           if ((shopData as any).recruit_info) {
             const r = (shopData as any).recruit_info
@@ -284,6 +298,52 @@ export default function OwnerStoreSettingPage() {
       setCampaigns((prev) => prev.filter((c) => c.id !== bannerId))
     } else {
       alert('削除失敗: ' + err.message)
+    }
+  }
+
+  // 広告バナー追加（配列全体をshops.ad_bannersに書き戻す）
+  const handleAddAdBanner = async () => {
+    if (!newAdBanner.imageUrl.trim() || !newAdBanner.linkUrl.trim() || !shopId) {
+      alert('画像URLとリンク先URLを入力してください。')
+      return
+    }
+
+    const updated = [...adBanners, { ...newAdBanner, imageUrl: newAdBanner.imageUrl.trim(), linkUrl: newAdBanner.linkUrl.trim(), alt: newAdBanner.alt.trim() }]
+    setSavingAdBanners(true)
+    try {
+      const { error: err } = await supabase
+        .from('shops')
+        .update({ ad_banners: updated, updated_at: new Date().toISOString() })
+        .eq('id', shopId)
+
+      if (err) throw err
+      setAdBanners(updated)
+      setNewAdBanner({ imageUrl: '', linkUrl: '', alt: '' })
+      alert('広告バナーを追加・HPへ反映しました！')
+    } catch (err: any) {
+      alert('広告バナー追加失敗: ' + err.message)
+    } finally {
+      setSavingAdBanners(false)
+    }
+  }
+
+  // 広告バナー削除
+  const handleDeleteAdBanner = async (index: number) => {
+    if (!shopId || !confirm('この広告バナーを削除してもよろしいですか？')) return
+    const updated = adBanners.filter((_, i) => i !== index)
+    setSavingAdBanners(true)
+    try {
+      const { error: err } = await supabase
+        .from('shops')
+        .update({ ad_banners: updated, updated_at: new Date().toISOString() })
+        .eq('id', shopId)
+
+      if (err) throw err
+      setAdBanners(updated)
+    } catch (err: any) {
+      alert('削除失敗: ' + err.message)
+    } finally {
+      setSavingAdBanners(false)
     }
   }
 
@@ -760,6 +820,78 @@ export default function OwnerStoreSettingPage() {
                         削除 ✕
                       </button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 広告掲載サイトのバナー（エステラブ等の相互リンク） */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 border-b pb-2">🔗 広告掲載サイトのバナー（エステラブ等の相互リンク）</h2>
+            <p className="text-[11px] text-slate-500">
+              上のメインバナーとは別枠です。TOPページの一番下（フッター直前）に小さく並べて表示されます。
+              画像URL・リンク先URLは、掲載元サイトが提供するバナータグの `src` と `href` の値をそのまま貼り付けてください。
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">画像URL (img src)</label>
+                <input
+                  type="text"
+                  value={newAdBanner.imageUrl}
+                  onChange={(e) => setNewAdBanner({ ...newAdBanner, imageUrl: e.target.value })}
+                  placeholder="https://eslove.jp/.../banner_200x40.gif"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">リンク先URL (a href)</label>
+                <input
+                  type="text"
+                  value={newAdBanner.linkUrl}
+                  onChange={(e) => setNewAdBanner({ ...newAdBanner, linkUrl: e.target.value })}
+                  placeholder="https://eslove.jp/kanto/tokyo/shoplist/"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">代替テキスト (alt)</label>
+                <input
+                  type="text"
+                  value={newAdBanner.alt}
+                  onChange={(e) => setNewAdBanner({ ...newAdBanner, alt: e.target.value })}
+                  placeholder="エステラブ"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {newAdBanner.imageUrl && (
+              <img src={newAdBanner.imageUrl} alt={newAdBanner.alt || 'preview'} className="h-10 border border-slate-200 rounded bg-slate-50 px-1" />
+            )}
+
+            <button
+              type="button"
+              onClick={handleAddAdBanner}
+              disabled={savingAdBanners}
+              className="btn-primary w-full py-2.5 disabled:opacity-50"
+            >
+              ＋ この広告バナーを追加
+            </button>
+
+            {adBanners.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+                {adBanners.map((b, idx) => (
+                  <div key={idx} className="flex items-center gap-2 border border-slate-200 rounded-lg p-2 bg-slate-50">
+                    <img src={b.imageUrl} alt={b.alt} className="h-8" />
+                    <button
+                      onClick={() => handleDeleteAdBanner(idx)}
+                      disabled={savingAdBanners}
+                      className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50"
+                    >
+                      削除 ✕
+                    </button>
                   </div>
                 ))}
               </div>

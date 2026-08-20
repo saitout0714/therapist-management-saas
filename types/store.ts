@@ -37,6 +37,14 @@ export interface StoreConfig {
   layoutSections?: StoreSectionType[]; // モジュールコンテンツの配置順＆表示ON/OFF設定
   recruitInfo?: RecruitInfo;
   termsOfService?: string; // 利用規約・禁止事項（システム・料金ページ末尾に表示）
+  adBanners?: AdBanner[]; // 広告バナー（エステラブ等の相互リンク）。TOPページ末尾に表示
+}
+
+/** 広告バナー（エステラブ等の相互リンクバナー）。TOPページ末尾に表示 */
+export interface AdBanner {
+  imageUrl: string;
+  linkUrl: string;
+  alt: string;
 }
 
 export interface RecruitInfo {

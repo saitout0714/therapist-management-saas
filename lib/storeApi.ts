@@ -165,6 +165,13 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       lineUrl: rInfo.line_url || rInfo.lineUrl,
     } : undefined;
 
+    const rawBanners = data.ad_banners;
+    const adBanners = Array.isArray(rawBanners)
+      ? rawBanners
+          .filter((b: any) => b && typeof b === 'object' && b.imageUrl && b.linkUrl)
+          .map((b: any) => ({ imageUrl: b.imageUrl, linkUrl: b.linkUrl, alt: b.alt || '' }))
+      : undefined;
+
     return {
       id: data.id,
       slug: data.slug || slug,
@@ -185,6 +192,7 @@ export async function fetchStoreConfig(slug: string): Promise<StoreConfig> {
       description: data.description || undefined,
       recruitInfo,
       termsOfService: data.terms_of_service || undefined,
+      adBanners,
     };
   } catch {
     return MOCK_STORE;
