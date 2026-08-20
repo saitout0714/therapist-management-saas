@@ -121,7 +121,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
   const [isRevealed, setIsRevealed] = React.useState(true);
 
   // SpecialGrade用HERO画像のクロスフェード・スライドショー（ズーム/パンは廃止し、複数枚を順番に切り替える）
-  const heroSlideImages = ['/images/specialgrade_hero.jpg', '/images/specialgrade_hero_2.jpg', '/images/specialgrade_hero_3.jpg'];
+  const heroSlideImages = [
+    '/images/specialgrade_hero.jpg',
+    '/images/specialgrade_hero_2.jpg',
+    '/images/specialgrade_hero_3.jpg',
+    '/images/specialgrade_hero_4.jpg',
+    '/images/specialgrade_hero_5.jpg',
+  ];
   const [activeHeroSlide, setActiveHeroSlide] = React.useState(0);
 
   React.useEffect(() => {
