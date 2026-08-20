@@ -261,15 +261,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ campaigns, store, galler
               <p className="text-xs sm:text-sm text-stone-200 tracking-[0.2em] font-light mt-3 max-w-md drop-shadow">
                 {store.catchphrase ? store.catchphrase.split(/[|｜]/)[0].trim() : '洗練された至高のプライベートリラクゼーション'}
               </p>
-
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-6 sm:mt-8">
-                <Link
-                  href={`${basePath}/therapists`}
-                  className="bg-white/20 hover:bg-white/35 backdrop-blur-md border border-white/50 text-white inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 text-xs sm:text-sm font-medium tracking-[0.2em] rounded-full active:scale-95 shadow-md transition-all"
-                >
-                  <span>セラピスト一覧</span>
-                </Link>
-              </div>
             </div>
           </div>
         </section>
