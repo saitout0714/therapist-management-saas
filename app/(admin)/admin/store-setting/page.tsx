@@ -300,6 +300,13 @@ export default function OwnerStoreSettingPage() {
     }
   }
 
+  // 広告掲載サイトから配布されるバナータグ（<a href="..."><img .../></a>）をそのまま
+  // 貼り付けられても、hrefの値だけを取り出す。素のURLが入力された場合はそのまま使う。
+  const extractHrefUrl = (input: string): string => {
+    const match = input.match(/href\s*=\s*["']([^"']+)["']/i)
+    return (match ? match[1] : input).trim()
+  }
+
   // 広告リンク追加（配列全体をshops.ad_bannersに書き戻す）
   const handleAddAdBanner = async () => {
     if (!newAdBanner.siteName.trim() || !newAdBanner.linkUrl.trim() || !shopId) {
@@ -307,7 +314,7 @@ export default function OwnerStoreSettingPage() {
       return
     }
 
-    const updated = [...adBanners, { siteName: newAdBanner.siteName.trim(), linkUrl: newAdBanner.linkUrl.trim() }]
+    const updated = [...adBanners, { siteName: newAdBanner.siteName.trim(), linkUrl: extractHrefUrl(newAdBanner.linkUrl) }]
     setSavingAdBanners(true)
     try {
       const { error: err } = await supabase
@@ -830,6 +837,7 @@ export default function OwnerStoreSettingPage() {
             <h2 className="text-sm font-bold text-slate-800 border-b pb-2">🔗 広告掲載サイトへのリンク</h2>
             <p className="text-[11px] text-slate-500">
               上のメインバナーとは別枠です。TOPページの一番下（フッター直前）にサイト名のリンクとして並べて表示されます。
+              リンク先URLは掲載元からもらった `&lt;a href=&quot;...&quot;&gt;` タグをそのまま貼り付けてもOKです（自動でURLだけ取り出します）。
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
