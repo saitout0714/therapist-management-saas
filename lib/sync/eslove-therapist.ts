@@ -79,7 +79,8 @@ export async function syncTherapistToEslove(
     if (page.url().includes('/login')) {
       throw new Error('エステラブログインに失敗しました。認証情報を確認してください。');
     }
-    await page.waitForTimeout(500);
+    // Vue側のハイドレーション待ち（フォームが描画されるまで）
+    await page.waitForSelector('input[name="name"]', { timeout: 15000 }).catch(() => {});
 
     // 2. フォームへ入力
     const nameInput = await page.$('input[name="name"]');
@@ -128,7 +129,7 @@ export async function syncTherapistToEslove(
         newId = match[1];
       } else {
         await page.goto('https://eslove.jp/admin/shop/therapist', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-        await page.waitForTimeout(500);
+        await page.waitForSelector('a[href*="/therapist/edit/"]', { timeout: 15000 }).catch(() => {});
         const firstEditHref = await page.evaluate(() => {
           const a = document.querySelector('a[href*="/therapist/edit/"]');
           return a ? a.getAttribute('href') : null;
@@ -144,7 +145,7 @@ export async function syncTherapistToEslove(
       const tmpPaths: string[] = [];
       try {
         await page.goto(`https://eslove.jp/admin/shop/therapist_image/${newId}`, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-        await page.waitForTimeout(500);
+        await page.waitForSelector('#therapistImageUpload, input[type="file"]', { timeout: 15000 }).catch(() => {});
 
         for (let i = 0; i < Math.min(photoUrls.length, 5); i++) {
           const url = photoUrls[i];

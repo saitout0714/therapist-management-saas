@@ -55,8 +55,10 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
     await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
   });
 
-  const idInput = await page.$('input[type="text"], input[name="id"], input[name="login_id"]');
-  const passInput = await page.$('input[type="password"]');
+  // エステラブの管理画面はVue製のSPAで、domcontentloaded時点ではまだログインフォームが
+  // マウントされていない。JSによる描画完了を待ってから要素を探す必要がある。
+  const idInput = await page.waitForSelector('input[type="text"], input[name="id"], input[name="login_id"]', { timeout: 15000 }).catch(() => null);
+  const passInput = await page.waitForSelector('input[type="password"]', { timeout: 15000 }).catch(() => null);
 
   if (!idInput || !passInput) {
     throw new Error('エステラブのログイン入力項目が見つかりませんでした。');
@@ -145,7 +147,7 @@ export async function fetchTherapistsFromEslove(
     await loginToEslove(page, shopUrl, loginId, password);
 
     await page.goto('https://eslove.jp/admin/shop/therapist', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await page.waitForSelector('a[href*="/therapist/edit/"]', { timeout: 15000 }).catch(() => {});
 
     const therapists = await page.evaluate(() => {
       const list: { id: string; name: string }[] = [];
@@ -268,8 +270,8 @@ export async function syncShiftsToEslove(
         details.push({ date: dateStr, error: '出勤情報ページを開けませんでした' });
         continue;
       }
-      // Vue側のハイドレーション待ち
-      await page.waitForTimeout(800);
+      // Vue側のハイドレーション待ち（隠しフィールドが描画されるまで）
+      await page.waitForSelector('input[name^="TherapistSchedules"][name$="[therapist_id]"]', { timeout: 15000 }).catch(() => {});
 
       const rowMap: Record<string, number> = await page.evaluate(() => {
         const map: Record<string, number> = {};
