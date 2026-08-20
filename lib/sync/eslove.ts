@@ -298,34 +298,6 @@ export async function syncShiftsToEslove(
 
     for (const dateStr of dates) {
       const offset = dateOffsetFromToday(dateStr);
-      const url = `https://eslove.jp/admin/shop/therapist_schedule/daily?day=${offset}`;
-
-      let navigated = false;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-          navigated = true;
-          break;
-        } catch (err) {
-          if (attempt === 1) await page.waitForTimeout(1000);
-          else throw err;
-        }
-      }
-      if (!navigated) {
-        details.push({ date: dateStr, error: '出勤情報ページを開けませんでした' });
-        continue;
-      }
-      // Vue側のハイドレーション待ち（隠しフィールドが描画されるまで）
-      await page.waitForSelector('input[name^="TherapistSchedules"][name$="[therapist_id]"]', { timeout: 15000 }).catch(() => {});
-
-      const rowMap: Record<string, number> = await page.evaluate(() => {
-        const map: Record<string, number> = {};
-        document.querySelectorAll('input[name^="TherapistSchedules"][name$="[therapist_id]"]').forEach((el: any) => {
-          const m = (el.getAttribute('name') || '').match(/TherapistSchedules\[(\d+)\]/);
-          if (m && el.value) map[el.value] = parseInt(m[1], 10);
-        });
-        return map;
-      });
 
       const dayShifts = shifts.filter((s: any) => String(s.date).slice(0, 10) === dateStr);
 
@@ -333,34 +305,77 @@ export async function syncShiftsToEslove(
         ? activeTherapists.map((t: any) => t.eslove_therapist_id).filter((id: any) => !!id)
         : [...new Set(dayShifts.map((s: any) => s.therapists?.eslove_therapist_id).filter((id: any) => !!id))] as string[];
 
-      for (const esloveId of targetTherapistIds) {
-        const rowIdx = rowMap[esloveId];
-        if (rowIdx === undefined) {
-          details.push({ esloveId, date: dateStr, error: '出勤情報ページにセラピスト行が見つかりません' });
-          continue;
-        }
+      // 出勤情報ページはセラピスト50人ごとにページ分割される。
+      // 51人目以降を取りこぼさないよう、未処理のセラピストが残っている限り次ページを辿る。
+      const remaining = new Set(targetTherapistIds);
+      const MAX_PAGES = 20;
 
-        const shift = dayShifts.find((s: any) => s.therapists?.eslove_therapist_id === esloveId);
-        const startVal = shift ? toEsloveTimeValue(shift.start_time) : '';
-        const endVal = shift ? toEsloveTimeValue(shift.end_time) : '';
+      for (let pageNum = 1; pageNum <= MAX_PAGES && remaining.size > 0; pageNum++) {
+        const url = `https://eslove.jp/admin/shop/therapist_schedule/daily?day=${offset}` +
+          (pageNum > 1 ? `&page=${pageNum}` : '');
 
-        try {
-          const startSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][start_time]"]`);
-          const endSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][end_time]"]`);
-
-          if (await startSelect.count() > 0) await startSelect.selectOption(startVal).catch(() => {});
-          if (await endSelect.count() > 0) await endSelect.selectOption(endVal).catch(() => {});
-
-          const saveBtn = page.locator('.js-regist').nth(rowIdx);
-          if (await saveBtn.count() > 0) {
-            await saveBtn.click({ timeout: 5000 }).catch(() => {});
-            await page.waitForTimeout(500);
+        let navigated = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+            navigated = true;
+            break;
+          } catch (err) {
+            if (attempt === 1) await page.waitForTimeout(1000);
+            else throw err;
           }
-
-          details.push({ esloveId, date: dateStr, start: startVal, end: endVal, saved: true });
-        } catch (e: any) {
-          details.push({ esloveId, date: dateStr, error: e.message });
         }
+        if (!navigated) {
+          details.push({ date: dateStr, page: pageNum, error: '出勤情報ページを開けませんでした' });
+          break;
+        }
+        // Vue側のハイドレーション待ち（隠しフィールドが描画されるまで）
+        await page.waitForSelector('input[name^="TherapistSchedules"][name$="[therapist_id]"]', { timeout: 15000 }).catch(() => {});
+
+        const rowMap: Record<string, number> = await page.evaluate(() => {
+          const map: Record<string, number> = {};
+          document.querySelectorAll('input[name^="TherapistSchedules"][name$="[therapist_id]"]').forEach((el: any) => {
+            const m = (el.getAttribute('name') || '').match(/TherapistSchedules\[(\d+)\]/);
+            if (m && el.value) map[el.value] = parseInt(m[1], 10);
+          });
+          return map;
+        });
+
+        // このページに行が1つも無ければ、これ以上ページは存在しない
+        if (Object.keys(rowMap).length === 0) break;
+
+        for (const esloveId of [...remaining]) {
+          const rowIdx = rowMap[esloveId];
+          if (rowIdx === undefined) continue; // 別のページにいる可能性があるので残しておく
+          remaining.delete(esloveId);
+
+          const shift = dayShifts.find((s: any) => s.therapists?.eslove_therapist_id === esloveId);
+          const startVal = shift ? toEsloveTimeValue(shift.start_time) : '';
+          const endVal = shift ? toEsloveTimeValue(shift.end_time) : '';
+
+          try {
+            const startSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][start_time]"]`);
+            const endSelect = page.locator(`select[name="TherapistSchedules[${rowIdx}][end_time]"]`);
+
+            if (await startSelect.count() > 0) await startSelect.selectOption(startVal).catch(() => {});
+            if (await endSelect.count() > 0) await endSelect.selectOption(endVal).catch(() => {});
+
+            const saveBtn = page.locator('.js-regist').nth(rowIdx);
+            if (await saveBtn.count() > 0) {
+              await saveBtn.click({ timeout: 5000 }).catch(() => {});
+              await page.waitForTimeout(500);
+            }
+
+            details.push({ esloveId, date: dateStr, start: startVal, end: endVal, saved: true });
+          } catch (e: any) {
+            details.push({ esloveId, date: dateStr, error: e.message });
+          }
+        }
+      }
+
+      // 全ページを見ても行が見つからなかったセラピスト
+      for (const esloveId of remaining) {
+        details.push({ esloveId, date: dateStr, error: '出勤情報ページにセラピスト行が見つかりません' });
       }
     }
 

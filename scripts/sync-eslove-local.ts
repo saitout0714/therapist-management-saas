@@ -72,7 +72,11 @@ async function main() {
         let portalNameMap = new Map<string, string>();
         try {
           const portalTherapists = await fetchTherapistsFromEslove(creds.loginUrl, creds.loginId, creds.password);
-          portalNameMap = new Map(portalTherapists.map(t => [normalize(t.name), t.id]));
+          // 同名の重複プロフィールがある場合、一覧の表示順で先に現れた方（実際に使われている方）を優先する
+          for (const t of portalTherapists) {
+            const key = normalize(t.name);
+            if (!portalNameMap.has(key)) portalNameMap.set(key, t.id);
+          }
           console.log(`ポータル側に既存プロフィール${portalTherapists.length}件を確認。`);
         } catch (e: any) {
           console.warn('ポータル側一覧の取得に失敗（未紐付けキャストは新規登録になります）:', e.message);

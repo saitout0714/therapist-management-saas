@@ -17,7 +17,10 @@ function normalizeTherapistName(name: string): string {
 function buildPortalNameMap(portalTherapists: { id: string; name: string }[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const t of portalTherapists) {
-    map.set(normalizeTherapistName(t.name), t.id);
+    // ポータル側に同名の重複プロフィールが存在することがある。一覧は表示順に並んでいるため、
+    // 先に現れたもの（＝実際に使われている方）を優先し、後から来た古い重複で上書きしない。
+    const key = normalizeTherapistName(t.name);
+    if (!map.has(key)) map.set(key, t.id);
   }
   return map;
 }

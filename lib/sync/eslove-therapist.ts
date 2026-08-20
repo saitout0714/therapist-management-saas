@@ -122,7 +122,10 @@ export async function syncTherapistToEslove(
       await page.waitForTimeout(1000);
     }
 
-    // 4. 新規登録の場合、保存後のURLまたは一覧ページの先頭からIDを取得する
+    // 4. 新規登録の場合、保存後のURLまたは一覧ページから「名前が一致する」IDを取得する。
+    //    ※かつては一覧の先頭リンクのIDを使っていたが、それだと全く無関係の既存キャストの
+    //      プロフィールに紐付いてしまい、次回同期でそのキャストを上書きしてしまう。
+    //      名前で特定できない場合はエラーにして、誤った紐付けを作らない。
     let newId = esloveTherapistId;
     if (isNew) {
       const afterUrl = page.url();
@@ -132,12 +135,26 @@ export async function syncTherapistToEslove(
       } else {
         await page.goto('https://eslove.jp/admin/shop/therapist', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
         await page.waitForSelector('a[href*="/therapist/edit/"]', { timeout: 15000 }).catch(() => {});
-        const firstEditHref = await page.evaluate(() => {
-          const a = document.querySelector('a[href*="/therapist/edit/"]');
-          return a ? a.getAttribute('href') : null;
+
+        const targetName = (therapist.name || '').replace(/\s+/g, '').toLowerCase();
+        const portalEntries: { id: string; name: string }[] = await page.evaluate(() => {
+          const list: { id: string; name: string }[] = [];
+          document.querySelectorAll('a[href*="/therapist/edit/"]').forEach(a => {
+            const m = (a.getAttribute('href') || '').match(/\/therapist\/edit\/(\d+)/);
+            const name = (a.textContent || '').trim();
+            if (m && name) list.push({ id: m[1], name });
+          });
+          return list;
         });
-        const m = firstEditHref?.match(/\/therapist\/edit\/(\d+)/);
-        if (m && m[1]) newId = m[1];
+
+        const foundId = portalEntries.find(
+          e => e.name.replace(/\s+/g, '').toLowerCase() === targetName
+        )?.id || null;
+
+        if (!foundId) {
+          throw new Error(`エステラブへの新規登録後、「${therapist.name}」のプロフィールを一覧から特定できませんでした。エステラブ側の入力チェックで保存が拒否された可能性があります（名前に使用できない文字が含まれていないかご確認ください）。`);
+        }
+        newId = foundId;
       }
     }
 
