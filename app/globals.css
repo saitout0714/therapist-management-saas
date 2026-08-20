@@ -1494,6 +1494,73 @@ input[type="time"]::-webkit-datetime-edit {
   will-change: transform, opacity;
 }
 
+/* ==========================================================================
+   予約フォーム(ReserveClient.tsx)の配色を specialgrade のサイト本体に合わせる。
+   ラッパー要素に .luxury-reserve クラスを付けると発動する。
+
+   予約フォームは元々 kokoro-rinse というセージグリーンの店舗の見た目を
+   全店舗共通の既定デザインとして流用しており（isCyberTheme以外は全店舗この配色）、
+   specialgrade もこのセージグリーン＋青系の配色のまま表示されていた。
+   isCyberTheme のように分岐を1個ずつ書き足すには対象が100箇所以上あるため、
+   代わりにTailwindが出力した実クラスをこのスコープ内だけ上書きする方式にした。
+   赤(エラー)・緑(空き枠あり)・オレンジ(注意書き)は意味が変わるため触っていない。
+   ========================================================================== */
+
+.luxury-reserve h1,
+.luxury-reserve h2 {
+  font-family: var(--font-luxury-serif), "Noto Serif JP", serif;
+  letter-spacing: 0.06em;
+}
+
+.luxury-reserve .text-slate-800 { color: var(--luxury-ink) !important; }
+.luxury-reserve .text-slate-700 { color: #3a3332 !important; }
+.luxury-reserve .text-slate-600 { color: var(--luxury-ink-soft) !important; }
+.luxury-reserve .text-slate-500 { color: var(--luxury-ink-muted) !important; }
+.luxury-reserve .text-slate-400 { color: #8a7e7c !important; }
+.luxury-reserve .text-slate-300 { color: #c9b7ae !important; }
+.luxury-reserve .text-stone-800 { color: var(--luxury-ink) !important; }
+.luxury-reserve .text-stone-700 { color: #3a3332 !important; }
+.luxury-reserve .text-stone-500 { color: var(--luxury-ink-muted) !important; }
+
+.luxury-reserve .bg-slate-50 { background-color: #fdf8f5 !important; }
+.luxury-reserve .bg-slate-100 { background-color: var(--luxury-warm-ivory) !important; }
+.luxury-reserve .bg-slate-200 { background-color: var(--luxury-rose-soft) !important; }
+.luxury-reserve .bg-slate-300 { background-color: var(--luxury-rose-light) !important; }
+.luxury-reserve .bg-slate-400\/60 { background-color: rgba(43, 40, 39, 0.45) !important; }
+.luxury-reserve .from-slate-50 { --tw-gradient-from: #fdf8f5 !important; }
+.luxury-reserve .to-slate-100 { --tw-gradient-to: var(--luxury-warm-ivory) !important; }
+
+.luxury-reserve .border-slate-100 { border-color: rgba(226, 179, 177, 0.25) !important; }
+.luxury-reserve .border-slate-200 { border-color: rgba(226, 179, 177, 0.4) !important; }
+.luxury-reserve .border-slate-300 { border-color: rgba(197, 160, 89, 0.35) !important; }
+
+.luxury-reserve .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(226, 179, 177, 0.25) !important; }
+.luxury-reserve .placeholder-slate-300::placeholder { color: #c9b7ae !important; }
+
+.luxury-reserve .text-blue-500 { color: var(--luxury-gold) !important; }
+.luxury-reserve .text-blue-600 { color: var(--luxury-gold-deep) !important; }
+.luxury-reserve .text-blue-700 { color: #8a6f3d !important; }
+.luxury-reserve .bg-blue-50 { background-color: #fdf6ec !important; }
+.luxury-reserve .bg-blue-500 { background-color: var(--luxury-gold) !important; }
+
+.luxury-reserve .border-blue-100 { border-color: rgba(226, 179, 177, 0.35) !important; }
+.luxury-reserve .border-blue-200 { border-color: var(--luxury-rose-light) !important; }
+.luxury-reserve .border-blue-300 { border-color: var(--luxury-rose) !important; }
+.luxury-reserve .border-blue-400 { border-color: var(--luxury-gold-bright) !important; }
+.luxury-reserve .border-blue-500 { border-color: var(--luxury-gold) !important; }
+.luxury-reserve .hover\:border-blue-300:hover { border-color: var(--luxury-gold-bright) !important; }
+
+.luxury-reserve .bg-\[\#789280\] { background-color: var(--luxury-gold) !important; }
+.luxury-reserve .border-\[\#789280\] { border-color: var(--luxury-gold) !important; }
+.luxury-reserve .hover\:border-\[\#789280\]:hover { border-color: var(--luxury-gold) !important; }
+.luxury-reserve .hover\:bg-\[\#5d7362\]:hover { background-color: var(--luxury-gold-deep) !important; }
+.luxury-reserve .text-\[\#4a5c50\] { color: #8a6f3d !important; }
+.luxury-reserve .hover\:text-\[\#4a5c50\]:hover { color: #8a6f3d !important; }
+.luxury-reserve .bg-\[\#f0f4f1\] { background-color: #fdf6ec !important; }
+.luxury-reserve .hover\:bg-\[\#f0f4f1\]:hover { background-color: #fdf6ec !important; }
+.luxury-reserve .bg-\[\#f4f7f5\] { background-color: #fdf8f5 !important; }
+.luxury-reserve .focus\:ring-\[\#789280\]\/50:focus { --tw-ring-color: rgba(197, 160, 89, 0.5) !important; }
+
 @media (prefers-reduced-motion: reduce) {
   .luxury-fade-up,
   .luxury-rule-draw {

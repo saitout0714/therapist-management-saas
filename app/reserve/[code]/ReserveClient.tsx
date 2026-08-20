@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Header } from '@/components/store/Header'
 import { Footer } from '@/components/store/Footer'
+import { LuxuryAmbientBackground } from '@/components/store/LuxuryAmbientBackground'
 import { fetchStoreConfig } from '@/lib/storeApi'
 import type { StoreConfig } from '@/types/store'
 
@@ -738,29 +739,40 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
     return hex ? hex.replace('#', '') : null
   }, [shop?.theme_color, shop?.has_hp])
   // おニャンこスパ（template_id: 'cute'）はHP側と同じサイバーネオンの専用デザインをここでも使う。
+  // specialgrade（template_id: 'luxury'）も同様にHP側のローズ×ゴールドの専用デザインを使う。
   // 色相を変えるだけの汎用テーマ機構ではなく、Header/Footer等と同じ isCyberTheme 分岐で全面的に描き分ける。
   const isCyberTheme = shop?.template_id === 'cute'
-  const activeThemeColor = isCyberTheme ? null : (themeParam || shopThemeColor || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null))
+  const isLuxuryTheme = shop?.template_id === 'luxury'
+  const activeThemeColor = (isCyberTheme || isLuxuryTheme) ? null : (themeParam || shopThemeColor || (code === 'kokoro-rinse' || shop?.name?.includes('こころリンス') ? '758e7b' : null))
 
   return (
-    <div ref={mainRef} className={`${isEmbed ? 'min-h-0' : 'min-h-screen'} ${isCyberTheme ? 'cyber-bg text-[#f4eefa]' : 'bg-white'}`}>
+    <div ref={mainRef} className={`${isEmbed ? 'min-h-0' : 'min-h-screen'} ${
+      isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body luxury-reserve relative' : 'bg-white'
+    }`}>
       {activeThemeColor && (
         <style dangerouslySetInnerHTML={{ __html: generateThemeStyles(activeThemeColor) }} />
       )}
       {/* ヘッダー */}
       {!isEmbed && (
-        isCyberTheme && storeConfig ? (
+        (isCyberTheme || isLuxuryTheme) && storeConfig ? (
           <>
             {/* HP本体と全く同じ Header コンポーネントを使用（ロゴ・ナビ・SNS等もHPと共通） */}
             <Header store={storeConfig} />
+            {isLuxuryTheme && <LuxuryAmbientBackground />}
             {step !== 'complete' && (
-              <div className="bg-[#150e20]/85 backdrop-blur-xl border-b border-[#ff6fb5]/35 shadow-[0_6px_28px_rgba(255,111,181,0.22)]">
+              <div className={
+                isCyberTheme
+                  ? 'bg-[#150e20]/85 backdrop-blur-xl border-b border-[#ff6fb5]/35 shadow-[0_6px_28px_rgba(255,111,181,0.22)]'
+                  : 'relative bg-[#fdf8f5]/90 backdrop-blur-xl border-b border-[#e2b3b1]/35 shadow-[0_6px_20px_rgba(226,179,177,0.15)]'
+              }>
                 <div className="max-w-2xl mx-auto px-4 h-11 flex items-center justify-center gap-1.5">
                   {stepLabels.map((s, i) => (
                     <div key={s.key} className={`flex items-center gap-1.5 ${i > 0 ? 'ml-0' : ''}`}>
-                      {i > 0 && <div className="w-4 h-px bg-[#ff6fb5]/30" />}
+                      {i > 0 && <div className={isCyberTheme ? 'w-4 h-px bg-[#ff6fb5]/30' : 'w-4 h-px bg-[#c5a059]/30'} />}
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                        i <= stepIndex ? 'bg-gradient-to-r from-[#ff6fb5] to-[#cf82d8] text-white shadow-[0_0_10px_rgba(255,111,181,0.6)]' : 'bg-white/10 text-[#ded1ee]/50 border border-[#ff6fb5]/20'
+                        isCyberTheme
+                          ? (i <= stepIndex ? 'bg-gradient-to-r from-[#ff6fb5] to-[#cf82d8] text-white shadow-[0_0_10px_rgba(255,111,181,0.6)]' : 'bg-white/10 text-[#ded1ee]/50 border border-[#ff6fb5]/20')
+                          : (i <= stepIndex ? 'bg-gradient-to-r from-[#e5c989] via-[#c5a059] to-[#a8874a] text-white shadow-[0_0_10px_rgba(197,160,89,0.4)]' : 'bg-white text-[#c5a059]/60 border border-[#e2b3b1]/40')
                       }`}>
                         {i < stepIndex ? (
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -808,7 +820,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
         )
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
+      <div className={`max-w-2xl mx-auto px-4 py-6 pb-24 ${isLuxuryTheme ? 'relative z-10' : ''}`}>
         {error && (
           <div className={`mb-4 p-3 rounded-xl text-sm ${
             isCyberTheme ? 'bg-[#ff6fb5]/10 border border-[#ff6fb5]/40 text-[#ffa8d8]' : 'bg-red-50 border border-red-200 text-red-600'
@@ -1663,7 +1675,7 @@ export default function ReserveClient({ initialData }: { initialData: InitialRes
       </div>
 
       {/* HP本体と全く同じ Footer コンポーネントを使用 */}
-      {!isEmbed && isCyberTheme && storeConfig && <Footer store={storeConfig} />}
+      {!isEmbed && (isCyberTheme || isLuxuryTheme) && storeConfig && <Footer store={storeConfig} />}
     </div>
   )
 }
