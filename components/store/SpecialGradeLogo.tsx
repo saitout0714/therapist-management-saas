@@ -5,6 +5,8 @@ import React from 'react';
 interface SpecialGradeLogoProps {
   variant?: 'horizontal' | 'vertical' | 'mark-only' | 'misshelly';
   size?: 'sm' | 'md' | 'lg';
+  /** マーク(SGエンブレム)だけ別サイズにしたい場合に指定。未指定時は size に合わせる。 */
+  markSize?: 'sm' | 'md' | 'lg';
   className?: string;
   theme?: 'dark' | 'light' | 'gold';
 }
@@ -12,9 +14,11 @@ interface SpecialGradeLogoProps {
 export const SpecialGradeLogo: React.FC<SpecialGradeLogoProps> = ({
   variant = 'misshelly',
   size = 'md',
+  markSize,
   className = '',
   theme = 'dark',
 }) => {
+  const resolvedMarkSize = markSize ?? size;
   const isLight = theme === 'light';
   const isGold = theme === 'gold';
 
@@ -25,7 +29,7 @@ export const SpecialGradeLogo: React.FC<SpecialGradeLogoProps> = ({
   // モノグラムマーク SVG (misshelly風の繊細なリング＆SGクレスト)
   const MonogramMark = (
     <div className={`relative flex items-center justify-center ${
-      size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-10 h-10' : 'w-6 h-6'
+      resolvedMarkSize === 'sm' ? 'w-5 h-5' : resolvedMarkSize === 'lg' ? 'w-10 h-10' : 'w-6 h-6'
     } transition-transform duration-500 group-hover:scale-105`}>
       <svg viewBox="0 0 60 60" fill="none" className="w-full h-full">
         {/* 外側オーバルリング */}
@@ -90,7 +94,7 @@ export const SpecialGradeLogo: React.FC<SpecialGradeLogoProps> = ({
       <div className={`flex flex-col items-center justify-center text-center group cursor-pointer leading-none gap-0.5 ${className}`}>
         {MonogramMark}
         <span
-          className={`font-luxury-display italic tracking-[0.14em] transition-colors ${
+          className={`font-luxury-display italic tracking-[0.14em] transition-colors whitespace-nowrap ${
             size === 'sm' ? 'text-sm sm:text-base' : size === 'lg' ? 'text-2xl sm:text-3xl' : 'text-base sm:text-lg'
           }`}
           style={{ color: textColor }}

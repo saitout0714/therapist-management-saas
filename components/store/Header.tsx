@@ -106,7 +106,8 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
               <Link href={basePath || '/'} className="flex items-center justify-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
                 <SpecialGradeLogo
                   variant="misshelly"
-                  size="lg"
+                  size="sm"
+                  markSize="lg"
                   theme="light"
                 />
               </Link>
