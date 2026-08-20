@@ -18,9 +18,11 @@ async function getBrowser() {
   const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
   if (isLocal) {
+    // CHROMIUM_ARGS はLinuxサーバーレス向けの設定で、--single-process 等は
+    // WindowsではChromiumがクラッシュするため、Windowsでは引数なしで起動する
     return await playwrightLocal.launch({
       headless: true,
-      args: CHROMIUM_ARGS,
+      args: process.platform === 'win32' ? [] : CHROMIUM_ARGS,
     });
   } else {
     console.log('[EsloveTherapistSync] Dynamically importing playwright-core and @sparticuz/chromium...');
@@ -157,8 +159,14 @@ export async function syncTherapistToEslove(
         if (tmpPaths.length > 0) {
           const fileInput = page.locator('#therapistImageUpload, input[type="file"]').first();
           if (await fileInput.count() > 0) {
-            await fileInput.setInputFiles(tmpPaths);
-            await page.waitForTimeout(1500);
+            // エステラブのファイル入力は multiple 属性が無く1回に1ファイルしか
+            // 受け付けないため、1枚ずつ順番にアップロードする
+            for (const tmpPath of tmpPaths) {
+              await fileInput.setInputFiles(tmpPath).catch((e: any) => {
+                console.warn('[EsloveTherapistSync] Photo upload failed:', e.message);
+              });
+              await page.waitForTimeout(1500);
+            }
 
             const imageSaveBtn = page.locator('button:has-text("内容を保存する"), input[value*="保存"]').first();
             if (await imageSaveBtn.count() > 0) {

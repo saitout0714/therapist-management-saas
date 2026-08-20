@@ -29,9 +29,11 @@ async function getBrowser() {
   const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
   if (isLocal) {
+    // CHROMIUM_ARGS はLinuxサーバーレス向けの設定で、--single-process 等は
+    // WindowsではChromiumがクラッシュするため、Windowsでは引数なしで起動する
     return await playwrightLocal.launch({
       headless: true,
-      args: CHROMIUM_ARGS,
+      args: process.platform === 'win32' ? [] : CHROMIUM_ARGS,
     });
   } else {
     console.log('[EsloveSync] Dynamically importing playwright-core and @sparticuz/chromium...');
