@@ -312,7 +312,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
           isCyberTheme
             ? 'bg-[#0d061e]/45 backdrop-blur-2xl border-l-2 border-[#ff6fb5]/70 text-[#f4eefa]'
             : isLuxuryTheme
-            ? 'bg-[#fdf8f5]/95 backdrop-blur-2xl border-l border-[#e2b3b1]/35 text-[#2b2827] luxury-body'
+            ? 'bg-[#efd8d5]/95 backdrop-blur-2xl border-l border-[#e2b3b1]/35 text-[#2b2827] luxury-body'
             : 'bg-white/95 backdrop-blur-xl border-l border-[#d1b464]/30 text-stone-800 font-serif'
         }`}
       >
