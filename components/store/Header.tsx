@@ -340,57 +340,75 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
                 <span className={`text-xs tracking-[0.25em] ${isLuxuryTheme ? 'font-medium font-luxury-display italic text-[#c5a059]' : 'font-bold text-stone-500'}`}>MENU</span>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className={`p-1 text-lg font-bold transition-colors duration-300 ${isLuxuryTheme ? 'text-[#8a7e7c] hover:text-[#c5a059]' : 'text-stone-600 hover:text-stone-900'}`}
+                  className={`p-1 transition-colors duration-300 ${
+                    isLuxuryTheme
+                      ? 'text-xl font-luxury-display font-light text-[#8a7e7c] hover:text-[#c5a059]'
+                      : 'text-lg font-bold text-stone-600 hover:text-stone-900'
+                  }`}
                   aria-label="閉じる"
                 >
-                  ✕
+                  ×
                 </button>
               </>
             )}
           </div>
 
           {/* ナビゲーションリンク一覧 */}
-          <div className="space-y-2.5">
-            {navLinks.map((link, idx) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
-                onClick={() => setIsOpen(false)}
-                className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-400 ${
-                  isCyberTheme
-                    ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
-                    : isLuxuryTheme
-                    ? 'border-[#e2b3b1]/25 bg-white/70 hover:bg-white hover:border-[#c5a059]/60 hover:text-[#c5a059] text-[#2b2827] hover:shadow-[0_4px_16px_rgba(226,179,177,0.2)]'
-                    : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
-                } ${isOpen ? 'cyber-link-anim' : ''}`}
-              >
-                <div className="flex items-center gap-3">
+          {isLuxuryTheme ? (
+            <div className="flex flex-col divide-y divide-[#e2b3b1]/25">
+              {navLinks.map((link, idx) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
+                  onClick={() => setIsOpen(false)}
+                  className={`group py-4 text-center font-luxury-display italic text-base tracking-[0.12em] text-[#2b2827] transition-colors duration-400 hover:text-[#c5a059] ${isOpen ? 'cyber-link-anim' : ''}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {navLinks.map((link, idx) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
+                  onClick={() => setIsOpen(false)}
+                  className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-400 ${
+                    isCyberTheme
+                      ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
+                      : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
+                  } ${isOpen ? 'cyber-link-anim' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {isCyberTheme && (
+                      <span className="text-xs font-mono font-bold text-[#ff6fb5] tracking-widest opacity-80 group-hover:opacity-100">
+                        {link.code}
+                      </span>
+                    )}
+                    <div>
+                      <div className="text-sm font-bold tracking-widest group-hover:translate-x-1 transition-transform">
+                        {link.label}
+                      </div>
+                      {isCyberTheme && (
+                        <div className="text-[10px] text-[#ded1ee]/60 font-sans tracking-wide">
+                          {link.subLabel}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {isCyberTheme && (
-                    <span className="text-xs font-mono font-bold text-[#ff6fb5] tracking-widest opacity-80 group-hover:opacity-100">
-                      {link.code}
+                    <span className="text-xs text-[#ff6fb5]/50 group-hover:text-[#ff6fb5] group-hover:translate-x-1 transition-all">
+                      ➔
                     </span>
                   )}
-                  <div>
-                    <div className="text-sm font-bold tracking-widest group-hover:translate-x-1 transition-transform">
-                      {link.label}
-                    </div>
-                    {isCyberTheme && (
-                      <div className="text-[10px] text-[#ded1ee]/60 font-sans tracking-wide">
-                        {link.subLabel}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {isCyberTheme && (
-                  <span className="text-xs text-[#ff6fb5]/50 group-hover:text-[#ff6fb5] group-hover:translate-x-1 transition-all">
-                    ➔
-                  </span>
-                )}
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ドロワーフッターアクション */}
