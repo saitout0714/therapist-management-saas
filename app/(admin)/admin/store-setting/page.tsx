@@ -22,6 +22,7 @@ interface NewsItemData {
   content: string
   category?: string
   published_at?: string
+  image_url?: string
 }
 
 /** 広告掲載サイトのバナー（エステラブ等の相互リンク）。shops.ad_banners にJSON配列で保存 */
@@ -34,7 +35,7 @@ interface AdBannerItem {
 export default function OwnerStoreSettingPage() {
   const { user } = useAuth()
   const { selectedShop } = useShop()
-  const [activeTab, setActiveTab] = useState<'profile' | 'banners' | 'news' | 'recruit'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'banners' | 'adbanners' | 'news' | 'recruit'>('profile')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -86,7 +87,10 @@ export default function OwnerStoreSettingPage() {
     title: '',
     content: '',
     category: 'お知らせ',
+    image_url: '',
   })
+  const [uploadingNewsImage, setUploadingNewsImage] = useState(false)
+  const [uploadingEditNewsImage, setUploadingEditNewsImage] = useState(false)
   // 編集ポップアップで表示中のトピックス。null なら閉じている。
   const [editingNews, setEditingNews] = useState<NewsItemData | null>(null)
 
@@ -360,6 +364,64 @@ export default function OwnerStoreSettingPage() {
   }
 
   // トピックス新規投稿
+  // トピックス画像アップロード（新規投稿フォーム）
+  const handleNewsImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !shopId) return
+    setUploadingNewsImage(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const filePath = `shops/${shopId}/news/${Date.now()}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from('therapist-photos')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadErr) throw uploadErr
+
+      const { data: publicUrlData } = supabase.storage
+        .from('therapist-photos')
+        .getPublicUrl(filePath)
+
+      if (publicUrlData?.publicUrl) {
+        setNewNews((prev) => ({ ...prev, image_url: publicUrlData.publicUrl }))
+      }
+    } catch (err: any) {
+      alert('画像のアップロードに失敗しました: ' + err.message)
+    } finally {
+      setUploadingNewsImage(false)
+    }
+  }
+
+  // トピックス画像アップロード（編集ポップアップ）
+  const handleEditNewsImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !shopId) return
+    setUploadingEditNewsImage(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const filePath = `shops/${shopId}/news/${Date.now()}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from('therapist-photos')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadErr) throw uploadErr
+
+      const { data: publicUrlData } = supabase.storage
+        .from('therapist-photos')
+        .getPublicUrl(filePath)
+
+      if (publicUrlData?.publicUrl) {
+        setEditingNews((prev) => (prev ? { ...prev, image_url: publicUrlData.publicUrl } : prev))
+      }
+    } catch (err: any) {
+      alert('画像のアップロードに失敗しました: ' + err.message)
+    } finally {
+      setUploadingEditNewsImage(false)
+    }
+  }
+
   const handleAddNews = async () => {
     if (!newNews.title || !newNews.content || !shopId) {
       alert('トピックスのタイトルと本文を入力してください。')
@@ -375,6 +437,8 @@ export default function OwnerStoreSettingPage() {
             title: newNews.title,
             content: newNews.content,
             category: newNews.category || 'お知らせ',
+            // image_url列が未マイグレーションの店舗でも投稿自体は失敗しないよう、値がある時だけ含める
+            ...(newNews.image_url ? { image_url: newNews.image_url } : {}),
             is_published: true,
           },
         ])
@@ -385,7 +449,7 @@ export default function OwnerStoreSettingPage() {
 
       if (created) {
         setNewsList((prev) => [created, ...prev])
-        setNewNews({ title: '', content: '', category: 'お知らせ' })
+        setNewNews({ title: '', content: '', category: 'お知らせ', image_url: '' })
         alert('トピックスを投稿・HPへ反映しました！')
       }
     } catch (err: any) {
@@ -417,6 +481,8 @@ export default function OwnerStoreSettingPage() {
           title: editingNews.title,
           content: editingNews.content,
           category: editingNews.category || 'お知らせ',
+          // image_url列が未マイグレーションの店舗でも更新自体は失敗しないよう、値がある時だけ含める
+          ...(editingNews.image_url ? { image_url: editingNews.image_url } : {}),
         })
         .eq('id', editingNews.id)
         .select()
@@ -537,7 +603,7 @@ export default function OwnerStoreSettingPage() {
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            🖼️ メインバナー (${campaigns.length}件)
+            🖼️ メインバナー ({campaigns.length}件)
           </button>
           <button
             onClick={() => setActiveTab('news')}
@@ -547,7 +613,7 @@ export default function OwnerStoreSettingPage() {
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            📰 新着トピックス (${newsList.length}件)
+            📰 新着トピックス ({newsList.length}件)
           </button>
           <button
             onClick={() => setActiveTab('recruit')}
@@ -558,6 +624,16 @@ export default function OwnerStoreSettingPage() {
             }`}
           >
             🎀 セラピスト求人情報設定
+          </button>
+          <button
+            onClick={() => setActiveTab('adbanners')}
+            className={`px-5 py-3 font-bold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'adbanners'
+                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            🔗 広告バナー ({adBanners.length}件)
           </button>
         </div>
       )}
@@ -758,6 +834,10 @@ export default function OwnerStoreSettingPage() {
           {/* 新規バナー登録 */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-800 border-b pb-2">📸 新しいメインバナー画像の追加</h2>
+            <p className="text-[11px] text-slate-500">
+              ここはTOPページのメインスライドショー専用です。エステラブなどの掲載サイトの相互リンクバナーは
+              「🔗 広告バナー」タブで登録してください。
+            </p>
             
             <div className="space-y-3">
               {newBanner.image_url && (
@@ -838,11 +918,18 @@ export default function OwnerStoreSettingPage() {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* タブ3: 広告掲載サイトのバナー（エステラブ等の相互リンク） */}
+      {activeTab === 'adbanners' && (
+        <div className="space-y-6">
           {/* 広告掲載サイトのバナー（エステラブ等の相互リンク） */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-800 border-b pb-2">🔗 広告掲載サイトのバナー</h2>
             <p className="text-[11px] text-slate-500">
-              上のメインバナーとは別枠です。TOPページの一番下（フッター直前）に画像バナーとして並べて表示されます。
+              エステラブなどの掲載サイトとの相互リンク用バナー置き場です。メインバナー（TOPのスライドショー）とは完全に別枠で、
+              TOPページの一番下（フッター直前）に画像バナーとして並べて表示されます。
               掲載元サイトからもらったバナーコード（<code className="bg-slate-100 px-1 rounded">&lt;a href=&quot;...&quot;&gt;&lt;img src=&quot;...&quot;/&gt;&lt;/a&gt;</code> の形）を
               そのまま下の欄に貼り付けてください。画像URL・リンク先URLを自動で読み取ります。
             </p>
@@ -888,7 +975,7 @@ export default function OwnerStoreSettingPage() {
         </div>
       )}
 
-      {/* タブ3: 新着トピックス・ニュース管理 */}
+      {/* タブ4: 新着トピックス・ニュース管理 */}
       {activeTab === 'news' && (
         <div className="space-y-6">
           {/* 新規投稿 */}
@@ -929,6 +1016,30 @@ export default function OwnerStoreSettingPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">画像（任意）</label>
+              <div className="flex items-center gap-3">
+                {newNews.image_url && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                    <img src={newNews.image_url} alt="プレビュー" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <label className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-xs text-slate-600 text-center cursor-pointer hover:bg-slate-100 transition-all">
+                  {uploadingNewsImage ? 'アップロード中...' : newNews.image_url ? '📂 画像を変更' : '📂 画像を選択'}
+                  <input type="file" accept="image/*" onChange={handleNewsImageUpload} disabled={uploadingNewsImage} className="hidden" />
+                </label>
+                {newNews.image_url && (
+                  <button
+                    type="button"
+                    onClick={() => setNewNews((prev) => ({ ...prev, image_url: '' }))}
+                    className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold rounded-xl transition-all shrink-0"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleAddNews}
@@ -947,17 +1058,24 @@ export default function OwnerStoreSettingPage() {
               <div className="space-y-3">
                 {newsList.map((n) => (
                   <div key={n.id} className="p-4 border border-slate-200 rounded-xl bg-slate-50 flex justify-between items-start gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-bold rounded-sm">
-                          {n.category || 'お知らせ'}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {n.published_at ? n.published_at.slice(0, 10) : ''}
-                        </span>
+                    <div className="flex items-start gap-3 min-w-0">
+                      {n.image_url && (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                          <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-bold rounded-sm">
+                            {n.category || 'お知らせ'}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {n.published_at ? n.published_at.slice(0, 10) : ''}
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-slate-800">{n.title}</div>
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{n.content}</p>
                       </div>
-                      <div className="text-xs font-bold text-slate-800">{n.title}</div>
-                      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{n.content}</p>
                     </div>
                     <div className="shrink-0 flex gap-2">
                       <button
@@ -1024,6 +1142,30 @@ export default function OwnerStoreSettingPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">画像（任意）</label>
+              <div className="flex items-center gap-3">
+                {editingNews.image_url && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                    <img src={editingNews.image_url} alt="プレビュー" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <label className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-xs text-slate-600 text-center cursor-pointer hover:bg-slate-100 transition-all">
+                  {uploadingEditNewsImage ? 'アップロード中...' : editingNews.image_url ? '📂 画像を変更' : '📂 画像を選択'}
+                  <input type="file" accept="image/*" onChange={handleEditNewsImageUpload} disabled={uploadingEditNewsImage} className="hidden" />
+                </label>
+                {editingNews.image_url && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingNews((prev) => (prev ? { ...prev, image_url: '' } : prev))}
+                    className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold rounded-xl transition-all shrink-0"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
@@ -1044,7 +1186,7 @@ export default function OwnerStoreSettingPage() {
         </div>
       )}
 
-      {/* タブ4: セラピスト求人情報設定 */}
+      {/* タブ5: セラピスト求人情報設定 */}
       {activeTab === 'recruit' && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-3">

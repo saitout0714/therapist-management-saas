@@ -26,7 +26,8 @@ export type ShopPageKey =
   | 'system'
   | 'access'
   | 'recruit'
-  | 'diary';
+  | 'diary'
+  | 'news';
 
 /** ページキー -> [URLパス, 見出しラベル] */
 const PAGE_DEFS: Record<ShopPageKey, { path: string; label: string | null }> = {
@@ -37,6 +38,7 @@ const PAGE_DEFS: Record<ShopPageKey, { path: string; label: string | null }> = {
   access: { path: '/access', label: 'アクセス・店舗案内' },
   recruit: { path: '/recruit', label: 'セラピスト求人' },
   diary: { path: '/diary', label: '写メ日記' },
+  news: { path: '/news', label: '新着情報' },
 };
 
 export interface ShopSeo {
@@ -157,7 +159,7 @@ function shopTitleSuffix(shop: ShopSeo): string {
 export async function buildShopMetadata(
   segment: string,
   page: ShopPageKey,
-  extra?: { titleOverride?: string; descriptionOverride?: string; path?: string }
+  extra?: { titleOverride?: string; descriptionOverride?: string; path?: string; ogImageOverride?: string | null }
 ): Promise<Metadata> {
   const shop = await fetchShopSeo(segment);
 
@@ -188,7 +190,7 @@ export async function buildShopMetadata(
     shop.name;
 
   const canonical = shopCanonicalUrl(shop, path);
-  const ogImage = shop.logoUrl || SHOP_OG_IMAGE[shop.slug];
+  const ogImage = extra?.ogImageOverride ?? (shop.logoUrl || SHOP_OG_IMAGE[shop.slug]);
   const googleSiteVerification = SHOP_GOOGLE_SITE_VERIFICATION[shop.slug];
 
   return {
@@ -327,6 +329,40 @@ export const fetchTherapistSeo = cache(
       name: (data.name as string) || '',
       comment: (data.comment as string | null) || null,
       photoUrl: (data.photo_url as string | null) || null,
+    };
+  }
+);
+
+export interface NewsSeo {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  publishedAt: string | null;
+  imageUrl: string | null;
+}
+
+/** ニュース詳細ページの metadata 用。他店舗の記事を誤って返さないよう shop_id で絞る。 */
+export const fetchNewsSeo = cache(
+  async (shopId: string, newsId: string): Promise<NewsSeo | null> => {
+    if (!looksLikeUuid(newsId)) return null;
+
+    const { data } = await supabase
+      .from('news_items')
+      .select('*')
+      .eq('id', newsId)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    return {
+      id: String(data.id),
+      title: (data.title as string) || '',
+      content: (data.content as string) || '',
+      category: (data.category as string | null) || null,
+      publishedAt: (data.published_at as string | null) || null,
+      imageUrl: (data.image_url as string | null) || null,
     };
   }
 );

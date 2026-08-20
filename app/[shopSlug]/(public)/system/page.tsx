@@ -9,6 +9,7 @@ import { SystemMenuCategory } from '../../../../types/store';
 import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+import { LuxuryAmbientBackground } from '../../../../components/store/LuxuryAmbientBackground';
 
 /**
  * サーバーコンポーネント。コース・料金表をHTMLに載せるため取得をサーバー側に移している。
@@ -44,6 +45,7 @@ export default async function SystemPage({ params }: { params: Promise<{ shopSlu
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="system" />}
+        {isLuxuryTheme && <LuxuryAmbientBackground />}
         <Header store={store} />
 
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full relative z-10">

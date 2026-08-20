@@ -11,6 +11,7 @@ import { StoreConfig, Therapist, BlogArticle, ConfirmedShift } from '../../types
 // 写メ日記の表示可否はページ側で判定し、無効時は blogs に空配列が渡る。
 
 import { CyberParallaxBackground } from './CyberParallaxBackground';
+import { LuxuryAmbientBackground } from './LuxuryAmbientBackground';
 
 interface TherapistDetailViewProps {
   shopSlug: string;
@@ -49,6 +50,7 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
           isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
         }`}>
           {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
+          {isLuxuryTheme && <LuxuryAmbientBackground />}
           <Header store={store} />
           <main className="flex-1 max-w-5xl mx-auto px-4 py-24 w-full text-center relative z-10">
             <p className={`text-xs tracking-widest ${isCyberTheme ? 'text-[#ffa8d8]' : isLuxuryTheme ? 'text-[#8a7e7c]' : 'text-stone-400'}`}>
@@ -75,6 +77,7 @@ export const TherapistDetailView: React.FC<TherapistDetailViewProps> = ({
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
+        {isLuxuryTheme && <LuxuryAmbientBackground />}
         <Header store={store} />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full relative z-10">

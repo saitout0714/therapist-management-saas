@@ -19,7 +19,7 @@ export const MOCK_STORE: StoreConfig = {
   xUrl: 'https://x.com',
   litlinkUrl: 'https://lit.link',
   noticeBanner: '✨ 赤羽・川口エリアで選ばれ続ける最高級メンズエステ ✨',
-  layoutSections: ['hero', 'today_shifts', 'therapists', 'diary', 'news', 'system', 'access'],
+  layoutSections: ['hero', 'news', 'twitter', 'newface', 'today_shifts', 'links', 'system'],
 };
 
 // DB取得が完了するまでの初期表示用。文言・連絡先などの「編集され得る内容」は空にし、

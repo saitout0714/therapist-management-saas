@@ -835,6 +835,57 @@ input[type="time"]::-webkit-datetime-edit {
 
   /* 繊細な粒子ノイズ（透明度を落としてシルキーな質感に） */
   --luxury-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+
+  /* ------------------------------------------------------------------
+   * 背景の「飾り」レイヤー群
+   * 単色＋ノイズだけだと平坦に見えるため、以下を重ねて奥行きを出す。
+   *  1) 斜めのヘアライン格子       …… 織り目・シルクの質感
+   *  2) スクロール連動のカラーウォッシュ …… 下へ読み進めると色味が移ろう
+   *  3) 上下端の白フェード          …… セクションの境目を溶かす
+   *
+   * ※ 以前ここにダマスク（四弁花）の透かし模様を敷いていたが、
+   *   繰り返しの模様は不要という判断で撤去した。復活させないこと。
+   * ------------------------------------------------------------------ */
+
+
+  /* 1) 斜めのヘアライン格子（シルクの織り目） */
+  --luxury-lattice: repeating-linear-gradient(
+    45deg,
+    rgba(197, 160, 89, 0.05) 0px,
+    rgba(197, 160, 89, 0.05) 1px,
+    transparent 1px,
+    transparent 13px
+  );
+
+  /* 2) スクロール連動トーン。JS(LuxuryAmbientBackground)が上書きする。
+   *    未読み込み・JS無効時もこの初期値で成立するようにしておく。 */
+  --lux-scroll: 0;
+  --lux-tint: 226, 179, 177;
+  --lux-tint-2: 197, 160, 89;
+
+  --luxury-tint-wash: linear-gradient(
+    180deg,
+    rgba(var(--lux-tint), 0.22) 0%,
+    rgba(var(--lux-tint), 0.04) 45%,
+    rgba(var(--lux-tint-2), 0.17) 100%
+  );
+
+  /* 3) セクション境目のやわらかい光（上端は強め・下端は控えめ） */
+  --luxury-seam: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 14%,
+    rgba(255, 255, 255, 0) 86%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+
+  /* 上の3枚をまとめた共通スタック。各背景クラスはこれを先頭に敷く。 */
+  --luxury-ornament:
+    var(--luxury-noise),
+    var(--luxury-seam),
+    var(--luxury-lattice),
+    var(--luxury-tint-wash);
+  --luxury-ornament-size: 180px 180px, auto, auto, auto;
 }
 
 /* ==========================================================================
@@ -845,11 +896,11 @@ input[type="time"]::-webkit-datetime-edit {
 .luxury-pink-bg {
   background-color: #efd8d5;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.7) 0%, transparent 50%),
     radial-gradient(ellipse at 85% 90%, rgba(198, 149, 162, 0.28) 0%, transparent 45%),
     linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
-  background-size: 180px 180px, auto, auto, auto;
+  background-size: var(--luxury-ornament-size), auto, auto, auto;
   color: var(--luxury-ink);
 }
 
@@ -857,11 +908,11 @@ input[type="time"]::-webkit-datetime-edit {
 .luxury-ivory-bg {
   background-color: #f5efe8;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.85) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(226, 179, 177, 0.18) 0%, transparent 40%),
     linear-gradient(180deg, #f7f2ec 0%, #f5efe8 50%, #f2ebe3 100%);
-  background-size: 180px 180px, auto, auto, auto;
+  background-size: var(--luxury-ornament-size), auto, auto, auto;
   color: var(--luxury-ink);
 }
 
@@ -869,11 +920,11 @@ input[type="time"]::-webkit-datetime-edit {
 .luxury-blush-bg {
   background-color: #f5ede9;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.8) 0%, transparent 45%),
     radial-gradient(circle at 80% 85%, rgba(198, 149, 162, 0.2) 0%, transparent 45%),
     linear-gradient(180deg, #f7f0ec 0%, #f5ede9 50%, #f2e8e4 100%);
-  background-size: 180px 180px, auto, auto, auto;
+  background-size: var(--luxury-ornament-size), auto, auto, auto;
   color: var(--luxury-ink);
 }
 
@@ -881,35 +932,40 @@ input[type="time"]::-webkit-datetime-edit {
 .luxury-footer-bg {
   background-color: #eae0dc;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 50%),
     linear-gradient(180deg, #ede4e0 0%, #eae0dc 50%, #e5d9d4 100%);
-  background-size: 180px 180px, auto, auto;
+  background-size: var(--luxury-ornament-size), auto, auto;
   color: var(--luxury-ink);
 }
 
-/* 互換用クラス */
+/* 互換用クラス。ページ全体のラッパにも使われるため、
+   セクション境目の白フェード(--luxury-seam)は外して素の地としてだけ使う。 */
 .luxury-marble-bg {
   background-color: #f5efe8;
   background-image:
     var(--luxury-noise),
+    var(--luxury-lattice),
     linear-gradient(180deg, #f7f2ec 0%, #f5efe8 50%, #f2ebe3 100%);
+  background-size: 180px 180px, auto, auto;
   color: var(--luxury-ink);
 }
 
 .luxury-beige-bg {
   background-color: #efd8d5;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
+  background-size: var(--luxury-ornament-size), auto;
   color: var(--luxury-ink);
 }
 
 .luxury-dark-bg {
   background-color: #efd8d5;
   background-image:
-    var(--luxury-noise),
+    var(--luxury-ornament),
     linear-gradient(180deg, #f0dedb 0%, #efd8d5 50%, #ecd2ce 100%);
+  background-size: var(--luxury-ornament-size), auto;
   color: var(--luxury-ink);
 }
 
@@ -1023,21 +1079,19 @@ input[type="time"]::-webkit-datetime-edit {
   z-index: 2;
 }
 
-/* 主要CTA：ダスティローズ〜シャンパンゴールドの上品なグラデーション（サイト全体の落ち着いたローズ基調に統一） */
-/* 色なしトライアル中: グラデーション背景を外し、白地+濃いインク色の枠線で視認性を確保 */
+/* 主要CTA：HPの背景と同じダスティローズを使ったトーンオントーンの落ち着いたボタン */
 .luxury-gold-btn {
-  background: #ffffff;
+  background: linear-gradient(135deg, #f0dedb 0%, #efd8d5 100%);
   color: var(--luxury-ink) !important;
-  border: none;
-  box-shadow: 0 4px 16px rgba(43, 40, 39, 0.18);
-  transition: background 0.4s ease, color 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+  border: 1px solid rgba(43, 40, 39, 0.12);
+  box-shadow: 0 4px 14px rgba(43, 40, 39, 0.14);
+  transition: background 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
 }
 
 .luxury-gold-btn:hover {
-  background: var(--luxury-ink);
-  color: #ffffff !important;
+  background: linear-gradient(135deg, #ecd2ce 0%, #e2b3b1 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(43, 40, 39, 0.22);
+  box-shadow: 0 8px 20px rgba(43, 40, 39, 0.2);
 }
 
 /* モバイルドロワー最下部専用: ゴールド/ブラウン系グラデーションの視認性重視ボタン
@@ -1321,6 +1375,125 @@ input[type="time"]::-webkit-datetime-edit {
     linear-gradient(160deg, rgba(247, 215, 210, 0.9) 0%, rgba(239, 216, 213, 0.7) 100%);
 }
 
+/* ==========================================================================
+   アンビエント演出レイヤー (LuxuryAmbientBackground)
+   本文(main z-10)より前・ヘッダー(z-30)より後ろに固定表示する飾りの層。
+   pointer-events は無効で、読ませたい文字を邪魔しない濃度に抑えてある。
+   ========================================================================== */
+
+.luxury-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+  /* iOS Safari で本文スクロール中に取り残されないよう合成レイヤーに乗せる */
+  will-change: transform;
+}
+
+/* 画面四隅をほんのり締めるローズのビネット（奥行き用） */
+.luxury-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 78% 62% at 50% 42%, transparent 55%, rgba(198, 149, 162, 0.13) 100%);
+}
+
+/* スクロールに合わせて色が移ろう光のにじみ。--lux-tint は JS が更新する。 */
+.luxury-aurora {
+  position: absolute;
+  inset: -12%;
+  /* 本文の上に重なる層なので、文字が濁らない濃度に抑える。
+     スクロールでの色変化そのものは各セクション背景の --luxury-tint-wash が
+     担当していて、ここはあくまで上乗せの光。 */
+  opacity: 0.38;
+  background:
+    radial-gradient(ellipse 46% 38% at 12% 18%, rgba(var(--lux-tint), 0.3) 0%, transparent 68%),
+    radial-gradient(ellipse 40% 34% at 88% 72%, rgba(var(--lux-tint-2), 0.26) 0%, transparent 68%);
+  filter: blur(38px);
+  transform: translate3d(0, calc(var(--lux-scroll) * -7vh), 0);
+  transition: background 900ms linear;
+}
+
+/* ゆっくり横切る光のカーテン */
+@keyframes luxSheen {
+  0% {
+    transform: translate3d(-45vw, 0, 0) rotate(9deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate3d(120vw, 0, 0) rotate(9deg);
+    opacity: 0;
+  }
+}
+
+.luxury-sheen {
+  position: absolute;
+  top: -25%;
+  left: 0;
+  width: 34vw;
+  height: 150%;
+  opacity: 0.42;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.24) 45%,
+    rgba(229, 201, 137, 0.18) 60%,
+    transparent 100%
+  );
+  filter: blur(30px);
+  animation: luxSheen 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 舞い上がるシャンパンゴールドの粒子。
+   外側の .luxury-mote がスクロール視差、内側の span が浮遊アニメを担当する
+   （同じ要素に transform を二重掛けできないため役割を分けている）。 */
+.luxury-mote {
+  position: absolute;
+  bottom: -6%;
+  transform: translate3d(0, calc(var(--lux-scroll) * var(--mote-parallax, -40px)), 0);
+}
+
+@keyframes luxMoteDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.7);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate3d(16px, -52vh, 0) scale(1.15);
+    opacity: 0.7;
+  }
+  88% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translate3d(-12px, -104vh, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.luxury-mote > span {
+  display: block;
+  width: var(--mote-size, 5px);
+  height: var(--mote-size, 5px);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 252, 244, 0.95) 0%, rgba(229, 201, 137, 0.85) 45%, rgba(197, 160, 89, 0) 72%);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+  animation: luxMoteDrift var(--mote-duration, 20s) linear infinite;
+  animation-delay: var(--mote-delay, 0s);
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .luxury-fade-up,
   .luxury-rule-draw {
@@ -1338,6 +1511,17 @@ input[type="time"]::-webkit-datetime-edit {
   .animate-dust-2,
   .animate-dust-3 {
     animation: none !important;
+  }
+
+  /* 動きを抑える設定では、舞う粒子と光のカーテンは丸ごと出さない。
+     色のにじみ（アンビエント）は動かない飾りとして残す。 */
+  .luxury-sheen,
+  .luxury-mote {
+    display: none !important;
+  }
+
+  .luxury-aurora {
+    transform: none !important;
   }
 }
 

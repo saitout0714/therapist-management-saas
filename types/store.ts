@@ -4,8 +4,11 @@ export type StoreSectionType =
   | 'therapists'    // セラピスト一覧カード
   | 'diary'         // 写メ日記一覧
   | 'news'          // 新着情報・トピックス
+  | 'twitter'       // 公式X(Twitter)単体セクション
+  | 'newface'       // 新人セラピスト一覧
   | 'system'        // 料金システム案内
-  | 'access';       // アクセス・店舗情報
+  | 'access'        // アクセス・店舗情報
+  | 'links';        // 広告バナー枠（相互リンク）
 
 export interface StoreConfig {
   id: string;
@@ -139,6 +142,7 @@ export interface NewsItem {
   content: string;
   date: string;
   category?: string;
+  imageUrl?: string;
 }
 
 export interface CourseOption {

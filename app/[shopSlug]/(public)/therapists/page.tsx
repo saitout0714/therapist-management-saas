@@ -8,6 +8,7 @@ import { fetchStoreConfig, fetchTherapists, fetchConfirmedShifts, fetchBusinessD
 import { publicBasePath } from '../../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+import { LuxuryAmbientBackground } from '../../../../components/store/LuxuryAmbientBackground';
 
 /**
  * サーバーコンポーネント。セラピスト一覧をHTMLに載せるため、
@@ -40,6 +41,7 @@ export default async function TherapistsPage({ params }: { params: Promise<{ sho
         isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="therapists" />}
+        {isLuxuryTheme && <LuxuryAmbientBackground />}
         <Header store={store} />
 
         <main className="flex-1 max-w-7xl mx-auto px-4 py-12 w-full relative z-10">

@@ -13,6 +13,7 @@ import { BLANK_ONYANKO_STORE } from '../../../../mock/onyankospa';
 import { DIARY_FEATURE_ENABLED } from '../../../../lib/featureFlags';
 
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
+import { LuxuryAmbientBackground } from '../../../../components/store/LuxuryAmbientBackground';
 
 export default function DiaryPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = use(params);
@@ -50,6 +51,7 @@ export default function DiaryPage({ params }: { params: Promise<{ shopSlug: stri
       isCyberTheme ? 'cyber-bg text-[#f4eefa]' : isLuxuryTheme ? 'luxury-marble-bg luxury-body' : 'bg-[#faf9f5] text-stone-800 font-serif'
     }`}>
       {isCyberTheme && <CyberParallaxBackground variant="medium" pageType="diary" />}
+      {isLuxuryTheme && <LuxuryAmbientBackground />}
       <Header store={store} />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 py-12 w-full relative z-10">

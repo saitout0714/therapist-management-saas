@@ -526,7 +526,18 @@ export async function fetchBlogArticleDetail(id: string): Promise<BlogArticle | 
   }
 }
 
-export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
+function mapNewsRow(n: any): NewsItem {
+  return {
+    id: n.id,
+    title: n.title,
+    content: n.content,
+    date: n.published_at ? n.published_at.slice(0, 10).replace(/-/g, '.') : '2026.08.01',
+    category: n.category || 'お知らせ',
+    imageUrl: n.image_url || undefined,
+  };
+}
+
+export async function fetchNewsList(shopId?: string, limit?: number): Promise<NewsItem[]> {
   try {
     let isOnyanko = shopId === 'onyanko-001' || shopId === 'onyankospa';
     if (shopId && !isOnyanko && shopId.length > 20) {
@@ -538,6 +549,7 @@ export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
 
     let query = supabase.from('news_items').select('*').order('published_at', { ascending: false });
     if (shopId) query = query.eq('shop_id', shopId);
+    if (limit) query = query.limit(limit);
 
     const { data, error } = await query;
     // 取得エラー（DB接続失敗など）の場合のみサンプルにフォールバックする。
@@ -550,16 +562,52 @@ export async function fetchNewsList(shopId?: string): Promise<NewsItem[]> {
       return [];
     }
 
-    return data.map((n: any) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-      date: n.published_at ? n.published_at.slice(0, 10).replace(/-/g, '.') : '2026.08.01',
-      category: n.category || 'お知らせ',
-    }));
+    return data.map(mapNewsRow);
   } catch {
     if (shopId === 'onyanko-001' || shopId === 'onyankospa') return MOCK_ONYANKO_NEWS;
     return MOCK_NEWS;
+  }
+}
+
+/** ニュース一覧ページ用。ページング（offsetベース）と総件数を返す。 */
+export async function fetchNewsListPage(
+  shopId: string,
+  page: number,
+  pageSize: number
+): Promise<{ items: NewsItem[]; total: number }> {
+  try {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await supabase
+      .from('news_items')
+      .select('*', { count: 'exact' })
+      .eq('shop_id', shopId)
+      .order('published_at', { ascending: false })
+      .range(from, to);
+
+    if (error || !data) return { items: [], total: 0 };
+
+    return { items: data.map(mapNewsRow), total: count || 0 };
+  } catch {
+    return { items: [], total: 0 };
+  }
+}
+
+/** ニュース詳細ページ用。他店舗の記事を誤って表示しないよう shop_id で絞る。 */
+export async function fetchNewsDetail(shopId: string, newsId: string): Promise<NewsItem | null> {
+  try {
+    const { data, error } = await supabase
+      .from('news_items')
+      .select('*')
+      .eq('id', newsId)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return mapNewsRow(data);
+  } catch {
+    return null;
   }
 }
 

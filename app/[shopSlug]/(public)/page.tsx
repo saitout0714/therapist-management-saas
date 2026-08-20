@@ -15,6 +15,7 @@ import { DIARY_FEATURE_ENABLED } from '../../../lib/featureFlags';
 import { publicBasePath } from '../../../lib/shopDomains';
 
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
+import { LuxuryAmbientBackground } from '../../../components/store/LuxuryAmbientBackground';
 
 /**
  * サーバーコンポーネント。
@@ -39,17 +40,22 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
   const [campaigns, therapists, news, todayShifts] = await Promise.all([
     fetchCampaigns(store.id),
     fetchTherapists(store.id),
-    fetchNewsList(store.id),
+    fetchNewsList(store.id, 5),
     fetchConfirmedShifts(store.id, todayStr, todayStr),
   ]);
 
   // 本日シフトが入っているセラピストを「本日の出勤」として表示する（部屋割り未確定でも掲載）
   const todayTherapistIds = new Set(todayShifts.map((s) => s.therapistId));
   const todayTherapists = therapists.filter((t) => todayTherapistIds.has(t.id));
+  const rookieTherapists = therapists.filter((t) => t.isRookie);
 
   const isCyberTheme = shopSlug === 'onyankospa';
   const isLuxuryTheme = shopSlug === 'specialgrade';
-  const sectionOrder = store.layoutSections || ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access'];
+  const sectionOrder =
+    store.layoutSections ||
+    (isLuxuryTheme
+      ? ['hero', 'news', 'twitter', 'newface', 'today_shifts', 'system']
+      : ['hero', 'today_shifts', 'therapists', 'diary', 'system', 'news', 'access']);
 
   // ネオンテーマの共通ボタン（ピンク→マゼンタ→パープルのグラデーション＋発光）
   const neonBtn =
@@ -197,38 +203,112 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
             {isLuxuryTheme && (
               <div className="luxury-orb luxury-orb-gold w-[26rem] h-[26rem] top-0 -right-32 animate-orb-slower" />
             )}
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className={`grid grid-cols-1 lg:grid-cols-3 ${isLuxuryTheme ? 'gap-10 sm:gap-14' : 'gap-8'}`}>
-                <div className="lg:col-span-2 space-y-5">
-                  <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
-                  <NewsList news={news} storeSlug={shopSlug} />
-                </div>
-
-                <div className="space-y-5">
-                  <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
-                  <div className={`p-6 text-center space-y-4 ${
-                    isCyberTheme ? 'cyber-card reveal' : isLuxuryTheme ? 'luxury-card !rounded-2xl sm:!rounded-3xl p-8' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'
-                  }`}>
-                    <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#464141]' : 'text-stone-600'}`}>
-                      最新の出勤・空き枠情報をリアルタイムで配信中！
-                    </p>
-                    <a
-                      href={store.xUrl || 'https://x.com'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={
-                        isCyberTheme
-                          ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
-                          : isLuxuryTheme
-                          ? 'inline-block px-6 py-2.5 font-medium text-xs tracking-[0.18em] rounded-full luxury-outline-btn'
-                          : 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest bg-stone-900 text-white rounded-sm hover:bg-stone-800 transition-all'
-                      }
-                    >
-                      公式Xをチェック ↗
-                    </a>
-                  </div>
-                </div>
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
+              <SectionHeading title="Topics" subtitle="新着情報" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} align="left" size="sm" />
+              <NewsList news={news} storeSlug={shopSlug} basePath={basePath} />
+              <div className="text-center pt-2">
+                <Link href={`${basePath}/news`} className={sectionBtn}>
+                  ニュース一覧を見る
+                </Link>
               </div>
+            </div>
+          </section>
+        );
+
+      case 'twitter':
+        return (
+          <section
+            key="twitter"
+            className={`relative overflow-hidden border-b ${isCyberTheme ? 'py-16 border-[#ff6fb5]/20' : isLuxuryTheme ? 'py-20 sm:py-28 luxury-blush-bg border-[#c695a2]/25' : 'py-16 bg-[#faf7f0] border-[#d1b464]/20'}`}
+          >
+            {isCyberTheme && (
+              <div className="neon-orb neon-orb-purple animate-orb-slow w-[26rem] h-[26rem] top-0 -right-40" />
+            )}
+            {isLuxuryTheme && (
+              <div className="luxury-orb luxury-orb-gold w-[26rem] h-[26rem] top-0 -right-32 animate-orb-slower" />
+            )}
+            <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
+              <SectionHeading title="Twitter" subtitle="公式X (Twitter)" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
+              <div className={`p-6 text-center space-y-4 ${
+                isCyberTheme ? 'cyber-card reveal' : isLuxuryTheme ? 'luxury-card !rounded-2xl sm:!rounded-3xl p-8' : 'rounded-md shadow-sm bg-white border border-[#d1b464]/30'
+              }`}>
+                <p className={`text-xs leading-relaxed ${isCyberTheme ? 'text-[#ded1ee]/90' : isLuxuryTheme ? 'text-[#464141]' : 'text-stone-600'}`}>
+                  最新の出勤・空き枠情報をリアルタイムで配信中！
+                </p>
+                <a
+                  href={store.xUrl || 'https://x.com'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={
+                    isCyberTheme
+                      ? 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest text-white rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8]'
+                      : isLuxuryTheme
+                      ? 'inline-block px-6 py-2.5 font-medium text-xs tracking-[0.18em] rounded-full luxury-outline-btn'
+                      : 'inline-block px-6 py-2.5 font-bold text-xs tracking-widest bg-stone-900 text-white rounded-sm hover:bg-stone-800 transition-all'
+                  }
+                >
+                  公式Xをチェック ↗
+                </a>
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'newface':
+        return (
+          <section
+            key="newface"
+            className={`relative overflow-hidden ${
+              isCyberTheme
+                ? 'py-16 border-b border-[#ff6fb5]/20'
+                : isLuxuryTheme
+                ? 'py-20 sm:py-28 luxury-ivory-bg border-b border-[#d8b3bd]/30'
+                : 'py-16 bg-[#faf9f5] border-b border-stone-200'
+            }`}
+          >
+            {isLuxuryTheme && (
+              <div className="luxury-orb luxury-orb-rose w-[28rem] h-[28rem] -top-24 -right-24 animate-orb-slow" />
+            )}
+            <div className={`relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isLuxuryTheme ? 'space-y-14 sm:space-y-18' : 'space-y-10'}`}>
+              <SectionHeading title="New Face" subtitle="新人セラピスト" isCyber={isCyberTheme} isLuxury={isLuxuryTheme} />
+
+              {rookieTherapists.length > 0 ? (
+                <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${isLuxuryTheme ? 'gap-5 sm:gap-7' : 'gap-4 sm:gap-6'}`}>
+                  {rookieTherapists.map((therapist, idx) => (
+                    <TherapistCard key={therapist.id} therapist={therapist} storeSlug={shopSlug} basePath={basePath} index={idx} />
+                  ))}
+                </div>
+              ) : (
+                <p className={`text-center text-xs tracking-widest ${isCyberTheme ? 'text-[#ded1ee]/80' : isLuxuryTheme ? 'text-[#786f6d]' : 'text-stone-500'}`}>
+                  現在新人セラピストの情報を準備中です。
+                </p>
+              )}
+
+              <div className="text-center pt-4">
+                <Link href={`${basePath}/therapists`} className={sectionBtn}>
+                  セラピスト一覧を見る
+                </Link>
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'links':
+        if (!store.adBanners || store.adBanners.length === 0) return null;
+        return (
+          <section
+            key="links"
+            className={`relative py-8 border-b ${
+              isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
+            }`}
+          >
+            <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 items-center justify-items-center">
+              {store.adBanners.map((banner, idx) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <a key={idx} href={banner.linkUrl} target="_blank" rel="noopener noreferrer nofollow sponsored">
+                  <img src={banner.imageUrl} alt={banner.alt} width={200} height={40} className="max-w-full h-auto" />
+                </a>
+              ))}
             </div>
           </section>
         );
@@ -346,7 +426,12 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
     if (sec === 'system' || sec === 'access') return 'concept';
     return sec;
   });
-  const uniqueSections = Array.from(new Set(normalizedSections));
+  // 広告バナー（掲載サイトとの相互リンク）は店舗ごとの並び順設定に関係なく、
+  // 常にページ最終セクション＝フッター直前に固定する。
+  const uniqueSections = [
+    ...Array.from(new Set(normalizedSections)).filter((sec) => sec !== 'links'),
+    'links',
+  ];
 
   return (
     <ThemeProvider store={store}>
@@ -358,27 +443,11 @@ export default async function StoreTopPage({ params }: { params: Promise<{ shopS
           : 'bg-[#faf9f5] text-stone-800 font-serif'
       }`}>
         {isCyberTheme && <CyberParallaxBackground />}
+        {isLuxuryTheme && <LuxuryAmbientBackground />}
         <Header store={store} />
 
         <main className="flex-1 relative z-10">
           {uniqueSections.map((sec) => renderSection(sec))}
-
-          {/* 広告バナー（エステラブ等の相互リンク）。外部サイトの静的バナー画像なので
-              next/imageは使わず素のimgで表示する（最適化APIの対象外ドメインのため）。 */}
-          {store.adBanners && store.adBanners.length > 0 && (
-            <section className={`relative py-8 border-t ${
-              isCyberTheme ? 'border-[#ff6fb5]/20' : isLuxuryTheme ? 'border-[#e2b3b1]/30' : 'border-stone-200'
-            }`}>
-              <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 items-center justify-items-center">
-                {store.adBanners.map((banner, idx) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <a key={idx} href={banner.linkUrl} target="_blank" rel="noopener noreferrer nofollow sponsored">
-                    <img src={banner.imageUrl} alt={banner.alt} width={200} height={40} className="max-w-full h-auto" />
-                  </a>
-                ))}
-              </div>
-            </section>
-          )}
         </main>
 
         <Footer store={store} />
