@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../supabaseAdmin'
 export interface SiteConfig {
   name: string
   shopId: string
-  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima' | 'carezza'
+  type: 'tsujido' | 'rosecafe' | 'himitsuspa' | 'kokoro' | 'queen_hiroshima' | 'carezza' | 'ichigun'
   url_tpl: string
   container?: string
   box_selector?: string
@@ -96,6 +96,12 @@ export const SITES: SiteConfig[] = [
     box_selector: '.therapist-box',
     name_sel: 'h3.name',
     time_sel: '.todays-time',
+  },
+  {
+    name: 'ICHIGUN',
+    shopId: 'f0f88526-2f0d-41f5-a5ad-8e6e30b445d3',
+    type: 'ichigun',
+    url_tpl: 'https://ichigun-osaka.com/schedule.html?dat={date}',
   },
 ]
 
@@ -582,6 +588,61 @@ async function scrapeCarezza(site: SiteConfig, dateStr: string): Promise<any[]> 
   return results
 }
 
+/**
+ * ICHIGUN (ichigun-osaka.com) の出勤情報。
+ *
+ * ページ構成:
+ *   .weekly-schedule … 7日分の日付タブ。現在表示中の日は a.current
+ *   .main-tab-panel  … 拠点タブごとのパネル。先頭が「全店」なので先頭だけ見る
+ *     .staff-box > ul.box-inner
+ *       li[0]        … 源氏名（末尾に年齢 "(45)" が付く。normalizeName が除去する）
+ *       li(時刻)     … "11:00～16:00"
+ *       li[class^=room] … 拠点名（梅田A / 梅田B / 西天満 / 新大阪）
+ * レイアウト調整用に中身が空の .staff-box が並ぶため、ul.box-inner を持つものだけ拾う。
+ */
+async function scrapeIchigun(site: SiteConfig, dateStr: string): Promise<any[]> {
+  const url = site.url_tpl.replace('{date}', dateStr)
+  const $ = await fetchHtml(url)
+
+  // 日付ガード:
+  // dat= に7日分の範囲外や不正な値を渡すと、サイトは日付タブの current を出さない。
+  // 将来サイト側が「当日の出勤表」にフォールバックするようになった場合に、
+  // 別日のシフトとして誤登録するのを防ぐため、表示中の日付が一致した時だけ取り込む。
+  const [, month, day] = dateStr.split('-')
+  const currentLabel = $('.weekly-schedule a.current').text().trim()
+  if (!currentLabel.includes(`${month}月${day}日`)) {
+    return []
+  }
+
+  const panel = $('.main-tab-panel').first()
+  if (!panel.length) {
+    return []
+  }
+
+  const results: any[] = []
+  panel.find('.staff-box').each((_, el) => {
+    const box = $(el)
+    const items = box.find('ul.box-inner > li')
+    if (!items.length) return
+
+    const rawName = items.first().text().trim()
+    if (!rawName) return
+
+    const timeEl = items.filter((_, li) => /\d{1,2}:\d{2}/.test($(li).text()))
+    if (!timeEl.length) return
+    const timeRes = parseTime(timeEl.first().text())
+    if (!timeRes) return
+    const [start, end] = timeRes
+
+    const roomEl = items.filter((_, li) => /(^|\s)room/.test($(li).attr('class') || ''))
+    const roomName = roomEl.length ? roomEl.first().text().trim() : ''
+
+    results.push({ name: rawName, start, end, room: roomName })
+  })
+
+  return results
+}
+
 const SCRAPERS: Record<string, (site: SiteConfig, dateStr: string) => Promise<any[]>> = {
   tsujido: scrapeTsujido,
   kokoro: scrapeKokoro,
@@ -589,6 +650,7 @@ const SCRAPERS: Record<string, (site: SiteConfig, dateStr: string) => Promise<an
   himitsuspa: scrapeHimitsuspa,
   queen_hiroshima: scrapeQueenHiroshima,
   carezza: scrapeCarezza,
+  ichigun: scrapeIchigun,
 }
 
 export async function syncScraperSite(

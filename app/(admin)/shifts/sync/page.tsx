@@ -22,6 +22,7 @@ const SITES: SiteConfig[] = [
   { name: 'バカラ岩国', label: 'バカラ岩国 (baccarat-iwakuni.com)' },
   { name: 'クイーン', label: 'クイーン (hiroshima-queen.com)' },
   { name: 'クイーンテラス', label: 'クイーンテラス (queen-terrace.com)' },
+  { name: 'ICHIGUN', label: 'ICHIGUN (ichigun-osaka.com)' },
 ]
 
 interface ShopConfig {
