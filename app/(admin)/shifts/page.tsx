@@ -13,6 +13,7 @@ import WeeklyDayView from '@/app/components/WeeklyDayView';
 import { toDisplayTime } from '@/lib/timeUtils';
 import { getPricingShopId } from '@/lib/shopUtils';
 import ShiftRequestDrawer from '@/app/components/ShiftRequestDrawer';
+import { calcStandbyHours, resolveStandbyAmount, StandbyGuaranteeTier } from '@/lib/standbyGuarantee';
 
 
 interface Shift {
@@ -245,6 +246,9 @@ function ShiftsContent() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  // 待機保証まわり（シフト編集モーダルから直接、金額の目安つきで登録できるようにするため）
+  const [standbyTiers, setStandbyTiers] = useState<StandbyGuaranteeTier[]>([]);
+  const [defaultStandbyAmount, setDefaultStandbyAmount] = useState<number>(0);
   const [payrollEntries, setPayrollEntries] = useState<Map<string, { status: string; confirmed_at: string | null }>>(new Map());
   const [activeTooltip, setActiveTooltip] = useState<'rules' | 'hotels' | null>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
@@ -325,6 +329,22 @@ function ShiftsContent() {
     setRenderedShopId(selectedShop.id);
   }
 
+  // 待機保証の金額目安（時間帯別の段階＋定額の既定額）を店舗ごとに取得する。
+  // シフト編集モーダルから「待機保証を追加」した時に、金額を自動で提案するために使う。
+  useEffect(() => {
+    async function fetchStandbySettings() {
+      if (!selectedShop) { setStandbyTiers([]); setDefaultStandbyAmount(0); return; }
+      const [{ data: tierData }, { data: settingsData }] = await Promise.all([
+        supabase.from('standby_guarantee_tiers').select('min_hours, amount').eq('shop_id', selectedShop.id),
+        supabase.from('system_settings').select('standby_guarantee_amount').eq('shop_id', selectedShop.id).limit(1),
+      ]);
+      setStandbyTiers(((tierData || []) as { min_hours: number | string; amount: number }[])
+        .map(t => ({ min_hours: Number(t.min_hours), amount: Number(t.amount) })));
+      setDefaultStandbyAmount(settingsData?.[0]?.standby_guarantee_amount ?? 0);
+    }
+    void fetchStandbySettings();
+  }, [selectedShop]);
+
   // タイムチャートの高さをビューポートの残り高さいっぱいに追従させる
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartHeight, setChartHeight] = useState<number>(700);
@@ -387,6 +407,10 @@ function ShiftsContent() {
 
   // メモ追加フォーム
   const [memoForm, setMemoForm] = useState<{ content: string; amount: string } | null>(null);
+  // true の間は、今開いているメモ追加フォームが「待機保証を追加」ボタンから開かれたもの。
+  // 通常の引き継ぎメモと違い、登録と同時に category='standby_guarantee' ＆ 精算済みにする
+  // （待機保証はその場で現金手渡しして完了する運用のため、翌日以降に未精算メモとして残さない）。
+  const [memoIsGuarantee, setMemoIsGuarantee] = useState(false);
 
   // 編集用の状態
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
@@ -394,19 +418,27 @@ function ShiftsContent() {
 
   const handleAddMemo = async (therapistId: string) => {
     if (!memoForm || !selectedShop || !memoForm.content.trim()) return;
+    const isGuarantee = memoIsGuarantee;
     const { data, error } = await supabase.from('therapist_memos').insert([{
       therapist_id: therapistId,
       shop_id: selectedShop.id,
       date: filterDate,
       content: memoForm.content.trim(),
       amount: parseInt(memoForm.amount || '0', 10) || 0,
+      ...(isGuarantee
+        ? { category: 'standby_guarantee', is_resolved: true, resolved_at: new Date().toISOString(), resolved_date: filterDate }
+        : {}),
     }]).select('id, date, content, amount').single();
     if (error) { alert('メモの追加に失敗しました: ' + error.message); return; }
     setMemoForm(null);
-    setShiftEditModal(m => m ? {
-      ...m,
-      unresolvedMemos: [{ id: data.id, date: data.date, content: data.content, amount: data.amount }, ...(m.unresolvedMemos || [])],
-    } : null);
+    setMemoIsGuarantee(false);
+    // 待機保証は登録と同時に精算済みになるため、未解決メモの一覧には出さない
+    if (!isGuarantee) {
+      setShiftEditModal(m => m ? {
+        ...m,
+        unresolvedMemos: [{ id: data.id, date: data.date, content: data.content, amount: data.amount }, ...(m.unresolvedMemos || [])],
+      } : null);
+    }
     setRefreshCounter(c => c + 1);
   };
 
@@ -536,6 +568,7 @@ function ShiftsContent() {
     }));
 
     setMemoForm(null);
+    setMemoIsGuarantee(false);
     setShiftEditModal({
       therapistId,
       therapistName,
@@ -2535,23 +2568,52 @@ function ShiftsContent() {
                       <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{shiftEditModal.unresolvedMemos.length}</span>
                     )}
                   </h4>
-                  <button
-                    onClick={() => setMemoForm(f => f ? null : { content: '', amount: '' })}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                  >
-                    {memoForm ? 'キャンセル' : '＋ 追加'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const hasReservation = reservations.some(r =>
+                        r.therapist_id === shiftEditModal.therapistId &&
+                        r.date === shiftEditModal.date &&
+                        r.status !== 'blocked'
+                      );
+                      if (hasReservation || memoForm) return null;
+                      return (
+                        <button
+                          onClick={() => {
+                            const waitHours = calcStandbyHours(shiftEditModal.startTime, shiftEditModal.endTime);
+                            const suggested = resolveStandbyAmount(waitHours, standbyTiers, defaultStandbyAmount);
+                            setMemoForm({ content: '待機保証', amount: suggested > 0 ? String(suggested) : '' });
+                            setMemoIsGuarantee(true);
+                          }}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-800 transition-colors whitespace-nowrap"
+                          title="この日、予約が1本も入っていないセラピスト向けです"
+                        >
+                          ＋ 待機保証を追加
+                        </button>
+                      );
+                    })()}
+                    <button
+                      onClick={() => { setMemoForm(f => f ? null : { content: '', amount: '' }); setMemoIsGuarantee(false); }}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      {memoForm ? 'キャンセル' : '＋ 追加'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* 追加フォーム */}
                 {memoForm && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 space-y-2">
+                  <div className={`border rounded-xl p-3 mb-3 space-y-2 ${memoIsGuarantee ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+                    {memoIsGuarantee && (
+                      <p className="text-[10px] font-bold text-rose-600">
+                        待機保証として登録します。保存すると同時に現金支給済み（精算済み）として記録されます。
+                      </p>
+                    )}
                     <textarea
                       value={memoForm.content}
                       onChange={e => setMemoForm(f => f ? { ...f, content: e.target.value } : null)}
                       rows={2}
                       placeholder="内容（例：精算時に店落ち不足）"
-                      className="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none resize-none"
+                      className={`w-full px-3 py-2 bg-white border rounded-lg text-sm outline-none resize-none ${memoIsGuarantee ? 'border-rose-200 focus:ring-2 focus:ring-rose-400/50' : 'border-amber-200 focus:ring-2 focus:ring-amber-400/50'}`}
                     />
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1 flex-1">
@@ -2560,14 +2622,14 @@ function ShiftsContent() {
                           value={memoForm.amount}
                           onChange={e => setMemoForm(f => f ? { ...f, amount: e.target.value } : null)}
                           placeholder="金額"
-                          className="w-24 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400/50 outline-none"
+                          className={`w-24 px-2 py-1.5 bg-white border rounded-lg text-sm outline-none ${memoIsGuarantee ? 'border-rose-200 focus:ring-2 focus:ring-rose-400/50' : 'border-amber-200 focus:ring-2 focus:ring-amber-400/50'}`}
                         />
-                        <span className="text-xs text-slate-500">円　正=余剰 / 負=不足</span>
+                        <span className="text-xs text-slate-500">{memoIsGuarantee ? '円（自動提案。書き換え可）' : '円　正=余剰 / 負=不足'}</span>
                       </div>
                       <button
                         onClick={() => handleAddMemo(shiftEditModal.therapistId)}
                         disabled={!memoForm.content.trim()}
-                        className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-40"
+                        className={`px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40 ${memoIsGuarantee ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-500 hover:bg-amber-600'}`}
                       >
                         追加
                       </button>

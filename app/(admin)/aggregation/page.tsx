@@ -479,8 +479,7 @@ interface CalculatedReservation extends ReservationWithDetails {
       return
     }
 
-    const content = existing?.content
-      ?? `待機保証${waitHours !== null ? `（待機${Number.isInteger(waitHours) ? waitHours : waitHours.toFixed(1)}時間）` : ''}`
+    const content = existing?.content ?? '待機保証'
 
     setSavingStandbyKey(key)
     try {
@@ -499,6 +498,11 @@ interface CalculatedReservation extends ReservationWithDetails {
               amount,
               category: 'standby_guarantee',
               created_by_id: user?.id ?? null,
+              // 待機保証はその場で現金手渡しして完了する運用のため、登録と同時に精算済みにする。
+              // これをしないと、日次精算画面の「未精算メモ」に翌日以降も残り続けてしまう。
+              is_resolved: true,
+              resolved_at: new Date().toISOString(),
+              resolved_date: date,
             }])
 
       if (error) { alert('待機保証の保存に失敗しました: ' + error.message); return }
@@ -550,6 +554,11 @@ interface CalculatedReservation extends ReservationWithDetails {
         ? magnitude
         : newAdjustment.sign * magnitude
 
+    // 待機保証だけ、その場で現金手渡しして完了する運用のため登録と同時に精算済みにする。
+    // 控除・ペナルティ・手当は「当欠」「釣銭不足」などと同じく、実際に支払う（日次精算する）まで
+    // 未精算のまま残し、他の調整と同様に精算画面で処理してもらう。
+    const isImmediatelySettled = newAdjustment.category === 'standby_guarantee'
+
     setSavingAdjustment(true)
     try {
       const { error } = await supabase.from('therapist_memos').insert([{
@@ -560,6 +569,9 @@ interface CalculatedReservation extends ReservationWithDetails {
         amount: signedAmount,
         category: newAdjustment.category === 'other' ? null : newAdjustment.category,
         created_by_id: user?.id ?? null,
+        ...(isImmediatelySettled
+          ? { is_resolved: true, resolved_at: new Date().toISOString(), resolved_date: selectedDate }
+          : {}),
       }])
       if (error) { alert('調整の追加に失敗しました: ' + error.message); return }
       setNewAdjustment(null)
@@ -1280,7 +1292,7 @@ interface CalculatedReservation extends ReservationWithDetails {
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-1">
-                          この日に出勤していて予約が1本も入らなかったセラピストです。金額は待機時間から自動で入りますが、その場で書き換えられます。保存するとその日の利益から差し引かれます。
+                          この日に出勤していて予約が1本も入らなかったセラピストです。金額は待機時間から自動で入りますが、その場で書き換えられます。保存するとその日の利益から差し引かれ、その場で現金支給済みとして記録されます（日次精算の未精算メモには残りません）。
                         </p>
                       </div>
 
