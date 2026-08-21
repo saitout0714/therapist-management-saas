@@ -6,6 +6,7 @@ import { useShop } from '@/app/contexts/ShopContext'
 import { useAuth } from '@/app/contexts/AuthContext'
 import Link from 'next/link'
 import { toDisplayTime } from '@/lib/timeUtils'
+import { calcStandbyHours, resolveStandbyAmount, StandbyGuaranteeTier } from '@/lib/standbyGuarantee'
 
 interface DailySummary {
   date: string;
@@ -20,10 +21,10 @@ interface DailySummary {
   reservationCount: number;
   totalCreditFee: number;
   totalPaypayFee: number;
-  /** その日に支給した待機保証の合計（利益から差し引かれる） */
-  standbyGuarantee: number;
-  /** 待機保証を出した人数 */
-  standbyCount: number;
+  /** 控除・手当・ペナルティ・待機保証の合計（利益への影響。控除＝プラス、手当・保証＝マイナス） */
+  adjustmentTotal: number;
+  /** 調整の件数 */
+  adjustmentCount: number;
 }
 
 /** 待機保証の対象者を割り出すために使う出勤枠 */
@@ -34,24 +35,50 @@ interface ShiftRow {
   end_time: string | null
 }
 
-/** 実際に支給した待機保証の実績（1営業日・1セラピストにつき1件） */
-interface StandbyGuaranteeRow {
-  id: string
-  therapist_id: string
-  business_date: string
-  amount: number
-}
-
-/** 待機保証を日付×セラピストで引くためのキー */
-const standbyKey = (date: string, therapistId: string) => `${date}_${therapistId}`
+type AdjustmentCategory = 'deduction' | 'penalty' | 'allowance' | 'standby_guarantee' | null
 
 /**
- * standby_guarantees テーブルがまだ本番DBに無い場合の判定。
+ * 控除・ペナルティ・手当・待機保証の実績（1件＝therapist_memos の1行）。
+ *
+ * 毎日決まって発生するルールがある店舗はほぼ無く、当欠・釣銭不足・不足分の補填のような
+ * イレギュラーな単発調整が大半なため、日付×セラピストの単発記録として自由に足せるようにしている。
+ * amount は符号付き：マイナス＝セラピストへの支払いから差し引く（控除・ペナルティ）、
+ * プラス＝セラピストへ追加で払う（手当・待機保証）。
+ */
+interface AdjustmentRow {
+  id: string
+  therapist_id: string
+  date: string
+  content: string
+  amount: number
+  category: AdjustmentCategory
+  is_resolved: boolean
+}
+
+/** 待機保証を日付×セラピストで引くためのキー（自動提案ウィジェット用） */
+const standbyKey = (date: string, therapistId: string) => `${date}_${therapistId}`
+
+const ADJUSTMENT_CATEGORY_LABELS: Record<Exclude<AdjustmentCategory, null>, string> = {
+  deduction: '控除',
+  penalty: 'ペナルティ',
+  allowance: '手当',
+  standby_guarantee: '待機保証',
+}
+
+const ADJUSTMENT_CATEGORY_COLORS: Record<Exclude<AdjustmentCategory, null>, string> = {
+  deduction: 'bg-rose-50 text-rose-700',
+  penalty: 'bg-amber-50 text-amber-700',
+  allowance: 'bg-emerald-50 text-emerald-700',
+  standby_guarantee: 'bg-indigo-50 text-indigo-700',
+}
+
+/**
+ * standby_guarantee_tiers / therapist_memos.category がまだ本番DBに無い場合の判定。
  * 過去に「本番DBだけ列・テーブルが未作成」で画面が丸ごと落ちた経緯があるため、
- * 未マイグレーションのときは集計自体は通し、待機保証だけ無効化して警告を出す。
+ * 未マイグレーションのときは集計自体は通し、この機能だけ無効化して警告を出す。
  */
 const isMissingRelation = (err: { code?: string; message?: string } | null) =>
-  !!err && (err.code === '42P01' || err.code === 'PGRST205' || /does not exist|schema cache/i.test(err.message || ''))
+  !!err && (err.code === '42P01' || err.code === 'PGRST205' || err.code === '42703' || /does not exist|schema cache/i.test(err.message || ''))
 
 interface ReservationWithDetails {
   id: string
@@ -101,16 +128,33 @@ interface CalculatedReservation extends ReservationWithDetails {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [periodStr, setPeriodStr] = useState('')
 
-  // 待機保証まわり
+  // 控除・手当・ペナルティ・待機保証まわり
   const [shiftsByDate, setShiftsByDate] = useState<Record<string, ShiftRow[]>>({})
-  const [standbyByKey, setStandbyByKey] = useState<Record<string, StandbyGuaranteeRow>>({})
+  /** 日付ごとの調整実績（therapist_memos）。日報モーダルの一覧・利益計算の両方に使う */
+  const [adjustmentsByDate, setAdjustmentsByDate] = useState<Record<string, AdjustmentRow[]>>({})
   const [therapistNames, setTherapistNames] = useState<Record<string, string>>({})
+  /** 手動追加フォームのセラピスト選択肢（自店舗＋出勤枠に出てきたヘルプ出勤者） */
+  const [therapistOptions, setTherapistOptions] = useState<{ id: string; name: string }[]>([])
   const [defaultStandbyAmount, setDefaultStandbyAmount] = useState<number>(0)
-  /** 入力中の金額（保存前）。キーは standbyKey */
+  /** 待機時間による段階（未登録なら定額の defaultStandbyAmount が使われる） */
+  const [standbyTiers, setStandbyTiers] = useState<StandbyGuaranteeTier[]>([])
+  /** 待機保証ウィジェットで入力中の金額（保存前）。キーは standbyKey */
   const [standbyDrafts, setStandbyDrafts] = useState<Record<string, string>>({})
   const [savingStandbyKey, setSavingStandbyKey] = useState<string | null>(null)
-  /** true = standby_guarantees テーブルが未作成（マイグレーション未実行） */
-  const [standbyUnavailable, setStandbyUnavailable] = useState(false)
+  /** true = therapist_memos.category 列がまだ無い（マイグレーション未実行） */
+  const [adjustmentsUnavailable, setAdjustmentsUnavailable] = useState(false)
+
+  // 日報モーダル内の「手動で追加」フォーム
+  const [newAdjustment, setNewAdjustment] = useState<{
+    therapistId: string
+    category: Exclude<AdjustmentCategory, null> | 'other'
+    sign: 1 | -1
+    content: string
+    amount: string
+  } | null>(null)
+  const [editingAdjustmentId, setEditingAdjustmentId] = useState<string | null>(null)
+  const [editAdjustmentForm, setEditAdjustmentForm] = useState<{ content: string; amount: string }>({ content: '', amount: '' })
+  const [savingAdjustment, setSavingAdjustment] = useState(false)
 
   // Update closingDate and selectedMonth when selectedShop loads/changes
   useEffect(() => {
@@ -190,8 +234,9 @@ interface CalculatedReservation extends ReservationWithDetails {
         { data: resData, error: resError },
         { data: therapists, error: therapistError },
         { data: shiftData, error: shiftError },
-        { data: standbyData, error: standbyError },
+        { data: memoData, error: memoError },
         { data: settingsData },
+        { data: tierData },
       ] = await Promise.all([
         supabase
           .from('reservations')
@@ -218,27 +263,33 @@ interface CalculatedReservation extends ReservationWithDetails {
           .eq('shop_id', selectedShop.id)
           .gte('date', startStr)
           .lte('date', endStr),
+        // 控除・手当・ペナルティ・待機保証の実績（引き継ぎメモに区分列を足したもの）
         supabase
-          .from('standby_guarantees')
-          .select('id, therapist_id, business_date, amount')
+          .from('therapist_memos')
+          .select('id, therapist_id, date, content, amount, category, is_resolved')
           .eq('shop_id', selectedShop.id)
-          .gte('business_date', startStr)
-          .lte('business_date', endStr),
+          .gte('date', startStr)
+          .lte('date', endStr),
         supabase
           .from('system_settings')
           .select('standby_guarantee_amount')
           .eq('shop_id', selectedShop.id)
           .limit(1),
+        supabase
+          .from('standby_guarantee_tiers')
+          .select('id, min_hours, amount')
+          .eq('shop_id', selectedShop.id),
       ])
 
       if (resError) throw resError
       if (therapistError) throw therapistError
       // 出勤の取得失敗は握り潰さない（黙って0件になると対象者が出てこない）
       if (shiftError) throw shiftError
-      // 待機保証はテーブル未作成のときだけ「機能オフ」に倒し、それ以外のエラーは表に出す
-      const standbyMissing = isMissingRelation(standbyError)
-      setStandbyUnavailable(standbyMissing)
-      if (standbyError && !standbyMissing) throw standbyError
+      // 調整（控除・手当・ペナルティ・待機保証）は category 列が未作成のときだけ「機能オフ」に倒し、
+      // それ以外のエラーは表に出す
+      const adjustmentsMissing = isMissingRelation(memoError)
+      setAdjustmentsUnavailable(adjustmentsMissing)
+      if (memoError && !adjustmentsMissing) throw memoError
 
       const reservations = (resData as unknown) as (ReservationWithDetails & { reception_source?: string })[]
       
@@ -257,23 +308,28 @@ interface CalculatedReservation extends ReservationWithDetails {
         shiftMap[sh.date].push(sh)
       })
 
-      // 待機保証の実績。日付合計は「出勤枠」ではなく実績そのものから積む。
-      // 保証を出した後にシフトが消されても、支給済みの金額が集計から抜け落ちないようにするため。
-      const standbyRows = (standbyData || []) as StandbyGuaranteeRow[]
-      const standbyMap: Record<string, StandbyGuaranteeRow> = {}
-      const standbyDayTotals: Record<string, { amount: number; count: number }> = {}
-      standbyRows.forEach(g => {
-        standbyMap[standbyKey(g.business_date, g.therapist_id)] = g
-        if (!standbyDayTotals[g.business_date]) standbyDayTotals[g.business_date] = { amount: 0, count: 0 }
-        standbyDayTotals[g.business_date].amount += g.amount || 0
-        if ((g.amount || 0) > 0) standbyDayTotals[g.business_date].count++
+      // 控除・手当・ペナルティ・待機保証の実績を日付ごとにまとめる。
+      // 利益への影響は amount の符号そのまま（控除・ペナルティ＝マイナス、手当・保証＝プラス）を
+      // 逆にした値（＝プラスなら利益が増える方向）として合計する。
+      const adjustmentRows = (memoData || []) as AdjustmentRow[]
+      const adjustmentMap: Record<string, AdjustmentRow[]> = {}
+      const adjustmentDayTotals: Record<string, { profitImpact: number; count: number }> = {}
+      adjustmentRows.forEach(a => {
+        if (!adjustmentMap[a.date]) adjustmentMap[a.date] = []
+        adjustmentMap[a.date].push(a)
+        if (!adjustmentDayTotals[a.date]) adjustmentDayTotals[a.date] = { profitImpact: 0, count: 0 }
+        adjustmentDayTotals[a.date].profitImpact += -(a.amount || 0)
+        adjustmentDayTotals[a.date].count++
       })
 
       // 表示名。他店舗所属のセラピストがヘルプ出勤しているとこの店舗の therapists には
-      // 載らないため、出勤枠に出てくる未知のIDだけ追加で引く。
+      // 載らないため、出勤枠・調整実績に出てくる未知のIDだけ追加で引く。
       const nameMap: Record<string, string> = {}
       ;(therapists || []).forEach(t => { nameMap[t.id] = t.name })
-      const missingIds = [...new Set(shiftRows.map(sh => sh.therapist_id).filter(id => id && !nameMap[id]))]
+      const missingIds = [...new Set([
+        ...shiftRows.map(sh => sh.therapist_id),
+        ...adjustmentRows.map(a => a.therapist_id),
+      ].filter(id => id && !nameMap[id]))]
       if (missingIds.length > 0) {
         const { data: extraTherapists } = await supabase
           .from('therapists')
@@ -283,9 +339,18 @@ interface CalculatedReservation extends ReservationWithDetails {
       }
 
       setShiftsByDate(shiftMap)
-      setStandbyByKey(standbyMap)
+      setAdjustmentsByDate(adjustmentMap)
       setTherapistNames(nameMap)
+      setTherapistOptions(
+        [...new Set([...(therapists || []).map(t => t.id), ...Object.keys(nameMap)])]
+          .map(id => ({ id, name: nameMap[id] || '' }))
+          .filter(t => t.name)
+          .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      )
       setDefaultStandbyAmount(settingsData?.[0]?.standby_guarantee_amount ?? 0)
+      // 段階テーブルが未作成でも集計は止めない（定額にフォールバックする）
+      setStandbyTiers(((tierData || []) as { min_hours: number | string; amount: number }[])
+        .map(t => ({ min_hours: Number(t.min_hours), amount: Number(t.amount) })))
 
       const results: DailySummary[] = []
       const calculatedResList: CalculatedReservation[] = []
@@ -357,7 +422,7 @@ interface CalculatedReservation extends ReservationWithDetails {
           })
         }
 
-        const dayStandby = standbyDayTotals[dStr] || { amount: 0, count: 0 }
+        const dayAdjustment = adjustmentDayTotals[dStr] || { profitImpact: 0, count: 0 }
 
         results.push({
           date: dStr,
@@ -368,12 +433,12 @@ interface CalculatedReservation extends ReservationWithDetails {
           paypayCount: dayPaypayCount,
           paypaySales: dayPaypaySales,
           totalBack: dayBack,
-          shopProfit: daySales - dayBack - dayStandby.amount,
+          shopProfit: daySales - dayBack + dayAdjustment.profitImpact,
           reservationCount: dayCount,
           totalCreditFee: dayCreditFee,
           totalPaypayFee: dayPaypayFee,
-          standbyGuarantee: dayStandby.amount,
-          standbyCount: dayStandby.count,
+          adjustmentTotal: dayAdjustment.profitImpact,
+          adjustmentCount: dayAdjustment.count,
         })
 
         current.setDate(current.getDate() + 1)
@@ -389,16 +454,24 @@ interface CalculatedReservation extends ReservationWithDetails {
     }
   }
 
-  /** 待機保証を登録・更新する。金額は日報モーダルの入力欄から受け取る */
+  /** その日・そのセラピストに既に登録されている待機保証（category='standby_guarantee'）を探す */
+  const findGuaranteeAdjustment = (date: string, therapistId: string): AdjustmentRow | undefined =>
+    (adjustmentsByDate[date] || []).find(a => a.therapist_id === therapistId && a.category === 'standby_guarantee')
+
+  /** 待機保証を登録・更新する（予約0本の出勤者ウィジェットから呼ばれる）。金額は入力欄から受け取る */
   const handleSaveStandby = async (date: string, therapistId: string) => {
     if (!selectedShop) return
-    if (standbyUnavailable) {
-      alert('待機保証テーブルがまだ作成されていません。scripts/db-migrate-standby-guarantee.ts を実行してください。')
+    if (adjustmentsUnavailable) {
+      alert('区分（category）列がまだ作成されていません。scripts/db-migrate-adjustment-category.ts を実行してください。')
       return
     }
     const key = standbyKey(date, therapistId)
-    const existing = standbyByKey[key]
-    const raw = standbyDrafts[key] ?? String(existing?.amount ?? defaultStandbyAmount)
+    const existing = findGuaranteeAdjustment(date, therapistId)
+    const shift = (shiftsByDate[date] || []).find(sh => sh.therapist_id === therapistId)
+    const waitHours = calcStandbyHours(shift?.start_time, shift?.end_time)
+    const suggested = existing?.amount
+      ?? resolveStandbyAmount(waitHours, standbyTiers, defaultStandbyAmount)
+    const raw = standbyDrafts[key] ?? String(suggested)
     const amount = Math.max(0, Math.floor(Number(raw) || 0))
 
     if (amount <= 0) {
@@ -406,21 +479,26 @@ interface CalculatedReservation extends ReservationWithDetails {
       return
     }
 
+    const content = existing?.content
+      ?? `待機保証${waitHours !== null ? `（待機${Number.isInteger(waitHours) ? waitHours : waitHours.toFixed(1)}時間）` : ''}`
+
     setSavingStandbyKey(key)
     try {
       const { error } = existing
         ? await supabase
-            .from('standby_guarantees')
-            .update({ amount, updated_at: new Date().toISOString() })
+            .from('therapist_memos')
+            .update({ amount })
             .eq('id', existing.id)
         : await supabase
-            .from('standby_guarantees')
+            .from('therapist_memos')
             .insert([{
               shop_id: selectedShop.id,
               therapist_id: therapistId,
-              business_date: date,
+              date,
+              content,
               amount,
-              created_by: user?.id ?? null,
+              category: 'standby_guarantee',
+              created_by_id: user?.id ?? null,
             }])
 
       if (error) { alert('待機保証の保存に失敗しました: ' + error.message); return }
@@ -433,13 +511,13 @@ interface CalculatedReservation extends ReservationWithDetails {
   /** 登録済みの待機保証を取り消す */
   const handleDeleteStandby = async (date: string, therapistId: string) => {
     const key = standbyKey(date, therapistId)
-    const existing = standbyByKey[key]
+    const existing = findGuaranteeAdjustment(date, therapistId)
     if (!existing) return
     if (!confirm('この待機保証を取り消しますか？')) return
 
     setSavingStandbyKey(key)
     try {
-      const { error } = await supabase.from('standby_guarantees').delete().eq('id', existing.id)
+      const { error } = await supabase.from('therapist_memos').delete().eq('id', existing.id)
       if (error) { alert('待機保証の取り消しに失敗しました: ' + error.message); return }
       setStandbyDrafts(prev => {
         const next = { ...prev }
@@ -449,6 +527,80 @@ interface CalculatedReservation extends ReservationWithDetails {
       await handleCalculate()
     } finally {
       setSavingStandbyKey(null)
+    }
+  }
+
+  /**
+   * 控除・手当・ペナルティを手動で追加する（日報モーダルの「＋ 手動で追加」フォーム）。
+   * 毎日決まって発生するルールがある店舗はほぼ無いため、対象者・区分・金額・理由を
+   * その場で自由に決めて登録できるようにしている。
+   */
+  const handleAddAdjustment = async () => {
+    if (!selectedShop || !selectedDate || !newAdjustment) return
+    if (!newAdjustment.therapistId) { alert('セラピストを選択してください。'); return }
+    if (!newAdjustment.content.trim()) { alert('理由・内容を入力してください。'); return }
+    const magnitude = Math.floor(Number(newAdjustment.amount) || 0)
+    if (magnitude <= 0) { alert('金額を入力してください。'); return }
+
+    // 控除・ペナルティ＝セラピストへの支払いから引く（マイナス）、手当・待機保証＝上乗せする（プラス）。
+    // 「その他」だけ、どちら向きか自明ではないので手動で選んだ符号を使う。
+    const signedAmount = newAdjustment.category === 'deduction' || newAdjustment.category === 'penalty'
+      ? -magnitude
+      : newAdjustment.category === 'allowance' || newAdjustment.category === 'standby_guarantee'
+        ? magnitude
+        : newAdjustment.sign * magnitude
+
+    setSavingAdjustment(true)
+    try {
+      const { error } = await supabase.from('therapist_memos').insert([{
+        shop_id: selectedShop.id,
+        therapist_id: newAdjustment.therapistId,
+        date: selectedDate,
+        content: newAdjustment.content.trim(),
+        amount: signedAmount,
+        category: newAdjustment.category === 'other' ? null : newAdjustment.category,
+        created_by_id: user?.id ?? null,
+      }])
+      if (error) { alert('調整の追加に失敗しました: ' + error.message); return }
+      setNewAdjustment(null)
+      await handleCalculate()
+    } finally {
+      setSavingAdjustment(false)
+    }
+  }
+
+  const handleEditAdjustmentStart = (row: AdjustmentRow) => {
+    setEditingAdjustmentId(row.id)
+    setEditAdjustmentForm({ content: row.content, amount: String(row.amount) })
+  }
+
+  const handleUpdateAdjustment = async (id: string) => {
+    if (!editAdjustmentForm.content.trim()) { alert('理由・内容を入力してください。'); return }
+    const amount = Math.floor(Number(editAdjustmentForm.amount) || 0)
+
+    setSavingAdjustment(true)
+    try {
+      const { error } = await supabase
+        .from('therapist_memos')
+        .update({ content: editAdjustmentForm.content.trim(), amount })
+        .eq('id', id)
+      if (error) { alert('調整の更新に失敗しました: ' + error.message); return }
+      setEditingAdjustmentId(null)
+      await handleCalculate()
+    } finally {
+      setSavingAdjustment(false)
+    }
+  }
+
+  const handleDeleteAdjustment = async (id: string) => {
+    if (!confirm('この調整を削除しますか？')) return
+    setSavingAdjustment(true)
+    try {
+      const { error } = await supabase.from('therapist_memos').delete().eq('id', id)
+      if (error) { alert('調整の削除に失敗しました: ' + error.message); return }
+      await handleCalculate()
+    } finally {
+      setSavingAdjustment(false)
     }
   }
 
@@ -464,8 +616,8 @@ interface CalculatedReservation extends ReservationWithDetails {
     let paypayCount = 0
     let paypaySales = 0
     let back = 0
-    let standby = 0
-    let standbyCount = 0
+    let adjustmentTotal = 0
+    let adjustmentCount = 0
     let profit = 0
     let count = 0
     let creditFee = 0
@@ -483,8 +635,8 @@ interface CalculatedReservation extends ReservationWithDetails {
       paypayCount += cur.paypayCount
       paypaySales += cur.paypaySales
       back += cur.totalBack
-      standby += cur.standbyGuarantee
-      standbyCount += cur.standbyCount
+      adjustmentTotal += cur.adjustmentTotal
+      adjustmentCount += cur.adjustmentCount
       profit += cur.shopProfit
       count += cur.reservationCount
       creditFee += cur.totalCreditFee
@@ -511,8 +663,8 @@ interface CalculatedReservation extends ReservationWithDetails {
       paypayCount,
       paypaySales,
       back,
-      standby,
-      standbyCount,
+      adjustmentTotal,
+      adjustmentCount,
       profit,
       count,
       creditFee,
@@ -538,7 +690,7 @@ interface CalculatedReservation extends ReservationWithDetails {
             <th className="px-4 py-3 border-b border-slate-100">PayPay手数料</th>
             <th className="px-4 py-3 border-b border-slate-100">PayPay件数</th>
             <th className="px-4 py-3 border-b border-slate-100 text-indigo-600">報酬</th>
-            <th className="px-4 py-3 border-b border-slate-100 text-rose-600">待機保証</th>
+            <th className="px-4 py-3 border-b border-slate-100">調整</th>
             <th className="px-4 py-3 border-b border-slate-100 text-emerald-600">利益</th>
             <th className="px-4 py-3 border-b border-slate-100">件数</th>
             <th className="px-2 py-3 border-b border-slate-100 w-10"></th>
@@ -567,9 +719,12 @@ interface CalculatedReservation extends ReservationWithDetails {
               <td className="px-4 py-2 font-mono text-xs text-red-500">¥{day.totalPaypayFee.toLocaleString()}</td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600">{day.paypayCount}件</td>
               <td className="px-4 py-2 font-mono text-xs font-bold text-indigo-600">¥{day.totalBack.toLocaleString()}</td>
-              <td className="px-4 py-2 font-mono text-xs text-rose-600">
-                {day.standbyGuarantee > 0 ? (
-                  <span className="font-bold">¥{day.standbyGuarantee.toLocaleString()}<span className="text-slate-400 font-medium ml-1">({day.standbyCount}人)</span></span>
+              <td className={`px-4 py-2 font-mono text-xs ${day.adjustmentTotal < 0 ? 'text-rose-600' : day.adjustmentTotal > 0 ? 'text-slate-600' : ''}`}>
+                {day.adjustmentCount > 0 ? (
+                  <span className="font-bold">
+                    {day.adjustmentTotal >= 0 ? '+' : ''}¥{day.adjustmentTotal.toLocaleString()}
+                    <span className="text-slate-400 font-medium ml-1">({day.adjustmentCount}件)</span>
+                  </span>
                 ) : (
                   <span className="text-slate-300">—</span>
                 )}
@@ -661,11 +816,11 @@ interface CalculatedReservation extends ReservationWithDetails {
           </div>
         )}
 
-        {standbyUnavailable && (
+        {adjustmentsUnavailable && (
           <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-medium">
-            待機保証テーブル（standby_guarantees）がデータベースにありません。
-            <code className="mx-1 px-1.5 py-0.5 bg-amber-100 rounded font-mono">npx tsx scripts/db-migrate-standby-guarantee.ts</code>
-            を実行するまで、待機保証の入力・集計は無効です（他の集計はそのまま使えます）。
+            控除・手当・ペナルティ・待機保証の区分列（therapist_memos.category）がデータベースにありません。
+            <code className="mx-1 px-1.5 py-0.5 bg-amber-100 rounded font-mono">npx tsx scripts/db-migrate-adjustment-category.ts</code>
+            を実行するまで、この機能の入力・集計は無効です（他の集計はそのまま使えます）。
           </div>
         )}
 
@@ -755,15 +910,17 @@ interface CalculatedReservation extends ReservationWithDetails {
               </div>
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="text-xs text-slate-600 font-bold">
-                  待機保証
-                  {totals.standbyCount > 0 && (
-                    <span className="text-[10px] text-slate-400 font-medium ml-1.5">{totals.standbyCount}人分</span>
+                  控除・手当調整
+                  {totals.adjustmentCount > 0 && (
+                    <span className="text-[10px] text-slate-400 font-medium ml-1.5">{totals.adjustmentCount}件</span>
                   )}
                 </div>
-                <div className="text-sm font-bold text-rose-600 font-mono">¥{totals.standby.toLocaleString()}</div>
+                <div className={`text-sm font-bold font-mono ${totals.adjustmentTotal < 0 ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {totals.adjustmentTotal >= 0 ? '+' : ''}¥{totals.adjustmentTotal.toLocaleString()}
+                </div>
               </div>
               <div className="text-[10px] text-slate-400 px-1 text-center font-medium mt-1">
-                ※利益 ＝ 売上合計 － 報酬合計 － 待機保証
+                ※利益 ＝ 売上合計 － 報酬合計 ＋ 控除・手当調整（控除・ペナルティは＋、手当・待機保証は－）
               </div>
             </div>
           </div>
@@ -849,8 +1006,8 @@ interface CalculatedReservation extends ReservationWithDetails {
           reservationCount: 0,
           totalCreditFee: 0,
           totalPaypayFee: 0,
-          standbyGuarantee: 0,
-          standbyCount: 0
+          adjustmentTotal: 0,
+          adjustmentCount: 0
         } as DailySummary
 
         return (
@@ -941,10 +1098,10 @@ interface CalculatedReservation extends ReservationWithDetails {
                     <span className="text-base font-bold text-indigo-600 font-mono">¥{summary.totalBack.toLocaleString()}</span>
                   </div>
                   <div className="text-[9px] font-medium mt-1.5 flex flex-col gap-0.5 border-t border-slate-100 pt-1">
-                    {summary.standbyGuarantee > 0 && (
-                      <div className="flex justify-between text-rose-500">
-                        <span>待機保証:</span>
-                        <span className="font-bold">¥{summary.standbyGuarantee.toLocaleString()}</span>
+                    {summary.adjustmentCount > 0 && (
+                      <div className={`flex justify-between ${summary.adjustmentTotal < 0 ? 'text-rose-500' : 'text-slate-500'}`}>
+                        <span>調整:</span>
+                        <span className="font-bold">{summary.adjustmentTotal >= 0 ? '+' : ''}¥{summary.adjustmentTotal.toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-emerald-600">
@@ -1105,9 +1262,9 @@ interface CalculatedReservation extends ReservationWithDetails {
 
                   // 支給後にシフトが消された・予約が後から入った場合でも、
                   // 支給済みの保証が画面から消えて取り消せなくならないように拾う
-                  const orphans: ShiftRow[] = Object.values(standbyByKey)
-                    .filter(g => g.business_date === selectedDate && !seen.has(g.therapist_id))
-                    .map(g => ({ therapist_id: g.therapist_id, date: selectedDate, start_time: null, end_time: null }))
+                  const orphans: ShiftRow[] = (adjustmentsByDate[selectedDate] || [])
+                    .filter(a => a.category === 'standby_guarantee' && !seen.has(a.therapist_id))
+                    .map(a => ({ therapist_id: a.therapist_id, date: selectedDate, start_time: null, end_time: null }))
 
                   const rows = [...candidates, ...orphans]
                   if (rows.length === 0) return null
@@ -1123,15 +1280,17 @@ interface CalculatedReservation extends ReservationWithDetails {
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-1">
-                          この日に出勤していて予約が1本も入らなかったセラピストです。支給する金額を入れて保存すると、その日の利益から差し引かれます。
+                          この日に出勤していて予約が1本も入らなかったセラピストです。金額は待機時間から自動で入りますが、その場で書き換えられます。保存するとその日の利益から差し引かれます。
                         </p>
                       </div>
 
                       <div className="divide-y divide-slate-100">
                         {rows.map((row) => {
                           const key = standbyKey(selectedDate, row.therapist_id)
-                          const existing = standbyByKey[key]
-                          const draft = standbyDrafts[key] ?? String(existing?.amount ?? defaultStandbyAmount)
+                          const existing = findGuaranteeAdjustment(selectedDate, row.therapist_id)
+                          const waitHours = calcStandbyHours(row.start_time, row.end_time)
+                          const suggested = resolveStandbyAmount(waitHours, standbyTiers, defaultStandbyAmount)
+                          const draft = standbyDrafts[key] ?? String(existing?.amount ?? suggested)
                           const busy = savingStandbyKey === key
 
                           return (
@@ -1144,7 +1303,18 @@ interface CalculatedReservation extends ReservationWithDetails {
                                   {row.start_time
                                     ? `${toDisplayTime(row.start_time)}〜${toDisplayTime(row.end_time || '')}`
                                     : 'シフト登録なし'}
+                                  {waitHours !== null && (
+                                    <span className="ml-2 text-slate-500 font-bold">
+                                      待機{Number.isInteger(waitHours) ? waitHours : waitHours.toFixed(1)}時間
+                                    </span>
+                                  )}
                                 </div>
+                                {!existing && suggested > 0 && (
+                                  <div className="text-[10px] text-slate-400 mt-0.5">
+                                    規定額 ¥{suggested.toLocaleString()}
+                                    {waitHours === null && standbyTiers.length > 0 && '（待機時間が取れないため定額）'}
+                                  </div>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-2">
@@ -1187,6 +1357,221 @@ interface CalculatedReservation extends ReservationWithDetails {
                           )
                         })}
                       </div>
+                    </div>
+                  )
+                })()}
+
+                {/* 控除・手当・ペナルティ・待機保証（一覧＋手動追加） */}
+                {(() => {
+                  const dayAdjustments = adjustmentsByDate[selectedDate] || []
+
+                  return (
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                          <span className="font-bold text-slate-800 text-sm">控除・手当・ペナルティ</span>
+                          {dayAdjustments.length > 0 && (
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                              {dayAdjustments.length}件
+                            </span>
+                          )}
+                        </div>
+                        {!newAdjustment && (
+                          <button
+                            type="button"
+                            onClick={() => setNewAdjustment({ therapistId: '', category: 'deduction', sign: -1, content: '', amount: '' })}
+                            disabled={adjustmentsUnavailable}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-lg text-[11px] transition-colors disabled:opacity-50"
+                          >
+                            ＋ 手動で追加
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 px-4 pt-2">
+                        毎日決まって発生するものが無くても構いません。当欠・釣銭不足・不足分の補填など、
+                        そのつど起きたことをここに記録すると、その日の利益に反映されます。
+                      </p>
+
+                      {/* 追加フォーム */}
+                      {newAdjustment && (
+                        <div className="mx-4 my-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select
+                              value={newAdjustment.therapistId}
+                              onChange={(e) => setNewAdjustment(f => f && ({ ...f, therapistId: e.target.value }))}
+                              className="border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                              <option value="">セラピストを選択</option>
+                              {therapistOptions.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={newAdjustment.category}
+                              onChange={(e) => setNewAdjustment(f => f && ({ ...f, category: e.target.value as typeof f.category }))}
+                              className="border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                              <option value="deduction">控除（支払いから引く）</option>
+                              <option value="penalty">ペナルティ（支払いから引く）</option>
+                              <option value="allowance">手当（上乗せする）</option>
+                              <option value="standby_guarantee">待機保証（上乗せする）</option>
+                              <option value="other">その他</option>
+                            </select>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="理由・内容（例: 8/16当欠、釣銭不足など）"
+                            value={newAdjustment.content}
+                            onChange={(e) => setNewAdjustment(f => f && ({ ...f, content: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500/40"
+                          />
+                          <div className="flex items-center gap-2">
+                            {newAdjustment.category === 'other' && (
+                              <div className="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewAdjustment(f => f && ({ ...f, sign: -1 }))}
+                                  className={`px-2.5 py-2 text-xs font-bold ${newAdjustment.sign === -1 ? 'bg-rose-600 text-white' : 'bg-white text-slate-500'}`}
+                                >
+                                  控除(－)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewAdjustment(f => f && ({ ...f, sign: 1 }))}
+                                  className={`px-2.5 py-2 text-xs font-bold ${newAdjustment.sign === 1 ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'}`}
+                                >
+                                  手当(＋)
+                                </button>
+                              </div>
+                            )}
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step={500}
+                                placeholder="金額"
+                                value={newAdjustment.amount}
+                                onChange={(e) => setNewAdjustment(f => f && ({ ...f, amount: e.target.value }))}
+                                className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500/40"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleAddAdjustment}
+                              disabled={savingAdjustment}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {savingAdjustment ? '保存中...' : '登録'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewAdjustment(null)}
+                              className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold rounded-lg text-xs transition-colors"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 一覧 */}
+                      {dayAdjustments.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                          この日の登録はありません
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {dayAdjustments.map((row) => {
+                            const isEditing = editingAdjustmentId === row.id
+                            const categoryLabel = row.category ? ADJUSTMENT_CATEGORY_LABELS[row.category] : 'その他'
+                            const categoryColor = row.category ? ADJUSTMENT_CATEGORY_COLORS[row.category] : 'bg-slate-100 text-slate-600'
+
+                            if (isEditing) {
+                              return (
+                                <div key={row.id} className="px-4 py-3 bg-indigo-50/40 space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editAdjustmentForm.content}
+                                    onChange={(e) => setEditAdjustmentForm(f => ({ ...f, content: e.target.value }))}
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                                      <input
+                                        type="number"
+                                        step={500}
+                                        value={editAdjustmentForm.amount}
+                                        onChange={(e) => setEditAdjustmentForm(f => ({ ...f, amount: e.target.value }))}
+                                        className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                      />
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 whitespace-nowrap">マイナス＝控除、プラス＝手当</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateAdjustment(row.id)}
+                                      disabled={savingAdjustment}
+                                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[11px] transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    >
+                                      保存
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingAdjustmentId(null)}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold rounded-lg text-[11px] transition-colors"
+                                    >
+                                      キャンセル
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div key={row.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0 flex items-start gap-2">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${categoryColor}`}>
+                                    {categoryLabel}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-slate-800 text-sm truncate">
+                                      {therapistNames[row.therapist_id] || '（不明なセラピスト）'}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 truncate">
+                                      {row.content}
+                                      {row.is_resolved && (
+                                        <span className="ml-1.5 text-[10px] text-emerald-500 font-bold">精算済み</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`text-sm font-bold font-mono whitespace-nowrap ${row.amount < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                    {row.amount >= 0 ? '+' : ''}¥{row.amount.toLocaleString()}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditAdjustmentStart(row)}
+                                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-[11px] transition-colors"
+                                  >
+                                    編集
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAdjustment(row.id)}
+                                    disabled={savingAdjustment}
+                                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-400 font-bold rounded-lg text-[11px] transition-colors disabled:opacity-50"
+                                  >
+                                    削除
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
