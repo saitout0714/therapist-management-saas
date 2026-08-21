@@ -302,10 +302,37 @@
         transform: scale(1.1);
       }
       .yk-x-badge-img {
-        width: 42px;
-        height: 42px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
-        filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));
+      }
+      .yk-sns-badges-container {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+      .yk-sns-badges-container[data-has-rookie="true"] {
+        top: 51px;
+      }
+      .yk-sns-badge-link {
+        display: block;
+        transition: transform 0.2s ease;
+        line-height: 0;
+      }
+      .yk-sns-badge-link:hover {
+        transform: scale(1.15);
+      }
+      .yk-sns-badge-img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: contain;
+        display: block;
       }
       .yk-today-work-badge {
         position: absolute;
@@ -1128,6 +1155,28 @@
     }
   }
 
+  // SNSバッジ（X・Bluesky・LINE）の縦並びHTML
+  function renderSnsBadgesHTML(therapist, hasRookie) {
+    if (!therapist) return '';
+    const xUrl = therapist.x_url;
+    const blueskyUrl = therapist.bluesky_url;
+    const lineUrl = therapist.line_url;
+    if (!xUrl && !blueskyUrl && !lineUrl) return '';
+
+    let html = `<div class="yk-sns-badges-container" ${hasRookie ? 'data-has-rookie="true"' : ''}>`;
+    if (xUrl) {
+      html += `<a href="${xUrl}" target="_blank" rel="noopener noreferrer" class="yk-sns-badge-link" title="X (Twitter) を見る"><img src="${apiBase}/images/x.png" alt="X" class="yk-sns-badge-img" /></a>`;
+    }
+    if (blueskyUrl) {
+      html += `<a href="${blueskyUrl}" target="_blank" rel="noopener noreferrer" class="yk-sns-badge-link" title="Bluesky を見る"><img src="${apiBase}/images/bluesky.png" alt="Bluesky" class="yk-sns-badge-img" /></a>`;
+    }
+    if (lineUrl) {
+      html += `<a href="${lineUrl}" target="_blank" rel="noopener noreferrer" class="yk-sns-badge-link" title="LINE を見る"><img src="${apiBase}/images/line.png" alt="LINE" class="yk-sns-badge-img" /></a>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
   // セラピストカード一覧HTML
   function renderTherapistListHTML(therapists, shopCode, getTherapistProfileUrl, shifts = [], getBookUrl, todayStr) {
     if (therapists.length === 0) {
@@ -1168,7 +1217,7 @@
             </a>
             ${rankBadgeHTML}
             ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-            ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+            ${renderSnsBadgesHTML(t, t.is_rookie)}
             ${isWorkingToday ? `<span class="yk-today-work-badge">本日出勤</span>` : ''}
           </div>
           <div class="yk-card-info">
@@ -1268,7 +1317,7 @@
                       </a>
                       ${rankBadgeHTML}
                       ${t.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-                      ${t.x_url ? `<a href="${t.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${t.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+                      ${renderSnsBadgesHTML(t, t.is_rookie)}
                     </div>
                     <div class="yk-card-info">
                       <div class="yk-name">
@@ -1410,7 +1459,7 @@
             }
             ${rankBadgeHTML}
             ${therapist.is_rookie ? `<img src="${apiBase}/widgets/rookie.png" alt="新人" class="yk-rookie-badge-img" />` : ''}
-            ${therapist.x_url ? `<a href="${therapist.x_url}" target="_blank" rel="noopener noreferrer" class="yk-x-badge-link" ${therapist.is_rookie ? 'data-has-rookie="true"' : ''} title="X (Twitter) を見る"><img src="${apiBase}/widgets/x-icon.png" alt="X" class="yk-x-badge-img" /></a>` : ''}
+            ${renderSnsBadgesHTML(therapist, therapist.is_rookie)}
           </div>
           ${thumbnailsHTML}
           

@@ -34,7 +34,8 @@ export default function EditTherapistPage() {
     is_rookie: false,
     ng_course_ids: [] as string[],
     x_url: "",
-    litlink_url: "",
+    bluesky_url: "",
+    line_url: "",
     badge: "",
     tags: "",
   });
@@ -375,7 +376,8 @@ export default function EditTherapistPage() {
           is_rookie: !!therapist.is_rookie,
           ng_course_ids: therapist.ng_course_ids || [],
           x_url: therapist.x_url || "",
-          litlink_url: therapist.litlink_url || "",
+          bluesky_url: therapist.bluesky_url || "",
+          line_url: therapist.line_url || "",
           badge: therapist.badge || "",
           tags: Array.isArray(therapist.tags) ? therapist.tags.join(", ") : "",
         });
@@ -592,7 +594,8 @@ export default function EditTherapistPage() {
         is_active: profile.is_active,
         is_rookie: profile.is_rookie || false,
         x_url: profile.x_url || null,
-        litlink_url: profile.litlink_url || null,
+        bluesky_url: profile.bluesky_url || null,
+        line_url: profile.line_url || null,
         badge: profile.badge || null,
         tags: profile.tags
           ? profile.tags.split(",").map((t) => t.trim()).filter(Boolean)
@@ -1186,15 +1189,29 @@ export default function EditTherapistPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    リットリンク(litlink) URL
+                    Bluesky URL
                   </label>
                   <input
                     type="url"
-                    name="litlink_url"
-                    value={profile.litlink_url}
+                    name="bluesky_url"
+                    value={profile.bluesky_url}
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
-                    placeholder="https://lit.link/username"
+                    placeholder="https://bsky.app/profile/username.bsky.social"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    LINE URL
+                  </label>
+                  <input
+                    type="url"
+                    name="line_url"
+                    value={profile.line_url}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-slate-800 placeholder-slate-400"
+                    placeholder="https://line.me/ti/p/..."
                   />
                 </div>
 

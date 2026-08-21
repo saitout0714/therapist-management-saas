@@ -23,6 +23,9 @@ type RosterInput = {
   hip?: number | null
   comment?: string | null
   rank_id?: string | null
+  x_url?: string | null
+  bluesky_url?: string | null
+  line_url?: string | null
 }
 
 // サービスロールは RLS を素通りするので、対象店舗が本当に同じオーナー配下か

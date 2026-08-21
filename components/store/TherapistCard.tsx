@@ -149,23 +149,69 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
         </div>
       </Link>
 
-      {/* 公式Xリンク（写真右上にオーバーレイ表示。ランク/グレードバッジがある場合はその下に。
-          Linkと入れ子にできないので兄弟要素にする） */}
-      {therapist.twitterUrl && (
-        <a
-          href={therapist.twitterUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`${therapist.name}さんの公式X`}
-          onClick={(e) => e.stopPropagation()}
-          className={`absolute right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-stone-950/80 backdrop-blur-md border border-white/25 text-white shadow-md transition-all hover:scale-110 hover:bg-black ${
-            hasRankBadge ? 'top-12' : 'top-3'
+      {/* SNSバッジ群（写真右上にオーバーレイ表示。上から X → Bluesky → LINE の順で縦並び） */}
+      {(therapist.twitterUrl || therapist.blueskyUrl || therapist.lineUrl) && (
+        <div
+          className={`absolute right-2.5 sm:right-3 z-20 flex flex-col items-center gap-1.5 sm:gap-2 ${
+            hasRankBadge ? 'top-11 sm:top-12' : 'top-2.5 sm:top-3'
           }`}
+          onClick={(e) => e.stopPropagation()}
         >
-          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-        </a>
+          {therapist.twitterUrl && (
+            <a
+              href={therapist.twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${therapist.name}さんの公式X`}
+              className="w-7 h-7 sm:w-8 sm:h-8 block transition-transform duration-200 hover:scale-110 active:scale-95"
+            >
+              <Image
+                src="/images/x.png"
+                alt="X"
+                width={32}
+                height={32}
+                unoptimized
+                className="w-full h-full object-contain pointer-events-none"
+              />
+            </a>
+          )}
+          {therapist.blueskyUrl && (
+            <a
+              href={therapist.blueskyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${therapist.name}さんのBluesky`}
+              className="w-7 h-7 sm:w-8 sm:h-8 block transition-transform duration-200 hover:scale-110 active:scale-95"
+            >
+              <Image
+                src="/images/bluesky.png"
+                alt="Bluesky"
+                width={32}
+                height={32}
+                unoptimized
+                className="w-full h-full object-contain pointer-events-none"
+              />
+            </a>
+          )}
+          {therapist.lineUrl && (
+            <a
+              href={therapist.lineUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${therapist.name}さんの公式LINE`}
+              className="w-7 h-7 sm:w-8 sm:h-8 block transition-transform duration-200 hover:scale-110 active:scale-95"
+            >
+              <Image
+                src="/images/line.png"
+                alt="LINE"
+                width={32}
+                height={32}
+                unoptimized
+                className="w-full h-full object-contain pointer-events-none"
+              />
+            </a>
+          )}
+        </div>
       )}
       </div>
 

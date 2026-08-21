@@ -274,6 +274,8 @@ export async function fetchTherapists(shopId?: string): Promise<Therapist[]> {
         tags: Array.isArray(t.tags) ? t.tags : [],
         comment: t.comment || '',
         twitterUrl: t.twitter_url || t.x_url || undefined,
+        blueskyUrl: t.bluesky_url || undefined,
+        lineUrl: t.line_url || undefined,
         litlinkUrl: t.litlink_url || undefined,
         isNew: t.is_new ?? t.is_rookie ?? false,
       };
@@ -354,6 +356,8 @@ export async function fetchTherapistDetail(id: string): Promise<Therapist | null
       tags: Array.isArray(data.tags) ? data.tags : [],
       comment: data.comment || '',
       twitterUrl: data.twitter_url || data.x_url || undefined,
+      blueskyUrl: data.bluesky_url || undefined,
+      lineUrl: data.line_url || undefined,
       litlinkUrl: data.litlink_url || undefined,
       isNew: data.is_new ?? data.is_rookie ?? false,
       affiliatedShops,

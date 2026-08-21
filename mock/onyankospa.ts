@@ -76,7 +76,8 @@ export const MOCK_ONYANKO_THERAPISTS: Therapist[] = [
     tags: ['小悪魔系', '猫耳デレ', 'モチモチ肌', '密着アロマ'],
     comment: 'にゃ〜んっ🐾 お仕事でお疲れの貴方を、温かいオイルと密着マッサージで包み込みます♡',
     twitterUrl: 'https://x.com',
-    litlinkUrl: 'https://lit.link',
+    blueskyUrl: 'https://bsky.app',
+    lineUrl: 'https://line.me',
     isNew: true,
   },
   {
@@ -115,6 +116,7 @@ export const MOCK_ONYANKO_THERAPISTS: Therapist[] = [
     tags: ['ツンデレ猫', '美肌施術', 'リピート率No1'],
     comment: '甘いひとときを過ごしにきてね♡丁寧にほぐしてあげる♪',
     twitterUrl: 'https://x.com',
+    blueskyUrl: 'https://bsky.app',
   },
   {
     id: 'onyanko-th-4',
@@ -133,6 +135,7 @@ export const MOCK_ONYANKO_THERAPISTS: Therapist[] = [
     tags: ['天然系', '密着アロマ', '癒やしボイス'],
     comment: '一生懸命頑張ります！癒やされに来てくださいね🐾',
     twitterUrl: 'https://x.com',
+    lineUrl: 'https://line.me',
     isNew: true,
   },
 ];

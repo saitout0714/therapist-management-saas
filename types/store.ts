@@ -85,6 +85,8 @@ export interface Therapist {
   tags: string[];     // e.g. ['癒し系', 'モデル体型', '密着マッサージ', '愛嬌抜群']
   comment?: string;   // 自己PR文
   twitterUrl?: string;
+  blueskyUrl?: string;
+  lineUrl?: string;
   litlinkUrl?: string;
   isNew?: boolean;
   affiliatedShops?: { id: string; name: string }[]; // 他店舗連携情報

@@ -17,13 +17,8 @@ import { publicBasePath } from '../../../lib/shopDomains';
 import { CyberParallaxBackground } from '../../../components/store/CyberParallaxBackground';
 import { LuxuryAmbientBackground } from '../../../components/store/LuxuryAmbientBackground';
 
-/**
- * サーバーコンポーネント。
- * 以前は 'use client' + useEffect で取得していたため、クローラに配信される
- * HTMLは店名以外が空（セラピスト・お知らせ・住所・営業時間がすべて空タグ）だった。
- * サーバー側で取得してから描画することで、本文が最初のHTMLに載る。
- * 見た目・レイアウトは変更していない。
- */
+export const dynamic = 'force-dynamic';
+
 export default async function StoreTopPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';

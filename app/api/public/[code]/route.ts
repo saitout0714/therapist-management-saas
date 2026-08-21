@@ -101,7 +101,7 @@ export async function GET(
       .from('shifts')
       .select(`
         id, date, start_time, end_time,
-        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, rank_id, is_active, is_rookie, reservation_interval_minutes)
+        therapists (id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, bluesky_url, line_url, rank_id, is_active, is_rookie, reservation_interval_minutes)
       `)
       .eq('shop_id', shopId)
       .gte('date', yesterdayStr)
@@ -123,14 +123,14 @@ export async function GET(
     scope === 'all_shops'
       ? supabase
           .from('therapists')
-          .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, rank_id, is_active, is_rookie')
+          .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, bluesky_url, line_url, rank_id, is_active, is_rookie')
           .in('shop_id', groupShopIds)
           .eq('is_active', true)
           .order('name', { ascending: true })
       : eligibleIds.length > 0
         ? supabase
             .from('therapists')
-            .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, rank_id, is_active, is_rookie')
+            .select('id, name, age, height, bust, bust_cup, waist, hip, comment, photo_url, hp_url, x_url, bluesky_url, line_url, rank_id, is_active, is_rookie')
             .in('id', eligibleIds)
             .order('name', { ascending: true })
         : Promise.resolve({ data: [] as any[], error: null }),

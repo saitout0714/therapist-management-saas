@@ -12,11 +12,8 @@ import {
 import { DIARY_FEATURE_ENABLED } from '../../../../../lib/featureFlags';
 import { publicBasePath } from '../../../../../lib/shopDomains';
 
-/**
- * サーバーコンポーネント。
- * セラピスト名・プロフィール・写真をHTMLに載せるため、取得をサーバー側に移した。
- * 表示部分（写真ギャラリーの選択状態を持つ）は TherapistDetailView に切り出している。
- */
+export const dynamic = 'force-dynamic';
+
 export default async function TherapistDetailPage({
   params,
 }: {

@@ -10,10 +10,8 @@ import { publicBasePath } from '../../../../lib/shopDomains';
 import { CyberParallaxBackground } from '../../../../components/store/CyberParallaxBackground';
 import { LuxuryAmbientBackground } from '../../../../components/store/LuxuryAmbientBackground';
 
-/**
- * サーバーコンポーネント。セラピスト一覧をHTMLに載せるため、
- * 取得をサーバー側に移している（タグ絞り込みのみクライアント側）。
- */
+export const dynamic = 'force-dynamic';
+
 export default async function TherapistsPage({ params }: { params: Promise<{ shopSlug: string }> }) {
   const resolvedParams = await params;
   const shopSlug = resolvedParams.shopSlug || 'specialgrade';
