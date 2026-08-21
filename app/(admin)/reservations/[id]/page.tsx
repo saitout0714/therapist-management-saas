@@ -1383,7 +1383,7 @@ export default function ReservationPreviewPage() {
 
   return (
     <div className="bg-slate-50 p-2 sm:p-4">
-      <div className="max-w-4xl mx-auto space-y-3 sm:space-y-6">
+      <div className="max-w-4xl mx-auto flex flex-col gap-3 sm:gap-6">
         
         {/* クレジット決済URL未設定の警告バナー */}
         {reservation.payment_method === 'credit' && !creditPaymentUrl && (
@@ -1480,8 +1480,8 @@ export default function ReservationPreviewPage() {
           </div>
         </div>
 
-        {/* 1. 予約データ詳細（PC・タブレットで見やすいよう最上部に配置） */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* 1. 予約データ詳細（PC表示時は上、スマホ表示時は下に配置） */}
+        <div className="order-2 md:order-1 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-3 sm:p-5">
             <h2 className="text-sm sm:text-lg font-bold text-slate-800 mb-3 sm:mb-6 flex items-center border-b border-slate-100 pb-2 sm:pb-4">
               <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
@@ -1796,8 +1796,10 @@ export default function ReservationPreviewPage() {
           </div>
         </div>
 
-        {/* 2. 連絡送信状況パネル */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+        {/* 2. 連絡送信状況・案内テンプレート・コピーツール（スマホ表示時は上、PC表示時は下に配置） */}
+        <div className="order-1 md:order-2 flex flex-col gap-3 sm:gap-6">
+          {/* 連絡送信状況パネル */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
           <div className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border shadow-sm flex flex-col justify-between gap-2 sm:flex-row sm:items-center transition-all bg-white ${
             reservation.customer_notified 
               ? 'border-emerald-200' 
@@ -2096,6 +2098,7 @@ export default function ReservationPreviewPage() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   )
