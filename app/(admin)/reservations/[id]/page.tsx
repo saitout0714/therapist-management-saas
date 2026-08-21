@@ -1480,310 +1480,7 @@ export default function ReservationPreviewPage() {
           </div>
         </div>
 
-        {/* 連絡送信状況パネル */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
-          <div className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border shadow-sm flex flex-col justify-between gap-2 sm:flex-row sm:items-center transition-all bg-white ${
-            reservation.customer_notified 
-              ? 'border-emerald-200' 
-              : 'border-rose-200'
-          }`}>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
-                reservation.customer_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-              }`}>
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-slate-800">お客様連絡</h4>
-                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-0.5 ${
-                  reservation.customer_notified ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                }`}>
-                  {reservation.customer_notified ? '送信済' : '未送信'}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => void updateNotifiedStatus('customer', !reservation.customer_notified)}
-              className={`w-full sm:w-auto px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
-                reservation.customer_notified
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-              }`}
-            >
-              {reservation.customer_notified ? '未送信に戻す' : '送信済にする'}
-            </button>
-          </div>
-
-          <div className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border shadow-sm flex flex-col justify-between gap-2 sm:flex-row sm:items-center transition-all bg-white ${
-            reservation.therapist_notified 
-              ? 'border-emerald-200' 
-              : 'border-rose-200'
-          }`}>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
-                reservation.therapist_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-              }`}>
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-slate-800">セラピスト連絡</h4>
-                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-0.5 ${
-                  reservation.therapist_notified ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                }`}>
-                  {reservation.therapist_notified ? '送信済' : '未送信'}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => void updateNotifiedStatus('therapist', !reservation.therapist_notified)}
-              className={`w-full sm:w-auto px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
-                reservation.therapist_notified
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-              }`}
-            >
-              {reservation.therapist_notified ? '未送信に戻す' : '送信済にする'}
-            </button>
-          </div>
-        </div>
-
-        {/* Web予約のその他ご希望表示 */}
-        {reservation.source === 'web' && reservation.notes && (
-          <div className="bg-amber-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-amber-800 shadow-sm border border-amber-200">
-            <h3 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 mb-1.5 text-amber-900">
-              <span className="text-amber-500">💬</span> Web予約時のその他ご希望
-            </h3>
-            <p className="text-xs sm:text-sm opacity-90 whitespace-pre-wrap leading-relaxed bg-white/60 p-2.5 rounded-lg border border-amber-200/40">
-              {reservation.notes}
-            </p>
-          </div>
-        )}
-
-        {/* 送信テンプレート切り替えタブ */}
-        <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
-          <div className="flex flex-col">
-            <span className="text-xs sm:text-sm font-bold text-slate-800">案内テンプレート</span>
-          </div>
-          <div className="bg-slate-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl flex gap-0.5 sm:gap-1 select-none">
-            <button
-              onClick={() => handleCustomerTypeOverrideChange('auto')}
-              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                customerTypeOverride === 'auto'
-                  ? 'bg-white text-primary-600 shadow-sm border border-slate-200/50'
-                  : 'text-slate-600 hover:bg-white/50'
-              }`}
-            >
-              自動判定 ({isNewCustomer ? '新規' : '会員'})
-            </button>
-            <button
-              onClick={() => handleCustomerTypeOverrideChange('new')}
-              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                customerTypeOverride === 'new'
-                  ? 'bg-accent-500 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white/50'
-              }`}
-            >
-              新規用
-            </button>
-            <button
-              onClick={() => handleCustomerTypeOverrideChange('member')}
-              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                customerTypeOverride === 'member'
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white/50'
-              }`}
-            >
-              会員用
-            </button>
-          </div>
-        </div>
-
-
-
-        {/* Action Buttons for LINE */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
-          {/* Customer Copy */}
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
-            <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
-              <button
-                onClick={() => handleCopy(generateCustomerLineText(), 'customer')}
-                className={`w-full py-2 sm:py-3 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm ${copiedKey === 'customer' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
-              >
-                {copiedKey === 'customer' ? (
-                  <>
-                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                    コピー完了
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-                    </svg>
-                    <span>お客様用<span className="hidden sm:inline">ご案内を</span>コピー</span>
-                  </>
-                )}
-              </button>
-              {reservation?.customers?.phone ? (
-                <a
-                  href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomerLineText())}`}
-                  onClick={() => void updateNotifiedStatus('customer', true)}
-                  className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-center"
-                >
-                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  <span>SMS送信<span className="hidden md:inline"> ({reservation.customers.phone})</span></span>
-                </a>
-              ) : (
-                <button
-                  disabled
-                  className="w-full py-2 sm:py-3 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-lg sm:rounded-xl shadow-sm flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
-                >
-                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  SMS不可
-                </button>
-              )}
-            </div>
-            
-            <div className="flex flex-col">
-              <button
-                type="button"
-                onClick={() => setShowCustomerPreview(!showCustomerPreview)}
-                className="w-full py-1.5 text-[9px] sm:text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-t border-slate-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>{showCustomerPreview ? 'プレビューを閉じる' : 'プレビューを表示'}</span>
-                <svg className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform ${showCustomerPreview ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showCustomerPreview && (
-                <pre className="mx-2 my-2 sm:mx-4 sm:mb-4 sm:mt-3 p-2 text-[10px] sm:text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-lg border border-slate-100 h-28 sm:h-36 overflow-y-auto">
-                  {generateCustomerLineText()}
-                </pre>
-              )}
-            </div>
-          </div>
-
-          {/* Therapist Copy */}
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
-            <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
-              <button
-                onClick={() => handleCopy(generateTherapistLineText(), 'therapist')}
-                className={`w-full py-2 sm:py-3 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm ${copiedKey === 'therapist' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
-              >
-                {copiedKey === 'therapist' ? (
-                  <>
-                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                    コピー完了
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
-                    </svg>
-                    <span>セラピスト用<span className="hidden sm:inline">詳細を</span>コピー</span>
-                  </>
-                )}
-              </button>
-            </div>
-            
-            <div className="flex flex-col">
-              <button
-                type="button"
-                onClick={() => setShowTherapistPreview(!showTherapistPreview)}
-                className="w-full py-1.5 text-[9px] sm:text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-t border-slate-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>{showTherapistPreview ? 'プレビューを閉じる' : 'プレビューを表示'}</span>
-                <svg className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform ${showTherapistPreview ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showTherapistPreview && (
-                <pre className="mx-2 my-2 sm:mx-4 sm:mb-4 sm:mt-3 p-2 text-[10px] sm:text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-lg border border-slate-100 h-28 sm:h-36 overflow-y-auto">
-                  {generateTherapistLineText()}
-                </pre>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 追加連絡テンプレート送信ブロック */}
-        {customTemplates.length > 0 && (
-          <div className="bg-indigo-50/50 rounded-xl sm:rounded-2xl shadow-sm border border-indigo-100 p-3 sm:p-4 mt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-bold text-indigo-900 flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                追加連絡用テンプレート
-              </span>
-              <span className="text-[10px] text-indigo-500 font-bold bg-indigo-100/60 px-2 py-0.5 rounded-full">
-                {customTemplates.length}個登録あり
-              </span>
-            </div>
-
-            <div>
-              <select
-                onChange={(e) => {
-                  const id = e.target.value
-                  const found = customTemplates.find(t => t.id === id)
-                  setSelectedCustomTemplate(found || null)
-                }}
-                value={selectedCustomTemplate?.id || ''}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs sm:text-sm text-slate-800 font-semibold"
-              >
-                <option value="">-- 送信するテンプレートを選択してください --</option>
-                {customTemplates.map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-            </div>
-
-            {selectedCustomTemplate && (
-              <div className="space-y-2">
-                <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-3">
-                  <span className="block text-[10px] font-bold text-slate-400 mb-1">本文プレビュー（自動差し替え済）:</span>
-                  <pre className="text-[10px] sm:text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">
-                    {generateCustomTemplateText(selectedCustomTemplate.content)}
-                  </pre>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleCopyCustomTemplate(selectedCustomTemplate)}
-                    className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                    </svg>
-                    文章をコピー
-                  </button>
-
-                  {reservation?.customers?.phone && (
-                    <a
-                      href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomTemplateText(selectedCustomTemplate.content))}`}
-                      onClick={() => void handleSmsCustomTemplate(selectedCustomTemplate)}
-                      className="flex-1 py-2 px-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      SMSで送信
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Details Card */}
+        {/* 1. 予約データ詳細（PC・タブレットで見やすいよう最上部に配置） */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-3 sm:p-5">
             <h2 className="text-sm sm:text-lg font-bold text-slate-800 mb-3 sm:mb-6 flex items-center border-b border-slate-100 pb-2 sm:pb-4">
@@ -1808,16 +1505,16 @@ export default function ReservationPreviewPage() {
                   <div className="text-slate-500 font-medium pt-0.5">お客様</div>
                   <div className="col-span-2">
                     <div className="text-slate-800 font-bold flex items-center gap-2 flex-wrap">
-                      <span>{reservation.customers?.name || '未設定'} 様</span>
-                      <Link
-                        href={`/customers/${reservation.customer_id}/edit?redirect=/reservations/${reservationId}`}
-                        className="text-[10px] sm:text-xs text-indigo-600 hover:text-indigo-800 font-medium hover:underline flex items-center gap-0.5"
-                      >
-                        <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        情報変更
-                      </Link>
+                      {reservation.customer_id ? (
+                        <Link
+                          href={`/customers/${reservation.customer_id}`}
+                          className="hover:underline text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                          {reservation.customers?.name || '未設定'} 様
+                        </Link>
+                      ) : (
+                        <span>{reservation.customers?.name || '未設定'} 様</span>
+                      )}
                     </div>
                     {reservation.customers?.phone ? (
                       <span className="block text-slate-500 font-normal text-[11px] sm:text-xs mt-0.5">{reservation.customers.phone}</span>
@@ -2098,8 +1795,310 @@ export default function ReservationPreviewPage() {
             )}
           </div>
         </div>
+
+        {/* 2. 連絡送信状況パネル */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+          <div className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border shadow-sm flex flex-col justify-between gap-2 sm:flex-row sm:items-center transition-all bg-white ${
+            reservation.customer_notified 
+              ? 'border-emerald-200' 
+              : 'border-rose-200'
+          }`}>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
+                reservation.customer_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}>
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-slate-800">お客様連絡</h4>
+                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-0.5 ${
+                  reservation.customer_notified ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                }`}>
+                  {reservation.customer_notified ? '送信済' : '未送信'}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => void updateNotifiedStatus('customer', !reservation.customer_notified)}
+              className={`w-full sm:w-auto px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                reservation.customer_notified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              {reservation.customer_notified ? '未送信に戻す' : '送信済にする'}
+            </button>
+          </div>
+
+          <div className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border shadow-sm flex flex-col justify-between gap-2 sm:flex-row sm:items-center transition-all bg-white ${
+            reservation.therapist_notified 
+              ? 'border-emerald-200' 
+              : 'border-rose-200'
+          }`}>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
+                reservation.therapist_notified ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}>
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-slate-800">セラピスト連絡</h4>
+                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-0.5 ${
+                  reservation.therapist_notified ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                }`}>
+                  {reservation.therapist_notified ? '送信済' : '未送信'}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => void updateNotifiedStatus('therapist', !reservation.therapist_notified)}
+              className={`w-full sm:w-auto px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                reservation.therapist_notified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              {reservation.therapist_notified ? '未送信に戻す' : '送信済にする'}
+            </button>
+          </div>
+        </div>
+
+        {/* Web予約のその他ご希望表示 */}
+        {reservation.source === 'web' && reservation.notes && (
+          <div className="bg-amber-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-amber-800 shadow-sm border border-amber-200">
+            <h3 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 mb-1.5 text-amber-900">
+              <span className="text-amber-500">💬</span> Web予約時のその他ご希望
+            </h3>
+            <p className="text-xs sm:text-sm opacity-90 whitespace-pre-wrap leading-relaxed bg-white/60 p-2.5 rounded-lg border border-amber-200/40">
+              {reservation.notes}
+            </p>
+          </div>
+        )}
+
+        {/* 送信テンプレート切り替えタブ */}
+        <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+          <div className="flex flex-col">
+            <span className="text-xs sm:text-sm font-bold text-slate-800">案内テンプレート</span>
+          </div>
+          <div className="bg-slate-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl flex gap-0.5 sm:gap-1 select-none">
+            <button
+              onClick={() => handleCustomerTypeOverrideChange('auto')}
+              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'auto'
+                  ? 'bg-white text-primary-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              自動判定 ({isNewCustomer ? '新規' : '会員'})
+            </button>
+            <button
+              onClick={() => handleCustomerTypeOverrideChange('new')}
+              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'new'
+                  ? 'bg-accent-500 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              新規用
+            </button>
+            <button
+              onClick={() => handleCustomerTypeOverrideChange('member')}
+              className={`flex-1 sm:flex-none px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+                customerTypeOverride === 'member'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              会員用
+            </button>
+          </div>
+        </div>
+
+        {/* Action Buttons for LINE */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+          {/* Customer Copy */}
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
+            <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
+              <button
+                onClick={() => handleCopy(generateCustomerLineText(), 'customer')}
+                className={`w-full py-2 sm:py-3 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm ${copiedKey === 'customer' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
+              >
+                {copiedKey === 'customer' ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    コピー完了
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                    </svg>
+                    <span>お客様用<span className="hidden sm:inline">ご案内を</span>コピー</span>
+                  </>
+                )}
+              </button>
+              {reservation?.customers?.phone ? (
+                <a
+                  href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomerLineText())}`}
+                  onClick={() => void updateNotifiedStatus('customer', true)}
+                  className="w-full py-2 sm:py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm text-center"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  <span>SMS送信<span className="hidden md:inline"> ({reservation.customers.phone})</span></span>
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-2 sm:py-3 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-lg sm:rounded-xl shadow-sm flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  SMS不可
+                </button>
+              )}
+            </div>
+            
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => setShowCustomerPreview(!showCustomerPreview)}
+                className="w-full py-1.5 text-[9px] sm:text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-t border-slate-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>{showCustomerPreview ? 'プレビューを閉じる' : 'プレビューを表示'}</span>
+                <svg className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform ${showCustomerPreview ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showCustomerPreview && (
+                <pre className="mx-2 my-2 sm:mx-4 sm:mb-4 sm:mt-3 p-2 text-[10px] sm:text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-lg border border-slate-100 h-28 sm:h-36 overflow-y-auto">
+                  {generateCustomerLineText()}
+                </pre>
+              )}
+            </div>
+          </div>
+
+          {/* Therapist Copy */}
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
+            <div className="p-2 sm:p-4 space-y-1.5 sm:space-y-2">
+              <button
+                onClick={() => handleCopy(generateTherapistLineText(), 'therapist')}
+                className={`w-full py-2 sm:py-3 text-white font-bold rounded-lg sm:rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 sm:gap-2 text-[10px] xs:text-xs sm:text-sm ${copiedKey === 'therapist' ? 'bg-emerald-500' : 'bg-[#06C755] hover:bg-[#05b34c]'}`}
+              >
+                {copiedKey === 'therapist' ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    コピー完了
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.5 10.1c0-4.3-4.5-7.8-10.1-7.8C6.9 2.3 2.5 5.8 2.5 10.1c0 3.8 3.5 7.1 8.3 7.7.3.1.8.2.9.5.1.2 0 .6 0 .6l-.3 1.9c0 0-.1.3.1.4.2.1.4 0 .4 0l2.5-1.5c.2-.1.3-.2.5-.2h.2c4.1 0 7.4-3.3 7.4-7.4v-.2z"/>
+                    </svg>
+                    <span>セラピスト用<span className="hidden sm:inline">詳細を</span>コピー</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => setShowTherapistPreview(!showTherapistPreview)}
+                className="w-full py-1.5 text-[9px] sm:text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-t border-slate-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>{showTherapistPreview ? 'プレビューを閉じる' : 'プレビューを表示'}</span>
+                <svg className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform ${showTherapistPreview ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showTherapistPreview && (
+                <pre className="mx-2 my-2 sm:mx-4 sm:mb-4 sm:mt-3 p-2 text-[10px] sm:text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-lg border border-slate-100 h-28 sm:h-36 overflow-y-auto">
+                  {generateTherapistLineText()}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 追加連絡テンプレート送信ブロック */}
+        {customTemplates.length > 0 && (
+          <div className="bg-indigo-50/50 rounded-xl sm:rounded-2xl shadow-sm border border-indigo-100 p-3 sm:p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-bold text-indigo-900 flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                追加連絡用テンプレート
+              </span>
+              <span className="text-[10px] text-indigo-500 font-bold bg-indigo-100/60 px-2 py-0.5 rounded-full">
+                {customTemplates.length}個登録あり
+              </span>
+            </div>
+
+            <div>
+              <select
+                onChange={(e) => {
+                  const id = e.target.value
+                  const found = customTemplates.find(t => t.id === id)
+                  setSelectedCustomTemplate(found || null)
+                }}
+                value={selectedCustomTemplate?.id || ''}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all text-xs sm:text-sm text-slate-800 font-semibold"
+              >
+                <option value="">-- 送信するテンプレートを選択してください --</option>
+                {customTemplates.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedCustomTemplate && (
+              <div className="space-y-2">
+                <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-3">
+                  <span className="block text-[10px] font-bold text-slate-400 mb-1">本文プレビュー（自動差し替え済）:</span>
+                  <pre className="text-[10px] sm:text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">
+                    {generateCustomTemplateText(selectedCustomTemplate.content)}
+                  </pre>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCopyCustomTemplate(selectedCustomTemplate)}
+                    className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    文章をコピー
+                  </button>
+
+                  {reservation?.customers?.phone && (
+                    <a
+                      href={`sms:${reservation.customers.phone}?&body=${encodeURIComponent(generateCustomTemplateText(selectedCustomTemplate.content))}`}
+                      onClick={() => void handleSmsCustomTemplate(selectedCustomTemplate)}
+                      className="flex-1 py-2 px-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      SMSで送信
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
+
 
