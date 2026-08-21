@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
+import { syncShiftsToEslove } from '@/lib/sync/eslove';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
-import { getEstamaCredentials, getEstheRankingCredentials } from '@/lib/sync/portal-credentials';
+import { getEstamaCredentials, getEstheRankingCredentials, getEsloveCredentials } from '@/lib/sync/portal-credentials';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro limit
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
 
     // 認証情報が設定されている店舗のみフィルタリング
     const targetShops = shops.filter(shop =>
-      getEstamaCredentials(shop) || getEstheRankingCredentials(shop)
+      getEstamaCredentials(shop) || getEstheRankingCredentials(shop) || getEsloveCredentials(shop)
     );
 
     console.log(`Found ${targetShops.length} shops for daily full sync.`);
@@ -39,6 +40,7 @@ export async function GET(req: Request) {
     for (const shop of targetShops) {
       let estamaResult = null;
       let estheRankingResult = null;
+      let esloveResult = null;
 
       // ジョブを作成
       const jobId = await createSyncJob(shop.id, 'cron_daily_shift');
@@ -56,7 +58,8 @@ export async function GET(req: Request) {
             id,
             name,
             estama_therapist_id,
-            esthe_ranking_therapist_id
+            esthe_ranking_therapist_id,
+            eslove_therapist_id
           )
         `)
         .eq('shop_id', shop.id)
@@ -123,15 +126,41 @@ export async function GET(req: Request) {
         }
       }
 
+      // エステラブの同期
+      const esloveCreds = getEsloveCredentials(shop);
+      if (esloveCreds) {
+        const { data: esloveActiveTherapists } = await supabase
+          .from('therapists')
+          .select('id, name, eslove_therapist_id')
+          .eq('shop_id', shop.id)
+          .not('eslove_therapist_id', 'is', null);
+
+        try {
+          esloveResult = await syncShiftsToEslove(
+            esloveCreds.loginUrl,
+            esloveCreds.loginId,
+            esloveCreds.password,
+            startDate,
+            endDate,
+            shifts || [],
+            esloveActiveTherapists || []
+          );
+        } catch (e: any) {
+          console.error(`Daily Eslove Sync Error for shop ${shop.id}:`, e);
+          esloveResult = { success: false, error: e.message };
+        }
+      }
+
       if (jobId) {
-        const isSuccess = (!estamaResult || estamaResult.success) && (!estheRankingResult || estheRankingResult.success);
+        const isSuccess = (!estamaResult || estamaResult.success) && (!estheRankingResult || estheRankingResult.success) && (!esloveResult || esloveResult.success);
         await completeSyncJob(jobId, isSuccess ? 'completed' : 'failed', {
           estama: estamaResult,
-          estheRanking: estheRankingResult
+          estheRanking: estheRankingResult,
+          eslove: esloveResult
         });
       }
 
-      results.push({ shopId: shop.id, estamaResult, estheRankingResult });
+      results.push({ shopId: shop.id, estamaResult, estheRankingResult, esloveResult });
     }
 
     return NextResponse.json({ success: true, results });

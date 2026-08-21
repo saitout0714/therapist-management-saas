@@ -17,6 +17,7 @@
 
 export const ESTAMA_LOGIN_URL = 'https://estama.jp/login/?r=/admin/';
 export const ESTHE_RANKING_LOGIN_URL = 'https://www.esthe-ranking.jp/login/';
+export const ESLOVE_LOGIN_URL = 'https://eslove.jp/admin/login';
 
 export interface PortalCredentials {
   /** ログインページのURL。ポータルへのアクセスは必ずここから始める */
@@ -27,7 +28,7 @@ export interface PortalCredentials {
 
 /** shops テーブルから読み出す必要のあるカラム。select に渡して使う */
 export const PORTAL_CREDENTIAL_COLUMNS =
-  'estama_login_id, estama_password, estama_shop_url, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url';
+  'estama_login_id, estama_password, estama_shop_url, esthe_ranking_login_id, esthe_ranking_password, esthe_ranking_shop_url, eslove_login_id, eslove_password, eslove_shop_url';
 
 type ShopRow = {
   estama_login_id?: string | null;
@@ -36,6 +37,9 @@ type ShopRow = {
   esthe_ranking_login_id?: string | null;
   esthe_ranking_password?: string | null;
   esthe_ranking_shop_url?: string | null;
+  eslove_login_id?: string | null;
+  eslove_password?: string | null;
+  eslove_shop_url?: string | null;
 };
 
 /**
@@ -61,5 +65,18 @@ export function getEstheRankingCredentials(shop: ShopRow | null | undefined): Po
     loginUrl: shop.esthe_ranking_shop_url || ESTHE_RANKING_LOGIN_URL,
     loginId: shop.esthe_ranking_login_id,
     password: shop.esthe_ranking_password,
+  };
+}
+
+/**
+ * エステラブの接続情報を取り出す。未設定の場合は null。
+ * shop は PORTAL_CREDENTIAL_COLUMNS（または '*'）で取得した行を渡すこと。
+ */
+export function getEsloveCredentials(shop: ShopRow | null | undefined): PortalCredentials | null {
+  if (!shop?.eslove_login_id || !shop?.eslove_password) return null;
+  return {
+    loginUrl: shop.eslove_shop_url || ESLOVE_LOGIN_URL,
+    loginId: shop.eslove_login_id,
+    password: shop.eslove_password,
   };
 }

@@ -23,6 +23,7 @@ interface SiteOutcome {
 
 const ESTAMA = 'エステ魂'
 const RANKING = 'ランキング'
+const ESLOVE = 'エステラブ'
 
 /**
  * 生のエラーメッセージを担当者が読める文言に変換する。
@@ -39,8 +40,8 @@ function humanizeError(raw: string): string {
 
 /**
  * result_details はジョブ種別ごとに形が違うため、ここでサイト単位の結果に正規化する。
- *  - cron          : { estama: {...}, estheRanking: {...} }
- *  - シフト手動同期 : { target: 'estama' | 'esthe_ranking', message | error }
+ *  - cron          : { estama: {...}, estheRanking: {...}, eslove: {...} }
+ *  - シフト手動同期 : { target: 'estama' | 'esthe_ranking' | 'eslove', message | error }
  *  - キャスト一括   : { targetSite, successCount, errorCount }
  *  - キャスト個別   : { target, message | error }
  */
@@ -48,8 +49,8 @@ function toSiteOutcomes(job: SyncJob): SiteOutcome[] {
   const rd = job.result_details
   if (!rd || typeof rd !== 'object') return []
 
-  // 1) cron形式（両サイトを1ジョブで処理）
-  if (rd.estama || rd.estheRanking) {
+  // 1) cron形式（複数サイトを1ジョブで処理）
+  if (rd.estama || rd.estheRanking || rd.eslove) {
     const out: SiteOutcome[] = []
     if (rd.estama) {
       out.push({
@@ -65,10 +66,18 @@ function toSiteOutcomes(job: SyncJob): SiteOutcome[] {
         detail: rd.estheRanking.success ? (rd.estheRanking.message || '同期しました') : humanizeError(rd.estheRanking.error || ''),
       })
     }
+    if (rd.eslove) {
+      out.push({
+        siteLabel: ESLOVE,
+        ok: !!rd.eslove.success,
+        detail: rd.eslove.success ? (rd.eslove.message || '同期しました') : humanizeError(rd.eslove.error || ''),
+      })
+    }
     return out
   }
 
   const siteLabel = (rd.target === 'estama' || rd.targetSite === 'estama') ? ESTAMA
+    : (rd.target === 'eslove' || rd.targetSite === 'eslove') ? ESLOVE
     : (rd.target || rd.targetSite) ? RANKING
     : ''
 
@@ -122,8 +131,8 @@ export default function SyncHistory({ shopId }: { shopId: string }) {
       case 'therapist_single': return 'キャスト同期 (個別)'
       case 'therapist_batch': return 'キャスト同期 (一括)'
       case 'shift_manual': return 'シフト同期 (手動)'
-      case 'cron_urgent_reserve': return '自動同期 (直近予約)'
-      case 'cron_daily_shift': return '自動同期 (1日1回全体)'
+      case 'cron_urgent_reserve': return '自動同期 (予約状況の反映)'
+      case 'cron_daily_shift': return '自動同期 (出勤情報・毎晩3時)'
       case 'news_post': return 'ニュース投稿'
       default: return type
     }
@@ -161,7 +170,8 @@ export default function SyncHistory({ shopId }: { shopId: string }) {
       </div>
 
       <p className="text-xs text-slate-500 mb-3">
-        1回の同期でエステ魂とメンズエステランキングの両方に送信します。ステータスはサイトごとに表示されます。
+        出勤情報は毎晩3時に、エステ魂・メンズエステランキング・エステラブへまとめて自動送信します。
+        予約状況（×）の反映のみ、対応しているエステ魂に対して随時送信します。ステータスはサイトごとに表示されます。
       </p>
 
       <div className="overflow-x-auto">

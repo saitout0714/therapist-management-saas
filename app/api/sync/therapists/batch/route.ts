@@ -3,10 +3,12 @@ import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstama } from '@/lib/sync/estama-therapist';
 import { syncTherapistToEstheRanking } from '@/lib/sync/esthe-ranking-therapist';
+import { syncTherapistToEslove } from '@/lib/sync/eslove-therapist';
 import { fetchTherapistsFromEstama } from '@/lib/sync/estama';
 import { fetchTherapistsFromEstheRanking } from '@/lib/sync/esthe-ranking';
+import { fetchTherapistsFromEslove } from '@/lib/sync/eslove';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
-import { getEstamaCredentials, getEstheRankingCredentials } from '@/lib/sync/portal-credentials';
+import { getEstamaCredentials, getEstheRankingCredentials, getEsloveCredentials } from '@/lib/sync/portal-credentials';
 
 function normalizeTherapistName(name: string): string {
   return name.replace(/\s+/g, '').toLowerCase();
@@ -15,7 +17,10 @@ function normalizeTherapistName(name: string): string {
 function buildPortalNameMap(portalTherapists: { id: string; name: string }[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const t of portalTherapists) {
-    map.set(normalizeTherapistName(t.name), t.id);
+    // ポータル側に同名の重複プロフィールが存在することがある。一覧は表示順に並んでいるため、
+    // 先に現れたもの（＝実際に使われている方）を優先し、後から来た古い重複で上書きしない。
+    const key = normalizeTherapistName(t.name);
+    if (!map.has(key)) map.set(key, t.id);
   }
   return map;
 }
@@ -24,7 +29,7 @@ export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
-    const { shopId, therapistIds, targetSite } = await req.json(); // targetSite: 'estama' | 'esthe_ranking'
+    const { shopId, therapistIds, targetSite } = await req.json(); // targetSite: 'estama' | 'esthe_ranking' | 'eslove'
     if (!shopId || !therapistIds || !Array.isArray(therapistIds) || therapistIds.length === 0) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
@@ -59,9 +64,10 @@ export async function POST(req: NextRequest) {
         // フォールバックするだけなので、ここでの失敗はバッチ全体を止めない。
         const estamaCreds = getEstamaCredentials(shop);
         const erCreds = getEstheRankingCredentials(shop);
+        const esloveCreds = getEsloveCredentials(shop);
 
         let portalNameMap: Map<string, string> | null = null;
-        const idField = targetSite === 'estama' ? 'estama_therapist_id' : 'esthe_ranking_therapist_id';
+        const idField = targetSite === 'estama' ? 'estama_therapist_id' : targetSite === 'eslove' ? 'eslove_therapist_id' : 'esthe_ranking_therapist_id';
         const { data: unlinkedCheck } = await supabase
           .from('therapists')
           .select('id')
@@ -73,7 +79,10 @@ export async function POST(req: NextRequest) {
             if (targetSite === 'estama' && estamaCreds) {
               const portalTherapists = await fetchTherapistsFromEstama(estamaCreds.loginUrl, estamaCreds.loginId, estamaCreds.password);
               portalNameMap = buildPortalNameMap(portalTherapists);
-            } else if (targetSite !== 'estama' && erCreds) {
+            } else if (targetSite === 'eslove' && esloveCreds) {
+              const portalTherapists = await fetchTherapistsFromEslove(esloveCreds.loginUrl, esloveCreds.loginId, esloveCreds.password);
+              portalNameMap = buildPortalNameMap(portalTherapists);
+            } else if (targetSite === 'esthe_ranking' && erCreds) {
               const portalTherapists = await fetchTherapistsFromEstheRanking(erCreds.loginUrl, erCreds.loginId, erCreds.password);
               portalNameMap = buildPortalNameMap(portalTherapists);
             }
@@ -132,6 +141,25 @@ export async function POST(req: NextRequest) {
             );
             if (res.success && res.newId && String(res.newId) !== String(estamaId)) {
               await supabase.from('therapists').update({ estama_therapist_id: String(res.newId) }).eq('id', therapist.id);
+            }
+          } else if (targetSite === 'eslove') {
+            if (!esloveCreds) {
+              await completeSyncJob(jobId, 'failed', { error: 'ログイン情報未設定' });
+              return;
+            }
+            let esloveId = therapist.eslove_therapist_id;
+            if (!esloveId && portalNameMap) {
+              const matched = portalNameMap.get(normalizeTherapistName(therapist.name));
+              if (matched) {
+                esloveId = matched;
+                await supabase.from('therapists').update({ eslove_therapist_id: esloveId }).eq('id', therapist.id);
+              }
+            }
+            res = await syncTherapistToEslove(
+              esloveCreds.loginUrl, esloveCreds.loginId, esloveCreds.password, therapistWithPhotos, esloveId
+            );
+            if (res.success && res.newId && String(res.newId) !== String(esloveId)) {
+              await supabase.from('therapists').update({ eslove_therapist_id: String(res.newId) }).eq('id', therapist.id);
             }
           } else {
             if (!erCreds) {
