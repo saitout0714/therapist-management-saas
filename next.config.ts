@@ -21,7 +21,13 @@ dns.setDefaultResultOrder("ipv4first");
 const isLocalDev = process.env.NODE_ENV !== 'production';
 
 const nextConfig: any = {
-  serverExternalPackages: ['playwright', 'playwright-core', '@sparticuz/chromium'],
+  /*
+   * ssh2 の lib/protocol/crypto.js はネイティブアドオンの有無で分岐する
+   * requireを含み、TurbopackがESMチャンクにバンドルしようとするとビルドが
+   * 失敗する（"non-ecmascript placeable asset"）。サーバー専用パッケージとして
+   * 外部化し、実行時にNodeのrequireへ委ねることで回避する。
+   */
+  serverExternalPackages: ['playwright', 'playwright-core', '@sparticuz/chromium', 'ssh2'],
   outputFileTracingIncludes: {
     '/api/**/*': [
       './node_modules/playwright-core/browsers.json',
