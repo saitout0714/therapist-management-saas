@@ -1,5 +1,5 @@
-import { chromium as playwrightLocal } from 'playwright';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getBrowser } from './browser';
 
 async function uploadDebugScreenshot(page: any, name: string): Promise<string | null> {
   try {
@@ -11,43 +11,6 @@ async function uploadDebugScreenshot(page: any, name: string): Promise<string | 
   } catch (e) {
     console.error('[EsloveSync] Screenshot failed:', e);
     return null;
-  }
-}
-
-const CHROMIUM_ARGS = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu',
-];
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    // CHROMIUM_ARGS はLinuxサーバーレス向けの設定で、--single-process 等は
-    // WindowsではChromiumがクラッシュするため、Windowsでは引数なしで起動する
-    return await playwrightLocal.launch({
-      headless: true,
-      args: process.platform === 'win32' ? [] : CHROMIUM_ARGS,
-    });
-  } else {
-    console.log('[EsloveSync] Dynamically importing playwright-core and @sparticuz/chromium...');
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-
-    chromium.setGraphicsMode = false;
-
-    console.log('[EsloveSync] Launching playwrightCore...');
-    return await playwrightCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
   }
 }
 
@@ -272,7 +235,7 @@ export async function fetchTherapistsFromEslove(
   let page: any;
   try {
     console.log('[EsloveSync] Fetching therapists from Eslove...');
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({ userAgent: USER_AGENT, viewport: { width: 1280, height: 900 } });
     page = await newBlockingPage(context);
 
@@ -364,7 +327,7 @@ export async function syncShiftsToEslove(
 
   try {
     console.log(`[EsloveSync] Starting shift sync from ${startDate} to ${endDate}`);
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({ userAgent: USER_AGENT, viewport: { width: 1280, height: 900 } });
     page = await newBlockingPage(context);
 

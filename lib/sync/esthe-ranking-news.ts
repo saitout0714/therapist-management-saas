@@ -1,27 +1,5 @@
-import { chromium as playwrightLocal } from 'playwright';
 import { openEstheRankingLoginPage } from './esthe-ranking';
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    // --single-process/--no-zygote はサーバーレス(Linux)向けの省メモリ設定で、
-    // ローカルWindows環境ではクラッシュの原因になるため付与しない
-    return await playwrightLocal.launch({
-      headless: true,
-    });
-  } else {
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-    chromium.setGraphicsMode = false;
-
-    return await playwrightCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
-  }
-}
+import { getBrowser } from './browser';
 
 /** メンズエステランキングの「ニュース種別」セレクトの値 */
 export type EstheRankingNewsType = '1' | '2' | '3' | '4' | '9';

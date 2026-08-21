@@ -1,9 +1,10 @@
-import { chromium as playwrightLocal, Page } from 'playwright';
+import { Page } from 'playwright';
 import { downloadImageToTemp } from './download-image';
 import { openEstheRankingLoginPage } from './esthe-ranking';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { getBrowser } from './browser';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -13,41 +14,6 @@ async function uploadDebugScreenshot(page: any, name: string) {
     await supabase.storage.from('therapist-photos').upload(`debug/${name}_${Date.now()}.jpg`, buffer, { contentType: 'image/jpeg', upsert: true });
   } catch (e) {
     console.error('Screenshot failed:', e);
-  }
-}
-
-const CHROMIUM_ARGS = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu'
-];
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    return await playwrightLocal.launch({
-      headless: true,
-      args: CHROMIUM_ARGS,
-    });
-  } else {
-    console.log('[EstheRankingTherapistSync] Dynamically importing playwright-core and @sparticuz/chromium...');
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-    
-    chromium.setGraphicsMode = false;
-
-    console.log('[EstheRankingTherapistSync] Launching playwrightCore...');
-    return await playwrightCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
   }
 }
 
@@ -107,7 +73,7 @@ export async function syncTherapistToEstheRanking(
     if (therapist.age) {
       const ageInput = await page.$('input[name="age"], select[name="age"]');
       if (ageInput) {
-        const tagName = await ageInput.evaluate(e => e.tagName.toLowerCase());
+        const tagName = await ageInput.evaluate((e: Element) => e.tagName.toLowerCase());
         if (tagName === 'select') await ageInput.selectOption(String(therapist.age)).catch(() => {});
         else await ageInput.fill(String(therapist.age));
       }
@@ -135,7 +101,7 @@ export async function syncTherapistToEstheRanking(
     if (therapist.bust_cup) {
       const cupInput = await page.$('input[name="cup"], select[name="cup"], input[name="bust_cup"]');
       if (cupInput) {
-        const tagName = await cupInput.evaluate(e => e.tagName.toLowerCase());
+        const tagName = await cupInput.evaluate((e: Element) => e.tagName.toLowerCase());
         if (tagName === 'select') {
           await cupInput.selectOption({ label: therapist.bust_cup }).catch(() => {});
         } else {

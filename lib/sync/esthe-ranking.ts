@@ -1,41 +1,4 @@
-import { chromium as playwrightLocal } from 'playwright';
-
-const CHROMIUM_ARGS = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu',
-];
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    return await playwrightLocal.launch({
-      headless: true,
-      args: CHROMIUM_ARGS,
-    });
-  } else {
-    // Vercel Serverless Function 等での実行用
-    console.log('[EstheRankingSync] Dynamically importing playwright-core and @sparticuz/chromium...');
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-    
-    // Serverless環境用に設定最適化（メモリ節約等）
-    chromium.setGraphicsMode = false;
-
-    console.log('[EstheRankingSync] Launching playwrightCore...');
-    return await playwrightCore.launch({
-      args: chromium.args, // @sparticuz/chromium の推奨設定をそのまま使う
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
-  }
-}
+import { getBrowser } from './browser';
 
 export interface SyncResult {
   success: boolean;
@@ -119,7 +82,7 @@ export async function syncShiftsToEstheRanking(
     console.log(`[EstheRankingSync] Starting sync from ${startDate} to ${endDate}`);
     
     // リソースをブロックしてメモリ消費を抑える（stylesheetはスクリプト・レイアウト破壊を防ぐためブロック対象外）
-    await page.route('**/*', (route) => {
+    await page.route('**/*', (route: any) => {
       const type = route.request().resourceType();
       if (['image', 'media', 'font', 'websocket'].includes(type)) {
         route.abort();

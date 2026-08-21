@@ -1,5 +1,5 @@
-import { chromium as playwrightLocal } from 'playwright';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getBrowser } from './browser';
 
 async function uploadDebugScreenshot(page: any, name: string): Promise<string | null> {
   try {
@@ -11,42 +11,6 @@ async function uploadDebugScreenshot(page: any, name: string): Promise<string | 
   } catch (e) {
     console.error('[EstamaSync] Screenshot failed:', e);
     return null;
-  }
-}
-
-const CHROMIUM_ARGS = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu',
-];
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    return await playwrightLocal.launch({
-      headless: true,
-      args: CHROMIUM_ARGS,
-    });
-  } else {
-    console.log('[EstamaSync] Dynamically importing playwright-core and @sparticuz/chromium...');
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-    
-    // Serverless環境用に設定最適化（メモリ節約等）
-    chromium.setGraphicsMode = false;
-
-    console.log('[EstamaSync] Launching playwrightCore...');
-    return await playwrightCore.launch({
-      args: chromium.args, // @sparticuz/chromium の推奨設定をそのまま使う
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
   }
 }
 

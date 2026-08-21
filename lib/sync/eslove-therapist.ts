@@ -1,44 +1,7 @@
-import { chromium as playwrightLocal } from 'playwright';
 import { downloadImageToTemp } from './download-image';
 import fs from 'fs';
 import { loginToEslove } from './eslove';
-
-const CHROMIUM_ARGS = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-dev-shm-usage',
-  '--disable-accelerated-2d-canvas',
-  '--no-first-run',
-  '--no-zygote',
-  '--single-process',
-  '--disable-gpu'
-];
-
-async function getBrowser() {
-  const isLocal = !!process.env.PLAYWRIGHT_TEST_BASE_URL || process.env.NODE_ENV === 'development' || !process.env.VERCEL;
-
-  if (isLocal) {
-    // CHROMIUM_ARGS はLinuxサーバーレス向けの設定で、--single-process 等は
-    // WindowsではChromiumがクラッシュするため、Windowsでは引数なしで起動する
-    return await playwrightLocal.launch({
-      headless: true,
-      args: process.platform === 'win32' ? [] : CHROMIUM_ARGS,
-    });
-  } else {
-    console.log('[EsloveTherapistSync] Dynamically importing playwright-core and @sparticuz/chromium...');
-    const { chromium: playwrightCore } = await import('playwright-core');
-    const chromium = (await import('@sparticuz/chromium')).default;
-
-    chromium.setGraphicsMode = false;
-
-    console.log('[EsloveTherapistSync] Launching playwrightCore...');
-    return await playwrightCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
-  }
-}
+import { getBrowser } from './browser';
 
 /** "https://twitter.com/foo" や "@foo" のようなURLからアカウント名だけを取り出す */
 function extractHandle(urlOrHandle: string | null | undefined): string {
@@ -58,7 +21,7 @@ export async function syncTherapistToEslove(
 ): Promise<{ success: boolean; newId?: string; error?: string }> {
   let browser;
   try {
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
 
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
