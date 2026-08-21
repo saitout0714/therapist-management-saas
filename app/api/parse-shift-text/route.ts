@@ -28,15 +28,28 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     // 1. 店舗のセラピストとルーム一覧を取得
-    const [therapistsRes, roomsRes] = await Promise.all([
-      supabase.from('therapists').select('id, name').eq('shop_id', shop_id).eq('is_active', true),
+    const [tsRes, roomsRes] = await Promise.all([
+      supabase.from('therapist_shops').select('therapist_id, alias_name, is_active').eq('shop_id', shop_id).eq('is_active', true),
       supabase.from('rooms').select('id, name').eq('shop_id', shop_id)
     ])
 
-    if (therapistsRes.error) throw new Error(therapistsRes.error.message)
+    if (tsRes.error) throw new Error(tsRes.error.message)
     if (roomsRes.error) throw new Error(roomsRes.error.message)
 
-    const therapists = therapistsRes.data || []
+    const tsData = tsRes.data || []
+    const activeTherapistIds = tsData.map(ts => ts.therapist_id)
+    const aliasMap = new Map(tsData.filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]))
+
+    let therapistsQuery = supabase.from('therapists').select('id, name').eq('is_active', true)
+    therapistsQuery = therapistsQuery.or(`shop_id.eq.${shop_id}${activeTherapistIds.length > 0 ? `,id.in.(${activeTherapistIds.join(',')})` : ''}`)
+
+    const { data: rawTherapists, error: tErr } = await therapistsQuery
+    if (tErr) throw new Error(tErr.message)
+
+    const therapists = (rawTherapists || []).map(t => ({
+      id: t.id,
+      name: aliasMap.get(t.id) || t.name
+    }))
     const rooms = roomsRes.data || []
 
     const therapistNames = therapists.map(t => t.name)

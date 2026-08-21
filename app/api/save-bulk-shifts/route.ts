@@ -84,13 +84,15 @@ export async function POST(req: NextRequest) {
 
     if (gasUrl && uniqueRows.length > 0) {
       try {
-        // セラピストとルームの情報をフェッチして、スプレッドシート出力用の表示名をマッピング
-        const [therapistsRes, roomsRes] = await Promise.all([
-          supabase.from('therapists').select('id, name, reservation_interval_minutes').eq('shop_id', shop_id),
+        const shiftTherapistIds = Array.from(new Set(uniqueRows.map(r => r.therapist_id).filter(Boolean)))
+        const [tsRes, rawTherapistsRes, roomsRes] = await Promise.all([
+          supabase.from('therapist_shops').select('therapist_id, alias_name').eq('shop_id', shop_id),
+          supabase.from('therapists').select('id, name, reservation_interval_minutes').or(`shop_id.eq.${shop_id}${shiftTherapistIds.length > 0 ? `,id.in.(${shiftTherapistIds.join(',')})` : ''}`),
           supabase.from('rooms').select('id, name').eq('shop_id', shop_id)
         ])
 
-        const therapistsMap = new Map(therapistsRes.data?.map(t => [t.id, t]) || [])
+        const aliasMap = new Map((tsRes.data || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]))
+        const therapistsMap = new Map((rawTherapistsRes.data || []).map(t => [t.id, { ...t, name: aliasMap.get(t.id) || t.name }]))
         const roomsMap = new Map(roomsRes.data?.map(r => [r.id, r]) || [])
 
         const syncShifts = uniqueRows.map(row => {

@@ -193,11 +193,22 @@ export default function ReservationsPage() {
             .ilike('name', `%${customerNameQuery}%`)
         : Promise.resolve({ data: null as { id: string }[] | null }),
       therapistNameQuery
-        ? supabase
-            .from('therapists')
-            .select('id')
-            .eq('shop_id', selectedShop.id)
-            .ilike('name', `%${therapistNameQuery}%`)
+        ? Promise.all([
+            supabase
+              .from('therapists')
+              .select('id')
+              .ilike('name', `%${therapistNameQuery}%`),
+            supabase
+              .from('therapist_shops')
+              .select('therapist_id')
+              .eq('shop_id', selectedShop.id)
+              .ilike('alias_name', `%${therapistNameQuery}%`)
+          ]).then(([res1, res2]) => {
+            const ids1 = res1.data?.map(t => t.id) || []
+            const ids2 = res2.data?.map(t => t.therapist_id) || []
+            const combined = Array.from(new Set([...ids1, ...ids2]))
+            return { data: combined.map(id => ({ id })) }
+          })
         : Promise.resolve({ data: null as { id: string }[] | null }),
     ])
 

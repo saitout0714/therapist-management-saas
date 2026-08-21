@@ -347,6 +347,42 @@ export default function EditReservationPage() {
         if (shopsData && shopsData.length > 0) therapistShopIds = shopsData.map(s => s.id)
       }
 
+      // 在籍テーブル(therapist_shops)から対象店舗に属するセラピストIDおよび店舗別源氏名を取得
+      const { data: tsData } = await supabase
+        .from('therapist_shops')
+        .select('therapist_id, alias_name, is_active')
+        .in('shop_id', therapistShopIds)
+
+      const activeTherapistIds = (tsData || []).filter(ts => ts.is_active).map(ts => ts.therapist_id)
+      const aliasMap = new Map((tsData || []).filter(ts => ts.alias_name).map(ts => [ts.therapist_id, ts.alias_name!]))
+
+      // 編集対象の予約の therapist_id も確実に含める
+      const { data: currentResData } = await supabase
+        .from('reservations')
+        .select('therapist_id')
+        .eq('id', reservationId)
+        .maybeSingle()
+
+      const targetTherapistIds = Array.from(new Set([
+        ...activeTherapistIds,
+        ...(currentResData?.therapist_id ? [currentResData.therapist_id] : [])
+      ]))
+
+      let therapistsPromise
+      if (therapistShared) {
+        therapistsPromise = supabase
+          .from('therapists')
+          .select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)')
+          .in('shop_id', therapistShopIds)
+          .order('name')
+      } else {
+        therapistsPromise = supabase
+          .from('therapists')
+          .select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)')
+          .or(`shop_id.eq.${selectedShop.id}${targetTherapistIds.length > 0 ? `,id.in.(${targetTherapistIds.join(',')})` : ''}`)
+          .order('name')
+      }
+
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
         // 顧客は人単位でグループ共通。オーナー配下の全店舗を対象にする（無ければ自店舗のみ）
         (customerShared
@@ -355,7 +391,7 @@ export default function EditReservationPage() {
         ).order('name'),
         supabase.from('courses').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', therapistShopIds).order('name'),
+        therapistsPromise,
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
@@ -378,7 +414,12 @@ export default function EditReservationPage() {
       setCustomers(customersRes.data || [])
       setCourses(coursesRes.data || [])
       setOptions(optionsRes.data || [])
-      setTherapists((therapistsRes.data || []) as unknown as Therapist[])
+      const rawTherapists = (therapistsRes.data || []) as unknown as Therapist[]
+      const formattedTherapists = rawTherapists.map(t => ({
+        ...t,
+        name: aliasMap.get(t.id) || t.name
+      }))
+      setTherapists(formattedTherapists)
       setTherapistPricings(pricingRes.data || [])
       setSystemSettings(settingsRes.data?.[0] || null)
       setDiscountPolicies(discountsRes.data || [])

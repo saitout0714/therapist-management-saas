@@ -209,6 +209,19 @@ export default function ReservationPreviewPage() {
         }
       }
 
+      // 店舗ごとの源氏名（alias_name）があれば優先して反映する
+      if (resData.therapist_id && resData.therapists) {
+        const { data: rosterRow } = await supabase
+          .from('therapist_shops')
+          .select('alias_name')
+          .eq('therapist_id', resData.therapist_id)
+          .eq('shop_id', selectedShop.id)
+          .maybeSingle()
+        if (rosterRow?.alias_name) {
+          (resData as unknown as { therapists: { name: string } }).therapists.name = rosterRow.alias_name
+        }
+      }
+
       setReservation(resData as unknown as Reservation)
 
       // 2. 新規/会員判定（当該予約より前の予約があれば会員）
