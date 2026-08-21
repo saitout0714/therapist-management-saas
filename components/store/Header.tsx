@@ -22,6 +22,10 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   // TOPページだけ、HERO写真に重ねる透過ヘッダーを使う。他のページはHERO写真が無く
   // 透過ヘッダーが本文と重なって読めなくなるため、常時ピンクの固定ヘッダーを表示する。
   const isTopPage = pathname === (basePath || '/');
+  const isCyberTheme = store.slug === 'onyankospa';
+  const isLuxuryTheme = store.slug === 'specialgrade';
+  // おニャンこすぱの求人ページは内部ページを廃止し、外部の求人サイト(バニラ求人)に一本化する
+  const onyankoExternalRecruitUrl = 'https://kanto.qzin.jp/onyankospa/?v=official';
 
   useEffect(() => {
     setImageError(false);
@@ -56,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
       ? [{ label: 'セラピスト日記', subLabel: '写メ日記・キャストブログ', href: `${basePath}/diary`, code: '05' }]
       : []),
     { label: 'アクセス', subLabel: '店舗情報・ルームアクセス', href: `${basePath}/access`, code: '06' },
-    { label: '求人情報', subLabel: 'セラピスト募集・採用', href: `${basePath}/recruit`, code: '07' },
+    { label: '求人情報', subLabel: 'セラピスト募集・採用', href: isCyberTheme ? onyankoExternalRecruitUrl : `${basePath}/recruit`, code: '07' },
   ];
 
   // luxuryテーマ専用: 英語メイン+日本語サブ表記、左に金の線画アイコン
@@ -118,8 +122,6 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
   ];
 
   const primaryColor = store.themeColor?.primary || '#d1b464';
-  const isCyberTheme = store.slug === 'onyankospa';
-  const isLuxuryTheme = store.slug === 'specialgrade';
 
   return (
     <>
@@ -220,19 +222,24 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
 
             {/* デスクトップナビゲーション */}
             <nav className="hidden lg:flex items-center gap-1 xl:gap-3">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`relative px-3 py-2 text-xs tracking-[0.15em] transition-all duration-400 ${
-                    isCyberTheme
-                      ? 'font-semibold text-[#ded1ee] hover:text-[#ffa8d8] after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-[#ff6fb5] after:to-[#cf82d8] after:shadow-[0_0_10px_rgba(255,111,181,0.7)] after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100'
-                      : 'font-semibold text-stone-700 hover:opacity-80'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isExternal = link.href.startsWith('http');
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'nofollow' : undefined}
+                    className={`relative px-3 py-2 text-xs tracking-[0.15em] transition-all duration-400 ${
+                      isCyberTheme
+                        ? 'font-semibold text-[#ded1ee] hover:text-[#ffa8d8] after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-[#ff6fb5] after:to-[#cf82d8] after:shadow-[0_0_10px_rgba(255,111,181,0.7)] after:opacity-0 after:transition-opacity after:duration-300 hover:after:opacity-100'
+                        : 'font-semibold text-stone-700 hover:opacity-80'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
 
               {/* SNSリンク */}
               {(store.xUrl || store.lineUrl) && (
@@ -459,43 +466,48 @@ export const Header: React.FC<HeaderProps> = ({ store }) => {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {navLinks.map((link, idx) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
-                  onClick={() => setIsOpen(false)}
-                  className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-400 ${
-                    isCyberTheme
-                      ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
-                      : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
-                  } ${isOpen ? 'cyber-link-anim' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
+              {navLinks.map((link, idx) => {
+                const isExternal = link.href.startsWith('http');
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'nofollow' : undefined}
+                    style={{ animationDelay: isOpen ? `${idx * 40}ms` : '0ms' }}
+                    onClick={() => setIsOpen(false)}
+                    className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-400 ${
+                      isCyberTheme
+                        ? 'cyber-menu-link border-[#ff6fb5]/30 bg-[#ff6fb5]/10 backdrop-blur-md text-white hover:bg-[#ff6fb5]/25 hover:border-[#ff6fb5] hover:shadow-[0_0_20px_rgba(255,111,181,0.5)]'
+                        : 'border-stone-100 hover:bg-[#faf7f0] hover:text-[#a39573]'
+                    } ${isOpen ? 'cyber-link-anim' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isCyberTheme && (
+                        <span className="text-xs font-mono font-bold text-[#ff6fb5] tracking-widest opacity-80 group-hover:opacity-100">
+                          {link.code}
+                        </span>
+                      )}
+                      <div>
+                        <div className="text-sm font-bold tracking-widest group-hover:translate-x-1 transition-transform">
+                          {link.label}
+                        </div>
+                        {isCyberTheme && (
+                          <div className="text-[10px] text-[#ded1ee]/60 font-sans tracking-wide">
+                            {link.subLabel}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {isCyberTheme && (
-                      <span className="text-xs font-mono font-bold text-[#ff6fb5] tracking-widest opacity-80 group-hover:opacity-100">
-                        {link.code}
+                      <span className="text-xs text-[#ff6fb5]/50 group-hover:text-[#ff6fb5] group-hover:translate-x-1 transition-all">
+                        ➔
                       </span>
                     )}
-                    <div>
-                      <div className="text-sm font-bold tracking-widest group-hover:translate-x-1 transition-transform">
-                        {link.label}
-                      </div>
-                      {isCyberTheme && (
-                        <div className="text-[10px] text-[#ded1ee]/60 font-sans tracking-wide">
-                          {link.subLabel}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {isCyberTheme && (
-                    <span className="text-xs text-[#ff6fb5]/50 group-hover:text-[#ff6fb5] group-hover:translate-x-1 transition-all">
-                      ➔
-                    </span>
-                  )}
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

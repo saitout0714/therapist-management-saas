@@ -68,7 +68,12 @@ export const Footer: React.FC<FooterProps> = ({ store }) => {
                 <Link href={`${basePath}/diary`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">セラピスト日記</Link>
               )}
               <Link href={`${basePath}/access`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">アクセス</Link>
-              <Link href={`${basePath}/recruit`} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">求人情報</Link>
+              <Link
+                href={isCyberTheme ? 'https://kanto.qzin.jp/onyankospa/?v=official' : `${basePath}/recruit`}
+                target={isCyberTheme ? '_blank' : undefined}
+                rel={isCyberTheme ? 'nofollow' : undefined}
+                className="hover:opacity-80 transition-colors hover:text-[#c5a059]"
+              >求人情報</Link>
               <Link href={reservePath} className="hover:opacity-80 transition-colors hover:text-[#c5a059]">WEB予約</Link>
             </div>
           </div>
