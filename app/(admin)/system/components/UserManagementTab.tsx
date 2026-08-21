@@ -10,11 +10,18 @@ type UserRow = {
   role: string
   created_at: string
   shops?: string[]
+  shop_ids?: string[]
+}
+
+type ShopItem = {
+  id: string
+  name: string
 }
 
 export function UserManagementTab() {
   const { selectedShop } = useShop()
   const [users, setUsers] = useState<UserRow[]>([])
+  const [allShops, setAllShops] = useState<ShopItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingUser, setEditingUser] = useState<UserRow | null>(null)
@@ -24,6 +31,7 @@ export function UserManagementTab() {
     password: '',
     name: '',
     role: 'agency_staff' as 'developer' | 'system_admin' | 'agency_staff' | 'agency_client_owner' | 'simple_client_owner',
+    shopIds: [] as string[],
   })
 
   async function fetchUsers() {
@@ -34,6 +42,9 @@ export function UserManagementTab() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setUsers(data.users || [])
+      if (data.allShops) {
+        setAllShops(data.allShops)
+      }
     } catch (err: any) {
       console.error('Failed to fetch users:', err)
       alert('スタッフ一覧の取得に失敗しました: ' + err.message)
@@ -46,10 +57,39 @@ export function UserManagementTab() {
     fetchUsers()
   }, [])
 
+  const isGlobalRole = form.role === 'developer' || form.role === 'system_admin' || form.role === 'agency_staff'
+
+  const toggleShop = (shopId: string) => {
+    setForm(prev => {
+      const exists = prev.shopIds.includes(shopId)
+      return {
+        ...prev,
+        shopIds: exists
+          ? prev.shopIds.filter(id => id !== shopId)
+          : [...prev.shopIds, shopId]
+      }
+    })
+  }
+
+  const selectAllShops = () => {
+    setForm(prev => ({
+      ...prev,
+      shopIds: allShops.map(s => s.id)
+    }))
+  }
+
+  const clearAllShops = () => {
+    setForm(prev => ({
+      ...prev,
+      shopIds: []
+    }))
+  }
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedShop) {
-      alert('店舗を選択してください')
+
+    if (!isGlobalRole && form.shopIds.length === 0) {
+      alert('所属店舗を1つ以上選択してください')
       return
     }
 
@@ -69,7 +109,7 @@ export function UserManagementTab() {
           password: form.password,
           name: form.name.trim(),
           role: form.role,
-          shopId: selectedShop.id,
+          shopIds: form.shopIds,
           currentUserRole: currentUser?.role,
         }),
       })
@@ -77,9 +117,8 @@ export function UserManagementTab() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      alert('スタッフを登録しました')
-      setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
-      setShowAddForm(false)
+      alert('アカウントを登録しました')
+      resetForm()
       fetchUsers()
     } catch (err: any) {
       alert('登録に失敗しました: ' + err.message)
@@ -92,6 +131,11 @@ export function UserManagementTab() {
     e.preventDefault()
     if (!editingUser) return
 
+    if (!isGlobalRole && form.shopIds.length === 0) {
+      alert('所属店舗を1つ以上選択してください')
+      return
+    }
+
     try {
       setLoading(true)
       const res = await fetch('/api/admin/users', {
@@ -103,6 +147,7 @@ export function UserManagementTab() {
           name: form.name.trim(),
           role: form.role,
           password: form.password || undefined,
+          shopIds: form.shopIds,
           currentUserRole: currentUser?.role,
         }),
       })
@@ -111,8 +156,7 @@ export function UserManagementTab() {
       if (data.error) throw new Error(data.error)
 
       alert('アカウント情報を更新しました')
-      setEditingUser(null)
-      setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
+      resetForm()
       fetchUsers()
     } catch (err: any) {
       alert('更新に失敗しました: ' + err.message)
@@ -129,6 +173,7 @@ export function UserManagementTab() {
       password: '', // パスワードは表示しない
       name: user.name || '',
       role: user.role as any,
+      shopIds: user.shop_ids || [],
     })
   }
 
@@ -155,7 +200,13 @@ export function UserManagementTab() {
   const resetForm = () => {
     setEditingUser(null)
     setShowAddForm(false)
-    setForm({ loginId: '', password: '', name: '', role: 'agency_staff' })
+    setForm({
+      loginId: '',
+      password: '',
+      name: '',
+      role: 'agency_staff',
+      shopIds: selectedShop ? [selectedShop.id] : []
+    })
   }
 
   return (
@@ -181,30 +232,21 @@ export function UserManagementTab() {
                 {editingUser ? '編集選択中' : '新規登録'}
               </span>
               <h3 className="text-lg font-bold text-slate-800 mt-1">
-                {editingUser ? `「${editingUser.name || editingUser.login_id}」の編集` : '新規スタッフ登録'}
+                {editingUser ? `「${editingUser.name || editingUser.login_id}」の編集` : '新規スタッフ・オーナー登録'}
               </h3>
             </div>
           </div>
 
-          {!editingUser && (
-            <div className="flex items-center gap-2 -mt-2 mb-2 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm">
-              <span className="text-indigo-600">🏬</span>
-              <span className="text-slate-600">対象店舗：</span>
-              <span className="font-bold text-indigo-800">{selectedShop?.name || '未選択'}</span>
-              <span className="text-xs text-slate-400 ml-1">（このアカウントはこの店舗に紐づきます。画面上部のショップ切り替えバーで変更できます）</span>
-            </div>
-          )}
-
           {/* Form Body */}
           <div className="space-y-6 max-w-2xl">
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">お名前（氏名）</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">お名前（氏名 / オーナー名）</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="例: 山田 花子"
-                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                placeholder="例: 山田 花子 / クリスタル・裏妻オーナー"
+                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none text-sm"
                 required
               />
             </div>
@@ -222,6 +264,71 @@ export function UserManagementTab() {
                 <option value="agency_client_owner">店舗オーナー (代理店用)</option>
                 <option value="simple_client_owner">店舗オーナー</option>
               </select>
+            </div>
+
+            {/* 所属店舗選択 */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                所属・管理店舗 {isGlobalRole ? '(全店舗共通)' : '(複数選択可)'}
+              </label>
+
+              {isGlobalRole ? (
+                <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 font-medium">
+                  💡 この権限はすべての店舗を共通で管理できるため、個別店舗の選択は不要です。
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">
+                      選択中: <strong className="text-indigo-600 font-bold">{form.shopIds.length}</strong> 店舗
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllShops}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                      >
+                        全選択
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={clearAllShops}
+                        className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        全解除
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                    {allShops.map(shop => {
+                      const isChecked = form.shopIds.includes(shop.id)
+                      return (
+                        <label
+                          key={shop.id}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+                            isChecked
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-900 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleShop(shop.id)}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                          />
+                          <span className="truncate">{shop.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    ※ 複数店舗にチェックを入れると、同一アカウントでログインした際にヘッダーの店舗切り替えバーで切り替えて利用できます。
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -247,7 +354,7 @@ export function UserManagementTab() {
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 placeholder={editingUser ? "変更する場合のみ入力してください" : "8文字以上推奨"}
-                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none placeholder:text-slate-300"
+                className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/50 outline-none placeholder:text-slate-300 text-sm"
                 required={!editingUser}
                 autoComplete="new-password"
               />

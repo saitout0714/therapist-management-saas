@@ -328,17 +328,23 @@ export default function EditReservationPage() {
       const pricingShopId = getPricingShopId(selectedShop)
       const backShopId = getBackShopId(selectedShop)
 
-      let shopIds = [selectedShop.id]
+      // オーナー設定（顧客共有・セラピスト共有スコープ）を取得
+      let customerShared = !!selectedShop.owner_id
+      let therapistShared = false
       if (selectedShop.owner_id) {
-        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
-        if (shopsData && shopsData.length > 0) shopIds = shopsData.map(s => s.id)
+        const { data: ownerRow } = await supabase
+          .from('owners')
+          .select('customer_scope, therapist_scope')
+          .eq('id', selectedShop.owner_id)
+          .maybeSingle()
+        customerShared = (ownerRow?.customer_scope ?? 'shared') === 'shared'
+        therapistShared = (ownerRow?.therapist_scope ?? 'per_shop') === 'all_shops'
       }
 
-      // 顧客をオーナー内で共有するか店舗ごとに独立させるか
-      let customerShared = !!selectedShop.owner_id
-      if (selectedShop.owner_id) {
-        const { data: ownerRow } = await supabase.from('owners').select('customer_scope').eq('id', selectedShop.owner_id).maybeSingle()
-        customerShared = (ownerRow?.customer_scope ?? 'shared') === 'shared'
+      let therapistShopIds = [selectedShop.id]
+      if (therapistShared && selectedShop.owner_id) {
+        const { data: shopsData } = await supabase.from('shops').select('id').eq('owner_id', selectedShop.owner_id)
+        if (shopsData && shopsData.length > 0) therapistShopIds = shopsData.map(s => s.id)
       }
 
       const [customersRes, coursesRes, optionsRes, therapistsRes, pricingRes, settingsRes, reservationRes, discountsRes, designationRes, extRankPricesRes, roomsRes] = await Promise.all([
@@ -349,7 +355,7 @@ export default function EditReservationPage() {
         ).order('name'),
         supabase.from('courses').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
         supabase.from('options').select('*').eq('shop_id', pricingShopId).eq('is_active', true).order('display_order'),
-        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', shopIds).order('name'),
+        supabase.from('therapists').select('id, name, rank_id, back_calc_type, ng_course_ids, reservation_interval_minutes, therapist_ranks(name)').in('shop_id', therapistShopIds).order('name'),
         supabase.from('therapist_pricing').select('*'),
         supabase.from('system_settings').select('*').eq('shop_id', selectedShop.id).limit(1),
         supabase.from('reservations').select('*, reservation_options(option_id, price, custom_name, custom_back_amount), reservation_discounts(*)').eq('id', reservationId).eq('shop_id', selectedShop.id).single(),
@@ -385,7 +391,7 @@ export default function EditReservationPage() {
         const { data: overridesData } = await supabase
           .from('discount_rank_overrides')
           .select('discount_policy_id, rank_id, therapist_burden_amount')
-          .in('shop_id', shopIds)
+          .eq('shop_id', pricingShopId)
         setDiscountRankOverrides((overridesData || []) as DiscountRankOverride[])
       } catch {
         setDiscountRankOverrides([])

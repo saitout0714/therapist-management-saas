@@ -49,7 +49,7 @@ function validateServiceRoleKey(): { isValid: boolean; reason?: string } {
 }
 
 /**
- * GET: 現在のショップに属するユーザー一覧の取得
+ * GET: ユーザー一覧および選択可能な店舗一覧の取得
  */
 export async function GET(req: Request) {
   // キーの健全性チェック
@@ -59,8 +59,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    // 全ユーザーを所属店舗情報も含めて取得する
-    const { data, error } = await serviceSupabase
+    // 1. 全ユーザーを所属店舗情報も含めて取得する
+    const { data: userData, error: userError } = await serviceSupabase
       .from('users')
       .select(`
         id,
@@ -71,20 +71,32 @@ export async function GET(req: Request) {
         shop_owners (
           shop_id,
           shops (
+            id,
             name
           )
         )
       `)
 
-    if (error) throw error
+    if (userError) throw userError
 
-    const users = (data as any[])
+    // 2. 選択可能なアクティブ店舗一覧を取得する
+    const { data: shopsData, error: shopsError } = await serviceSupabase
+      .from('shops')
+      .select('id, name, order')
+      .eq('is_active', true)
+      .order('order', { ascending: true, nullsFirst: false })
+
+    if (shopsError) throw shopsError
+
+    const users = (userData as any[])
       .map(u => {
-        const shopNames = u.shop_owners
-          ? u.shop_owners
-              .map((so: any) => so.shops?.name)
-              .filter(Boolean)
-          : []
+        const shopOwners = u.shop_owners || []
+        const shopNames = shopOwners
+          .map((so: any) => so.shops?.name)
+          .filter(Boolean)
+        const shopIds = shopOwners
+          .map((so: any) => so.shop_id)
+          .filter(Boolean)
 
         return {
           id: u.id,
@@ -92,12 +104,16 @@ export async function GET(req: Request) {
           name: u.name,
           role: u.role,
           created_at: u.created_at,
-          shops: shopNames
+          shops: shopNames,
+          shop_ids: shopIds
         }
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    return NextResponse.json({ users })
+    return NextResponse.json({
+      users,
+      allShops: (shopsData || []).map((s: any) => ({ id: s.id, name: s.name }))
+    })
   } catch (error: any) {
     console.error('ユーザー一覧取得エラー:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -116,10 +132,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { loginId, password, name, role, shopId, currentUserRole } = await req.json()
+    const { loginId, password, name, role, shopId, shopIds, currentUserRole } = await req.json()
 
-    if (!loginId || !password || !name || !role || !shopId) {
+    const targetShopIds: string[] = Array.isArray(shopIds) && shopIds.length > 0
+      ? shopIds
+      : (shopId ? [shopId] : [])
+
+    if (!loginId || !password || !name || !role) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+    }
+
+    const isGlobalRole = role === 'developer' || role === 'system_admin' || role === 'agency_staff'
+    if (!isGlobalRole && targetShopIds.length === 0) {
+      return NextResponse.json({ error: '所属店舗を1つ以上選択してください' }, { status: 400 })
     }
 
     if (role === 'developer' && currentUserRole !== 'developer') {
@@ -159,26 +184,28 @@ export async function POST(req: Request) {
 
     // 3. shop_owners (店舗オーナー/スタッフの関連付けテーブル) および users.owner_id の更新
     // システム管理者 (system_admin)、受付スタッフ (agency_staff)、および開発者 (developer) は全店舗共通で紐付け不要のため登録をスキップします
-    if (role !== 'developer' && role !== 'system_admin' && role !== 'agency_staff') {
-      const { data: targetShop } = await serviceSupabase
+    if (!isGlobalRole && targetShopIds.length > 0) {
+      const { data: targetShops } = await serviceSupabase
         .from('shops')
         .select('owner_id')
-        .eq('id', shopId)
-        .single()
+        .in('id', targetShopIds)
 
-      if (targetShop && targetShop.owner_id) {
+      const ownerId = targetShops?.find(s => s.owner_id)?.owner_id || null
+      if (ownerId) {
         await serviceSupabase
           .from('users')
-          .update({ owner_id: targetShop.owner_id })
+          .update({ owner_id: ownerId })
           .eq('id', newUser.id)
       }
 
+      const insertRows = targetShopIds.map(sId => ({
+        shop_id: sId,
+        user_id: newUser.id
+      }))
+
       const { error: ownerError } = await serviceSupabase
         .from('shop_owners')
-        .insert([{
-          shop_id: shopId,
-          user_id: newUser.id
-        }])
+        .insert(insertRows)
 
       if (ownerError) {
         // 登録に失敗した場合は作成した認証ユーザーをロールバック（削除）
@@ -205,11 +232,13 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const { userId, loginId, name, role, password, currentUserRole } = await req.json()
+    const { userId, loginId, name, role, password, shopIds, currentUserRole } = await req.json()
 
     if (!userId || !name || !role) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
     }
+
+    const isGlobalRole = role === 'developer' || role === 'system_admin' || role === 'agency_staff'
 
     if (loginId) {
       // ログインIDが変更される場合、重複をチェックする
@@ -244,7 +273,6 @@ export async function PUT(req: Request) {
     }
 
     // 2. メタデータの更新（Authテーブル側）
-    // (Auth側にユーザーが存在しない等の不整合があっても、メインのDB更新処理を妨げないように安全に処理します)
     try {
       const updateData: any = { user_metadata: { name: name.trim(), role } }
       if (loginId) {
@@ -259,7 +287,7 @@ export async function PUT(req: Request) {
       console.warn('Auth更新中に例外が発生 (処理は継続します):', authErr.message)
     }
 
-    // 3. データベース側の情報を直接更新 (トリガーは新規挿入時のみのため、更新は直接実行)
+    // 3. データベース側の情報を直接更新
     const updatePayload: any = {
       name: name.trim(),
       role: role,
@@ -269,12 +297,51 @@ export async function PUT(req: Request) {
       updatePayload.login_id = loginId.trim()
     }
 
+    if (isGlobalRole) {
+      updatePayload.owner_id = null
+    }
+
     const { error: dbUpdateError } = await serviceSupabase
       .from('users')
       .update(updatePayload)
       .eq('id', userId)
 
     if (dbUpdateError) throw dbUpdateError
+
+    // 4. 所属店舗 (shop_owners) の更新
+    if (isGlobalRole) {
+      // 全店舗共通ロールの場合は個別紐付けをクリア
+      await serviceSupabase.from('shop_owners').delete().eq('user_id', userId)
+    } else if (Array.isArray(shopIds)) {
+      // 既存の紐付けを削除して再登録
+      await serviceSupabase.from('shop_owners').delete().eq('user_id', userId)
+
+      if (shopIds.length > 0) {
+        const insertRows = shopIds.map(sId => ({
+          shop_id: sId,
+          user_id: userId
+        }))
+        const { error: shopOwnersInsertError } = await serviceSupabase
+          .from('shop_owners')
+          .insert(insertRows)
+
+        if (shopOwnersInsertError) throw shopOwnersInsertError
+
+        // 店舗の owner_id を取得して users.owner_id も更新
+        const { data: targetShops } = await serviceSupabase
+          .from('shops')
+          .select('owner_id')
+          .in('id', shopIds)
+
+        const ownerId = targetShops?.find(s => s.owner_id)?.owner_id || null
+        if (ownerId) {
+          await serviceSupabase
+            .from('users')
+            .update({ owner_id: ownerId })
+            .eq('id', userId)
+        }
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
