@@ -21,6 +21,9 @@ export default async function RecruitPage({ params }: { params: Promise<{ shopSl
   const isCyberTheme = shopSlug === 'onyankospa';
   const isLuxuryTheme = shopSlug === 'specialgrade';
 
+  // おニャンこすぱの求人応募は外部の求人サイト(バニラ求人)に一本化する
+  const externalRecruitUrl = 'https://kanto.qzin.jp/onyankospa/?v=official';
+
   const rInfo = store.recruitInfo;
   const title = rInfo?.title || 'セラピスト求人募集';
   const catchphrase = rInfo?.catchphrase || '🐾 地域最高水準のバック率 ＆ 全額日払い対応 🐾';
@@ -108,7 +111,9 @@ export default async function RecruitPage({ params }: { params: Promise<{ shopSl
 
           <div className={`flex flex-row gap-3 pt-4 ${store.lineUrl ? '' : 'justify-center'}`}>
             <a
-              href={`tel:${rInfo?.phone || store.phoneNumber}`}
+              href={isCyberTheme ? externalRecruitUrl : `tel:${rInfo?.phone || store.phoneNumber}`}
+              target={isCyberTheme ? '_blank' : undefined}
+              rel={isCyberTheme ? 'nofollow' : undefined}
               className={`${store.lineUrl ? 'w-1/2' : ''} inline-flex items-center justify-center px-4 sm:px-8 py-3.5 text-white font-medium text-xs shadow-md tracking-widest transition-all ${
                 isCyberTheme
                   ? 'rounded-full neon-glow-btn bg-gradient-to-r from-[#ff6fb5] via-[#ff9fdd] to-[#cf82d8] font-bold'
@@ -121,9 +126,9 @@ export default async function RecruitPage({ params }: { params: Promise<{ shopSl
             </a>
             {store.lineUrl && (
               <a
-                href={store.lineUrl}
+                href={isCyberTheme ? externalRecruitUrl : store.lineUrl}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel={isCyberTheme ? 'nofollow' : 'noopener noreferrer'}
                 className={`w-1/2 inline-flex items-center justify-center px-4 sm:px-8 py-3.5 text-white font-bold text-xs shadow-md tracking-widest transition-all ${
                   isCyberTheme || isLuxuryTheme ? 'rounded-full' : 'rounded-sm hover:brightness-105'
                 } bg-[#06C755]`}
