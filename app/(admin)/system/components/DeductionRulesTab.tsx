@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useShop } from '@/app/contexts/ShopContext'
 import { getBackShopId } from '@/lib/shopUtils'
+import { StandbyGuaranteeSettingCard } from './StandbyGuaranteeSettingCard'
 
 type DeductionRule = {
   id: string
@@ -225,6 +226,8 @@ export function DeductionRulesTab() {
         </form>
       ) : (
         <>
+          <StandbyGuaranteeSettingCard />
+
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-slate-800">控除・手当管理</h2>
