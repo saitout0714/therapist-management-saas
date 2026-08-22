@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncTherapistToEstama } from '@/lib/sync/estama-therapist';
+import { isRealTherapist } from '@/lib/sync/filter-therapists';
 import { syncTherapistToEstheRanking } from '@/lib/sync/esthe-ranking-therapist';
 import { syncTherapistToEslove } from '@/lib/sync/eslove-therapist';
 import { fetchTherapistsFromEstama } from '@/lib/sync/estama';
@@ -102,6 +103,12 @@ export async function POST(req: NextRequest) {
           if (!therapist) {
             errorCount++;
             details.push({ id: therapistId, success: false, error: 'Not found' });
+            continue;
+          }
+
+          if (!isRealTherapist(therapist.name)) {
+            console.log(`[BatchTherapistSync] Skipping pseudo therapist: ${therapist.name}`);
+            details.push({ id: therapistId, name: therapist.name, success: true, skipped: true, message: '疑似アカウントのため同期対象外です' });
             continue;
           }
 

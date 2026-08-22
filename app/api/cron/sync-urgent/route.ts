@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
+import { isRealTherapist } from '@/lib/sync/filter-therapists';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
 import { getEstamaCredentials } from '@/lib/sync/portal-credentials';
@@ -85,6 +86,9 @@ export async function GET(req: Request) {
         .eq('shop_id', shop.id)
         .not('estama_therapist_id', 'is', null);
 
+      const filteredShifts = (shifts || []).filter((s: any) => isRealTherapist(s.therapists?.name));
+      const filteredTherapists = (activeTherapists || []).filter((t: any) => isRealTherapist(t.name));
+
       // エステ魂の同期
       const estamaCreds = getEstamaCredentials(shop);
       if (estamaCreds) {
@@ -95,9 +99,9 @@ export async function GET(req: Request) {
             estamaCreds.password,
             startDate,
             endDate,
-            shifts || [],
+            filteredShifts,
             reservations || [],
-            activeTherapists || []
+            filteredTherapists
           );
         } catch (e: any) {
           console.error(`Estama Sync Error for shop ${shop.id}:`, e);

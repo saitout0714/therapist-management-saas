@@ -56,12 +56,16 @@ async function main() {
     if (mode === 'all' || mode === 'therapists') {
       const jobId = await createSyncJob(shop.id, 'therapist_batch');
 
-      const { data: therapists } = await supabase
+      const { isRealTherapist } = await import('../lib/sync/filter-therapists');
+
+      const { data: rawTherapists } = await supabase
         .from('therapists')
         .select('*')
         .eq('shop_id', shop.id)
         .eq('is_active', true)
         .order('order', { ascending: true });
+
+      const therapists = (rawTherapists || []).filter((t: any) => isRealTherapist(t.name));
 
       if (!therapists || therapists.length === 0) {
         console.log('同期対象のキャストがいません。');
@@ -176,10 +180,14 @@ async function main() {
         .eq('shop_id', shop.id)
         .not('eslove_therapist_id', 'is', null);
 
-      console.log(`出勤情報を同期します（${startDate} 〜 ${endDate}、シフト${shifts?.length || 0}件）...`);
+      const { isRealTherapist } = await import('../lib/sync/filter-therapists');
+      const filteredShifts = (shifts || []).filter((s: any) => isRealTherapist(s.therapists?.name));
+      const filteredActiveTherapists = (activeTherapists || []).filter((t: any) => isRealTherapist(t.name));
+
+      console.log(`出勤情報を同期します（${startDate} 〜 ${endDate}、シフト${filteredShifts.length}件）...`);
       const result = await syncShiftsToEslove(
         creds.loginUrl, creds.loginId, creds.password,
-        startDate, endDate, shifts || [], activeTherapists || []
+        startDate, endDate, filteredShifts, filteredActiveTherapists
       );
 
       if (result.success) {

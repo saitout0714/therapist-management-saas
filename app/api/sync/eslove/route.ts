@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
+import { isRealTherapist } from '@/lib/sync/filter-therapists';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEslove } from '@/lib/sync/eslove';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
@@ -69,16 +70,14 @@ export async function POST(req: Request) {
           .gte('date', startDate)
           .lte('date', endDate);
 
-        if (shiftsError) {
-          await completeSyncJob(jobId, 'failed', { error: 'シフト情報の取得に失敗しました' });
-          return;
-        }
-
         const { data: activeTherapists } = await supabase
           .from('therapists')
           .select('id, name, eslove_therapist_id')
           .eq('shop_id', shopId)
           .not('eslove_therapist_id', 'is', null);
+
+        const filteredShifts = (shifts || []).filter((s: any) => isRealTherapist(s.therapists?.name));
+        const filteredActiveTherapists = (activeTherapists || []).filter((t: any) => isRealTherapist(t.name));
 
         const result = await syncShiftsToEslove(
           esloveCreds.loginUrl,
@@ -86,8 +85,8 @@ export async function POST(req: Request) {
           esloveCreds.password,
           startDate,
           endDate,
-          shifts || [],
-          activeTherapists || []
+          filteredShifts,
+          filteredActiveTherapists
         );
 
         if (!result.success) {

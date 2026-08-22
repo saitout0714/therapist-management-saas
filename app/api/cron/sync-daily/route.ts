@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
+import { isRealTherapist } from '@/lib/sync/filter-therapists';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { syncShiftsToEstheRanking } from '@/lib/sync/esthe-ranking';
 import { syncShiftsToEslove } from '@/lib/sync/eslove';
@@ -88,6 +89,9 @@ export async function GET(req: Request) {
         .eq('shop_id', shop.id)
         .not('estama_therapist_id', 'is', null);
 
+      const filteredShifts = (shifts || []).filter((s: any) => isRealTherapist(s.therapists?.name));
+      const filteredEstamaTherapists = (activeTherapists || []).filter((t: any) => isRealTherapist(t.name));
+
       // エステ魂の同期
       const estamaCreds = getEstamaCredentials(shop);
       if (estamaCreds) {
@@ -98,9 +102,9 @@ export async function GET(req: Request) {
             estamaCreds.password,
             startDate,
             endDate,
-            shifts || [],
+            filteredShifts,
             reservations || [],
-            activeTherapists || []
+            filteredEstamaTherapists
           );
         } catch (e: any) {
           console.error(`Daily Estama Sync Error for shop ${shop.id}:`, e);
@@ -118,7 +122,7 @@ export async function GET(req: Request) {
             erCreds.password,
             startDate,
             endDate,
-            shifts || []
+            filteredShifts
           );
         } catch (e: any) {
           console.error(`Daily EstheRanking Sync Error for shop ${shop.id}:`, e);
@@ -135,6 +139,8 @@ export async function GET(req: Request) {
           .eq('shop_id', shop.id)
           .not('eslove_therapist_id', 'is', null);
 
+        const filteredEsloveTherapists = (esloveActiveTherapists || []).filter((t: any) => isRealTherapist(t.name));
+
         try {
           esloveResult = await syncShiftsToEslove(
             esloveCreds.loginUrl,
@@ -142,8 +148,8 @@ export async function GET(req: Request) {
             esloveCreds.password,
             startDate,
             endDate,
-            shifts || [],
-            esloveActiveTherapists || []
+            filteredShifts,
+            filteredEsloveTherapists
           );
         } catch (e: any) {
           console.error(`Daily Eslove Sync Error for shop ${shop.id}:`, e);

@@ -39,7 +39,7 @@ export async function syncShiftsToEstama(
 
   try {
     console.log(`[EstamaSync] Starting shift & guidance status sync from ${startDate} to ${endDate}`);
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
@@ -467,11 +467,24 @@ export async function syncShiftsToEstama(
           tPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
           saveBtn.click()
         ]);
-        // 非同期保存（AJAX）の可能性も考慮して少し待機
-        await tPage.waitForTimeout(500);
+        // 非同期保存（AJAX）の可能性も考慮して待機
+        await tPage.waitForTimeout(1000);
+
+        // 保存後にエラーメッセージが出ていないか、保存結果がページ上に反映されているか検証
+        const postError = await tPage.$('.alert-danger, .error-message, .error').catch(() => null);
+        if (postError) {
+          const errText = await postError.textContent().catch(() => '');
+          console.warn(`[EstamaSync] 保存後にエラーが検出されました (therapist: ${estamaId}): ${errText}`);
+          details[details.length - 1].saved = false;
+          details[details.length - 1].saveError = errText?.trim() || '保存処理でエラーが発生しました';
+        } else {
+          details[details.length - 1].saved = true;
+        }
       } else {
         console.warn(`[EstamaSync] 保存ボタンが見つかりませんでした (therapist: ${estamaId})`);
+        details[details.length - 1].saved = false;
         details[details.length - 1].saveButtonFound = false;
+        details[details.length - 1].saveError = '保存ボタンが見つかりませんでした';
       }
       } catch (e: any) {
         console.error(`[EstamaSync] Error on therapist ${estamaId}:`, e);
@@ -508,7 +521,7 @@ export async function fetchTherapistsFromEstama(
   let page: any;
   try {
     console.log(`[EstamaSync] Fetching therapists from Estama...`);
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }

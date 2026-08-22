@@ -71,7 +71,7 @@ export async function syncShiftsToEstheRanking(
   endDate: string,
   shifts: any[]
 ): Promise<SyncResult> {
-  const browser = await getBrowser();
+  const browser = await getBrowser({ useRelay: true });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 800 }
@@ -263,7 +263,7 @@ export async function fetchTherapistsFromEstheRanking(
   let page: any;
   try {
     console.log(`[EstheRankingSync] Launching browser...`);
-    browser = await getBrowser();
+    browser = await getBrowser({ useRelay: true });
     console.log(`[EstheRankingSync] Creating browser context...`);
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',

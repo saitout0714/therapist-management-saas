@@ -164,7 +164,7 @@ async function handleSocksConnection(cfg: RelayConfig, socket: net.Socket, dbgId
     // タイムアウト機構がない)。そのため必ず自前でタイムアウトを掛ける。
     const channel = await withTimeout(
       new Promise<NodeJS.ReadWriteStream>((resolve, reject) => {
-        ssh.forwardOut('127.0.0.1', 0, dstHost, dstPort, (err, ch) => {
+        ssh.forwardOut('127.0.0.1', 0, dstHost, dstPort, (err: any, ch: any) => {
           if (err) reject(err);
           else resolve(ch);
         });

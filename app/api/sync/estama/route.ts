@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
+import { isRealTherapist } from '@/lib/sync/filter-therapists';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { syncShiftsToEstama } from '@/lib/sync/estama';
 import { createSyncJob, completeSyncJob } from '@/lib/sync/sync-job';
@@ -94,15 +95,18 @@ export async function POST(req: Request) {
           .eq('shop_id', shopId)
           .not('estama_therapist_id', 'is', null);
 
+        const filteredShifts = (shifts || []).filter((s: any) => isRealTherapist(s.therapists?.name));
+        const filteredActiveTherapists = (activeTherapists || []).filter((t: any) => isRealTherapist(t.name));
+
         const result = await syncShiftsToEstama(
           estamaCreds.loginUrl,
           estamaCreds.loginId,
           estamaCreds.password,
           startDate,
           endDate,
-          shifts || [],
+          filteredShifts,
           reservations || [],
-          activeTherapists || []
+          filteredActiveTherapists
         );
 
         if (!result.success) {
