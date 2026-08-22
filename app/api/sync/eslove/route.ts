@@ -18,14 +18,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'shopId と startDate, endDate は必須です' }, { status: 400 });
     }
 
-    // 期間のバリデーション（最大14日）
+    // 期間のバリデーション（最大7日）
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays > 14) {
-      return NextResponse.json({ error: '一度に同期できるのは最大14日間までです' }, { status: 400 });
+    if (diffDays > 7) {
+      return NextResponse.json({ error: '一度に同期できるのは最大7日間までです' }, { status: 400 });
     }
 
     // 1. 同期ジョブを作成

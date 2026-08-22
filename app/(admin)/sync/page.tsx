@@ -165,7 +165,7 @@ export default function SyncPage() {
       const today = new Date();
       start = today.toISOString().split('T')[0];
       const future = new Date(today);
-      future.setDate(future.getDate() + 13); // 今日を含む14日間
+      future.setDate(future.getDate() + 6); // 今日を含む7日間
       end = future.toISOString().split('T')[0];
     } else {
       if (!start || !end) {
@@ -180,14 +180,14 @@ export default function SyncPage() {
       }
       const diffTime = Math.abs(d2.getTime() - d1.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays > 14) {
-        alert('一度に指定できる期間は最大14日間までです');
+      if (diffDays > 7) {
+        alert('一度に指定できる期間は最大7日間までです');
         return;
       }
     }
 
-    const msg = isAll 
-      ? `今日から14日間のシフト情報を${siteName}に同期しますか？\n※タイムアウト防止のため分割実行されます。` 
+    const msg = isAll
+      ? `今日から7日間のシフト情報を${siteName}に同期しますか？\n※タイムアウト防止のため分割実行されます。`
       : `${start} 〜 ${end} のシフト情報を${siteName}に同期しますか？\n※処理に数十秒〜数分かかります。`;
 
     if (!confirm(msg)) return;
@@ -420,14 +420,14 @@ export default function SyncPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-200">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">まとめて一括同期（推奨）</h3>
-                  <p className="text-xs text-slate-500 mt-1">「今日から14日間」のシフトをすべてポータルサイトに反映します。</p>
+                  <p className="text-xs text-slate-500 mt-1">「今日から7日間」のシフトをすべてポータルサイトに反映します。</p>
                 </div>
                 <button
                   onClick={() => handleSyncShifts(true)}
                   disabled={isSyncing || !isCurrentTabConfigured}
                   className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 shadow-sm transition-colors font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-50 whitespace-nowrap"
                 >
-                  {isSyncing ? (syncProgressText || '同期処理中...') : '今日から14日間を一括同期'}
+                  {isSyncing ? (syncProgressText || '同期処理中...') : '今日から7日間を一括同期'}
                 </button>
               </div>
               {/* 「期間指定同期」オプション */}
@@ -435,7 +435,7 @@ export default function SyncPage() {
               {/* 「期間指定同期」オプション */}
               <div className="flex flex-col sm:flex-row items-end gap-4 pt-1">
                 <div className="w-full sm:w-auto">
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">期間を指定して同期（最大14日間）</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">期間を指定して同期（最大7日間）</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
