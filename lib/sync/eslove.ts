@@ -40,8 +40,12 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   let lastResponse: any = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // トップページ (https://eslove.jp/) にアクセスしてセッションとWAF通過クッキーを確立
+    await page.goto('https://eslove.jp/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(attempt === 1 ? 1000 : 2000 * attempt);
+
     lastResponse = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
-    if (!lastResponse) {
+    if (!lastResponse || (typeof lastResponse.status === 'function' && lastResponse.status() === 403)) {
       lastResponse = await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
     }
 
@@ -58,7 +62,7 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
     lastIssue = `HTTP ${status} / 画面タイトル: ${title}`;
 
     if (attempt < maxAttempts) {
-      const waitMs = 3000 * attempt; // 3秒 → 6秒 と待ち時間を延ばす
+      const waitMs = 3000 * attempt;
       console.warn(`[EsloveSync] ログインページを開けず再試行します (${attempt}/${maxAttempts}): ${lastIssue}`);
       await page.waitForTimeout(waitMs);
     }
@@ -237,6 +241,9 @@ export async function fetchTherapistsFromEslove(
     console.log('[EsloveSync] Fetching therapists from Eslove...');
     browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({ userAgent: USER_AGENT, viewport: { width: 1280, height: 900 } });
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
     page = await newBlockingPage(context);
 
     await loginToEslove(page, shopUrl, loginId, password);
@@ -329,6 +336,9 @@ export async function syncShiftsToEslove(
     console.log(`[EsloveSync] Starting shift sync from ${startDate} to ${endDate}`);
     browser = await getBrowser({ useRelay: true });
     const context = await browser.newContext({ userAgent: USER_AGENT, viewport: { width: 1280, height: 900 } });
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
     page = await newBlockingPage(context);
 
     await loginToEslove(page, shopUrl, loginId, password);
