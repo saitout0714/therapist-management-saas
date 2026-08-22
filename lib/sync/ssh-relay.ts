@@ -5,14 +5,20 @@
  * 【背景】
  * 2026年8月、3ポータルとも本番サーバー(Vercel/AWS東京)のIPからのアクセスを
  * 403で拒否するようになった。実測でIPアドレス由来の問題と判明しており、
- * コードやヘッダーの調整では解決しない。一方、契約中のさくらのレンタルサーバーの
- * IPからは3サイトとも到達できることを実測で確認済み。
+ * コードやヘッダーの調整では解決しない。
+ *
+ * ただし、どのレンタルサーバーのIPなら通るかはポータルごとに異なる(2026-08-22実測)。
+ *   - エステラブ: さくらのIPなら通る。ConoHa WINGのIPは403
+ *   - メンズエステランキング: さくらのIPは(TCP接続自体が応答なしになる形で)不通。
+ *     ConoHa WINGのIPなら通る
+ * そのため中継先を1つに固定せず、呼び出し元ごとに「どの中継設定を使うか」を
+ * 選べるようにしている(startSshSocksRelay の envPrefix 引数)。
  *
  * 【方式】
- * さくらのレンタルサーバーにSSH接続し(この用途専用の鍵を使う)、ローカルに
+ * 契約中のレンタルサーバーにSSH接続し(この用途専用の鍵を使う)、ローカルに
  * 立てたSOCKS5サーバー経由でSSHトンネルへ転送する。Playwrightのchromiumに
- * この SOCKS5 サーバーを proxy として渡すことで、ブラウザの通信が
- * さくらのIPから出て行くようにする。さくら側には何もインストール・常駐させる
+ * この SOCKS5 サーバーを proxy として渡すことで、ブラウザの通信がそのサーバーの
+ * IPから出て行くようにする。相手サーバー側には何もインストール・常駐させる
  * 必要がない(SSH接続を受け付けるだけでよい)。
  *
  * 【1本のSSH接続を使い回す】
@@ -49,13 +55,27 @@ interface RelayConfig {
   passphrase?: string;
 }
 
-const REQUIRED_ENV = ['SSH_RELAY_HOST', 'SSH_RELAY_USER', 'SSH_RELAY_PRIVATE_KEY'] as const;
+/** 環境変数名の接頭辞。'SSH_RELAY'(さくら・エステラブ用)か 'RANKING_RELAY'(ConoHa・ランキング用)。 */
+type EnvPrefix = string;
 
-function readEnv(): RelayConfig | null {
-  const host = process.env.SSH_RELAY_HOST;
-  const port = parseInt(process.env.SSH_RELAY_PORT || '22', 10);
-  const username = process.env.SSH_RELAY_USER;
-  const rawKey = process.env.SSH_RELAY_PRIVATE_KEY;
+const DEFAULT_PREFIX: EnvPrefix = 'SSH_RELAY';
+
+function envNames(prefix: EnvPrefix) {
+  return {
+    host: `${prefix}_HOST`,
+    port: `${prefix}_PORT`,
+    user: `${prefix}_USER`,
+    privateKey: `${prefix}_PRIVATE_KEY`,
+    passphrase: `${prefix}_PASSPHRASE`,
+  };
+}
+
+function readEnv(prefix: EnvPrefix): RelayConfig | null {
+  const names = envNames(prefix);
+  const host = process.env[names.host];
+  const port = parseInt(process.env[names.port] || '22', 10);
+  const username = process.env[names.user];
+  const rawKey = process.env[names.privateKey];
   if (!host || !username || !rawKey) return null;
   // Vercelの環境変数はエスケープされた \n で改行が入ってくることがあるため復元する。
   // 末尾の改行が無い秘密鍵はssh2が「解析できない鍵」として弾くため補っておく。
@@ -63,12 +83,12 @@ function readEnv(): RelayConfig | null {
   if (!privateKey.endsWith('\n')) privateKey += '\n';
   // パスフレーズ付きの鍵はこれが無いと ssh2 が
   // 「Encrypted private OpenSSH key detected, but no passphrase given」で失敗する
-  const passphrase = process.env.SSH_RELAY_PASSPHRASE || undefined;
+  const passphrase = process.env[names.passphrase] || undefined;
   return { host, port, username, privateKey, passphrase };
 }
 
 /**
- * 直近に起動した中継の稼働実績。
+ * 直近に起動した中継の稼働実績(中継設定の接頭辞ごと)。
  *
  * 【なぜ必要か】
  * 中継は環境変数が未設定なら黙って null を返し、呼び出し側は何事もなく直接接続に
@@ -77,33 +97,52 @@ function readEnv(): RelayConfig | null {
  * 区別できず、切り分けが進まなかった。失敗時のエラーにこの実績を添えることで区別する。
  *
  * 同期は店舗ごとに直列で走らせている前提でモジュール変数に持っている。
- * 並列実行した場合は最後に起動した中継の値で上書きされる。
+ * 同じ接頭辞を並列実行した場合は最後に起動した中継の値で上書きされる。
  */
-let relayStats = { started: false, opened: 0, failed: 0, lastError: '' };
+const relayStatsByPrefix = new Map<EnvPrefix, { started: boolean; opened: number; failed: number; lastError: string }>();
+
+function getStats(prefix: EnvPrefix) {
+  let s = relayStatsByPrefix.get(prefix);
+  if (!s) {
+    s = { started: false, opened: 0, failed: 0, lastError: '' };
+    relayStatsByPrefix.set(prefix, s);
+  }
+  return s;
+}
 
 /** ポータル同期の失敗時にエラーへ添える、中継の設定状況と稼働実績の説明文 */
-export function describeRelayState(): string {
-  const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+export function describeRelayState(prefix: EnvPrefix = DEFAULT_PREFIX): string {
+  const names = envNames(prefix);
+  const required = [names.host, names.user, names.privateKey];
+  const missing = required.filter((k) => !process.env[k]);
   if (missing.length > 0) {
-    return `SSH中継は未設定のため、本番サーバーのIPから直接アクセスしました（未設定の環境変数: ${missing.join(', ')}）`;
+    return `SSH中継(${prefix})は未設定のため、本番サーバーのIPから直接アクセスしました（未設定の環境変数: ${missing.join(', ')}）`;
   }
-  const via = `${process.env.SSH_RELAY_USER}@${process.env.SSH_RELAY_HOST}:${process.env.SSH_RELAY_PORT || '22'}`;
-  if (!relayStats.started) {
-    return `SSH中継は設定済み（${via}）だが、今回の処理では起動されませんでした`;
+  const via = `${process.env[names.user]}@${process.env[names.host]}:${process.env[names.port] || '22'}`;
+  const stats = getStats(prefix);
+  if (!stats.started) {
+    return `SSH中継(${prefix})は設定済み（${via}）だが、今回の処理では起動されませんでした`;
   }
-  const err = relayStats.lastError ? `、最後のエラー: ${relayStats.lastError}` : '';
-  return `SSH中継あり（${via} 経由）／中継の接続実績: 成功${relayStats.opened}件・失敗${relayStats.failed}件${err}`;
+  const err = stats.lastError ? `、最後のエラー: ${stats.lastError}` : '';
+  return `SSH中継(${prefix})あり（${via} 経由）／中継の接続実績: 成功${stats.opened}件・失敗${stats.failed}件${err}`;
 }
 
 /**
- * さくらへのSSHトンネルを使うローカルSOCKS5サーバーを起動する。
+ * 契約中のレンタルサーバーへのSSHトンネルを使うローカルSOCKS5サーバーを起動する。
  * 環境変数が未設定なら null を返す(呼び出し側はプロキシなしで直接接続すればよい)。
+ *
+ * @param prefix どの中継設定を使うか。省略時は 'SSH_RELAY'(さくら)。
+ *   メンズエステランキング向けには 'RANKING_RELAY'(ConoHa WING) を渡す。
  */
-export async function startSshSocksRelay(): Promise<SshSocksRelay | null> {
-  const cfg = readEnv();
+export async function startSshSocksRelay(prefix: EnvPrefix = DEFAULT_PREFIX): Promise<SshSocksRelay | null> {
+  const cfg = readEnv(prefix);
   if (!cfg) return null;
 
-  relayStats = { started: true, opened: 0, failed: 0, lastError: '' };
+  const relayStats = getStats(prefix);
+  relayStats.started = true;
+  relayStats.opened = 0;
+  relayStats.failed = 0;
+  relayStats.lastError = '';
 
   const DEBUG = !!process.env.SSH_RELAY_DEBUG;
   let connSeq = 0;

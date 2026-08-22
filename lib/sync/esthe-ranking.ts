@@ -1,4 +1,8 @@
 import { getBrowser } from './browser';
+import { describeRelayState } from './ssh-relay';
+
+/** メンズエステランキング専用の中継設定の接頭辞(ConoHa WING)。詳細はbrowser.ts参照。 */
+const RANKING_RELAY_PREFIX = 'RANKING_RELAY';
 
 export interface SyncResult {
   success: boolean;
@@ -56,7 +60,7 @@ export async function openEstheRankingLoginPage(
 
   throw new Error(
     `メンズエステランキングのログインページを開けませんでした（${maxAttempts}回試行）。` +
-    `サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue}`
+    `サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue} [${describeRelayState(RANKING_RELAY_PREFIX)}]`
   );
 }
 
@@ -77,9 +81,9 @@ export async function syncShiftsToEstheRanking(
   endDate: string,
   shifts: any[]
 ): Promise<SyncResult> {
-  // 中継越しだと応答自体が返らずタイムアウトするだけで、直接アクセス時の速い403失敗
-  // より遅くなる逆効果になる（browser.ts参照）。ランキングだけは直接アクセスする。
-  const browser = await getBrowser();
+  // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa WING経由なら通ることを
+  // 実測で確認済み（browser.ts参照）。
+  const browser = await getBrowser({ useRelay: true, relayPrefix: RANKING_RELAY_PREFIX });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 800 }
@@ -274,8 +278,9 @@ export async function fetchTherapistsFromEstheRanking(
   let page: any;
   try {
     console.log(`[EstheRankingSync] Launching browser...`);
-    // 中継越しだと応答自体が返らずタイムアウトするだけになる（browser.ts参照）。直接アクセスする。
-    browser = await getBrowser();
+    // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa WING経由なら通ることを
+    // 実測で確認済み（browser.ts参照）。
+    browser = await getBrowser({ useRelay: true, relayPrefix: RANKING_RELAY_PREFIX });
     console.log(`[EstheRankingSync] Creating browser context...`);
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
