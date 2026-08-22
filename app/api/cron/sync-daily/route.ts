@@ -29,11 +29,13 @@ export async function GET(req: Request) {
 
     console.log(`Found ${targetShops.length} shops for daily full sync.`);
 
-    // 2. 対象期間（今日から14日間）を計算
+    // 2. 対象期間（今日から7日間）を計算
+    // 店舗数が増えたときにVercelの実行時間上限(300秒)へ近づかないよう、
+    // 従来の14日間から短縮した(2026-08-22)。
     const today = new Date();
     const startDate = today.toISOString().split('T')[0];
     const future = new Date(today);
-    future.setDate(future.getDate() + 13);
+    future.setDate(future.getDate() + 6);
     const endDate = future.toISOString().split('T')[0];
 
     // 4. 各店舗ごとに同期処理を直列で実行（メモリ不足・並列実行エラーを防ぐため）
