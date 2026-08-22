@@ -9,8 +9,9 @@
  * どのサーバーを経由するかは relayPrefix で選ぶ(省略時は 'SSH_RELAY' = さくら)。
  * ポータルによってどのIPなら通るかが違う(2026-08-22実測)ため、サイトごとに指定が要る。
  *   - エステラブ: relayPrefix省略(さくら)
- *   - メンズエステランキング: relayPrefix: 'RANKING_RELAY'(ConoHa WING)
- *     ※さくら経由だとTCP接続自体が応答なしになり、ConoHa WING経由だと通ることを確認済み
+ *   - メンズエステランキング: relayPrefix: 'RANKING_RELAY'(ConoHa VPS)
+ *     ※さくら経由だとTCP接続自体が応答なしになり、ConoHa VPS経由だと通ることを確認済み。
+ *       ConoHa WING(共用サーバー)はSSHのポート転送自体を許可しておらず使えなかった。
  */
 import { chromium as playwrightLocal } from 'playwright';
 import { startSshSocksRelay } from './ssh-relay';

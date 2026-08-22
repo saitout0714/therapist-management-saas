@@ -17,6 +17,9 @@ async function uploadDebugScreenshot(page: any, name: string) {
   }
 }
 
+/** メンズエステランキング専用の中継設定の接頭辞(ConoHa VPS)。詳細はbrowser.ts参照。 */
+const RANKING_RELAY_PREFIX = 'RANKING_RELAY';
+
 export async function syncTherapistToEstheRanking(
   shopUrl: string,
   loginId: string,
@@ -26,8 +29,10 @@ export async function syncTherapistToEstheRanking(
 ): Promise<{ success: boolean; newId?: string; error?: string }> {
   let browser;
   try {
-    browser = await getBrowser();
-    
+    // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa VPS経由なら通ることを
+    // 実測で確認済み（browser.ts参照）。シフト同期側(esthe-ranking.ts)と同じ設定を使う。
+    browser = await getBrowser({ useRelay: true, relayPrefix: RANKING_RELAY_PREFIX });
+
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });

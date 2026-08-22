@@ -1,7 +1,7 @@
 import { getBrowser } from './browser';
 import { describeRelayState } from './ssh-relay';
 
-/** メンズエステランキング専用の中継設定の接頭辞(ConoHa WING)。詳細はbrowser.ts参照。 */
+/** メンズエステランキング専用の中継設定の接頭辞(ConoHa VPS)。詳細はbrowser.ts参照。 */
 const RANKING_RELAY_PREFIX = 'RANKING_RELAY';
 
 export interface SyncResult {
@@ -81,7 +81,7 @@ export async function syncShiftsToEstheRanking(
   endDate: string,
   shifts: any[]
 ): Promise<SyncResult> {
-  // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa WING経由なら通ることを
+  // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa VPS経由なら通ることを
   // 実測で確認済み（browser.ts参照）。
   const browser = await getBrowser({ useRelay: true, relayPrefix: RANKING_RELAY_PREFIX });
   const context = await browser.newContext({
@@ -278,7 +278,7 @@ export async function fetchTherapistsFromEstheRanking(
   let page: any;
   try {
     console.log(`[EstheRankingSync] Launching browser...`);
-    // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa WING経由なら通ることを
+    // さくら経由だとTCP接続自体が応答なしになるため使えない。ConoHa VPS経由なら通ることを
     // 実測で確認済み（browser.ts参照）。
     browser = await getBrowser({ useRelay: true, relayPrefix: RANKING_RELAY_PREFIX });
     console.log(`[EstheRankingSync] Creating browser context...`);

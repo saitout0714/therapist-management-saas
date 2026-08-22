@@ -7,10 +7,13 @@
  * 403で拒否するようになった。実測でIPアドレス由来の問題と判明しており、
  * コードやヘッダーの調整では解決しない。
  *
- * ただし、どのレンタルサーバーのIPなら通るかはポータルごとに異なる(2026-08-22実測)。
- *   - エステラブ: さくらのIPなら通る。ConoHa WINGのIPは403
+ * ただし、どのサーバーのIPなら通るかはポータルごとに異なる(2026-08-22実測)。
+ *   - エステラブ: さくらのレンタルサーバーのIPなら通る。ConoHa WING(共用サーバー)のIPは403
  *   - メンズエステランキング: さくらのIPは(TCP接続自体が応答なしになる形で)不通。
- *     ConoHa WINGのIPなら通る
+ *     ConoHa VPS(実物のVPS)のIPなら通る。
+ *     ※ConoHa WINGはIPとしては通る可能性があるが、それ以前にWING自体がSSHの
+ *       ポート転送(AllowTcpForwarding)を許可しておらず"administratively prohibited"
+ *       で弾かれるため使えない。VPS(root権限で自分で設定できる)に切り替えて解決した。
  * そのため中継先を1つに固定せず、呼び出し元ごとに「どの中継設定を使うか」を
  * 選べるようにしている(startSshSocksRelay の envPrefix 引数)。
  *
@@ -132,7 +135,7 @@ export function describeRelayState(prefix: EnvPrefix = DEFAULT_PREFIX): string {
  * 環境変数が未設定なら null を返す(呼び出し側はプロキシなしで直接接続すればよい)。
  *
  * @param prefix どの中継設定を使うか。省略時は 'SSH_RELAY'(さくら)。
- *   メンズエステランキング向けには 'RANKING_RELAY'(ConoHa WING) を渡す。
+ *   メンズエステランキング向けには 'RANKING_RELAY'(ConoHa VPS) を渡す。
  */
 export async function startSshSocksRelay(prefix: EnvPrefix = DEFAULT_PREFIX): Promise<SshSocksRelay | null> {
   const cfg = readEnv(prefix);
