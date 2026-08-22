@@ -13,16 +13,22 @@ export interface SyncResult {
  * 従来はその場で page.fill がタイムアウトして同期全体が失敗していたため、
  * 少し待って開き直すことで大半を救済する。
  * 全ての呼び出し口（シフト同期・セラピスト一覧取得・プロフィール送信）はこの関数を使うこと。
+ *
+ * エステラブと同様、まずトップページを踏んでセッション/WAF通過クッキーを確立してから
+ * 対象URLへ向かう（いきなり /login/ を叩くより通りやすいことをエステラブ側で確認済み）。
  */
 export async function openEstheRankingLoginPage(
   page: any,
   shopUrl: string,
-  maxAttempts = 3
+  maxAttempts = 4
 ): Promise<void> {
   const targetUrl = shopUrl || 'https://www.esthe-ranking.jp/login/';
   let lastIssue = '不明';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await page.goto('https://www.esthe-ranking.jp/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+    if (attempt > 1) await page.waitForTimeout(500);
+
     const response = await page
       .goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
       .catch((e: any) => {
@@ -42,7 +48,7 @@ export async function openEstheRankingLoginPage(
     lastIssue = `HTTP ${status ?? '不明'} / 画面タイトル: ${title}`;
 
     if (attempt < maxAttempts) {
-      const waitMs = 3000 * attempt; // 3秒 → 6秒 と待ち時間を延ばす
+      const waitMs = 3000 * attempt; // 3秒 → 6秒 → 9秒 と待ち時間を延ばす
       console.warn(`[EstheRankingSync] ログインページを開けず再試行します (${attempt}/${maxAttempts}): ${lastIssue}`);
       await page.waitForTimeout(waitMs);
     }
@@ -77,6 +83,9 @@ export async function syncShiftsToEstheRanking(
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 800 }
+  });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
   });
   const page = await context.newPage();
 
@@ -272,8 +281,11 @@ export async function fetchTherapistsFromEstheRanking(
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
     });
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
     page = await context.newPage();
- 
+
     console.log(`[EstheRankingSync] Fetching therapists...`);
     
     console.log(`[EstheRankingSync] Navigating to ${shopUrl}...`);
