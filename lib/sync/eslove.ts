@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getBrowser } from './browser';
+import { describeRelayState } from './ssh-relay';
 
 async function uploadDebugScreenshot(page: any, name: string): Promise<string | null> {
   try {
@@ -38,15 +39,28 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   let passInput: any = null;
   let lastIssue = '不明';
   let lastResponse: any = null;
+  let lastNavError = '';
+
+  // 遷移そのものが失敗した理由（中継プロキシに繋がらない・タイムアウト等）は、
+  // 403で弾かれた場合と原因がまったく別なので握り潰さずに残す。
+  const tryGoto = async (url: string) => {
+    try {
+      lastNavError = '';
+      return await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    } catch (e: any) {
+      lastNavError = e?.message ? String(e.message).split('\n')[0] : String(e);
+      return null;
+    }
+  };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // トップページ (https://eslove.jp/) にアクセスしてセッションとWAF通過クッキーを確立
     await page.goto('https://eslove.jp/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(attempt === 1 ? 1000 : 2000 * attempt);
 
-    lastResponse = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+    lastResponse = await tryGoto(targetUrl);
     if (!lastResponse || (typeof lastResponse.status === 'function' && lastResponse.status() === 403)) {
-      lastResponse = await page.goto(ESLOVE_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null);
+      lastResponse = await tryGoto(ESLOVE_LOGIN_URL);
     }
 
     idInput = await page.waitForSelector('input[type="text"], input[name="login_id"]', { timeout: 8000 }).catch(() => null);
@@ -59,7 +73,7 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
 
     const status = typeof lastResponse?.status === 'function' ? lastResponse.status() : '不明';
     const title = await page.title().catch(() => 'unknown');
-    lastIssue = `HTTP ${status} / 画面タイトル: ${title}`;
+    lastIssue = `HTTP ${status} / 画面タイトル: ${title}` + (lastNavError ? ` / 遷移エラー: ${lastNavError}` : '');
 
     if (attempt < maxAttempts) {
       const waitMs = 3000 * attempt;
@@ -71,7 +85,7 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   if (!idInput || !passInput) {
     const url = page.url();
     const screenshotUrl = await uploadDebugScreenshot(page, 'eslove_login_form_not_found');
-    throw new Error(`エステラブのログインページを開けませんでした（${maxAttempts}回試行）。サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue} (URL: ${url}, スクリーンショット: ${screenshotUrl || 'なし'})`);
+    throw new Error(`エステラブのログインページを開けませんでした（${maxAttempts}回試行）。サイト側のアクセス制限(403)の可能性があります。最終状態: ${lastIssue} [${describeRelayState()}] (URL: ${url}, スクリーンショット: ${screenshotUrl || 'なし'})`);
   }
 
   await idInput.fill(loginId);
@@ -94,7 +108,7 @@ export async function loginToEslove(page: any, shopUrl: string, loginId: string,
   if (currentUrl.includes('/login')) {
     const title = await page.title().catch(() => 'unknown');
     const screenshotUrl = await uploadDebugScreenshot(page, 'eslove_login_failed');
-    throw new Error(`エステラブログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。(画面タイトル: ${title}, URL: ${currentUrl}, スクリーンショット: ${screenshotUrl || 'なし'})`);
+    throw new Error(`エステラブログインに失敗しました。認証情報が間違っているか、アクセスが制限されています。[${describeRelayState()}] (画面タイトル: ${title}, URL: ${currentUrl}, スクリーンショット: ${screenshotUrl || 'なし'})`);
   }
 }
 
