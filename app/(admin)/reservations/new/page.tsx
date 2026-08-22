@@ -61,6 +61,7 @@ type DesignationTypeItem = {
   display_order: number
   is_store_paid_back: boolean
   treats_as_confirmed: boolean
+  default_fee?: number | null
 }
 
 type TherapistPricing = {
@@ -631,10 +632,11 @@ export default function NewReservationPage() {
         nominationFee = basePrice - originalBase
         basePrice = originalBase // 基本料金を本来の金額にリセット
       } else {
-        // system_settings / therapist_pricing のフォールバック
-        const defaultNominationFee = systemSettings?.default_nomination_fee || 0
-        const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
-        const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
+        // designation_types / system_settings / therapist_pricing のフォールバック
+        const dtFee = selectedDesignation?.default_fee
+        const defaultNominationFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_nomination_fee || 0)
+        const defaultConfirmedFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_confirmed_nomination_fee || 0)
+        const defaultPrincessFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_princess_reservation_fee || 0)
         const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
           therapistFee && therapistFee > 0 ? therapistFee : defaultFee
 
@@ -644,6 +646,8 @@ export default function NewReservationPage() {
           nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
         } else if (formData.designation_type === 'princess') {
           nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+        } else {
+          nominationFee = dtFee ?? 0
         }
       }
     }

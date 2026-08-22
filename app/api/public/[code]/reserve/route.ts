@@ -854,9 +854,10 @@ export async function POST(
         therapistPricing = pricing
       }
 
-      const defaultNominationFee = systemSettings?.default_nomination_fee || 0
-      const defaultConfirmedFee = systemSettings?.default_confirmed_nomination_fee || 0
-      const defaultPrincessFee = systemSettings?.default_princess_reservation_fee || 0
+      const dtFee = designationTypeRow?.default_fee
+      const defaultNominationFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_nomination_fee || 0)
+      const defaultConfirmedFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_confirmed_nomination_fee || 0)
+      const defaultPrincessFee = (dtFee !== undefined && dtFee !== null) ? dtFee : (systemSettings?.default_princess_reservation_fee || 0)
       
       const resolveFee = (therapistFee: number | null | undefined, defaultFee: number) =>
         therapistFee !== null && therapistFee !== undefined && therapistFee > 0 ? therapistFee : defaultFee
@@ -867,6 +868,8 @@ export async function POST(
         nominationFee = resolveFee(therapistPricing?.confirmed_nomination_fee, defaultConfirmedFee)
       } else if (designationType === 'princess') {
         nominationFee = resolveFee(therapistPricing?.princess_reservation_fee, defaultPrincessFee)
+      } else {
+        nominationFee = dtFee ?? 0
       }
     }
   }
